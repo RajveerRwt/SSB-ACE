@@ -1,0 +1,8 @@
+{
+  "name": "SSB Ace: Virtual Defense Aspirant Platform",
+  "description": "A comprehensive preparation platform for SSB aspirants featuring OIR, PPDT, Psychology tests (TAT, WAT, SRT), and a real-time AI Virtual Interviewer.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
