@@ -8,7 +8,8 @@ import {
   Mic, 
   PenTool, 
   HelpCircle,
-  ShieldCheck 
+  ShieldCheck,
+  ClipboardList
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -20,6 +21,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate }) => {
   const navItems = [
     { id: TestType.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
+    { id: TestType.PIQ, label: 'PIQ Form', icon: ClipboardList },
     { id: TestType.PPDT, label: 'PPDT Round', icon: ImageIcon },
     { id: TestType.TAT, label: 'TAT (Psychology)', icon: PenTool },
     { id: TestType.WAT, label: 'WAT (Psychology)', icon: HelpCircle },

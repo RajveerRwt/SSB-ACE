@@ -1,11 +1,43 @@
 
 export enum TestType {
   DASHBOARD = 'DASHBOARD',
+  PIQ = 'PIQ',
   PPDT = 'PPDT',
   TAT = 'TAT',
   WAT = 'WAT',
   SRT = 'SRT',
   INTERVIEW = 'INTERVIEW'
+}
+
+export interface PIQData {
+  selectionBoard: string;
+  batchNo: string;
+  chestNo: string;
+  rollNo: string;
+  name: string;
+  fatherName: string;
+  residence: {
+    max: string;
+    present: string;
+    permanent: string;
+  };
+  details: {
+    religion: string;
+    category: string;
+    motherTongue: string;
+    dob: string;
+    maritalStatus: string;
+  };
+  family: Array<{ relation: string; education: string; occupation: string; income: string }>;
+  education: Array<{ qualification: string; institution: string; board: string; year: string; marks: string; medium: string; status: string; achievement: string }>;
+  activities: {
+    ncc: string;
+    games: string;
+    hobbies: string;
+    extraCurricular: string;
+    responsibilities: string;
+  };
+  previousAttempts: Array<{ entry: string; ssb: string; date: string; result: string }>;
 }
 
 export interface Question {

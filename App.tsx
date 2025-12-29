@@ -4,10 +4,11 @@ import Layout from './components/Layout';
 import PPDTTest from './components/PPDTTest';
 import PsychologyTest from './components/PsychologyTest';
 import Interview from './components/Interview';
-import { TestType } from './types';
-import { ShieldCheck, Target, Award, Users, TrendingUp, Brain } from 'lucide-react';
+import PIQForm from './components/PIQForm';
+import { TestType, PIQData } from './types';
+import { ShieldCheck, Target, Award, Users, TrendingUp, Brain, FileText, CheckCircle } from 'lucide-react';
 
-const Dashboard: React.FC<{ onStartTest: (t: TestType) => void }> = ({ onStartTest }) => {
+const Dashboard: React.FC<{ onStartTest: (t: TestType) => void, piqLoaded: boolean }> = ({ onStartTest, piqLoaded }) => {
   const stats = [
     { label: 'Practice Hours', value: '12.5', icon: Target, color: 'text-blue-600' },
     { label: 'OLQ Index', value: '7.8', icon: Award, color: 'text-yellow-600' },
@@ -24,12 +25,22 @@ const Dashboard: React.FC<{ onStartTest: (t: TestType) => void }> = ({ onStartTe
              The Service Selection Board evaluates you for 15 Officer Like Qualities. 
              Maintain discipline, honesty, and mental alertness in every round.
            </p>
-           <button 
-             onClick={() => onStartTest(TestType.INTERVIEW)}
-             className="px-10 py-4 bg-yellow-400 text-black font-black rounded-2xl hover:bg-yellow-500 transition-all shadow-[0_10px_30px_rgba(234,179,8,0.3)] hover:-translate-y-1 uppercase tracking-widest text-sm"
-           >
-             Report to IO Board
-           </button>
+           <div className="flex gap-4">
+             <button 
+               onClick={() => onStartTest(TestType.INTERVIEW)}
+               className="px-10 py-4 bg-yellow-400 text-black font-black rounded-2xl hover:bg-yellow-500 transition-all shadow-[0_10px_30px_rgba(234,179,8,0.3)] hover:-translate-y-1 uppercase tracking-widest text-sm"
+             >
+               Report to IO Board
+             </button>
+             {!piqLoaded && (
+               <button 
+                onClick={() => onStartTest(TestType.PIQ)}
+                className="px-10 py-4 bg-white/10 text-white font-black rounded-2xl hover:bg-white/20 transition-all uppercase tracking-widest text-sm border border-white/10"
+              >
+                Complete PIQ First
+              </button>
+             )}
+           </div>
          </div>
          <ShieldCheck className="absolute top-1/2 -right-12 -translate-y-1/2 w-[30rem] h-[30rem] text-white/5 rotate-12" />
       </div>
@@ -55,8 +66,8 @@ const Dashboard: React.FC<{ onStartTest: (t: TestType) => void }> = ({ onStartTe
            </h3>
            <div className="space-y-4 flex-1">
               {[
+                { id: TestType.PIQ, name: 'Personal Info Questionnaire', type: 'Administrative', time: '15 mins', status: piqLoaded ? 'Completed' : 'Mandatory' },
                 { id: TestType.PPDT, name: 'PPDT Round Practice', type: 'Screening', time: '10 mins', status: 'Ready' },
-                { id: TestType.TAT, name: 'TAT Scenario Series 2', type: 'Psychology', time: '40 mins', status: 'Pending' },
                 { id: TestType.INTERVIEW, name: 'AI Interview Simulation', type: 'Interview', time: '30 mins', status: 'Recommended' },
               ].map((test, i) => (
                 <div 
@@ -64,13 +75,17 @@ const Dashboard: React.FC<{ onStartTest: (t: TestType) => void }> = ({ onStartTe
                   onClick={() => onStartTest(test.id)}
                   className="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group"
                 >
-                  <div>
-                    <h5 className="font-black text-slate-800 group-hover:text-blue-700 uppercase text-xs tracking-wider">{test.name}</h5>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">{test.type} • {test.time}</p>
+                  <div className="flex items-center gap-4">
+                    {test.status === 'Completed' && <CheckCircle className="text-green-500" size={16} />}
+                    <div>
+                      <h5 className="font-black text-slate-800 group-hover:text-blue-700 uppercase text-xs tracking-wider">{test.name}</h5>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">{test.type} • {test.time}</p>
+                    </div>
                   </div>
                   <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
                     test.status === 'Ready' ? 'bg-green-100 text-green-700' : 
-                    test.status === 'Recommended' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-600'
+                    test.status === 'Recommended' ? 'bg-blue-100 text-blue-700' : 
+                    test.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'
                   }`}>
                     {test.status}
                   </span>
@@ -97,11 +112,19 @@ const Dashboard: React.FC<{ onStartTest: (t: TestType) => void }> = ({ onStartTe
 
 const App: React.FC = () => {
   const [activeTest, setActiveTest] = useState<TestType>(TestType.DASHBOARD);
+  const [piqData, setPiqData] = useState<PIQData | undefined>();
+
+  const handlePiqSave = (data: PIQData) => {
+    setPiqData(data);
+    setActiveTest(TestType.DASHBOARD);
+  };
 
   const renderContent = () => {
     switch (activeTest) {
       case TestType.DASHBOARD:
-        return <Dashboard onStartTest={setActiveTest} />;
+        return <Dashboard onStartTest={setActiveTest} piqLoaded={!!piqData} />;
+      case TestType.PIQ:
+        return <PIQForm onSave={handlePiqSave} initialData={piqData} />;
       case TestType.PPDT:
         return <PPDTTest />;
       case TestType.WAT:
@@ -109,9 +132,9 @@ const App: React.FC = () => {
       case TestType.SRT:
         return <PsychologyTest type={activeTest} />;
       case TestType.INTERVIEW:
-        return <Interview />;
+        return <Interview piqData={piqData} />;
       default:
-        return <Dashboard onStartTest={setActiveTest} />;
+        return <Dashboard onStartTest={setActiveTest} piqLoaded={!!piqData} />;
     }
   };
 
