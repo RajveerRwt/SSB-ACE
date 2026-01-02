@@ -1,12 +1,16 @@
 
 export enum TestType {
   DASHBOARD = 'DASHBOARD',
+  LOGIN = 'LOGIN',
   PIQ = 'PIQ',
   PPDT = 'PPDT',
   TAT = 'TAT',
   WAT = 'WAT',
   SRT = 'SRT',
-  INTERVIEW = 'INTERVIEW'
+  INTERVIEW = 'INTERVIEW',
+  CONTACT = 'CONTACT',
+  STAGES = 'STAGES',
+  AI_BOT = 'AI_BOT'
 }
 
 export interface PIQData {

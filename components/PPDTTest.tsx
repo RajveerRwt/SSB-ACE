@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Play, CheckCircle, Mic, AlertCircle, Upload, FileText, Loader2, UserPlus, Info, Volume2, MicOff, ShieldCheck, Target, Activity, Image as ImageIcon } from 'lucide-react';
+import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
 
 enum PPDTStep {
@@ -13,11 +13,17 @@ enum PPDTStep {
   FINISHED
 }
 
-const PPDTTest: React.FC = () => {
+// Added onSave to props
+interface PPDTProps {
+  onSave?: (result: any) => void;
+}
+
+const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
   const [step, setStep] = useState<PPDTStep>(PPDTStep.IDLE);
   const [timeLeft, setTimeLeft] = useState(0);
   const [story, setStory] = useState('');
   const [currentImageUrl, setCurrentImageUrl] = useState('');
+  const [imageDescription, setImageDescription] = useState('');
   const [narrationText, setNarrationText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [feedback, setFeedback] = useState<any>(null);
@@ -25,9 +31,8 @@ const PPDTTest: React.FC = () => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [showBuzzer, setShowBuzzer] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  const [uploadedImageBase64, setUploadedImageBase64] = useState<string | null>(null);
 
-  const [charDetails, setCharDetails] = useState({ age: '', gender: 'Male', mood: 'Positive' });
-  
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -71,7 +76,17 @@ const PPDTTest: React.FC = () => {
     initAudio();
     setStep(PPDTStep.LOADING_IMAGE);
     try {
-      const aiImage = await generatePPDTStimulus();
+      const scenarios = [
+        "A group of people discussing something near a damaged vehicle on a road.",
+        "A person helping another climb a steep ledge in a village.",
+        "People standing near a building with smoke coming out of windows.",
+        "A person in military uniform talking to a group of villagers.",
+        "A scene with several people gathered around a well in a rural area."
+      ];
+      const selectedScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+      setImageDescription(selectedScenario);
+      
+      const aiImage = await generatePPDTStimulus(selectedScenario);
       setCurrentImageUrl(aiImage);
       setStep(PPDTStep.IMAGE);
       setTimeLeft(30); 
@@ -82,7 +97,10 @@ const PPDTTest: React.FC = () => {
   };
 
   useEffect(() => {
-    if (timeLeft > 0 && [PPDTStep.IMAGE, PPDTStep.STORY_WRITING, PPDTStep.NARRATION].includes(step)) {
+    const isNarrationTimed = step === PPDTStep.NARRATION && isRecording;
+    const isImageOrWriting = [PPDTStep.IMAGE, PPDTStep.STORY_WRITING].includes(step);
+
+    if (timeLeft > 0 && (isImageOrWriting || isNarrationTimed)) {
       timerRef.current = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
     } else if (timeLeft === 0 && !isTranscribing && step !== PPDTStep.IDLE && step !== PPDTStep.FINISHED && step !== PPDTStep.STORY_SUBMITTED && step !== PPDTStep.LOADING_IMAGE) {
       if (step === PPDTStep.IMAGE) {
@@ -97,7 +115,7 @@ const PPDTTest: React.FC = () => {
       }
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [timeLeft, step, isTranscribing]);
+  }, [timeLeft, step, isTranscribing, isRecording]);
 
   const startNarration = () => {
     initAudio();
@@ -106,7 +124,7 @@ const PPDTTest: React.FC = () => {
     setIsRecording(true);
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setTranscriptionError("Speech recognition not supported in this browser. Please use Chrome.");
+      setTranscriptionError("Speech recognition not supported. Please use Chrome.");
       setIsRecording(false);
       return;
     }
@@ -149,6 +167,8 @@ const PPDTTest: React.FC = () => {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64Data = (reader.result as string).split(',')[1];
+        setUploadedImageBase64(base64Data);
+        // This transcription call now also extracts character box info in the backend
         const text = await transcribeHandwrittenStory(base64Data, file.type);
         if (text) setStory(text);
         setIsTranscribing(false);
@@ -163,13 +183,17 @@ const PPDTTest: React.FC = () => {
     setStep(PPDTStep.FINISHED);
     setIsLoading(true);
     try {
+      // Pass the uploaded image data directly for character detection from the box
       const result = await evaluatePerformance('PPDT Screening Board (Stage-1)', { 
         story, 
         narration: narrationText,
-        character: charDetails,
-        visualStimulus: "AI Generated Hazy PPDT Stimulus"
+        visualStimulusProvided: imageDescription,
+        uploadedStoryImage: uploadedImageBase64
       });
       setFeedback(result);
+      
+      // Automatically save the result AND the original uploaded image for history
+      if (onSave) onSave({ ...result, uploadedStoryImage: uploadedImageBase64 });
     } catch (e) {
       console.error(e);
     } finally {
@@ -188,10 +212,11 @@ const PPDTTest: React.FC = () => {
             <h3 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">PPDT Practice Session</h3>
             <div className="bg-slate-50 p-8 rounded-[2rem] text-left border border-slate-200">
                <h4 className="font-black text-xs uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-2 underline underline-offset-4">Board Instructions:</h4>
-               <ul className="space-y-3 text-sm text-slate-600 font-medium">
-                 <li className="flex gap-2"><span className="text-blue-600 font-black">01.</span> A hazy AI-generated picture will be shown for 30 seconds.</li>
-                 <li className="flex gap-2"><span className="text-blue-600 font-black">02.</span> Write a story in 4 minutes (Buzzer will alert at 0:00).</li>
-                 <li className="flex gap-2"><span className="text-blue-600 font-black">03.</span> Narrate your story in 60 seconds (Transcribed live for analysis).</li>
+               <ul className="space-y-4 text-sm text-slate-600 font-medium">
+                 <li className="flex gap-2"><span className="text-blue-600 font-black">01.</span> A hazy AI picture will be shown for 30 seconds.</li>
+                 <li className="flex gap-2 font-bold text-slate-900 underline decoration-yellow-400 decoration-2 underline-offset-4"><span className="text-blue-600 font-black">02.</span> Write the story on your paper. Don't forget the character box (Age, Sex, Mood).</li>
+                 <li className="flex gap-2"><span className="text-blue-600 font-black">03.</span> After 4 minutes, upload the image of your paper for AI evaluation.</li>
+                 <li className="flex gap-2"><span className="text-blue-600 font-black">04.</span> Individual narration starts after upload.</li>
                </ul>
             </div>
             <button 
@@ -226,11 +251,6 @@ const PPDTTest: React.FC = () => {
                 alt="PPDT hazy scenario" 
                 className="max-h-[70vh] w-auto object-cover opacity-90 grayscale"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-center pb-12">
-                 <div className="bg-white/10 backdrop-blur-3xl px-12 py-5 rounded-full text-white font-black text-4xl flex items-center gap-6 border border-white/20 shadow-2xl">
-                   <Timer className="w-10 h-10 text-yellow-400 animate-pulse" /> {timeLeft}s
-                 </div>
-              </div>
             </div>
             <p className="text-slate-400 font-black uppercase tracking-[0.5em] text-xs">Perceive carefully • Identify characters, mood, and age</p>
           </div>
@@ -241,71 +261,45 @@ const PPDTTest: React.FC = () => {
           <div className="max-w-6xl mx-auto space-y-10">
              <div className="flex justify-between items-end border-b pb-6 border-slate-100">
                 <div>
-                  <h3 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Phase 2: Writing</h3>
-                  <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2">Buzzer active at 0:00</p>
+                  <h3 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Phase 2: Paper Writing</h3>
+                  <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2 underline decoration-blue-500 underline-offset-4 decoration-2">Write on paper & Include the Character Box</p>
                 </div>
                 <div className={`px-10 py-5 rounded-[2rem] font-mono font-black text-4xl border-4 transition-all ${timeLeft < 30 ? 'bg-red-50 border-red-500 text-red-600 animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.2)]' : 'bg-slate-900 border-slate-800 text-white'}`}>
                    {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
                 </div>
              </div>
 
-             <div className="grid lg:grid-cols-4 gap-10">
-                <div className="lg:col-span-1">
-                   <div className="bg-white p-10 rounded-[2.5rem] border-2 border-slate-100 shadow-xl space-y-8 sticky top-24">
-                      <h4 className="font-black text-[10px] uppercase tracking-widest text-slate-400 flex items-center gap-2 border-b pb-4"><UserPlus className="w-4 h-4"/> Hero Profile</h4>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-[9px] font-black uppercase text-slate-400 block mb-2 tracking-widest">Age</label>
-                          <input type="number" value={charDetails.age} onChange={e=>setCharDetails({...charDetails, age: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm outline-none font-bold"/>
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black uppercase text-slate-400 block mb-2 tracking-widest">Gender</label>
-                          <select value={charDetails.gender} onChange={e=>setCharDetails({...charDetails, gender: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold">
-                            <option>Male</option><option>Female</option><option>Neutral</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black uppercase text-slate-400 block mb-2 tracking-widest">Mood</label>
-                          <select value={charDetails.mood} onChange={e=>setCharDetails({...charDetails, mood: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold">
-                            <option>Positive</option><option>Neutral</option><option>Negative</option>
-                          </select>
-                        </div>
-                      </div>
-                   </div>
+             <div className="space-y-8">
+                <div className="relative">
+                  <textarea 
+                    value={story}
+                    onChange={(e) => setStory(e.target.value)}
+                    disabled={isTranscribing}
+                    placeholder="Your story will appear here once you upload your paper image..."
+                    className={`w-full h-[500px] p-12 rounded-[3.5rem] border-2 border-slate-100 focus:border-slate-900 outline-none transition-all text-xl leading-relaxed shadow-2xl bg-slate-50/30 font-medium ${isTranscribing ? 'opacity-20 blur-sm' : ''}`}
+                  />
+                  {isTranscribing && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-xl rounded-[3.5rem]">
+                       <Loader2 className="w-16 h-16 text-slate-900 animate-spin mb-6" />
+                       <p className="text-slate-900 font-black uppercase tracking-[0.4em] text-xs">AI OCR: Reading story & Character box...</p>
+                    </div>
+                  )}
                 </div>
 
-                <div className="lg:col-span-3 space-y-8">
-                   <div className="relative">
-                     <textarea 
-                       value={story}
-                       onChange={(e) => setStory(e.target.value)}
-                       disabled={isTranscribing}
-                       placeholder="Background -> Action -> Likely Outcome..."
-                       className={`w-full h-[500px] p-12 rounded-[3.5rem] border-2 border-slate-100 focus:border-slate-900 outline-none transition-all text-xl leading-relaxed shadow-2xl bg-slate-50/30 font-medium ${isTranscribing ? 'opacity-20 blur-sm' : ''}`}
-                     />
-                     {isTranscribing && (
-                       <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-xl rounded-[3.5rem]">
-                          <Loader2 className="w-16 h-16 text-slate-900 animate-spin mb-6" />
-                          <p className="text-slate-900 font-black uppercase tracking-[0.4em] text-xs">AI OCR: Transcribing handwritten story...</p>
-                       </div>
-                     )}
-                   </div>
-
-                   <div className="flex flex-col md:flex-row gap-6 justify-between items-center bg-white p-6 rounded-[2.5rem] border-2 border-slate-50 shadow-lg">
-                     <div className="flex gap-4">
-                       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                       <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-3 px-10 py-5 bg-slate-100 text-slate-900 rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all shadow-sm">
-                         <Upload className="w-4 h-4" /> Upload Paper Story
-                       </button>
-                     </div>
-                     <button 
-                       onClick={() => { triggerBuzzer(); setStep(PPDTStep.STORY_SUBMITTED); }}
-                       disabled={!story.trim() || isTranscribing}
-                       className="px-16 py-5 bg-slate-900 text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-30"
-                     >
-                       Submit Story
-                     </button>
-                   </div>
+                <div className="flex flex-col md:flex-row gap-6 justify-between items-center bg-white p-6 rounded-[2.5rem] border-2 border-slate-50 shadow-lg">
+                  <div className="flex gap-4">
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-3 px-10 py-5 bg-blue-600 text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl">
+                      <Upload className="w-4 h-4" /> Upload Paper Image
+                    </button>
+                  </div>
+                  <button 
+                    onClick={() => { triggerBuzzer(); setStep(PPDTStep.STORY_SUBMITTED); }}
+                    disabled={!story.trim() || isTranscribing}
+                    className="px-16 py-5 bg-slate-900 text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-30"
+                  >
+                    Confirm Submission
+                  </button>
                 </div>
              </div>
           </div>
@@ -341,11 +335,17 @@ const PPDTTest: React.FC = () => {
                {timeLeft}s
             </div>
 
-            <div className="bg-slate-50 p-12 rounded-[3.5rem] border border-slate-200 min-h-[200px] flex items-center justify-center italic text-slate-700 text-xl shadow-inner">
+            <div className="bg-slate-50 p-12 rounded-[3.5rem] border border-slate-200 min-h-[200px] flex items-center justify-center italic text-slate-700 text-xl shadow-inner overflow-hidden">
                {transcriptionError ? (
                  <span className="text-red-500 font-bold">{transcriptionError}</span>
+               ) : isRecording ? (
+                 <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                    <span className="text-blue-600 font-black uppercase tracking-[0.4em] text-xs">Recording Transmission...</span>
+                    <p className="text-slate-400 text-sm not-italic mt-2">Live transcript hidden to prevent distraction.</p>
+                 </div>
                ) : (
-                 narrationText || <span className="text-slate-300">"Narrate now..."</span>
+                 <span className="text-slate-300">"Confirm to start the 60s countdown..."</span>
                )}
             </div>
 
@@ -397,13 +397,42 @@ const PPDTTest: React.FC = () => {
                </div>
             </div>
 
+            {/* Granular PPDT Feedback Section */}
+            {feedback?.perception && (
+              <div className="grid md:grid-cols-3 gap-8">
+                 <div className="bg-white p-8 rounded-[3rem] border-2 border-slate-50 shadow-xl space-y-6">
+                   <h4 className="font-black text-xs uppercase tracking-[0.2em] text-purple-600 flex items-center gap-3"><Eye className="w-5 h-5" /> Perception</h4>
+                   <div className="space-y-4 text-sm font-bold text-slate-700">
+                      <div className="flex justify-between border-b border-slate-100 pb-2"><span>Hero Age:</span> <span className="text-slate-900">{feedback.perception.heroAge}</span></div>
+                      <div className="flex justify-between border-b border-slate-100 pb-2"><span>Hero Sex:</span> <span className="text-slate-900">{feedback.perception.heroSex}</span></div>
+                      <div className="flex justify-between border-b border-slate-100 pb-2"><span>Hero Mood:</span> <span className="text-slate-900">{feedback.perception.heroMood}</span></div>
+                      <div className="pt-2"><span className="text-slate-400 text-xs block mb-1">Theme</span> <span className="text-slate-900">{feedback.perception.mainTheme}</span></div>
+                   </div>
+                 </div>
+                 
+                 <div className="bg-white p-8 rounded-[3rem] border-2 border-slate-50 shadow-xl space-y-6 md:col-span-2">
+                   <h4 className="font-black text-xs uppercase tracking-[0.2em] text-blue-600 flex items-center gap-3"><BrainCircuit className="w-5 h-5" /> Story Dynamics</h4>
+                   <div className="grid md:grid-cols-2 gap-8 text-sm font-medium text-slate-600">
+                     <div>
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Action</span>
+                       <p className="leading-relaxed bg-slate-50 p-4 rounded-2xl">{feedback?.storyAnalysis?.action}</p>
+                     </div>
+                     <div>
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Outcome</span>
+                       <p className="leading-relaxed bg-slate-50 p-4 rounded-2xl">{feedback?.storyAnalysis?.outcome}</p>
+                     </div>
+                   </div>
+                 </div>
+              </div>
+            )}
+
             <div className="grid md:grid-cols-2 gap-10">
                <div className="bg-white p-12 rounded-[3.5rem] border-2 border-slate-50 shadow-2xl">
-                  <h4 className="font-black text-xs uppercase tracking-[0.3em] text-blue-600 mb-10 flex items-center gap-4"><Target className="w-6 h-6" /> Key Strengths</h4>
+                  <h4 className="font-black text-xs uppercase tracking-[0.3em] text-green-600 mb-10 flex items-center gap-4"><CheckCircle className="w-6 h-6" /> Key Strengths</h4>
                   <div className="space-y-5">
                     {feedback?.strengths.map((s: string, i: number) => (
-                      <div key={i} className="flex gap-5 p-5 bg-blue-50 rounded-3xl border border-blue-100 text-slate-800 text-sm font-bold">
-                        <CheckCircle className="w-6 h-6 text-blue-500 shrink-0" /> {s}
+                      <div key={i} className="flex gap-5 p-5 bg-green-50 rounded-3xl border border-green-100 text-slate-800 text-sm font-bold">
+                        <CheckCircle className="w-6 h-6 text-green-500 shrink-0" /> {s}
                       </div>
                     ))}
                   </div>
@@ -421,7 +450,7 @@ const PPDTTest: React.FC = () => {
             </div>
 
             <button 
-              onClick={() => { setStep(PPDTStep.IDLE); setStory(''); setFeedback(null); setNarrationText(''); }}
+              onClick={() => { setStep(PPDTStep.IDLE); setStory(''); setFeedback(null); setNarrationText(''); setUploadedImageBase64(null); }}
               className="w-full py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
             >
               Report for Next Simulation
