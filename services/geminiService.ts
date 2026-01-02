@@ -135,29 +135,53 @@ export async function extractPIQFromImage(base64Data: string, mimeType: string) 
 export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', description?: string) {
   const ai = getGeminiClient();
   
-  // Enhanced Scenarios for better generation context
-  const scenarios = scenarioType === 'PPDT' ? [
-    "A hazy sketch of 3 people sitting in a circle discussing a document",
-    "A blurry sketch of a person helping someone up a hill",
-    "A vague sketch of a group standing near a village well",
-    "A rough charcoal sketch of a doctor talking to a patient",
-    "A hazy drawing of two people standing near a jeep"
-  ] : [
-    "A dark sketch of a boy staring at a violin",
-    "A silhouette of a person standing alone at a cliff edge",
-    "A blurry sketch of a woman looking out a window",
-    "A rough sketch of two figures in a field pointing at the sky",
-    "A vague drawing of a student sitting with head down on a desk"
+  // Real SSB Archive Scenarios (Based on Centurion/SSBCrack references)
+  const ppdtScenarios = [
+    "A hazy charcoal sketch of a group of 3 young men standing near a jeep discussing a map",
+    "A blurry pencil sketch of a doctor checking a patient while a woman watches anxiously",
+    "A rough sketch of a man helping another man climb a wall or steep ledge",
+    "A vague drawing of students sitting in a circle having a discussion",
+    "A sketch of rural life showing a farmer talking to a man in formal clothes",
+    "A scene of an accident on the road with a few people gathering around",
+    "A hazy drawing of two people pushing a cart uphill",
+    "A sketch of 3 people gathered around a table with papers on it",
+    "A blurry drawing of a person saving someone from drowning"
+  ];
+
+  const tatScenarios = [
+    "A dark charcoal sketch of a young man sitting alone with his head in his hands",
+    "A silhouette of a woman standing at a door looking into a dark room",
+    "A blurry sketch of a boy looking at a trophy on a high shelf",
+    "A rough sketch of two men in uniform talking seriously near a tent",
+    "A vague drawing of a person rowing a boat alone in a storm",
+    "A sketch of a young man looking at a violin with a contemplative expression",
+    "A person standing on a cliff edge looking at the horizon",
+    "A student studying late at night with a lamp",
+    "A woman sitting on a park bench looking at a letter",
+    "Two people arguing in a room, hazy details"
   ];
   
+  const scenarios = scenarioType === 'PPDT' ? ppdtScenarios : tatScenarios;
   const finalScenario = description || scenarios[Math.floor(Math.random() * scenarios.length)];
   
-  // STRICTER PROMPT for Style
-  const prompt = `Create a rough, hazy, black and white charcoal sketch. 
+  // STRICTER PROMPT for "SSB Style" (Old school charcoal/pencil sketch)
+  const prompt = `Generate an image for a psychological projection test (Thematic Apperception Test).
   Subject: ${finalScenario}.
-  Style: Old-school psychological projection test stimulus (Thematic Apperception Test). 
-  Visuals: Blurry, ambiguous, high contrast, textured paper background, pencil strokes. 
-  NO photorealism. NO cartoons. NO text.`;
+  
+  CRITICAL ART STYLE INSTRUCTIONS:
+  - Medium: Charcoal sketch, rough pencil shading, or vintage ink illustration.
+  - Style: Old-school textbook illustration (1950s style), hazy, ambiguous, low detail.
+  - Color: Black and white / Grayscale ONLY. High Contrast.
+  - Atmosphere: Vague, open to interpretation, slightly blurry features (faces should not be sharp/photorealistic).
+  - Composition: Realistic proportions but sketch-like execution.
+  
+  NEGATIVE PROMPTS (Do NOT do this):
+  - No colors.
+  - No photorealism or 3D rendering.
+  - No sharp, high-definition faces.
+  - No cartoon or anime style.
+  - No text or watermarks.
+  `;
 
   try {
     const response = await ai.models.generateContent({
