@@ -121,7 +121,7 @@ export async function extractPIQFromImage(base64Data: string, mimeType: string) 
       }
     }
   });
-  return JSON.parse(response.text);
+  return JSON.parse(response.text || '{}');
 }
 
 /**
@@ -190,7 +190,7 @@ export async function transcribeHandwrittenStory(base64Data: string, mimeType: s
     model: 'gemini-3-flash-preview',
     contents: { parts: [{ inlineData: { data: base64Data, mimeType } }, { text: prompt }] },
   });
-  return response.text;
+  return response.text || "";
 }
 
 export async function generateTestContent(type: string) {
@@ -244,7 +244,8 @@ export async function generateTestContent(type: string) {
     }
   });
 
-  const parsed = JSON.parse(response.text);
+  const text = response.text || '{"items": []}';
+  const parsed = JSON.parse(text);
   
   parsed.items = parsed.items.map((item: any) => ({
     ...item,
@@ -308,7 +309,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
       }
     });
-    return JSON.parse(response.text);
+    return JSON.parse(response.text || '{}');
   } 
   
   // ==========================================================
@@ -368,7 +369,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
       }
     });
-    return JSON.parse(response.text);
+    return JSON.parse(response.text || '{}');
   }
 
   // ==========================================================
@@ -415,7 +416,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
       }
     });
-    return JSON.parse(response.text);
+    return JSON.parse(response.text || '{}');
   }
 
   // Default Fallback
