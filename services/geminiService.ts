@@ -3,7 +3,11 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 // Helper to get Gemini client with API key from environment
 export const getGeminiClient = () => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    console.error("API_KEY is missing. Gemini client will fail.");
+  }
+  return new GoogleGenAI({ apiKey: apiKey || '' });
 };
 
 /**
@@ -121,6 +125,7 @@ export async function extractPIQFromImage(base64Data: string, mimeType: string) 
       }
     }
   });
+  // Fix: Ensure text is not undefined before parsing
   return JSON.parse(response.text || '{}');
 }
 
@@ -130,35 +135,37 @@ export async function extractPIQFromImage(base64Data: string, mimeType: string) 
 export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', description?: string) {
   const ai = getGeminiClient();
   
+  // Enhanced Scenarios for better generation context
   const scenarios = scenarioType === 'PPDT' ? [
-    "A group of people discussing something near a damaged vehicle on a road.",
-    "A person helping another climb a steep ledge in a village.",
-    "People standing near a building with smoke coming out of windows.",
-    "A person in military uniform talking to a group of villagers."
+    "A hazy sketch of 3 people sitting in a circle discussing a document",
+    "A blurry sketch of a person helping someone up a hill",
+    "A vague sketch of a group standing near a village well",
+    "A rough charcoal sketch of a doctor talking to a patient",
+    "A hazy drawing of two people standing near a jeep"
   ] : [
-    "A boy looking at a violin with a look of intense longing.",
-    "A hazy silhouette of a surgeon standing over a patient.",
-    "A young man looking at a torn letter, face showing shock.",
-    "A solitary person standing at a graveyard.",
-    "A woman looking into a mirror, reflection showing a different face.",
-    "Two figures in a field; one pointing towards a distant storm.",
-    "A student at a desk with many books, face showing exhaustion.",
-    "An elderly man giving a key to a young person.",
-    "A person in a dark room with a single lantern, writing.",
-    "A figure standing at the edge of a mountain looking at a valley.",
-    "A person rowing a boat in a turbulent sea."
+    "A dark sketch of a boy staring at a violin",
+    "A silhouette of a person standing alone at a cliff edge",
+    "A blurry sketch of a woman looking out a window",
+    "A rough sketch of two figures in a field pointing at the sky",
+    "A vague drawing of a student sitting with head down on a desk"
   ];
   
   const finalScenario = description || scenarios[Math.floor(Math.random() * scenarios.length)];
-  const prompt = `A professional black and white pencil sketch for an SSB psychological TAT stimulus. 
-  Scene: ${finalScenario}. 
-  Style: Hazy, vague, minimalist pencil line art. Evocative storytelling art on textured paper. High contrast. DIPR style.`;
+  
+  // STRICTER PROMPT for Style
+  const prompt = `Create a rough, hazy, black and white charcoal sketch. 
+  Subject: ${finalScenario}.
+  Style: Old-school psychological projection test stimulus (Thematic Apperception Test). 
+  Visuals: Blurry, ambiguous, high contrast, textured paper background, pencil strokes. 
+  NO photorealism. NO cartoons. NO text.`;
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { parts: [{ text: prompt }] },
-      config: { imageConfig: { aspectRatio: "4:3" } }
+      config: { 
+        imageConfig: { aspectRatio: "4:3" }
+      }
     });
 
     const parts = response.candidates?.[0]?.content?.parts;
@@ -169,9 +176,17 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
         }
       }
     }
-    throw new Error("No image part");
+    throw new Error("No image part generated");
   } catch (error) {
-    return "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=800&auto=format&fit=crop&grayscale=true";
+    console.error("Image Gen Error:", error);
+    // Context-aware fallbacks using grayscale Unsplash images that look somewhat like SSB sketches
+    if (scenarioType === 'PPDT') {
+        // Group setting fallback (People interacting)
+        return "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=800&auto=format&fit=crop&grayscale=true"; 
+    } else {
+        // Solitary/Moody fallback (Solitary figure)
+        return "https://images.unsplash.com/photo-1604882355165-4450cb6155b2?q=80&w=800&auto=format&fit=crop&grayscale=true";
+    }
   }
 }
 
@@ -190,6 +205,7 @@ export async function transcribeHandwrittenStory(base64Data: string, mimeType: s
     model: 'gemini-3-flash-preview',
     contents: { parts: [{ inlineData: { data: base64Data, mimeType } }, { text: prompt }] },
   });
+  // Fix: Handle undefined text
   return response.text || "";
 }
 
@@ -203,7 +219,7 @@ export async function generateTestContent(type: string) {
   if (type === 'TAT') {
     count = 11;
     systemPrompt = `Generate exactly 11 vague, descriptive scenarios for a Thematic Apperception Test (TAT). 
-    Do NOT include prefixes like "TAT:". Provide descriptive prompts like "A surgeon in a dark room" or "A student with a letter". 
+    Do NOT include prefixes like "TAT:". Provide descriptive prompts suitable for drawing a black and white sketch, like "A surgeon in a dark room" or "A student with a letter". 
     Each item must be a scene description.`;
   } else if (type === 'WAT') {
     count = 60;
@@ -244,6 +260,7 @@ export async function generateTestContent(type: string) {
     }
   });
 
+  // Fix: Handle undefined text
   const text = response.text || '{"items": []}';
   const parsed = JSON.parse(text);
   
@@ -309,6 +326,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
       }
     });
+    // Fix: Handle undefined text
     return JSON.parse(response.text || '{}');
   } 
   
@@ -369,6 +387,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
       }
     });
+    // Fix: Handle undefined text
     return JSON.parse(response.text || '{}');
   }
 
@@ -416,6 +435,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
       }
     });
+    // Fix: Handle undefined text
     return JSON.parse(response.text || '{}');
   }
 

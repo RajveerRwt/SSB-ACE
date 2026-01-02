@@ -180,7 +180,7 @@ const Dashboard: React.FC<{
              <div className="space-y-5">
                 {[
                   { id: TestType.PIQ, name: 'Personal Info Questionnaire', type: 'Phase 0: Admin', time: '15 mins', status: isLoggedIn ? (piqLoaded ? 'Completed' : 'Action Required') : 'Login Required' },
-                  { id: TestType.PPDT, name: 'Stage 1: PPDT Simulation', type: 'Screening Round', time: '10 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
+                  { id: TestType.PPDT, name: 'PPDT Simulation', type: 'Stage 1: Screening', time: '10 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
                   { id: TestType.INTERVIEW, name: 'Stage 2: Personal Interview', type: 'IO Evaluation', time: '40 mins', status: isLoggedIn ? (piqLoaded ? 'Available' : 'Restricted') : 'Login Required' },
                   { id: TestType.TAT, name: 'Stage 2: Psychology (TAT)', type: 'Mental Strength', time: '45 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
                 ].map((test, i) => (
