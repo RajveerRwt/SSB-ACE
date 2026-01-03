@@ -296,7 +296,12 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
                      <p className="text-slate-400 font-black uppercase tracking-[0.6em] text-xl mt-8">Prepare Final Imaginary Story</p>
                   </div>
                 ) : (
-                  <img src={imageUrl!} className="mx-auto w-full max-h-[75vh] object-contain grayscale contrast-125" alt="Psychological Stimulus" />
+                  // Applied CSS filters for sketch look on TAT images
+                  <img 
+                    src={imageUrl!} 
+                    className="mx-auto w-full max-h-[75vh] object-contain grayscale contrast-[1.4] brightness-110 blur-[1px]" 
+                    alt="Psychological Stimulus" 
+                  />
                 )}
                 <div className="absolute top-10 left-10 bg-black/70 backdrop-blur-3xl px-10 py-4 rounded-full text-white font-black text-[10px] uppercase tracking-[0.4em] border border-white/20 shadow-2xl">OBSERVATION PHASE: 30S</div>
              </div>

@@ -4,9 +4,15 @@ import { GoogleGenAI, Type } from "@google/genai";
 // Helper to get Gemini client with API key from environment
 export const getGeminiClient = () => {
   const apiKey = process.env.API_KEY;
+  
+  // Debug Log for Cloud Troubleshooting
   if (!apiKey) {
-    console.error("API_KEY is missing. Gemini client will fail.");
+    console.error("SSBzone Critical: API_KEY is MISSING in environment. App is running in offline fallback mode.");
+  } else {
+    // Log masked key to confirm injection worked (e.g. "AIza...5fA")
+    console.log(`SSBzone: API Client Initialized. Key present: ${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`);
   }
+
   return new GoogleGenAI({ apiKey: apiKey || '' });
 };
 
@@ -209,24 +215,24 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
   } catch (error) {
     console.error("Image Gen Error. USING FALLBACKS. If hosted, check API_KEY.", error);
     
-    // ENHANCED BACKUP STRATEGY (V2):
-    // Removed all nature/landscape images.
-    // All fallbacks now feature PEOPLE to strictly avoid "only river" issues.
+    // ENHANCED BACKUP STRATEGY (V3):
+    // Added heavier blur to fallback URLs (blur=15) so the CSS filters in the components
+    // can turn them into convincing "sketches".
     
     if (scenarioType === 'PPDT') {
         // PPDT Fallbacks: Social interactions, groups
         const backups = [
-          "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5", // Office/Group discussion
-          "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=4", // Friends talking
-          "https://images.unsplash.com/photo-1517048676732-d65bc937f952?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5"  // Group gathering
+          "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=15", // Office/Group discussion
+          "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=15", // Friends talking
+          "https://images.unsplash.com/photo-1517048676732-d65bc937f952?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=15"  // Group gathering
         ];
         return backups[Math.floor(Math.random() * backups.length)];
     } else {
         // TAT Fallbacks: Individual character focus (No empty landscapes)
         const backups = [
-           "https://images.unsplash.com/photo-1504194569302-3c4ba34c1422?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=8", // Silhouette Man in dark
-           "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5", // Person in gym/room (ambiguous action)
-           "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5"  // Portrait of man in dark
+           "https://images.unsplash.com/photo-1504194569302-3c4ba34c1422?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=15", // Silhouette Man in dark
+           "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=15", // Person in gym/room (ambiguous action)
+           "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=15"  // Portrait of man in dark
         ];
         return backups[Math.floor(Math.random() * backups.length)];
     }

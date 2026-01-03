@@ -246,10 +246,11 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
         return (
           <div className="flex flex-col items-center animate-in fade-in duration-1000">
             <div className="relative mb-10 overflow-hidden rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.6)] border-[12px] border-white ring-1 ring-slate-200">
+              {/* Added CSS filters to force 'sketch' look even on fallback photos: high contrast, blur, grayscale */}
               <img 
                 src={currentImageUrl} 
                 alt="PPDT hazy scenario" 
-                className="max-h-[70vh] w-auto object-cover opacity-90 grayscale"
+                className="max-h-[70vh] w-auto object-cover opacity-90 grayscale contrast-[1.4] brightness-110 blur-[1px]"
               />
             </div>
             <p className="text-slate-400 font-black uppercase tracking-[0.5em] text-xs">Perceive carefully • Identify characters, mood, and age</p>
