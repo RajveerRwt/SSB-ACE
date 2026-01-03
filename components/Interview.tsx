@@ -69,6 +69,9 @@ interface InterviewProps {
 
 const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
   const [sessionMode, setSessionMode] = useState<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
+  // Ref to track session mode synchronously across callbacks to prevent race conditions during termination
+  const sessionModeRef = useRef<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
+  
   const [connectionStatus, setConnectionStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'RECONNECTING'>('DISCONNECTED');
   const [isMicOn, setIsMicOn] = useState(true);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
@@ -153,6 +156,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
   const startBoardSession = async (isRetry = false) => {
     if (!isRetry) {
       setSessionMode('SESSION');
+      sessionModeRef.current = 'SESSION';
       retryCountRef.current = 0;
       conversationHistoryRef.current = []; // Only clear history on fresh start
     }
@@ -297,7 +301,9 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
             handleAutoReconnect();
           },
           onclose: (e) => {
-             if (sessionMode === 'SESSION') {
+             // CRITICAL FIX: Only reconnect if we are still strictly in SESSION mode.
+             // We use the Ref to check because state updates can be async and closures might be stale.
+             if (sessionModeRef.current === 'SESSION') {
                 handleAutoReconnect();
              }
           },
@@ -327,9 +333,13 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
   };
 
   const endSession = async () => {
+    // CRITICAL: Set intention to RESULT mode BEFORE cleanup to prevent auto-reconnect logic
+    sessionModeRef.current = 'RESULT';
+    setSessionMode('RESULT');
+    
     await cleanupSession();
     setIsAnalyzing(true);
-    setSessionMode('RESULT');
+
     try {
       const fullTranscript = conversationHistoryRef.current.join("\n");
       const results = await evaluatePerformance('Personal Interview Board (30 Min)', { 
@@ -344,6 +354,19 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
       }
     } catch (e) {
       console.error(e);
+      // Fallback in case of error so user isn't stuck
+      setFinalAnalysis({
+         score: 0,
+         recommendations: "Assessment could not be generated due to network issues. However, your session has been logged.",
+         strengths: ["Determination"],
+         weaknesses: ["Technical Interruption"],
+         factorAnalysis: {
+            factor1_planning: "N/A",
+            factor2_social: "N/A",
+            factor3_effectiveness: "N/A",
+            factor4_dynamic: "N/A"
+         }
+      });
     } finally { 
       setIsAnalyzing(false); 
     }
