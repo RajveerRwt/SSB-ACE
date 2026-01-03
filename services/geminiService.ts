@@ -164,27 +164,28 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
   const scenarios = scenarioType === 'PPDT' ? ppdtScenarios : tatScenarios;
   const finalScenario = description || scenarios[Math.floor(Math.random() * scenarios.length)];
   
-  // STRICTER PROMPT for "SSB Style" (Old school charcoal/pencil sketch)
-  // Dynamic prompt based on test type to bias the model towards correct scene composition
-  const testName = scenarioType === 'PPDT' ? 'Picture Perception Test (PPDT)' : 'Thematic Apperception Test (TAT)';
-  
-  const prompt = `Generate a rough, vintage charcoal sketch for a psychological test (SSB ${testName}).
+  // STRICTER PROMPT: ENFORCING HUMAN CHARACTERS
+  // Added mandatory instruction to include people to avoid "river/landscape only" images.
+  const prompt = `Generate a rough, vintage charcoal sketch for a psychological test (SSB ${scenarioType}).
   Subject: ${finalScenario}.
+  
+  MANDATORY CONTENT:
+  - The image MUST contain HUMAN CHARACTERS (at least one person).
+  - Scene must be a social or individual human situation.
+  - NO landscapes without people. NO rivers/mountains/buildings without people.
   
   ART STYLE STRICT GUIDELINES:
   - TYPE: Hand-drawn charcoal or pencil sketch on textured paper.
   - STYLE: Rough, hasty, unfinished, vintage illustration (1950s style).
   - CLARITY: BLURRY, HAZY, OUT OF FOCUS.
-  - DETAILS: No sharp lines. No distinct facial features (faceless).
-  - MOOD: Ambiguous, neutral to gloomy, mysterious.
+  - DETAILS: Faceless characters. Ambiguous expressions.
   - COLOR: Black and White / Grayscale ONLY.
   
-  NEGATIVE PROMPTS (Do NOT do this):
-  - Do NOT generate a photograph.
-  - Do NOT generate realistic skin textures.
-  - Do NOT generate clear eyes or faces.
-  - Do NOT use color.
-  - No cartoon or anime style.
+  NEGATIVE PROMPTS:
+  - No empty landscapes.
+  - No clear faces.
+  - No text.
+  - No photorealistic skin.
   `;
 
   try {
@@ -206,27 +207,26 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
     }
     throw new Error("No image part generated");
   } catch (error) {
-    console.error("Image Gen Error (Falling back to backups). If hosted, check API_KEY:", error);
+    console.error("Image Gen Error. USING FALLBACKS. If hosted, check API_KEY.", error);
     
-    // ENHANCED BACKUP STRATEGY:
-    // Replaced generic Unsplash photos with highly ambiguous, foggy, or silhouette scenes
-    // Added stronger blur parameters to simulate SSB Haze
+    // ENHANCED BACKUP STRATEGY (V2):
+    // Removed all nature/landscape images.
+    // All fallbacks now feature PEOPLE to strictly avoid "only river" issues.
     
     if (scenarioType === 'PPDT') {
-        // PPDT Fallbacks: Hazy Crowds/Groups
+        // PPDT Fallbacks: Social interactions, groups
         const backups = [
-          "https://images.unsplash.com/photo-1503756234508-e32369269deb?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=8", // Foggy group
-          "https://images.unsplash.com/photo-1475724017904-b712052c192a?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=8", // Distant figures
-          "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=10" // Office blur
+          "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5", // Office/Group discussion
+          "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=4", // Friends talking
+          "https://images.unsplash.com/photo-1517048676732-d65bc937f952?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5"  // Group gathering
         ];
         return backups[Math.floor(Math.random() * backups.length)];
     } else {
-        // TAT Fallbacks: Solitary, Dark, Ambiguous Shadows
+        // TAT Fallbacks: Individual character focus (No empty landscapes)
         const backups = [
-           "https://images.unsplash.com/photo-1504194569302-3c4ba34c1422?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=12", // Ghostly silhouette
-           "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=8", // Ambiguous landscape/figure
-           "https://images.unsplash.com/photo-1499578124509-1611b77778c8?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=8", // Distant person
-           "https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=10"  // Man in fog
+           "https://images.unsplash.com/photo-1504194569302-3c4ba34c1422?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=8", // Silhouette Man in dark
+           "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5", // Person in gym/room (ambiguous action)
+           "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5"  // Portrait of man in dark
         ];
         return backups[Math.floor(Math.random() * backups.length)];
     }
