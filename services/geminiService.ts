@@ -165,15 +165,17 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
   const finalScenario = description || scenarios[Math.floor(Math.random() * scenarios.length)];
   
   // STRICTER PROMPT for "SSB Style" (Old school charcoal/pencil sketch)
-  // Added "Grainy, Noisy" and "Indistinct features" to force non-photorealistic output
-  const prompt = `Generate a hazy, vintage charcoal sketch for a psychological test (Thematic Apperception Test).
+  // Dynamic prompt based on test type to bias the model towards correct scene composition
+  const testName = scenarioType === 'PPDT' ? 'Picture Perception Test (PPDT)' : 'Thematic Apperception Test (TAT)';
+  
+  const prompt = `Generate a hazy, vintage charcoal sketch for a psychological test: ${testName}.
   Subject: ${finalScenario}.
   
   CRITICAL ART STYLE INSTRUCTIONS:
   - Medium: Charcoal sketch on textured paper, old textbook illustration style (1950s).
   - Atmosphere: Extremely hazy, blurry, ambiguous, low detail. 
   - Features: Facial features MUST be indistinct and blurry. No clear eyes or expressions.
-  - Composition: Realistic proportions but sketch-like execution.
+  - Composition: Realistic proportions but rough, sketch-like execution.
   - Color: Black and white / Grayscale ONLY. High Contrast.
   
   NEGATIVE PROMPTS (Do NOT do this):
@@ -210,15 +212,17 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
     // that are blurry/ambiguous and look like SSB sketches.
     
     if (scenarioType === 'PPDT') {
-        // Group/Social Fallbacks (Ambiguous groups, blurry)
+        // PPDT Fallbacks: Group interactions, scenes, ambiguous actions
+        // Blur applied via URL parameter to simulate PPDT haze
         const backups = [
-          "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5", // Group meeting
-          "https://images.unsplash.com/photo-1531206715517-5c0ba140b2b8?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5", // Hazy discussion
-          "https://images.unsplash.com/photo-1543269865-cbf427effbad?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=4"  // Student group
+          "https://images.unsplash.com/photo-1517048676732-d65bc937f952?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=4", // Group meeting
+          "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5", // Discussion
+          "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=4", // Rural/Outdoor
+          "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5"  // Group interaction
         ];
         return backups[Math.floor(Math.random() * backups.length)];
     } else {
-        // TAT Fallbacks (Solitary, Moody, Silhouette)
+        // TAT Fallbacks: Solitary, Moody, Silhouette, Ambiguous
         const backups = [
            "https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=4", // Foggy figure
            "https://images.unsplash.com/photo-1500462918059-b1a0cb512f1d?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5", // Alone, ambiguous
