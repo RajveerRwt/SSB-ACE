@@ -165,15 +165,16 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
   const finalScenario = description || scenarios[Math.floor(Math.random() * scenarios.length)];
   
   // STRICTER PROMPT for "SSB Style" (Old school charcoal/pencil sketch)
-  const prompt = `Generate an image for a psychological projection test (Thematic Apperception Test).
+  // Added "Grainy, Noisy" and "Indistinct features" to force non-photorealistic output
+  const prompt = `Generate a hazy, vintage charcoal sketch for a psychological test (Thematic Apperception Test).
   Subject: ${finalScenario}.
   
   CRITICAL ART STYLE INSTRUCTIONS:
-  - Medium: Charcoal sketch, rough pencil shading, or vintage ink illustration.
-  - Style: Old-school textbook illustration (1950s style), hazy, ambiguous, low detail.
-  - Color: Black and white / Grayscale ONLY. High Contrast.
-  - Atmosphere: Vague, open to interpretation, slightly blurry features (faces should not be sharp/photorealistic).
+  - Medium: Charcoal sketch on textured paper, old textbook illustration style (1950s).
+  - Atmosphere: Extremely hazy, blurry, ambiguous, low detail. 
+  - Features: Facial features MUST be indistinct and blurry. No clear eyes or expressions.
   - Composition: Realistic proportions but sketch-like execution.
+  - Color: Black and white / Grayscale ONLY. High Contrast.
   
   NEGATIVE PROMPTS (Do NOT do this):
   - No colors.
@@ -202,14 +203,29 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
     }
     throw new Error("No image part generated");
   } catch (error) {
-    console.error("Image Gen Error:", error);
-    // Context-aware fallbacks using grayscale Unsplash images that look somewhat like SSB sketches
+    console.error("Image Gen Error (Falling back to backups):", error);
+    
+    // ENHANCED BACKUP STRATEGY:
+    // If API fails (e.g., missing key on hosted env), use specific Unsplash images 
+    // that are blurry/ambiguous and look like SSB sketches.
+    
     if (scenarioType === 'PPDT') {
-        // Group setting fallback (People interacting)
-        return "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=800&auto=format&fit=crop&grayscale=true"; 
+        // Group/Social Fallbacks (Ambiguous groups, blurry)
+        const backups = [
+          "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5", // Group meeting
+          "https://images.unsplash.com/photo-1531206715517-5c0ba140b2b8?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5", // Hazy discussion
+          "https://images.unsplash.com/photo-1543269865-cbf427effbad?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=4"  // Student group
+        ];
+        return backups[Math.floor(Math.random() * backups.length)];
     } else {
-        // Solitary/Moody fallback (Solitary figure)
-        return "https://images.unsplash.com/photo-1604882355165-4450cb6155b2?q=80&w=800&auto=format&fit=crop&grayscale=true";
+        // TAT Fallbacks (Solitary, Moody, Silhouette)
+        const backups = [
+           "https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=4", // Foggy figure
+           "https://images.unsplash.com/photo-1500462918059-b1a0cb512f1d?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=5", // Alone, ambiguous
+           "https://images.unsplash.com/photo-1518062953282-35928cd4241e?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=4", // Silhouette
+           "https://images.unsplash.com/photo-1445966275305-9806327ea2b5?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=3"  // Woods/Nature
+        ];
+        return backups[Math.floor(Math.random() * backups.length)];
     }
   }
 }
