@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { TestType } from '../types';
 import { 
   LayoutDashboard, 
@@ -13,7 +13,9 @@ import {
   Bot,
   LogOut,
   LogIn,
-  User
+  User,
+  Menu,
+  X
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -27,6 +29,27 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLogout, onLogin, user, isLoggedIn }) => {
+  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) {
+        setSidebarOpen(false);
+      } else {
+        setSidebarOpen(true);
+      }
+    };
+    
+    // Initial check
+    handleResize();
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const navItems = [
     { id: TestType.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
     { id: TestType.STAGES, label: 'SSB Journey', icon: Map },
@@ -40,90 +63,129 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     { id: TestType.CONTACT, label: 'Support Desk', icon: MessageSquare },
   ];
 
-  return (
-    <div className="flex h-screen bg-slate-50">
-      {/* Sidebar */}
-      <aside className="w-64 military-gradient text-white flex flex-col shadow-xl shrink-0">
-        <div className="p-6 flex items-center gap-3 border-b border-white/10">
-          <ShieldCheck className="w-8 h-8 text-yellow-400" />
-          <h1 className="text-xl font-bold tracking-tight">SSBprep.online</h1>
-        </div>
-        <nav className="flex-1 overflow-y-auto py-4">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
-              className={`w-full flex items-center gap-3 px-6 py-3 transition-colors text-left ${
-                activeTest === item.id 
-                  ? 'bg-white/10 text-yellow-400 border-r-4 border-yellow-400' 
-                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              <item.icon className="w-5 h-5" />
-              <span className="font-medium text-sm">{item.label}</span>
-            </button>
-          ))}
-        </nav>
-        
-        {/* User & Logout Section */}
-        <div className="p-4 bg-black/20 border-t border-white/10">
-           {isLoggedIn ? (
-             <div className="mb-4 px-2">
-               <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Logged in as</p>
-               <p className="text-xs font-bold text-slate-300 truncate">{user}</p>
-             </div>
-           ) : (
-             <div className="mb-4 px-2">
-               <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Status</p>
-               <p className="text-xs font-bold text-slate-300">Guest User</p>
-             </div>
-           )}
-           
-           {isLoggedIn ? (
-             <button 
-               onClick={onLogout}
-               className="w-full flex items-center gap-3 px-4 py-2 text-red-400 hover:text-red-300 hover:bg-white/5 rounded-xl transition-all text-xs font-black uppercase tracking-widest"
-             >
-               <LogOut size={14} /> Logout
-             </button>
-           ) : (
-             <button 
-               onClick={onLogin}
-               className="w-full flex items-center gap-3 px-4 py-2 text-yellow-400 hover:text-yellow-300 hover:bg-white/5 rounded-xl transition-all text-xs font-black uppercase tracking-widest"
-             >
-               <LogIn size={14} /> Login / Signup
-             </button>
-           )}
-        </div>
+  const handleNavClick = (id: TestType) => {
+    onNavigate(id);
+    if (isMobile) setSidebarOpen(false);
+  };
 
-        <div className="p-4 text-[10px] text-slate-500 uppercase tracking-widest text-center">
-          <p>© 2024 SSBprep.online Platform</p>
-          <p className="mt-1">Guided by Gemini AI</p>
+  return (
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
+      {/* Mobile Overlay */}
+      <div 
+        className={`fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 md:hidden ${
+          isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed md:static inset-y-0 left-0 z-50 
+        military-gradient text-white shadow-xl 
+        transition-all duration-300 ease-in-out shrink-0
+        ${isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64 md:w-0 md:translate-x-0 md:overflow-hidden'}
+      `}>
+        {/* Sidebar Content Wrapper to prevent squashing during width transition */}
+        <div className="w-64 h-full flex flex-col">
+          <div className="p-6 flex items-center justify-between border-b border-white/10 h-20 shrink-0">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="w-8 h-8 text-yellow-400" />
+              <h1 className="text-xl font-bold tracking-tight">SSBprep</h1>
+            </div>
+            <button 
+              onClick={() => setSidebarOpen(false)}
+              className="md:hidden text-white/70 hover:text-white p-1"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          <nav className="flex-1 overflow-y-auto py-4 custom-scrollbar">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleNavClick(item.id)}
+                className={`w-full flex items-center gap-3 px-6 py-3 transition-colors text-left ${
+                  activeTest === item.id 
+                    ? 'bg-white/10 text-yellow-400 border-r-4 border-yellow-400' 
+                    : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                <item.icon className="w-5 h-5 shrink-0" />
+                <span className="font-medium text-sm truncate">{item.label}</span>
+              </button>
+            ))}
+          </nav>
+          
+          {/* User & Logout Section */}
+          <div className="p-4 bg-black/20 border-t border-white/10 shrink-0">
+             {isLoggedIn ? (
+               <div className="mb-4 px-2">
+                 <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Logged in as</p>
+                 <p className="text-xs font-bold text-slate-300 truncate">{user}</p>
+               </div>
+             ) : (
+               <div className="mb-4 px-2">
+                 <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Status</p>
+                 <p className="text-xs font-bold text-slate-300">Guest User</p>
+               </div>
+             )}
+             
+             {isLoggedIn ? (
+               <button 
+                 onClick={onLogout}
+                 className="w-full flex items-center gap-3 px-4 py-2 text-red-400 hover:text-red-300 hover:bg-white/5 rounded-xl transition-all text-xs font-black uppercase tracking-widest"
+               >
+                 <LogOut size={14} /> Logout
+               </button>
+             ) : (
+               <button 
+                 onClick={onLogin}
+                 className="w-full flex items-center gap-3 px-4 py-2 text-yellow-400 hover:text-yellow-300 hover:bg-white/5 rounded-xl transition-all text-xs font-black uppercase tracking-widest"
+               >
+                 <LogIn size={14} /> Login
+               </button>
+             )}
+          </div>
+
+          <div className="p-4 text-[10px] text-slate-500 uppercase tracking-widest text-center shrink-0">
+            <p>© 2024 SSBprep.online</p>
+          </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        <header className="bg-white h-16 border-b flex items-center justify-between px-8 sticky top-0 z-10 shadow-sm">
-          <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">
-            {navItems.find(i => i.id === activeTest)?.label}
-          </h2>
-          <div className="flex items-center gap-6">
-            <div className="flex flex-col items-end">
+      <main className="flex-1 flex flex-col h-full relative overflow-hidden">
+        <header className="bg-white h-16 border-b flex items-center justify-between px-4 md:px-8 shrink-0 z-10 shadow-sm sticky top-0">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setSidebarOpen(!isSidebarOpen)}
+              className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 transition-colors"
+            >
+               <Menu size={24} />
+            </button>
+            <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest truncate max-w-[150px] md:max-w-none">
+              {navItems.find(i => i.id === activeTest)?.label}
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-3 md:gap-6">
+            <div className="flex flex-col items-end hidden md:flex">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
                 {isLoggedIn ? 'Deployment Ready' : 'Guest Access'}
               </span>
               <span className={`text-[10px] font-bold uppercase flex items-center gap-1.5 ${isLoggedIn ? 'text-green-600' : 'text-slate-500'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${isLoggedIn ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`} />
-                {isLoggedIn ? 'Aspirant Handshake Active' : 'Limited Preview'}
+                {isLoggedIn ? 'Active' : 'Preview'}
               </span>
             </div>
-            <div className={`w-10 h-10 rounded-xl border flex items-center justify-center text-white font-black text-xs ${isLoggedIn ? 'bg-slate-900 border-slate-700' : 'bg-slate-200 border-slate-300 text-slate-400'}`}>
-              {isLoggedIn ? (user ? user.substring(0,2).toUpperCase() : 'JD') : <User size={18}/>}
+            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl border flex items-center justify-center text-white font-black text-xs ${isLoggedIn ? 'bg-slate-900 border-slate-700' : 'bg-slate-200 border-slate-300 text-slate-400'}`}>
+              {isLoggedIn ? (user ? user.substring(0,2).toUpperCase() : 'JD') : <User size={16}/>}
             </div>
           </div>
         </header>
-        <div className="p-8">
+
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
           {children}
         </div>
       </main>

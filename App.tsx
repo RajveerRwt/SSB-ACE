@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Login from './components/Login';
@@ -52,17 +51,17 @@ const Dashboard: React.FC<{
   }, [isLoggedIn, user]);
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700 pb-20">
+    <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-20">
       {/* HERO SECTION */}
-      <div className="bg-slate-900 rounded-[3rem] p-12 text-white relative overflow-hidden shadow-2xl border-b-8 border-yellow-500">
-         <div className="relative z-10 grid lg:grid-cols-2 gap-12 items-center">
+      <div className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl border-b-8 border-yellow-500">
+         <div className="relative z-10 grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
            <div className="space-y-6">
              <div className="flex items-center gap-3">
-               <span className="px-4 py-1.5 bg-yellow-400 text-black text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg animate-bounce">Officer Potential</span>
-               <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Board Simulation v4.0</span>
+               <span className="px-3 py-1 bg-yellow-400 text-black text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg animate-bounce">Officer Potential</span>
+               <span className="text-slate-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">Board Simulation v4.0</span>
              </div>
-             <h1 className="text-6xl font-black tracking-tighter leading-none">Do You Have It <br/><span className="text-yellow-400 italic font-serif">In You?</span></h1>
-             <p className="text-slate-400 text-lg leading-relaxed font-medium italic opacity-80">
+             <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Do You Have It <br/><span className="text-yellow-400 italic font-serif">In You?</span></h1>
+             <p className="text-slate-400 text-sm md:text-lg leading-relaxed font-medium italic opacity-80">
                "Victory favors the prepared. The SSB doesn't test your knowledge; it tests your personality, grit, and 15 Officer Like Qualities."
              </p>
              
@@ -70,7 +69,7 @@ const Dashboard: React.FC<{
                <div className="flex flex-wrap gap-4 pt-4">
                  <button 
                    onClick={() => piqLoaded ? onStartTest(TestType.INTERVIEW) : onStartTest(TestType.PIQ)}
-                   className={`px-10 py-5 font-black rounded-2xl transition-all shadow-xl hover:-translate-y-1 uppercase tracking-widest text-[11px] flex items-center gap-3 ${
+                   className={`flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 font-black rounded-2xl transition-all shadow-xl hover:-translate-y-1 uppercase tracking-widest text-[10px] md:text-[11px] flex items-center justify-center gap-3 ${
                      piqLoaded 
                      ? 'bg-yellow-400 text-black hover:bg-yellow-500 shadow-yellow-400/20' 
                      : 'bg-slate-800 text-slate-500 border border-white/5 cursor-not-allowed group'
@@ -79,12 +78,12 @@ const Dashboard: React.FC<{
                  >
                    {isLoading ? <Loader2 className="animate-spin" size={14}/> : !piqLoaded && <Lock size={14} className="text-slate-500" />}
                    {isLoading ? 'Syncing...' : 'Commence AI Interview'}
-                   {!piqLoaded && !isLoading && <span className="absolute -bottom-10 left-0 text-[8px] text-red-400 font-black opacity-0 group-hover:opacity-100 transition-opacity">CLEARANCE REQUIRED: PIQ MISSING</span>}
+                   {!piqLoaded && !isLoading && <span className="absolute -bottom-10 left-0 text-[8px] text-red-400 font-black opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap hidden md:block">CLEARANCE REQUIRED: PIQ MISSING</span>}
                  </button>
                  
                  <button 
                     onClick={() => onStartTest(TestType.PIQ)}
-                    className={`px-10 py-5 font-black rounded-2xl transition-all uppercase tracking-widest text-[11px] border flex items-center gap-3 ${
+                    className={`flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 font-black rounded-2xl transition-all uppercase tracking-widest text-[10px] md:text-[11px] border flex items-center justify-center gap-3 ${
                       piqLoaded 
                       ? 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10' 
                       : 'bg-blue-600 text-white border-blue-500 hover:bg-blue-500'
@@ -98,7 +97,7 @@ const Dashboard: React.FC<{
                <div className="pt-4">
                   <button 
                     onClick={() => onStartTest(TestType.LOGIN)}
-                    className="px-12 py-6 bg-yellow-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center gap-3"
+                    className="w-full md:w-auto px-12 py-6 bg-yellow-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3"
                   >
                     <LogIn size={18} /> Join / Login to Start
                   </button>
@@ -124,20 +123,20 @@ const Dashboard: React.FC<{
               </div>
            </div>
          </div>
-         <ShieldCheck className="absolute top-1/2 -right-12 -translate-y-1/2 w-[30rem] h-[30rem] text-white/5 rotate-12 pointer-events-none" />
+         <ShieldCheck className="absolute top-1/2 -right-12 -translate-y-1/2 w-[20rem] md:w-[30rem] h-[20rem] md:h-[30rem] text-white/5 rotate-12 pointer-events-none" />
       </div>
 
       {/* OFFICER'S CREED & ROADMAP */}
-      <div className="grid lg:grid-cols-12 gap-10">
-         <div className="lg:col-span-8 space-y-10">
+      <div className="grid lg:grid-cols-12 gap-6 md:gap-10">
+         <div className="lg:col-span-8 space-y-6 md:space-y-10">
            {/* HISTORY LOGS */}
            {isLoggedIn && (
-             <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl">
+             <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-xl">
                <div className="flex justify-between items-center mb-6">
-                 <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-4">
+                 <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-4">
                    <History className="text-purple-600" size={20} /> Mission Logs
                  </h3>
-                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recent Activity</span>
+                 <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recent Activity</span>
                </div>
                
                {loadingHistory ? (
@@ -149,7 +148,7 @@ const Dashboard: React.FC<{
                ) : (
                  <div className="space-y-3">
                    {history.map((h, i) => (
-                     <div key={i} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors">
+                     <div key={i} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors gap-3">
                         <div className="flex items-center gap-4">
                           <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-black text-[10px]">
                             {h.type.substring(0,2)}
@@ -159,7 +158,7 @@ const Dashboard: React.FC<{
                             <p className="text-[9px] text-slate-400 font-bold">{new Date(h.timestamp).toLocaleDateString()}</p>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex md:block w-full md:w-auto justify-between items-center">
                           <p className="text-xs font-black text-slate-900">Score: {h.score}</p>
                           <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Logged</p>
                         </div>
@@ -170,14 +169,14 @@ const Dashboard: React.FC<{
              </div>
            )}
 
-           <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-xl flex flex-col">
-             <div className="flex justify-between items-center mb-10">
-                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-4">
+           <div className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[4rem] border border-slate-100 shadow-xl flex flex-col">
+             <div className="flex justify-between items-center mb-6 md:mb-10">
+                <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-4">
                   <Flag className="text-blue-600" /> Strategic Roadmap
                 </h3>
-                <button onClick={() => onStartTest(TestType.STAGES)} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">View Full 5-Day Plan</button>
+                <button onClick={() => onStartTest(TestType.STAGES)} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">View Full Plan</button>
              </div>
-             <div className="space-y-5">
+             <div className="space-y-4 md:space-y-5">
                 {[
                   { id: TestType.PIQ, name: 'Personal Info Questionnaire', type: 'Phase 0: Admin', time: '15 mins', status: isLoggedIn ? (piqLoaded ? 'Completed' : 'Action Required') : 'Login Required' },
                   { id: TestType.PPDT, name: 'PPDT Simulation', type: 'Stage 1: Screening', time: '10 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
@@ -191,17 +190,17 @@ const Dashboard: React.FC<{
                         else if (test.id !== TestType.INTERVIEW || piqLoaded) onStartTest(test.id);
                         else onStartTest(TestType.PIQ);
                     }}
-                    className="flex items-center justify-between p-7 bg-slate-50 rounded-[2.5rem] border-2 border-transparent hover:border-slate-900 hover:bg-white transition-all cursor-pointer group shadow-sm hover:shadow-2xl"
+                    className="flex items-center justify-between p-5 md:p-7 bg-slate-50 rounded-[2rem] md:rounded-[2.5rem] border-2 border-transparent hover:border-slate-900 hover:bg-white transition-all cursor-pointer group shadow-sm hover:shadow-2xl"
                   >
-                    <div className="flex items-center gap-6">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                    <div className="flex items-center gap-4 md:gap-6">
+                      <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all shrink-0 ${
                         test.status === 'Completed' ? 'bg-green-100 text-green-600' : 
                         (test.status === 'Restricted' || test.status === 'Login Required') ? 'bg-slate-200 text-slate-400' : 'bg-slate-900 text-white group-hover:rotate-6'
                       }`}>
                         {test.status === 'Completed' ? <CheckCircle size={20} /> : (test.status === 'Restricted' || test.status === 'Login Required') ? <Lock size={20} /> : <Zap size={20} />}
                       </div>
                       <div>
-                        <h5 className="font-black text-slate-900 uppercase text-xs tracking-widest">{test.name}</h5>
+                        <h5 className="font-black text-slate-900 uppercase text-xs tracking-widest truncate max-w-[150px] md:max-w-none">{test.name}</h5>
                         <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 tracking-widest">{test.type} • {test.time}</p>
                       </div>
                     </div>
@@ -212,32 +211,32 @@ const Dashboard: React.FC<{
            </div>
          </div>
 
-         <div className="lg:col-span-4 space-y-10">
-            <div className="bg-slate-950 p-12 rounded-[4rem] text-white shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
+         <div className="lg:col-span-4 space-y-6 md:space-y-10">
+            <div className="bg-slate-950 p-8 md:p-12 rounded-[2rem] md:rounded-[4rem] text-white shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
                <div className="absolute top-0 left-0 w-full h-1.5 bg-yellow-500" />
-               <Star className="text-yellow-400 w-16 h-16 mb-8 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]" />
-               <h3 className="text-2xl font-black uppercase tracking-widest mb-6">The Aspirant's Creed</h3>
-               <div className="space-y-6 text-sm font-medium italic text-slate-400 leading-relaxed">
+               <Star className="text-yellow-400 w-12 h-12 md:w-16 md:h-16 mb-6 md:mb-8 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]" />
+               <h3 className="text-xl md:text-2xl font-black uppercase tracking-widest mb-4 md:mb-6">The Aspirant's Creed</h3>
+               <div className="space-y-4 md:space-y-6 text-xs md:text-sm font-medium italic text-slate-400 leading-relaxed">
                   <p>"I am a leader in the making. I do not fear the challenge; I welcome the trial."</p>
                   <p>"I shall be honest with my words, firm with my actions, and loyal to my team."</p>
                   <p>"Failure is but a lesson in persistence. My resolve is my shield, and my discipline is my weapon."</p>
                </div>
-               <div className="mt-12 w-full pt-10 border-t border-white/10 space-y-4">
+               <div className="mt-8 md:mt-12 w-full pt-6 md:pt-10 border-t border-white/10 space-y-4">
                   <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.4em]">Officer Like Qualities (OLQ)</p>
                   <div className="flex flex-wrap justify-center gap-2">
                     {['Courage', 'Stamina', 'Integrity', 'Social Adaptability', 'Logic'].map((olq, i) => (
-                      <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[8px] font-black uppercase text-slate-400">{olq}</span>
+                      <span key={i} className="px-2 md:px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[8px] font-black uppercase text-slate-400">{olq}</span>
                     ))}
                   </div>
                </div>
             </div>
 
-            <div className="bg-blue-600 p-10 rounded-[3.5rem] text-white shadow-xl flex flex-col items-center text-center gap-6 group hover:scale-[1.02] transition-all">
-               <div className="w-20 h-20 bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center border border-white/30 shadow-2xl">
-                 <Shield className="w-10 h-10 text-white" />
+            <div className="bg-blue-600 p-8 md:p-10 rounded-[2rem] md:rounded-[3.5rem] text-white shadow-xl flex flex-col items-center text-center gap-6 group hover:scale-[1.02] transition-all">
+               <div className="w-16 h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center border border-white/30 shadow-2xl">
+                 <Shield className="w-8 h-8 md:w-10 md:h-10 text-white" />
                </div>
                <div>
-                 <h4 className="text-xl font-black uppercase tracking-widest mb-2">SSB Navigator</h4>
+                 <h4 className="text-lg md:text-xl font-black uppercase tracking-widest mb-2">SSB Navigator</h4>
                  <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
                    Comprehensive 5-Day Stage Guide Active
                  </p>

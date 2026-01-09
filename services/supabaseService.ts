@@ -153,7 +153,7 @@ export async function syncUserProfile(user: any) {
  * Saves or Updates User Data (PIQ)
  */
 export async function saveUserData(userId: string, data: Partial<PIQData>) {
-  if (isSupabaseActive && supabase) {
+  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
     try {
       const { error } = await supabase
         .from('aspirants')
@@ -167,12 +167,10 @@ export async function saveUserData(userId: string, data: Partial<PIQData>) {
       return true;
     } catch (error: any) {
       console.error("Error saving PIQ to Supabase:", error);
-      // Fallback to local storage if cloud fails (Network Resilience)
       saveToLocal(userId, data);
       return false;
     }
   } else {
-    // If Supabase is strictly down/unconfigured, save locally
     saveToLocal(userId, data);
     return true;
   }
@@ -182,7 +180,7 @@ export async function saveUserData(userId: string, data: Partial<PIQData>) {
  * Saves a completed Test Result (including Images/Audio in resultData)
  */
 export async function saveTestAttempt(userId: string, testType: string, resultData: any) {
-  if (isSupabaseActive && supabase) {
+  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
     try {
       const { error } = await supabase
         .from('test_history')
@@ -206,7 +204,7 @@ export async function saveTestAttempt(userId: string, testType: string, resultDa
 }
 
 export async function getUserData(userId: string): Promise<PIQData | null> {
-  if (isSupabaseActive && supabase) {
+  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
     try {
       const { data, error } = await supabase
         .from('aspirants')
@@ -220,12 +218,11 @@ export async function getUserData(userId: string): Promise<PIQData | null> {
       console.error("Error loading from cloud:", error);
     }
   }
-  // Try local fallback if cloud fails
   return loadFromLocal(userId);
 }
 
 export async function getUserHistory(userId: string) {
-  if (isSupabaseActive && supabase) {
+  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
     try {
       const { data, error } = await supabase
         .from('test_history')

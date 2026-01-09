@@ -61,22 +61,22 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen military-gradient flex flex-col items-center justify-center p-6 font-sans">
+    <div className="min-h-screen military-gradient flex flex-col items-center justify-center p-4 md:p-6 font-sans">
       <div className="mb-8 text-center space-y-4 animate-in fade-in slide-in-from-top-8 duration-700">
-        <div className="w-20 h-20 bg-white/10 rounded-3xl flex items-center justify-center mx-auto border border-white/20 shadow-[0_0_50px_rgba(255,255,255,0.1)]">
-          <ShieldCheck className="w-10 h-10 text-yellow-400" />
+        <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-3xl flex items-center justify-center mx-auto border border-white/20 shadow-[0_0_50px_rgba(255,255,255,0.1)]">
+          <ShieldCheck className="w-8 h-8 md:w-10 md:h-10 text-yellow-400" />
         </div>
         <div>
-          <h1 className="text-3xl font-black text-white uppercase tracking-tighter">SSBprep.online</h1>
-          <p className="text-blue-300 text-[10px] font-black uppercase tracking-[0.4em]">Virtual Selection Platform</p>
+          <h1 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tighter">SSBprep.online</h1>
+          <p className="text-blue-300 text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em]">Virtual Selection Platform</p>
         </div>
       </div>
 
-      <div className="w-full max-w-md bg-white rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative overflow-hidden animate-in zoom-in duration-500">
-        <Shield className="absolute -top-10 -right-10 w-64 h-64 text-slate-50 rotate-12 pointer-events-none" />
+      <div className="w-full max-w-md bg-white rounded-[2rem] md:rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative overflow-hidden animate-in zoom-in duration-500">
+        <Shield className="absolute -top-10 -right-10 w-40 h-40 md:w-64 md:h-64 text-slate-50 rotate-12 pointer-events-none" />
 
         <div className="relative z-10">
-          <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight mb-2">
+          <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight mb-2">
             {isSignUp ? 'Candidate Registration' : 'Restricted Access'}
           </h2>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-8">
@@ -97,7 +97,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                </button>
             </div>
           ) : (
-            <form onSubmit={handleAuth} className="space-y-6">
+            <form onSubmit={handleAuth} className="space-y-4 md:space-y-6">
               {isSignUp && (
                 <div className="space-y-2 animate-in slide-in-from-top-4 duration-300">
                   <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-2">Full Name</label>
