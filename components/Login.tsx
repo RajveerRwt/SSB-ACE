@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { ShieldCheck, Mail, Lock, ArrowRight, Loader2, Shield, AlertCircle, PlayCircle, User, UserPlus, LogIn } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, Loader2, Shield, AlertCircle, User, UserPlus, LogIn } from 'lucide-react';
 import { signInWithEmail, signUpWithEmail } from '../services/supabaseService';
 
 interface LoginProps {
@@ -59,11 +58,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       setError(err.message || "Authentication failed. Please check credentials.");
       setIsLoading(false);
     }
-  };
-
-  const handleDemoLogin = () => {
-    // Just trigger login with a demo ID
-    onLogin("demo-user-123");
   };
 
   return (
@@ -180,15 +174,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             >
               {isSignUp ? 'Already have a service number? Login' : 'New Candidate? Register here'}
             </button>
-          </div>
-          
-          <div className="mt-6 text-center">
-             <button 
-               onClick={handleDemoLogin}
-               className="text-[10px] font-black uppercase tracking-widest text-blue-400/60 hover:text-blue-500 transition-colors flex items-center justify-center gap-2 mx-auto"
-             >
-               <PlayCircle size={12} /> Bypass / Launch Demo Mode
-             </button>
           </div>
         </div>
       </div>

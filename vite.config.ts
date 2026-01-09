@@ -1,22 +1,30 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from 'tailwindcss';
+import autoprefixer from 'autoprefixer';
 
 export default defineConfig(({ mode }) => {
-  // Load env file based on `mode` in the current working directory.
-  // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
+  // Fix: Property 'cwd' does not exist on type 'Process' in some TS environments
   const env = loadEnv(mode, (process as any).cwd(), '');
   
-  // MERGE process.env (System/Vercel vars) with env (File vars)
-  // This ensures API_KEY defined in Vercel Settings is picked up.
-  const combinedEnv = { ...process.env, ...env };
-
   return {
     plugins: [react()],
-    define: {
-      // Vital: Maps process.env to the actual environment variables during build
-      'process.env.API_KEY': JSON.stringify(combinedEnv.API_KEY),
-      'process.env.REACT_APP_SUPABASE_URL': JSON.stringify(combinedEnv.REACT_APP_SUPABASE_URL),
-      'process.env.REACT_APP_SUPABASE_KEY': JSON.stringify(combinedEnv.REACT_APP_SUPABASE_KEY),
+    css: {
+      postcss: {
+        plugins: [
+          tailwindcss,
+          autoprefixer,
+        ],
+      },
     },
+    define: {
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || (process as any).env.API_KEY),
+      'process.env.REACT_APP_SUPABASE_URL': JSON.stringify(env.REACT_APP_SUPABASE_URL || (process as any).env.REACT_APP_SUPABASE_URL),
+      'process.env.REACT_APP_SUPABASE_KEY': JSON.stringify(env.REACT_APP_SUPABASE_KEY || (process as any).env.REACT_APP_SUPABASE_KEY),
+    },
+    server: {
+      port: 3000,
+      host: true
+    }
   };
 });

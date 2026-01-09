@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
 // Helper to get Gemini client with API key from environment
@@ -13,7 +12,8 @@ export const getGeminiClient = () => {
     console.log(`SSBzone: API Client Initialized. Key present: ${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`);
   }
 
-  return new GoogleGenAI({ apiKey: apiKey || '' });
+  // Fixed: Always use exactly new GoogleGenAI({ apiKey: process.env.API_KEY }) as per guidelines
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 /**

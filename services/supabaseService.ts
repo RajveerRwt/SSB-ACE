@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { PIQData } from '../types';
 
@@ -36,7 +35,7 @@ try {
       isSupabaseActive = true;
       console.log("SSBzone: Supabase Client Initialized.");
   } else {
-      console.warn("SSBzone: Supabase credentials missing. App will run in Demo Mode (Local Storage only).");
+      console.warn("SSBzone: Supabase credentials missing. Authentication will fail.");
   }
 } catch (error) {
   console.error("SSBzone: Supabase init failed", error);
@@ -79,8 +78,7 @@ export function subscribeToAuthChanges(callback: (user: any) => void) {
  */
 export async function signUpWithEmail(email: string, password: string, fullName: string) {
   if (!isSupabaseActive || !supabase) {
-      console.warn("Supabase not configured. Returning Mock User.");
-      return { data: { user: { id: 'demo-user-123', email, user_metadata: { full_name: fullName } } }, error: null };
+      return { data: null, error: { message: "Cloud services unavailable. Please check API configuration." } };
   }
   
   try {
@@ -105,11 +103,7 @@ export async function signUpWithEmail(email: string, password: string, fullName:
  */
 export async function signInWithEmail(email: string, password: string) {
   if (!isSupabaseActive || !supabase) {
-      // Demo Fallback
-      if (email.includes('demo') || password === 'demo') {
-         return { data: { user: { id: 'demo-user-123', email, user_metadata: { full_name: 'Demo Candidate' } } }, error: null };
-      }
-      return { data: null, error: { message: "Supabase not configured. Use demo credentials." } };
+      return { data: null, error: { message: "Cloud services unavailable. Please check API configuration." } };
   }
 
   try {
