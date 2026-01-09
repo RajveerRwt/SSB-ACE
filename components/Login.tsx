@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { ShieldCheck, Mail, Lock, Loader2, Shield, AlertCircle, User, UserPlus, LogIn } from 'lucide-react';
 import { signInWithEmail, signUpWithEmail } from '../services/supabaseService';
 
 interface LoginProps {
-  onLogin: (identifier: string) => void;
+  onLogin: (identifier: string, email?: string) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
@@ -40,7 +41,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           // If email confirmation is enabled in Supabase, user might not be able to login immediately
           // Check if session exists, otherwise ask to check email
           if (data.session) {
-            onLogin(data.user.id);
+            onLogin(data.user.id, data.user.email);
           } else {
             setSuccessMsg("Registration successful! Please check your email to confirm your account.");
             setIsLoading(false);
@@ -50,7 +51,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         const { data, error } = await signInWithEmail(email, password);
         if (error) throw error;
         if (data.user) {
-          onLogin(data.user.id);
+          onLogin(data.user.id, data.user.email);
         }
       }
     } catch (err: any) {

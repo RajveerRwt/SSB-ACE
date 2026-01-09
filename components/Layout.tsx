@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { TestType } from '../types';
 import { 
@@ -15,7 +16,8 @@ import {
   LogIn,
   User,
   Menu,
-  X
+  X,
+  Lock
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -26,9 +28,10 @@ interface LayoutProps {
   onLogin?: () => void;
   user?: string;
   isLoggedIn: boolean;
+  isAdmin?: boolean;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLogout, onLogin, user, isLoggedIn }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLogout, onLogin, user, isLoggedIn, isAdmin }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -115,6 +118,25 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                 <span className="font-medium text-sm truncate">{item.label}</span>
               </button>
             ))}
+            
+            {/* Admin Link - Only Visible to Admins */}
+            {isAdmin && (
+              <>
+                <div className="my-2 border-t border-white/10 mx-6" />
+                <button
+                    onClick={() => handleNavClick(TestType.ADMIN)}
+                    className={`w-full flex items-center gap-3 px-6 py-3 transition-colors text-left ${
+                      activeTest === TestType.ADMIN
+                        ? 'bg-white/10 text-red-400 border-r-4 border-red-500' 
+                        : 'text-slate-400 hover:bg-white/5 hover:text-red-400'
+                    }`}
+                  >
+                    <Lock className="w-4 h-4 shrink-0" />
+                    <span className="font-medium text-xs truncate uppercase tracking-widest">Admin Panel</span>
+                </button>
+              </>
+            )}
+
           </nav>
           
           {/* User & Logout Section */}
@@ -123,6 +145,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                <div className="mb-4 px-2">
                  <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Logged in as</p>
                  <p className="text-xs font-bold text-slate-300 truncate">{user}</p>
+                 {isAdmin && <span className="text-[8px] bg-red-600 px-1.5 py-0.5 rounded text-white font-black uppercase tracking-widest mt-1 inline-block">Admin</span>}
                </div>
              ) : (
                <div className="mb-4 px-2">
@@ -165,21 +188,21 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                <Menu size={24} />
             </button>
             <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest truncate max-w-[150px] md:max-w-none">
-              {navItems.find(i => i.id === activeTest)?.label}
+              {navItems.find(i => i.id === activeTest)?.label || (activeTest === TestType.ADMIN ? 'Admin Command' : '')}
             </h2>
           </div>
 
           <div className="flex items-center gap-3 md:gap-6">
             <div className="flex flex-col items-end hidden md:flex">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
-                {isLoggedIn ? 'Deployment Ready' : 'Guest Access'}
+                {isLoggedIn ? (isAdmin ? 'Admin Access' : 'Deployment Ready') : 'Guest Access'}
               </span>
               <span className={`text-[10px] font-bold uppercase flex items-center gap-1.5 ${isLoggedIn ? 'text-green-600' : 'text-slate-500'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${isLoggedIn ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`} />
                 {isLoggedIn ? 'Active' : 'Preview'}
               </span>
             </div>
-            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl border flex items-center justify-center text-white font-black text-xs ${isLoggedIn ? 'bg-slate-900 border-slate-700' : 'bg-slate-200 border-slate-300 text-slate-400'}`}>
+            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl border flex items-center justify-center text-white font-black text-xs ${isLoggedIn ? (isAdmin ? 'bg-red-600 border-red-500' : 'bg-slate-900 border-slate-700') : 'bg-slate-200 border-slate-300 text-slate-400'}`}>
               {isLoggedIn ? (user ? user.substring(0,2).toUpperCase() : 'JD') : <User size={16}/>}
             </div>
           </div>

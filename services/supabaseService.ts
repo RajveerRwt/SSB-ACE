@@ -1,29 +1,30 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { PIQData } from '../types';
 
 /* 
 ================================================================================
 STEP 1: DATABASE SETUP
-Run the SQL script provided in the instructions to create 'aspirants' and 
-'test_history' tables in your Supabase SQL Editor.
+Run the SQL script provided in the instructions to create 'aspirants', 'test_history',
+and 'ppdt_scenarios' tables in your Supabase SQL Editor.
 
 STEP 2: API KEYS
 Go to Project Settings > API in Supabase.
 Copy the "Project URL" and the "anon public" key.
 Paste them below.
-
-STEP 3: AUTH PROVIDERS
-Go to Authentication > Providers.
-Ensure "Email" is enabled.
-
-STEP 4: SITE URL (For Hosting)
-Go to Authentication > URL Configuration.
-Set "Site URL" to your hosted domain (e.g., https://yourapp.vercel.app).
 ================================================================================
 */
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://nidbiyrliunqhakkqdvn.supabase.co';
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pZGJpeXJsaXVucWhha2txZHZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczNjczMTUsImV4cCI6MjA4Mjk0MzMxNX0.FfSHE1ZAokWxbfG6qyCXdnOJpReW5PMyZg4wrN7sjXY';
+
+// *** SECURITY CONFIGURATION ***
+// Replace this with your actual admin email address
+export const ADMIN_EMAILS = ['rajveerrawat947@gmail.com'];
+
+export const isUserAdmin = (email?: string | null) => {
+  return email && ADMIN_EMAILS.includes(email);
+};
 
 let supabase: any = null;
 let isSupabaseActive = false;
@@ -245,6 +246,82 @@ export async function getUserHistory(userId: string) {
     }
   }
   return [];
+}
+
+/* 
+  ===========================================
+  ADMIN & PPDT IMAGE MANAGEMENT
+  ===========================================
+*/
+
+export async function uploadPPDTScenario(file: File, description: string) {
+  if (!isSupabaseActive || !supabase) throw new Error("Supabase inactive");
+
+  // 1. Upload Image to Storage Bucket 'ppdt-images'
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Math.random()}.${fileExt}`;
+  const filePath = `${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('ppdt-images')
+    .upload(filePath, file);
+
+  if (uploadError) throw uploadError;
+
+  // 2. Get Public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('ppdt-images')
+    .getPublicUrl(filePath);
+
+  // 3. Insert Record into Database
+  const { data, error: dbError } = await supabase
+    .from('ppdt_scenarios')
+    .insert([
+      { 
+        image_url: publicUrl, 
+        description: description 
+      }
+    ])
+    .select();
+
+  if (dbError) throw dbError;
+  return data;
+}
+
+export async function getPPDTScenarios() {
+  if (!isSupabaseActive || !supabase) return [];
+  
+  const { data, error } = await supabase
+    .from('ppdt_scenarios')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error("Error fetching PPDT scenarios:", error);
+    return [];
+  }
+  return data;
+}
+
+export async function deletePPDTScenario(id: string, imageUrl: string) {
+  if (!isSupabaseActive || !supabase) return;
+
+  // 1. Delete from DB
+  const { error: dbError } = await supabase
+    .from('ppdt_scenarios')
+    .delete()
+    .eq('id', id);
+
+  if (dbError) throw dbError;
+
+  // 2. Extract path from URL and Delete from Storage
+  // URL format: .../ppdt-images/filename.jpg
+  const path = imageUrl.split('/').pop();
+  if (path) {
+    await supabase.storage
+      .from('ppdt-images')
+      .remove([path]);
+  }
 }
 
 // --- Local Storage Fallback ---

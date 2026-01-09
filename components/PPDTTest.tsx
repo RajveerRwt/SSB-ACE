@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit } from 'lucide-react';
+import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
+import { getPPDTScenarios } from '../services/supabaseService';
 
 enum PPDTStep {
   IDLE,
@@ -32,9 +33,11 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
   const [showBuzzer, setShowBuzzer] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
   const [uploadedImageBase64, setUploadedImageBase64] = useState<string | null>(null);
+  const [customStimulus, setCustomStimulus] = useState<string | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const stimulusInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -72,27 +75,57 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
     }
   };
 
+  const handleStimulusUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCustomStimulus(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const startTest = async () => {
     initAudio();
-    setStep(PPDTStep.LOADING_IMAGE);
-    try {
-      const scenarios = [
-        "A group of people discussing something near a damaged vehicle on a road.",
-        "A person helping another climb a steep ledge in a village.",
-        "People standing near a building with smoke coming out of windows.",
-        "A person in military uniform talking to a group of villagers.",
-        "A scene with several people gathered around a well in a rural area."
-      ];
-      const selectedScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
-      setImageDescription(selectedScenario);
-      
-      const aiImage = await generatePPDTStimulus(selectedScenario);
-      setCurrentImageUrl(aiImage);
-      setStep(PPDTStep.IMAGE);
-      setTimeLeft(30); 
-    } catch (e) {
-      console.error("Image generation failed", e);
-      setStep(PPDTStep.IDLE);
+    
+    if (customStimulus) {
+        setCurrentImageUrl(customStimulus);
+        setImageDescription("Manual User Upload");
+        setStep(PPDTStep.IMAGE);
+        setTimeLeft(30);
+    } else {
+        setStep(PPDTStep.LOADING_IMAGE);
+        try {
+          // New Logic: Fetch from Supabase DB first
+          const dbImages = await getPPDTScenarios();
+          
+          if (dbImages && dbImages.length > 0) {
+            // Pick a random image from the database
+            const randomImage = dbImages[Math.floor(Math.random() * dbImages.length)];
+            setCurrentImageUrl(randomImage.image_url);
+            setImageDescription(randomImage.description || "Database Scenario");
+          } else {
+            // Fallback to AI generation if DB is empty
+            const scenarios = [
+              "A group of people discussing something near a damaged vehicle on a road.",
+              "A person helping another climb a steep ledge in a village.",
+              "People standing near a building with smoke coming out of windows.",
+              "A person in military uniform talking to a group of villagers.",
+              "A scene with several people gathered around a well in a rural area."
+            ];
+            const selectedScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+            setImageDescription(selectedScenario);
+            const aiImage = await generatePPDTStimulus(selectedScenario);
+            setCurrentImageUrl(aiImage);
+          }
+
+          setStep(PPDTStep.IMAGE);
+          setTimeLeft(30); 
+        } catch (e) {
+          console.error("Image generation failed", e);
+          setStep(PPDTStep.IDLE);
+        }
     }
   };
 
@@ -205,26 +238,32 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
     switch (step) {
       case PPDTStep.IDLE:
         return (
-          <div className="max-w-3xl mx-auto text-center py-8 md:py-12 space-y-6 md:space-y-8">
-            <div className="w-20 h-20 md:w-24 md:h-24 bg-slate-900 text-yellow-400 rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center mx-auto mb-4 shadow-2xl rotate-6 border-4 border-slate-800">
-              <ShieldCheck className="w-10 h-10 md:w-12 md:h-12" />
+          <div className="max-w-3xl mx-auto text-center py-24 md:py-32 space-y-8 md:space-y-12 animate-in fade-in zoom-in duration-500">
+            <div className="w-24 h-24 md:w-32 md:h-32 bg-slate-900 text-yellow-400 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-2xl rotate-3 border-8 border-slate-50 ring-4 ring-slate-100">
+              <ShieldCheck className="w-12 h-12 md:w-16 md:h-16" />
             </div>
-            <h3 className="text-2xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter">PPDT Practice Session</h3>
-            <div className="bg-slate-50 p-6 md:p-8 rounded-[2rem] text-left border border-slate-200">
-               <h4 className="font-black text-xs uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-2 underline underline-offset-4">Board Instructions:</h4>
-               <ul className="space-y-3 md:space-y-4 text-xs md:text-sm text-slate-600 font-medium">
-                 <li className="flex gap-2"><span className="text-blue-600 font-black">01.</span> A hazy AI picture will be shown for 30 seconds.</li>
-                 <li className="flex gap-2 font-bold text-slate-900 underline decoration-yellow-400 decoration-2 underline-offset-4"><span className="text-blue-600 font-black">02.</span> Write the story on your paper. Don't forget the character box.</li>
-                 <li className="flex gap-2"><span className="text-blue-600 font-black">03.</span> After 4 minutes, upload the image of your paper for AI evaluation.</li>
-                 <li className="flex gap-2"><span className="text-blue-600 font-black">04.</span> Individual narration starts after upload.</li>
-               </ul>
+            
+            <div className="space-y-4">
+               <h3 className="text-4xl md:text-6xl font-black text-slate-900 uppercase tracking-tighter">PPDT Simulation</h3>
+               <p className="text-slate-500 text-lg md:text-2xl font-medium italic max-w-lg mx-auto leading-relaxed">
+                 "Your perception defines your reality. Observe, Analyze, and Lead."
+               </p>
             </div>
-            <button 
-              onClick={startTest}
-              className="px-12 md:px-16 py-4 md:py-5 bg-slate-900 text-white rounded-full font-black hover:bg-black transition-all shadow-2xl uppercase tracking-widest text-xs md:text-sm active:scale-95"
-            >
-              Initialize Board Simulation
-            </button>
+
+            <div className="pt-8">
+              <button 
+                onClick={startTest}
+                className="group relative px-16 md:px-24 py-6 md:py-8 bg-slate-900 text-white rounded-full font-black uppercase tracking-[0.2em] text-sm md:text-base overflow-hidden shadow-2xl hover:shadow-[0_20px_60px_rgba(15,23,42,0.4)] transition-all hover:-translate-y-1 active:translate-y-0"
+              >
+                <div className="absolute inset-0 bg-white/10 group-hover:translate-x-full transition-transform duration-500 ease-out skew-x-12" />
+                <span className="relative flex items-center gap-4">
+                  Start Now <Target className="w-5 h-5" />
+                </span>
+              </button>
+              <p className="mt-6 text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-[0.3em]">
+                Automated Database Retrieval
+              </p>
+            </div>
           </div>
         );
 
@@ -236,8 +275,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
                 <ImageIcon className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-slate-400" />
              </div>
              <div className="text-center">
-               <p className="text-slate-900 font-black uppercase tracking-[0.4em] text-sm mb-2">Generating Hazy Stimulus</p>
-               <p className="text-slate-400 text-xs font-bold italic">Simulating official SSB hazy perception test scenario...</p>
+               <p className="text-slate-900 font-black uppercase tracking-[0.4em] text-sm mb-2">Retrieving Stimulus</p>
+               <p className="text-slate-400 text-xs font-bold italic">Loading standard board image...</p>
              </div>
           </div>
         );
@@ -451,7 +490,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
             </div>
 
             <button 
-              onClick={() => { setStep(PPDTStep.IDLE); setStory(''); setFeedback(null); setNarrationText(''); setUploadedImageBase64(null); }}
+              onClick={() => { setStep(PPDTStep.IDLE); setStory(''); setFeedback(null); setNarrationText(''); setUploadedImageBase64(null); setCustomStimulus(null); }}
               className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
             >
               Report for Next Simulation

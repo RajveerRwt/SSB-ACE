@@ -10,7 +10,8 @@ export enum TestType {
   INTERVIEW = 'INTERVIEW',
   CONTACT = 'CONTACT',
   STAGES = 'STAGES',
-  AI_BOT = 'AI_BOT'
+  AI_BOT = 'AI_BOT',
+  ADMIN = 'ADMIN'
 }
 
 export interface PIQData {

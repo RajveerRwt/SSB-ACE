@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Login from './components/Login';
@@ -8,8 +9,9 @@ import PIQForm from './components/PIQForm';
 import ContactForm from './components/ContactForm';
 import SSBStages from './components/SSBStages';
 import SSBBot from './components/SSBBot';
+import AdminPanel from './components/AdminPanel';
 import { TestType, PIQData } from './types';
-import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges } from './services/supabaseService';
+import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin } from './services/supabaseService';
 import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History } from 'lucide-react';
 
 // Dashboard Component
@@ -253,6 +255,7 @@ const App: React.FC = () => {
   const [activeTest, setActiveTest] = useState<TestType>(TestType.DASHBOARD);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<string>('');
+  const [userEmail, setUserEmail] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [piqData, setPiqData] = useState<PIQData | undefined>(undefined);
 
@@ -272,6 +275,7 @@ const App: React.FC = () => {
         setIsLoading(true);
         const identifier = sbUser.id;
         setUser(identifier);
+        setUserEmail(sbUser.email || ''); // Track Email
         setIsLoggedIn(true);
         localStorage.setItem('ssb_user', identifier);
         
@@ -285,6 +289,7 @@ const App: React.FC = () => {
         
         setIsLoggedIn(false);
         setUser('');
+        setUserEmail('');
         setPiqData(undefined);
         localStorage.removeItem('ssb_user');
       }
@@ -293,9 +298,10 @@ const App: React.FC = () => {
     return () => { unsubscribe(); };
   }, []);
 
-  const handleLogin = async (identifier: string) => {
+  const handleLogin = async (identifier: string, email?: string) => {
     setIsLoading(true);
     setUser(identifier);
+    if(email) setUserEmail(email);
     setIsLoggedIn(true);
     localStorage.setItem('ssb_user', identifier);
     
@@ -310,11 +316,12 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setIsLoggedIn(false);
     setUser('');
+    setUserEmail('');
     setPiqData(undefined);
     localStorage.removeItem('ssb_user');
     setActiveTest(TestType.DASHBOARD);
     // Also sign out of Supabase
-    subscribeToAuthChanges(() => {})(); // no-op to just access the module if needed, but we call logoutUser() in Layout usually
+    subscribeToAuthChanges(() => {})(); 
   };
 
   const handlePiqSave = async (data: PIQData) => {
@@ -336,6 +343,12 @@ const App: React.FC = () => {
   const handleNavigation = (test: TestType) => {
     const publicTests = [TestType.DASHBOARD, TestType.STAGES, TestType.CONTACT, TestType.LOGIN];
     
+    // Check for Admin Access Attempt
+    if (test === TestType.ADMIN && !isUserAdmin(userEmail)) {
+        alert("Restricted Area: Command Authorization Required.");
+        return;
+    }
+
     if (!isLoggedIn && !publicTests.includes(test)) {
         setActiveTest(TestType.LOGIN);
     } else {
@@ -367,6 +380,9 @@ const App: React.FC = () => {
         return <ContactForm key="contact-form" piqData={piqData} />;
       case TestType.STAGES:
         return <SSBStages key="ssb-stages" />;
+      case TestType.ADMIN:
+        // Double Check render protection
+        return isUserAdmin(userEmail) ? <AdminPanel key="admin-panel" /> : <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} />;
       default:
         return <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} />;
     }
@@ -390,6 +406,7 @@ const App: React.FC = () => {
                 onLogin={() => setActiveTest(TestType.LOGIN)}
                 user={user}
                 isLoggedIn={isLoggedIn}
+                isAdmin={isUserAdmin(userEmail)}
             >
                 {isLoading && (
                   <div className="fixed top-4 right-4 z-50 bg-white/10 backdrop-blur-md border border-white/20 p-2 rounded-xl text-white flex items-center gap-2 text-xs font-bold uppercase tracking-widest shadow-xl">
