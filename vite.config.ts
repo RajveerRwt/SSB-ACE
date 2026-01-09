@@ -1,8 +1,5 @@
-
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
-import tailwindcss from 'tailwindcss';
-import autoprefixer from 'autoprefixer';
 
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
@@ -11,16 +8,7 @@ export default defineConfig(({ mode }) => {
   
   return {
     plugins: [react()],
-    css: {
-      postcss: {
-        plugins: [
-          tailwindcss,
-          autoprefixer,
-        ],
-      },
-    },
-    // This 'define' block allows you to use process.env.API_KEY in your code
-    // even though Vite usually uses import.meta.env
+    // Removed duplicate css/postcss config to allow postcss.config.js to handle Tailwind correctly
     define: {
       'process.env.API_KEY': JSON.stringify(env.API_KEY),
       'process.env.REACT_APP_SUPABASE_URL': JSON.stringify(env.REACT_APP_SUPABASE_URL),
