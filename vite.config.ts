@@ -1,10 +1,12 @@
+
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
 
 export default defineConfig(({ mode }) => {
-  // Fix: Property 'cwd' does not exist on type 'Process' in some TS environments
+  // Load env file based on `mode` in the current working directory.
+  // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
   const env = loadEnv(mode, (process as any).cwd(), '');
   
   return {
@@ -17,14 +19,20 @@ export default defineConfig(({ mode }) => {
         ],
       },
     },
+    // This 'define' block allows you to use process.env.API_KEY in your code
+    // even though Vite usually uses import.meta.env
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || (process as any).env.API_KEY),
-      'process.env.REACT_APP_SUPABASE_URL': JSON.stringify(env.REACT_APP_SUPABASE_URL || (process as any).env.REACT_APP_SUPABASE_URL),
-      'process.env.REACT_APP_SUPABASE_KEY': JSON.stringify(env.REACT_APP_SUPABASE_KEY || (process as any).env.REACT_APP_SUPABASE_KEY),
+      'process.env.API_KEY': JSON.stringify(env.API_KEY),
+      'process.env.REACT_APP_SUPABASE_URL': JSON.stringify(env.REACT_APP_SUPABASE_URL),
+      'process.env.REACT_APP_SUPABASE_KEY': JSON.stringify(env.REACT_APP_SUPABASE_KEY),
     },
     server: {
       port: 3000,
       host: true
+    },
+    build: {
+      outDir: 'dist',
+      sourcemap: false
     }
   };
 });
