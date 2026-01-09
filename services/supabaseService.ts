@@ -22,8 +22,9 @@ const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_KEY || 'eyJhbGciOiJIUzI
 // Replace this with your actual admin email address
 export const ADMIN_EMAILS = ['rajveerrawat947@gmail.com'];
 
-export const isUserAdmin = (email?: string | null) => {
-  return email && ADMIN_EMAILS.includes(email);
+export const isUserAdmin = (email?: string | null): boolean => {
+  if (!email) return false;
+  return ADMIN_EMAILS.includes(email);
 };
 
 let supabase: any = null;
