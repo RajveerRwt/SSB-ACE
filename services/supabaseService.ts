@@ -33,12 +33,12 @@ try {
   if (SUPABASE_URL && SUPABASE_URL.startsWith('https://')) {
       supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       isSupabaseActive = true;
-      console.log("SSBzone: Supabase Client Initialized.");
+      console.log("SSBprep.online: Supabase Client Initialized.");
   } else {
-      console.warn("SSBzone: Supabase credentials missing. Authentication will fail.");
+      console.warn("SSBprep.online: Supabase credentials missing. Authentication will fail.");
   }
 } catch (error) {
-  console.error("SSBzone: Supabase init failed", error);
+  console.error("SSBprep.online: Supabase init failed", error);
 }
 
 /**
@@ -153,7 +153,7 @@ export async function syncUserProfile(user: any) {
  * Saves or Updates User Data (PIQ)
  */
 export async function saveUserData(userId: string, data: Partial<PIQData>) {
-  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
+  if (isSupabaseActive && supabase) {
     try {
       const { error } = await supabase
         .from('aspirants')
@@ -167,10 +167,12 @@ export async function saveUserData(userId: string, data: Partial<PIQData>) {
       return true;
     } catch (error: any) {
       console.error("Error saving PIQ to Supabase:", error);
+      // Fallback to local storage if cloud fails (Network Resilience)
       saveToLocal(userId, data);
       return false;
     }
   } else {
+    // If Supabase is strictly down/unconfigured, save locally
     saveToLocal(userId, data);
     return true;
   }
@@ -180,7 +182,7 @@ export async function saveUserData(userId: string, data: Partial<PIQData>) {
  * Saves a completed Test Result (including Images/Audio in resultData)
  */
 export async function saveTestAttempt(userId: string, testType: string, resultData: any) {
-  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
+  if (isSupabaseActive && supabase) {
     try {
       const { error } = await supabase
         .from('test_history')
@@ -193,7 +195,7 @@ export async function saveTestAttempt(userId: string, testType: string, resultDa
         });
 
       if (error) throw error;
-      console.log(`SSBzone: Saved ${testType} result to cloud.`);
+      console.log(`SSBprep.online: Saved ${testType} result to cloud.`);
       return true;
     } catch (error: any) {
       console.error("Error saving test result:", error);
@@ -204,7 +206,7 @@ export async function saveTestAttempt(userId: string, testType: string, resultDa
 }
 
 export async function getUserData(userId: string): Promise<PIQData | null> {
-  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
+  if (isSupabaseActive && supabase) {
     try {
       const { data, error } = await supabase
         .from('aspirants')
@@ -218,11 +220,12 @@ export async function getUserData(userId: string): Promise<PIQData | null> {
       console.error("Error loading from cloud:", error);
     }
   }
+  // Try local fallback if cloud fails
   return loadFromLocal(userId);
 }
 
 export async function getUserHistory(userId: string) {
-  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
+  if (isSupabaseActive && supabase) {
     try {
       const { data, error } = await supabase
         .from('test_history')

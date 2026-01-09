@@ -6,10 +6,10 @@ export const getGeminiClient = () => {
   
   // Debug Log for Cloud Troubleshooting
   if (!apiKey) {
-    console.error("SSBzone Critical: API_KEY is MISSING in environment. App is running in offline fallback mode.");
+    console.error("SSBprep.online Critical: API_KEY is MISSING in environment. App is running in offline fallback mode.");
   } else {
     // Log masked key to confirm injection worked (e.g. "AIza...5fA")
-    console.log(`SSBzone: API Client Initialized. Key present: ${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`);
+    console.log(`SSBprep.online: API Client Initialized. Key present: ${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`);
   }
 
   // Fixed: Always use exactly new GoogleGenAI({ apiKey: process.env.API_KEY }) as per guidelines

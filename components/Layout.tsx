@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { TestType } from '../types';
 import { 
@@ -47,7 +46,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
       <aside className="w-64 military-gradient text-white flex flex-col shadow-xl shrink-0">
         <div className="p-6 flex items-center gap-3 border-b border-white/10">
           <ShieldCheck className="w-8 h-8 text-yellow-400" />
-          <h1 className="text-xl font-bold tracking-tight">SSBzone</h1>
+          <h1 className="text-xl font-bold tracking-tight">SSBprep.online</h1>
         </div>
         <nav className="flex-1 overflow-y-auto py-4">
           {navItems.map((item) => (
@@ -98,7 +97,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
         </div>
 
         <div className="p-4 text-[10px] text-slate-500 uppercase tracking-widest text-center">
-          <p>© 2024 SSBzone Platform</p>
+          <p>© 2024 SSBprep.online Platform</p>
           <p className="mt-1">Guided by Gemini AI</p>
         </div>
       </aside>

@@ -67,7 +67,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <ShieldCheck className="w-10 h-10 text-yellow-400" />
         </div>
         <div>
-          <h1 className="text-3xl font-black text-white uppercase tracking-tighter">SSBzone</h1>
+          <h1 className="text-3xl font-black text-white uppercase tracking-tighter">SSBprep.online</h1>
           <p className="text-blue-300 text-[10px] font-black uppercase tracking-[0.4em]">Virtual Selection Platform</p>
         </div>
       </div>

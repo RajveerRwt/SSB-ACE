@@ -1,5 +1,5 @@
 {
-  "name": "SSBzone: Virtual Defense Aspirant Platform",
+  "name": "SSBprep.online: Virtual Defense Aspirant Platform",
   "description": "A comprehensive preparation platform for SSB aspirants featuring OIR, PPDT, Psychology tests (TAT, WAT, SRT), and a real-time AI Virtual Interviewer with visual body language analysis.",
   "requestFramePermissions": [
     "camera",
