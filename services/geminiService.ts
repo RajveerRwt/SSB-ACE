@@ -167,24 +167,18 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
   const scenarios = scenarioType === 'PPDT' ? ppdtScenarios : tatScenarios;
   const finalScenario = description || scenarios[Math.floor(Math.random() * scenarios.length)];
   
-  // OPTIMIZED PROMPT: Avoids "Psychological Test" trigger to prevent Safety Filter blocks.
-  const prompt = `Generate a vintage charcoal sketch.
-  Scene Description: ${finalScenario}.
-  
-  VISUAL STYLE:
-  - Medium: Charcoal or Pencil sketch on textured paper.
-  - Style: Rough, hasty, vintage illustration (1950s style).
-  - Atmosphere: Hazy, slightly out of focus, ambiguous.
-  - Content: Must include at least one human character.
-  - Color: Black and White (Grayscale).
-  `;
+  // OPTIMIZED PROMPT: Simpler prompt to ensure generation succeeds.
+  const prompt = `Charcoal sketch of: ${finalScenario}. 
+  Style: Rough, vintage, black and white sketch on paper. 
+  Details: Ambiguous, hazy, high contrast, no colors.`;
 
   try {
+    // Upgraded to Pro model for better adherence to "sketch" style
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: 'gemini-3-pro-image-preview',
       contents: { parts: [{ text: prompt }] },
       config: { 
-        imageConfig: { aspectRatio: "4:3" }
+        imageConfig: { aspectRatio: "4:3", imageSize: "1K" }
       }
     });
 
@@ -202,22 +196,25 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
   } catch (error) {
     console.error("Image Gen Error (using fallback):", error);
     
-    // ENHANCED BACKUP STRATEGY (V4):
-    // Use high-quality Unsplash source URLs that simulate scenes.
-    // Removed specific 'blur' params from URL to ensure better compatibility, handled via CSS.
+    // ENHANCED BACKUP STRATEGY (V5 - Vercel Fix):
+    // Use high-quality Unsplash source URLs but force them to be BLACK & WHITE and BLURRED.
+    // This prevents "real photographs" from ruining the immersion if the API fails.
     
+    // Params: &sat=-100 (Grayscale), &blur=2 (Hazy), &contrast=10 (High Contrast)
+    const filters = "&sat=-100&blur=2&contrast=20";
+
     if (scenarioType === 'PPDT') {
         const backups = [
-          "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80", // Office/Group
-          "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=800&q=80", // Friends
-          "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=800&q=80"  // Meeting
+          `https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80${filters}`, // Office/Group
+          `https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=800&q=80${filters}`, // Friends
+          `https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=800&q=80${filters}`  // Meeting
         ];
         return backups[Math.floor(Math.random() * backups.length)];
     } else {
         const backups = [
-           "https://images.unsplash.com/photo-1504194569302-3c4ba34c1422?auto=format&fit=crop&w=800&q=80", // Silhouette
-           "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80", // Gym
-           "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=800&q=80"  // Portrait
+           `https://images.unsplash.com/photo-1504194569302-3c4ba34c1422?auto=format&fit=crop&w=800&q=80${filters}`, // Silhouette
+           `https://images.unsplash.com/photo-1485178575877-1a13bf489dfe?auto=format&fit=crop&w=800&q=80${filters}`, // Shadowy Figure
+           `https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=800&q=80${filters}`  // Person thinking
         ];
         return backups[Math.floor(Math.random() * backups.length)];
     }
