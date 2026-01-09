@@ -6,11 +6,14 @@
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
 
-body {
-  margin: 0;
-  display: flex;
-  min-width: 320px;
-  min-height: 100vh;
+@layer base {
+  body {
+    @apply font-sans bg-slate-50;
+    margin: 0;
+    display: flex;
+    min-width: 320px;
+    min-height: 100vh;
+  }
 }
 
 #root {
@@ -20,5 +23,15 @@ body {
 @layer utilities {
   .military-gradient {
     background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+      height: 4px;
+      width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+      @apply bg-transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+      @apply bg-slate-200 rounded-full;
   }
 }
