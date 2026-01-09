@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain } from 'lucide-react';
 import { generateTestContent, generateTATStimulus, evaluatePerformance } from '../services/geminiService';
@@ -77,7 +76,9 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
             const imgUrl = await generateTATStimulus(item.content);
             images[item.id] = imgUrl;
           } catch (err) {
-            images[item.id] = "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=800&auto=format&fit=crop&grayscale=true";
+            console.error("Failed to generate image for", item.id, err);
+            // Fallback to Unsplash is handled in service, but if that fails, use a generic one.
+            images[item.id] = "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=800&q=80&grayscale=true";
           }
           currentLoaded++;
           setLoadProgress((currentLoaded / totalToLoad) * 100);
@@ -289,19 +290,31 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
 
         {isTAT && phase === PsychologyPhase.VIEWING && (
           <div className="animate-in zoom-in duration-1000">
-             <div className="relative rounded-[2rem] md:rounded-[4rem] overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] border-[8px] md:border-[15px] border-white ring-1 ring-slate-200 bg-white min-h-[50vh] md:min-h-[65vh] flex items-center justify-center">
+             <div className="relative rounded-[2rem] md:rounded-[4rem] overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] border-[8px] md:border-[15px] border-white ring-1 ring-slate-200 bg-white min-h-[50vh] md:min-h-[65vh] flex items-center justify-center p-4">
                 {imageUrl === 'BLANK' ? (
                   <div className="text-center h-full w-full flex flex-col items-center justify-center bg-white p-20 md:p-40">
                      <div className="text-slate-100 font-black text-[4rem] md:text-[10rem] uppercase tracking-[0.5em] select-none opacity-20 transform -rotate-12">BLANK</div>
                      <p className="text-slate-400 font-black uppercase tracking-[0.4em] md:tracking-[0.6em] text-sm md:text-xl mt-4 md:mt-8">Prepare Final Imaginary Story</p>
                   </div>
                 ) : (
-                  // Applied CSS filters for sketch look on TAT images
-                  <img 
-                    src={imageUrl!} 
-                    className="mx-auto w-full max-h-[60vh] md:max-h-[75vh] object-contain grayscale contrast-[1.4] brightness-110 blur-[1px]" 
-                    alt="Psychological Stimulus" 
-                  />
+                  // Improved Image Handling: If image fails, text is shown as fallback
+                  <>
+                     <img 
+                       src={imageUrl!} 
+                       className="mx-auto w-full max-h-[60vh] md:max-h-[75vh] object-contain grayscale contrast-[1.4] brightness-110 blur-[1px]" 
+                       alt="Psychological Stimulus" 
+                       onError={(e) => {
+                         e.currentTarget.style.display = 'none';
+                         const parent = e.currentTarget.parentElement;
+                         if (parent) {
+                           const fallback = document.createElement('div');
+                           fallback.className = "text-center p-12";
+                           fallback.innerHTML = `<h3 class="text-2xl font-black uppercase text-slate-800 mb-4">Scene Description</h3><p class="text-xl italic text-slate-600">"${currentItem.content}"</p><p class="mt-8 text-xs font-bold text-red-400 uppercase tracking-widest">Image Load Failed</p>`;
+                           parent.appendChild(fallback);
+                         }
+                       }}
+                     />
+                  </>
                 )}
                 <div className="absolute top-4 left-4 md:top-10 md:left-10 bg-black/70 backdrop-blur-3xl px-6 md:px-10 py-2 md:py-4 rounded-full text-white font-black text-[8px] md:text-[10px] uppercase tracking-[0.3em] md:tracking-[0.4em] border border-white/20 shadow-2xl">OBSERVATION PHASE: 30S</div>
              </div>

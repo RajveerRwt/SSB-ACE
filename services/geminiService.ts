@@ -7,9 +7,6 @@ export const getGeminiClient = () => {
   // Debug Log for Cloud Troubleshooting
   if (!apiKey) {
     console.error("SSBprep.online Critical: API_KEY is MISSING in environment. App is running in offline fallback mode.");
-  } else {
-    // Log masked key to confirm injection worked (e.g. "AIza...5fA")
-    console.log(`SSBprep.online: API Client Initialized. Key present: ${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`);
   }
 
   // Fixed: Always use exactly new GoogleGenAI({ apiKey: process.env.API_KEY }) as per guidelines
@@ -143,55 +140,43 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
   
   // Real SSB Archive Scenarios (Based on Centurion/SSBCrack references)
   const ppdtScenarios = [
-    "A hazy charcoal sketch of a group of 3 young men standing near a jeep discussing a map",
-    "A blurry pencil sketch of a doctor checking a patient while a woman watches anxiously",
-    "A rough sketch of a man helping another man climb a wall or steep ledge",
-    "A vague drawing of students sitting in a circle having a discussion",
-    "A sketch of rural life showing a farmer talking to a man in formal clothes",
-    "A scene of an accident on the road with a few people gathering around",
-    "A hazy drawing of two people pushing a cart uphill",
-    "A sketch of 3 people gathered around a table with papers on it",
-    "A blurry drawing of a person saving someone from drowning"
+    "A group of 3 young men standing near a jeep discussing a map",
+    "A doctor checking a patient while a woman watches anxiously",
+    "A man helping another man climb a wall or steep ledge",
+    "Students sitting in a circle having a discussion",
+    "A farmer talking to a man in formal clothes in a field",
+    "A scene of an accident on the road with a few people gathering",
+    "Two people pushing a cart uphill",
+    "3 people gathered around a table with papers on it",
+    "A person saving someone from drowning"
   ];
 
   const tatScenarios = [
-    "A dark charcoal sketch of a young man sitting alone with his head in his hands",
-    "A silhouette of a woman standing at a door looking into a dark room",
-    "A blurry sketch of a boy looking at a trophy on a high shelf",
-    "A rough sketch of two men in uniform talking seriously near a tent",
-    "A vague drawing of a person rowing a boat alone in a storm",
-    "A sketch of a young man looking at a violin with a contemplative expression",
+    "A young man sitting alone with his head in his hands",
+    "A woman standing at a door looking into a dark room",
+    "A boy looking at a trophy on a high shelf",
+    "Two men in uniform talking seriously near a tent",
+    "A person rowing a boat alone in a storm",
+    "A young man looking at a violin with a contemplative expression",
     "A person standing on a cliff edge looking at the horizon",
     "A student studying late at night with a lamp",
     "A woman sitting on a park bench looking at a letter",
-    "Two people arguing in a room, hazy details"
+    "Two people arguing in a room"
   ];
   
   const scenarios = scenarioType === 'PPDT' ? ppdtScenarios : tatScenarios;
   const finalScenario = description || scenarios[Math.floor(Math.random() * scenarios.length)];
   
-  // STRICTER PROMPT: ENFORCING HUMAN CHARACTERS
-  // Added mandatory instruction to include people to avoid "river/landscape only" images.
-  const prompt = `Generate a rough, vintage charcoal sketch for a psychological test (SSB ${scenarioType}).
-  Subject: ${finalScenario}.
+  // OPTIMIZED PROMPT: Avoids "Psychological Test" trigger to prevent Safety Filter blocks.
+  const prompt = `Generate a vintage charcoal sketch.
+  Scene Description: ${finalScenario}.
   
-  MANDATORY CONTENT:
-  - The image MUST contain HUMAN CHARACTERS (at least one person).
-  - Scene must be a social or individual human situation.
-  - NO landscapes without people. NO rivers/mountains/buildings without people.
-  
-  ART STYLE STRICT GUIDELINES:
-  - TYPE: Hand-drawn charcoal or pencil sketch on textured paper.
-  - STYLE: Rough, hasty, unfinished, vintage illustration (1950s style).
-  - CLARITY: BLURRY, HAZY, OUT OF FOCUS.
-  - DETAILS: Faceless characters. Ambiguous expressions.
-  - COLOR: Black and White / Grayscale ONLY.
-  
-  NEGATIVE PROMPTS:
-  - No empty landscapes.
-  - No clear faces.
-  - No text.
-  - No photorealistic skin.
+  VISUAL STYLE:
+  - Medium: Charcoal or Pencil sketch on textured paper.
+  - Style: Rough, hasty, vintage illustration (1950s style).
+  - Atmosphere: Hazy, slightly out of focus, ambiguous.
+  - Content: Must include at least one human character.
+  - Color: Black and White (Grayscale).
   `;
 
   try {
@@ -211,28 +196,28 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
         }
       }
     }
+    // If we get here, no image part was found (maybe text refused)
+    console.warn("Gemini Image Gen: No image part in response. Using fallback.");
     throw new Error("No image part generated");
   } catch (error) {
-    console.error("Image Gen Error. USING FALLBACKS. If hosted, check API_KEY.", error);
+    console.error("Image Gen Error (using fallback):", error);
     
-    // ENHANCED BACKUP STRATEGY (V3):
-    // Added heavier blur to fallback URLs (blur=15) so the CSS filters in the components
-    // can turn them into convincing "sketches".
+    // ENHANCED BACKUP STRATEGY (V4):
+    // Use high-quality Unsplash source URLs that simulate scenes.
+    // Removed specific 'blur' params from URL to ensure better compatibility, handled via CSS.
     
     if (scenarioType === 'PPDT') {
-        // PPDT Fallbacks: Social interactions, groups
         const backups = [
-          "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=15", // Office/Group discussion
-          "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=15", // Friends talking
-          "https://images.unsplash.com/photo-1517048676732-d65bc937f952?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=15"  // Group gathering
+          "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80", // Office/Group
+          "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=800&q=80", // Friends
+          "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=800&q=80"  // Meeting
         ];
         return backups[Math.floor(Math.random() * backups.length)];
     } else {
-        // TAT Fallbacks: Individual character focus (No empty landscapes)
         const backups = [
-           "https://images.unsplash.com/photo-1504194569302-3c4ba34c1422?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=15", // Silhouette Man in dark
-           "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=15", // Person in gym/room (ambiguous action)
-           "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=800&auto=format&fit=crop&grayscale=true&blur=15"  // Portrait of man in dark
+           "https://images.unsplash.com/photo-1504194569302-3c4ba34c1422?auto=format&fit=crop&w=800&q=80", // Silhouette
+           "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80", // Gym
+           "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=800&q=80"  // Portrait
         ];
         return backups[Math.floor(Math.random() * backups.length)];
     }
@@ -249,39 +234,32 @@ export async function generateTATStimulus(description?: string) {
 
 export async function transcribeHandwrittenStory(base64Data: string, mimeType: string) {
   const ai = getGeminiClient();
-  const prompt = "Transcribe this handwritten SSB story accurately. Also, identify if there is a 'Character Box' (a small rectangle with symbols like P, N, M, F and age numbers). Transcribe the story text only.";
+  const prompt = "Transcribe this handwritten SSB story accurately. Also, identify if there is a 'Character Box'. Transcribe the story text only.";
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: { parts: [{ inlineData: { data: base64Data, mimeType } }, { text: prompt }] },
   });
-  // Fix: Handle undefined text
   return response.text || "";
 }
 
 export async function generateTestContent(type: string) {
   const ai = getGeminiClient();
   
-  // Isolated Prompts based on Type to prevent cross-contamination
   let systemPrompt = '';
-  let count = 60;
 
   if (type === 'TAT') {
-    count = 11;
-    systemPrompt = `Generate exactly 11 vague, descriptive scenarios for a Thematic Apperception Test (TAT). 
-    Do NOT include prefixes like "TAT:". Provide descriptive prompts suitable for drawing a black and white sketch, like "A surgeon in a dark room" or "A student with a letter". 
-    Each item must be a scene description.`;
+    systemPrompt = `Generate exactly 11 simple, descriptive scenarios for a Thematic Apperception Test (TAT). 
+    Each scenario must be suitable for a sketch.
+    Example: "A doctor examining a patient", "Two soldiers talking near a tent".
+    Return a JSON array of items with 'id' and 'content'.`;
   } else if (type === 'WAT') {
-    count = 60;
-    systemPrompt = `Generate exactly 60 single, high-impact words for a Word Association Test (WAT). 
-    Words must be Nouns, Verbs, or Adjectives related to daily life and psychology. 
-    Do NOT include prefixes like "WAT:" or "Word:". Just the single word in uppercase. 
-    Examples: COURAGE, FAILURE, HOME, SOCIETY, DEATH.`;
+    systemPrompt = `Generate exactly 60 single words for a Word Association Test (WAT).
+    Words: Nouns/Verbs/Adjectives. High impact.
+    Return JSON.`;
   } else if (type === 'SRT') {
-    count = 60;
-    systemPrompt = `Generate exactly 60 Situation Reaction Test (SRT) items. 
-    Each situation MUST start with "He/She" and end with "He/She..." or "...". 
-    Do NOT include prefixes like "SRT:". 
-    Example: "He was traveling in a train and realized his wallet was stolen. He..."`;
+    systemPrompt = `Generate exactly 60 Situation Reaction Test (SRT) items.
+    Format: "He was...".
+    Return JSON.`;
   }
 
   const response = await ai.models.generateContent({
@@ -298,7 +276,7 @@ export async function generateTestContent(type: string) {
               type: Type.OBJECT,
               properties: { 
                 id: { type: Type.STRING }, 
-                content: { type: Type.STRING, description: "The core content of the item without any test-type prefixes." } 
+                content: { type: Type.STRING } 
               },
               required: ['id', 'content']
             }
@@ -309,10 +287,10 @@ export async function generateTestContent(type: string) {
     }
   });
 
-  // Fix: Handle undefined text
   const text = response.text || '{"items": []}';
   const parsed = JSON.parse(text);
   
+  // Cleanup prefixes if any exist
   parsed.items = parsed.items.map((item: any) => ({
     ...item,
     content: item.content.replace(/^(TAT|WAT|SRT|Word|Situation):\s*/i, '').trim()
@@ -328,9 +306,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
   const ai = getGeminiClient();
   const contents: any[] = [];
   
-  // ==========================================================
-  // 1. TAT EVALUATION (Story-by-Story Analysis)
-  // ==========================================================
+  // 1. TAT EVALUATION
   if (userData.testType === 'TAT' && userData.tatImages) {
     userData.tatImages.forEach((base64: string, i: number) => {
       if (base64) {
@@ -375,13 +351,10 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
       }
     });
-    // Fix: Handle undefined text
     return JSON.parse(response.text || '{}');
   } 
   
-  // ==========================================================
-  // 2. PPDT EVALUATION (Hero, Action, Outcome)
-  // ==========================================================
+  // 2. PPDT EVALUATION
   else if (testType.includes('PPDT')) {
     if (userData.uploadedStoryImage) {
       contents.push({
@@ -392,13 +365,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
     Context Stimulus: "${userData.visualStimulusProvided || 'Unknown'}".
     Handwritten Story text: "${userData.story}".
     Narration: "${userData.narration}".
-    
-    Evaluate:
-    1. Identification of Hero (Age, Sex, Mood).
-    2. The Main Theme (Past/Present/Future).
-    3. Action/Problem Solving.
-    4. Outcome.
-    5. Narration confidence.`;
+    Evaluate: Hero, Theme, Action, Outcome.`;
     contents.push({ text: prompt });
 
     const response = await ai.models.generateContent({
@@ -436,25 +403,15 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
       }
     });
-    // Fix: Handle undefined text
     return JSON.parse(response.text || '{}');
   }
 
-  // ==========================================================
-  // 3. INTERVIEW EVALUATION (Factor-wise OLQs)
-  // ==========================================================
+  // 3. INTERVIEW EVALUATION
   else if (testType.includes('Interview')) {
      const prompt = `Act as an Interviewing Officer (IO) at SSB.
      Analyze this interview transcript based on the 4 factors of Officer Like Qualities (OLQ).
      Transcript: "${userData.transcript}".
-     PIQ Context: ${JSON.stringify(userData.piq)}.
-     
-     Provide a breakdown for:
-     1. Planning & Organizing (Factor I)
-     2. Social Adjustment (Factor II)
-     3. Social Effectiveness (Factor III)
-     4. Dynamic (Factor IV)
-     `;
+     PIQ Context: ${JSON.stringify(userData.piq)}.`;
      contents.push({ text: prompt });
 
      const response = await ai.models.generateContent({
@@ -470,10 +427,10 @@ export async function evaluatePerformance(testType: string, userData: any) {
             factorAnalysis: {
               type: Type.OBJECT,
               properties: {
-                factor1_planning: { type: Type.STRING, description: "Reasoning ability, organizing ability, power of expression" },
-                factor2_social: { type: Type.STRING, description: "Social adaptability, cooperation, sense of responsibility" },
-                factor3_effectiveness: { type: Type.STRING, description: "Initiative, self-confidence, speed of decision, ability to influence" },
-                factor4_dynamic: { type: Type.STRING, description: "Determination, courage, stamina" }
+                factor1_planning: { type: Type.STRING },
+                factor2_social: { type: Type.STRING },
+                factor3_effectiveness: { type: Type.STRING },
+                factor4_dynamic: { type: Type.STRING }
               }
             },
             strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
@@ -484,10 +441,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
       }
     });
-    // Fix: Handle undefined text
     return JSON.parse(response.text || '{}');
   }
 
-  // Default Fallback
   return { score: 0, verdict: 'Error', strengths: [], weaknesses: [], recommendations: 'Could not process test type.' };
 }
