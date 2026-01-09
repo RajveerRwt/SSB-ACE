@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
@@ -37,9 +36,9 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const stimulusInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const isRecordingRef = useRef(false); // Ref to track recording state synchronously
 
   const initAudio = () => {
     if (!audioCtxRef.current) {
@@ -72,17 +71,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
       };
       playTone(200, 0, 1.0);
       playTone(180, 0.2, 0.8);
-    }
-  };
-
-  const handleStimulusUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCustomStimulus(reader.result as string);
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -155,40 +143,86 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
     setNarrationText('');
     setTranscriptionError(null);
     setIsRecording(true);
+    isRecordingRef.current = true;
+
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setTranscriptionError("Speech recognition not supported. Please use Chrome.");
       setIsRecording(false);
+      isRecordingRef.current = false;
       return;
     }
+
     try {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'en-IN';
-      recognitionRef.current.onresult = (event: any) => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-IN';
+
+      recognition.onresult = (event: any) => {
         let finalTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
         }
         if (finalTranscript) setNarrationText(prev => prev + (prev ? " " : "") + finalTranscript);
       };
-      recognitionRef.current.onerror = (event: any) => {
+
+      recognition.onerror = (event: any) => {
+        // Handle "no-speech" gracefully - it just means silence was detected
+        if (event.error === 'no-speech') {
+          console.warn("Mic: No speech detected (transient)");
+          return;
+        }
+        
+        if (event.error === 'aborted') return;
+
+        console.error("Speech Recognition Error:", event.error);
         setTranscriptionError(`Mic Error: ${event.error}`);
-        setIsRecording(false);
+        
+        // Only stop strictly if permission denied or service not allowed
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setIsRecording(false);
+          isRecordingRef.current = false;
+        }
       };
-      recognitionRef.current.start();
+
+      recognition.onend = () => {
+        // Auto-restart if we are still supposed to be recording
+        // This handles the case where "no-speech" or network glitches stop the service
+        if (isRecordingRef.current) {
+          try {
+             recognition.start();
+             console.log("Mic: Auto-restarted");
+          } catch(e) {
+             // Ignore if already started
+          }
+        }
+      };
+
+      recognition.start();
     } catch (e) {
+      console.error("Failed to start recognition", e);
       setIsRecording(false);
+      isRecordingRef.current = false;
     }
   };
 
   const stopNarration = () => {
+    // 1. Clear intention to record
+    isRecordingRef.current = false;
     setIsRecording(false);
+
+    // 2. Stop service
     if (recognitionRef.current) {
       recognitionRef.current.stop();
-      recognitionRef.current = null;
     }
+
+    // 3. Proceed
     finishTest();
   };
 
