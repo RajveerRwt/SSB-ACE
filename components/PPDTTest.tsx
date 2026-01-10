@@ -11,6 +11,7 @@ enum PPDTStep {
   IMAGE,
   CHARACTER_MARKING,
   STORY_WRITING,
+  UPLOAD_GRACE_PERIOD,
   STORY_SUBMITTED,
   NARRATION,
   FINISHED
@@ -131,7 +132,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
 
     if (timeLeft > 0 && (isTimedPhase || isNarrationTimed)) {
       timerRef.current = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-    } else if (timeLeft === 0 && !isTranscribing && step !== PPDTStep.IDLE && step !== PPDTStep.FINISHED && step !== PPDTStep.STORY_SUBMITTED && step !== PPDTStep.LOADING_IMAGE && step !== PPDTStep.INSTRUCTIONS) {
+    } else if (timeLeft === 0 && !isTranscribing && step !== PPDTStep.IDLE && step !== PPDTStep.FINISHED && step !== PPDTStep.STORY_SUBMITTED && step !== PPDTStep.LOADING_IMAGE && step !== PPDTStep.INSTRUCTIONS && step !== PPDTStep.UPLOAD_GRACE_PERIOD) {
       if (step === PPDTStep.IMAGE) {
         // After 30s Image viewing -> Go to Character Marking (1 min)
         triggerBuzzer();
@@ -143,8 +144,9 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
         setStep(PPDTStep.STORY_WRITING);
         setTimeLeft(240);
       } else if (step === PPDTStep.STORY_WRITING) {
+        // After 4 mins Story Writing -> Play Buzzer and allow upload
         triggerBuzzer();
-        setStep(PPDTStep.STORY_SUBMITTED);
+        setStep(PPDTStep.UPLOAD_GRACE_PERIOD);
       } else if (step === PPDTStep.NARRATION) {
         triggerBuzzer();
         stopNarration();
@@ -434,6 +436,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
         );
 
       case PPDTStep.STORY_WRITING:
+      case PPDTStep.UPLOAD_GRACE_PERIOD:
+        const isTimeUp = step === PPDTStep.UPLOAD_GRACE_PERIOD;
         return (
           <div className="max-w-6xl mx-auto space-y-6 md:space-y-10">
              <div className="flex justify-between items-end border-b pb-4 md:pb-6 border-slate-100">
@@ -441,22 +445,29 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
                   <h3 className="text-2xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter">Story Writing Phase</h3>
                   <p className="text-slate-400 text-[10px] md:text-sm font-bold uppercase tracking-widest mt-2 underline decoration-blue-500 underline-offset-4 decoration-2">Write on paper & Include the Character Box</p>
                 </div>
-                <div className={`px-6 py-3 md:px-10 md:py-5 rounded-[1.5rem] md:rounded-[2rem] font-mono font-black text-2xl md:text-4xl border-4 transition-all ${timeLeft < 30 ? 'bg-red-50 border-red-500 text-red-600 animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.2)]' : 'bg-slate-900 border-slate-800 text-white'}`}>
-                   {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                <div className={`px-6 py-3 md:px-10 md:py-5 rounded-[1.5rem] md:rounded-[2rem] font-mono font-black text-2xl md:text-4xl border-4 transition-all ${timeLeft < 30 || isTimeUp ? 'bg-red-50 border-red-500 text-red-600 animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.2)]' : 'bg-slate-900 border-slate-800 text-white'}`}>
+                   {isTimeUp ? "TIME UP" : `${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')}`}
                 </div>
              </div>
 
              <div className="space-y-6 md:space-y-8">
+                {isTimeUp && (
+                  <div className="bg-red-600 text-white p-6 rounded-2xl text-center font-black uppercase tracking-[0.2em] shadow-xl animate-pulse flex items-center justify-center gap-3">
+                    <AlertCircle size={24} />
+                    <span>Pen Down! Scan & Upload Your Answer Sheet Now.</span>
+                  </div>
+                )}
+                
                 <div className="relative">
                   <textarea 
                     value={story}
                     onChange={(e) => setStory(e.target.value)}
-                    disabled={isTranscribing}
+                    disabled={isTranscribing || isTimeUp}
                     placeholder="Your story will appear here once you upload your paper image..."
-                    className={`w-full h-[400px] md:h-[500px] p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-100 focus:border-slate-900 outline-none transition-all text-lg md:text-xl leading-relaxed shadow-2xl bg-slate-50/30 font-medium ${isTranscribing ? 'opacity-20 blur-sm' : ''}`}
+                    className={`w-full h-[400px] md:h-[500px] p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-100 focus:border-slate-900 outline-none transition-all text-lg md:text-xl leading-relaxed shadow-2xl bg-slate-50/30 font-medium ${isTranscribing || isTimeUp ? 'opacity-50 blur-[1px]' : ''}`}
                   />
                   {isTranscribing && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-xl rounded-[2.5rem] md:rounded-[3.5rem]">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-xl rounded-[2.5rem] md:rounded-[3.5rem] z-10">
                        <Loader2 className="w-12 h-12 md:w-16 md:h-16 text-slate-900 animate-spin mb-6" />
                        <p className="text-slate-900 font-black uppercase tracking-[0.4em] text-xs">AI OCR: Reading story & Character box...</p>
                     </div>
