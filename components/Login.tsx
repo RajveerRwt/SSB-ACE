@@ -1,13 +1,14 @@
 
 import React, { useState } from 'react';
-import { ShieldCheck, Mail, Lock, Loader2, Shield, AlertCircle, User, UserPlus, LogIn } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, Loader2, Shield, AlertCircle, User, UserPlus, LogIn, ArrowLeft } from 'lucide-react';
 import { signInWithEmail, signUpWithEmail } from '../services/supabaseService';
 
 interface LoginProps {
   onLogin: (identifier: string, email?: string) => void;
+  onCancel?: () => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, onCancel }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -65,7 +66,19 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen military-gradient flex flex-col items-center justify-center p-4 md:p-6 font-sans">
+    <div className="min-h-screen military-gradient flex flex-col items-center justify-center p-4 md:p-6 font-sans relative">
+      {onCancel && (
+        <button 
+          onClick={onCancel}
+          className="absolute top-6 left-6 md:top-8 md:left-8 text-slate-400 hover:text-white flex items-center gap-2 transition-all group z-50"
+        >
+          <div className="p-2 rounded-full bg-white/5 group-hover:bg-white/10 border border-white/5 backdrop-blur-sm transition-all group-hover:scale-110">
+             <ArrowLeft size={20} />
+          </div>
+          <span className="text-xs font-black uppercase tracking-widest opacity-0 md:opacity-100 md:translate-x-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">Return to Base</span>
+        </button>
+      )}
+
       <div className="mb-8 text-center space-y-4 animate-in fade-in slide-in-from-top-8 duration-700">
         <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-3xl flex items-center justify-center mx-auto border border-white/20 shadow-[0_0_50px_rgba(255,255,255,0.1)]">
           <ShieldCheck className="w-8 h-8 md:w-10 md:h-10 text-yellow-400" />

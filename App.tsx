@@ -358,7 +358,7 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     if (activeTest === TestType.LOGIN) {
-       return <Login onLogin={handleLogin} />;
+       return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
     }
 
     switch (activeTest) {
@@ -391,7 +391,7 @@ const App: React.FC = () => {
   return (
     <>
         {activeTest === TestType.LOGIN ? (
-            <Login onLogin={handleLogin} />
+            <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />
         ) : (
             <Layout 
                 activeTest={activeTest} 
