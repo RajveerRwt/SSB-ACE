@@ -1,12 +1,15 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw } from 'lucide-react';
+import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
 import { getPPDTScenarios } from '../services/supabaseService';
 
 enum PPDTStep {
   IDLE,
+  INSTRUCTIONS,
   LOADING_IMAGE,
   IMAGE,
+  CHARACTER_MARKING,
   STORY_WRITING,
   STORY_SUBMITTED,
   NARRATION,
@@ -74,7 +77,12 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
     }
   };
 
-  const startTest = async () => {
+  const handleShowInstructions = () => {
+    initAudio();
+    setStep(PPDTStep.INSTRUCTIONS);
+  };
+
+  const startTestSequence = async () => {
     initAudio();
     
     if (customStimulus) {
@@ -119,12 +127,19 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
 
   useEffect(() => {
     const isNarrationTimed = step === PPDTStep.NARRATION && isRecording;
-    const isImageOrWriting = [PPDTStep.IMAGE, PPDTStep.STORY_WRITING].includes(step);
+    const isTimedPhase = [PPDTStep.IMAGE, PPDTStep.CHARACTER_MARKING, PPDTStep.STORY_WRITING].includes(step);
 
-    if (timeLeft > 0 && (isImageOrWriting || isNarrationTimed)) {
+    if (timeLeft > 0 && (isTimedPhase || isNarrationTimed)) {
       timerRef.current = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-    } else if (timeLeft === 0 && !isTranscribing && step !== PPDTStep.IDLE && step !== PPDTStep.FINISHED && step !== PPDTStep.STORY_SUBMITTED && step !== PPDTStep.LOADING_IMAGE) {
+    } else if (timeLeft === 0 && !isTranscribing && step !== PPDTStep.IDLE && step !== PPDTStep.FINISHED && step !== PPDTStep.STORY_SUBMITTED && step !== PPDTStep.LOADING_IMAGE && step !== PPDTStep.INSTRUCTIONS) {
       if (step === PPDTStep.IMAGE) {
+        // After 30s Image viewing -> Go to Character Marking (1 min)
+        triggerBuzzer();
+        setStep(PPDTStep.CHARACTER_MARKING);
+        setTimeLeft(60);
+      } else if (step === PPDTStep.CHARACTER_MARKING) {
+        // After 1 min Character Marking -> Go to Story Writing (4 mins)
+        triggerBuzzer();
         setStep(PPDTStep.STORY_WRITING);
         setTimeLeft(240);
       } else if (step === PPDTStep.STORY_WRITING) {
@@ -286,18 +301,54 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
 
             <div className="pt-8">
               <button 
-                onClick={startTest}
+                onClick={handleShowInstructions}
                 className="group relative px-16 md:px-24 py-6 md:py-8 bg-slate-900 text-white rounded-full font-black uppercase tracking-[0.2em] text-sm md:text-base overflow-hidden shadow-2xl hover:shadow-[0_20px_60px_rgba(15,23,42,0.4)] transition-all hover:-translate-y-1 active:translate-y-0"
               >
                 <div className="absolute inset-0 bg-white/10 group-hover:translate-x-full transition-transform duration-500 ease-out skew-x-12" />
                 <span className="relative flex items-center gap-4">
-                  Start Now <Target className="w-5 h-5" />
+                  Start Procedure <Target className="w-5 h-5" />
                 </span>
               </button>
-              <p className="mt-6 text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-[0.3em]">
-                Automated Database Retrieval
-              </p>
             </div>
+          </div>
+        );
+
+      case PPDTStep.INSTRUCTIONS:
+        return (
+          <div className="max-w-4xl mx-auto py-12 md:py-16 space-y-8 md:space-y-12 animate-in fade-in slide-in-from-right-8 duration-500">
+             <div className="text-center space-y-4">
+               <h3 className="text-3xl md:text-5xl font-black text-slate-900 uppercase tracking-tighter">Testing Protocol</h3>
+               <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Stage 1 Screening Procedure</p>
+             </div>
+
+             <div className="grid md:grid-cols-2 gap-6">
+                {[
+                  { time: '30s', title: 'Picture Perception', desc: 'Observe the hazy image carefully.', icon: Eye, color: 'text-blue-600' },
+                  { time: '1m', title: 'Character Marking', desc: 'Note Age, Sex, Mood & Position in box.', icon: PenTool, color: 'text-purple-600' },
+                  { time: '4m', title: 'Story Writing', desc: 'Write Action, Hero details & Outcome.', icon: BookOpen, color: 'text-slate-900' },
+                  { time: '1m', title: 'Narration', desc: 'Narrate your story clearly.', icon: Volume2, color: 'text-green-600' }
+                ].map((item, i) => (
+                  <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl flex items-center gap-6">
+                     <div className={`w-16 h-16 rounded-2xl bg-slate-50 flex flex-col items-center justify-center shrink-0 border border-slate-100 ${item.color}`}>
+                        <item.icon size={24} />
+                        <span className="text-[10px] font-black uppercase mt-1">{item.time}</span>
+                     </div>
+                     <div>
+                       <h4 className="font-black text-slate-900 uppercase text-sm tracking-wide">{item.title}</h4>
+                       <p className="text-slate-500 text-xs font-medium leading-relaxed">{item.desc}</p>
+                     </div>
+                  </div>
+                ))}
+             </div>
+
+             <div className="flex justify-center pt-8">
+               <button 
+                  onClick={startTestSequence}
+                  className="px-16 md:px-24 py-6 md:py-8 bg-blue-600 text-white rounded-full font-black uppercase tracking-[0.2em] text-sm shadow-2xl hover:bg-blue-700 transition-all hover:scale-105"
+               >
+                 Ready to Start
+               </button>
+             </div>
           </div>
         );
 
@@ -317,16 +368,43 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
 
       case PPDTStep.IMAGE:
         return (
-          <div className="flex flex-col items-center animate-in fade-in duration-1000">
+          <div className="flex flex-col items-center animate-in fade-in duration-1000 h-full justify-center">
+            <div className="flex items-center gap-4 mb-6">
+               <Eye className="text-blue-600 animate-pulse" size={24} />
+               <p className="text-blue-600 font-black uppercase tracking-[0.2em] text-xs">Observe Carefully</p>
+            </div>
             <div className="relative mb-8 md:mb-10 overflow-hidden rounded-[2rem] md:rounded-[4rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] border-[8px] md:border-[12px] border-white ring-1 ring-slate-200">
-              {/* Added CSS filters to force 'sketch' look even on fallback photos: high contrast, blur, grayscale */}
               <img 
                 src={currentImageUrl} 
                 alt="PPDT hazy scenario" 
                 className="max-h-[60vh] md:max-h-[70vh] w-auto object-cover opacity-90 grayscale contrast-[1.4] brightness-110 blur-[1px]"
               />
+              <div className="absolute top-6 left-6 bg-black/60 backdrop-blur-md px-6 py-2 rounded-full border border-white/20">
+                 <p className="text-white font-mono font-black text-xl">{timeLeft}s</p>
+              </div>
             </div>
-            <p className="text-slate-400 font-black uppercase tracking-[0.3em] md:tracking-[0.5em] text-[10px] md:text-xs text-center">Perceive carefully • Identify characters, mood, and age</p>
+          </div>
+        );
+      
+      case PPDTStep.CHARACTER_MARKING:
+        return (
+          <div className="flex flex-col items-center justify-center py-24 md:py-32 space-y-12 animate-in fade-in zoom-in duration-300">
+             <div className="w-32 h-32 md:w-40 md:h-40 bg-purple-50 rounded-full flex items-center justify-center border-[8px] border-purple-100 shadow-2xl relative">
+                <PenTool className="w-12 h-12 md:w-16 md:h-16 text-purple-600" />
+                <div className="absolute -top-4 -right-4 bg-purple-600 text-white w-12 h-12 rounded-full flex items-center justify-center font-black text-xs border-4 border-white shadow-lg">
+                   {timeLeft}s
+                </div>
+             </div>
+             <div className="text-center max-w-lg space-y-4">
+                <h3 className="text-3xl md:text-5xl font-black text-slate-900 uppercase tracking-tighter">Mark Characters</h3>
+                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 text-left space-y-2">
+                   <p className="text-slate-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2"><CheckCircle className="w-4 h-4 text-purple-500" /> Mark Position in Box</p>
+                   <p className="text-slate-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2"><CheckCircle className="w-4 h-4 text-purple-500" /> Write Age, Sex, Mood</p>
+                   <p className="text-slate-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2"><CheckCircle className="w-4 h-4 text-purple-500" /> Circle the Hero</p>
+                   <p className="text-slate-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2"><CheckCircle className="w-4 h-4 text-purple-500" /> Write Action of Story</p>
+                </div>
+                <p className="text-slate-400 font-medium italic text-sm">"Use your paper. Do not write on screen."</p>
+             </div>
           </div>
         );
 
@@ -335,7 +413,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
           <div className="max-w-6xl mx-auto space-y-6 md:space-y-10">
              <div className="flex justify-between items-end border-b pb-4 md:pb-6 border-slate-100">
                 <div>
-                  <h3 className="text-2xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter">Phase 2: Paper Writing</h3>
+                  <h3 className="text-2xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter">Story Writing Phase</h3>
                   <p className="text-slate-400 text-[10px] md:text-sm font-bold uppercase tracking-widest mt-2 underline decoration-blue-500 underline-offset-4 decoration-2">Write on paper & Include the Character Box</p>
                 </div>
                 <div className={`px-6 py-3 md:px-10 md:py-5 rounded-[1.5rem] md:rounded-[2rem] font-mono font-black text-2xl md:text-4xl border-4 transition-all ${timeLeft < 30 ? 'bg-red-50 border-red-500 text-red-600 animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.2)]' : 'bg-slate-900 border-slate-800 text-white'}`}>
@@ -393,7 +471,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
                 onClick={() => { setStep(PPDTStep.NARRATION); setTimeLeft(60); }}
                 className="px-16 md:px-20 py-5 md:py-6 bg-blue-600 text-white rounded-full font-black uppercase tracking-widest text-xs md:text-sm hover:bg-blue-700 transition-all shadow-[0_20px_40px_rgba(37,99,235,0.3)] hover:-translate-y-1"
              >
-                Begin Narration
+                Begin Narration (1 Min)
              </button>
           </div>
         );
