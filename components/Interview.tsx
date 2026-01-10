@@ -7,9 +7,6 @@ import { PIQData } from '../types';
 
 /** 
  * SSB VIRTUAL INTERVIEW PROTOCOL (v4.3 - Fixes & Resilience)
- * - Fixed: 'session.send is not a function' by using systemInstruction for start/resume prompts.
- * - Fixed: Stale state in callbacks using timeLeftRef.
- * - Fixed: Controls visibility (Sticky bottom bar).
  */
 
 function decode(base64: string) {
@@ -177,7 +174,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
       });
       streamRef.current = stream;
       
-      // Fixed: Initialize GoogleGenAI with the recommended pattern using process.env.API_KEY directly
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -219,7 +215,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
       }
 
       const sessionPromise = ai.live.connect({
-        // Fixed: Use the specified version 'gemini-2.5-flash-native-audio-preview-12-2025'
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         config: {
           responseModalities: [Modality.AUDIO],
@@ -303,8 +298,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
             handleAutoReconnect();
           },
           onclose: (e) => {
-             // CRITICAL FIX: Only reconnect if we are still strictly in SESSION mode.
-             // We use the Ref to check because state updates can be async and closures might be stale.
              if (sessionModeRef.current === 'SESSION') {
                 handleAutoReconnect();
              }
@@ -339,6 +332,12 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
     sessionModeRef.current = 'RESULT';
     setSessionMode('RESULT');
     
+    // Flush any pending transcript that wasn't committed by turnComplete
+    if (currentTranscriptBufferRef.current.trim()) {
+       conversationHistoryRef.current.push(`Candidate (Last words): ${currentTranscriptBufferRef.current}`);
+       currentTranscriptBufferRef.current = "";
+    }
+    
     await cleanupSession();
     setIsAnalyzing(true);
 
@@ -347,7 +346,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
       const results = await evaluatePerformance('Personal Interview Board (30 Min)', { 
         piq: piqData, 
         duration: 1800 - timeLeft, 
-        transcript: fullTranscript || "Audio only session.",
+        transcript: fullTranscript || "No verbal response captured.",
         testType: 'Interview' // Ensure service knows this is an Interview
       });
       setFinalAnalysis(results);
@@ -356,10 +355,11 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
       }
     } catch (e) {
       console.error(e);
-      // Fallback in case of error so user isn't stuck
+      // Fallback in case of critical failure
       setFinalAnalysis({
          score: 0,
-         recommendations: "Assessment could not be generated due to network issues. However, your session has been logged.",
+         verdict: "Technical Failure",
+         recommendations: "Assessment could not be generated due to network issues or API failure. Your session has been archived.",
          strengths: ["Determination"],
          weaknesses: ["Technical Interruption"],
          factorAnalysis: {

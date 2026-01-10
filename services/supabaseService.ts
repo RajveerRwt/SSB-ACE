@@ -124,12 +124,28 @@ export async function getUserHistory(userId: string) {
 }
 
 export async function uploadPPDTScenario(file: File, description: string) {
-  if (!isSupabaseActive || !supabase) throw new Error("Supabase inactive");
-  const fileName = `${Math.random()}.${file.name.split('.').pop()}`;
+  if (!isSupabaseActive || !supabase) throw new Error("Supabase connection is not active.");
+  
+  const fileExt = file.name.split('.').pop();
+  const fileName = `ppdt_${Math.random().toString(36).substring(7)}.${fileExt}`;
+  
+  console.log(`Starting PPDT upload to bucket 'ppdt-images'...`);
   const { error: uploadError } = await supabase.storage.from('ppdt-images').upload(fileName, file);
-  if (uploadError) throw uploadError;
+  
+  if (uploadError) {
+    console.error("Supabase Storage Error:", uploadError);
+    throw new Error(`Storage Upload Error (403): ${uploadError.message}. Make sure the bucket 'ppdt-images' exists and has RLS policies configured.`);
+  }
+  
   const { data: { publicUrl } } = supabase.storage.from('ppdt-images').getPublicUrl(fileName);
-  return await supabase.from('ppdt_scenarios').insert([{ image_url: publicUrl, description }]).select();
+  
+  const { error: dbError, data } = await supabase.from('ppdt_scenarios').insert([{ 
+    image_url: publicUrl, 
+    description 
+  }]).select();
+  
+  if (dbError) throw new Error(`Database Insert Error: ${dbError.message}. Ensure RLS policies allow inserts on table 'ppdt_scenarios'.`);
+  return data;
 }
 
 export async function getPPDTScenarios() {
@@ -145,14 +161,30 @@ export async function deletePPDTScenario(id: string, imageUrl: string) {
   if (path) await supabase.storage.from('ppdt-images').remove([path]);
 }
 
-// TAT Set-Based Management
 export async function uploadTATScenario(file: File, description: string, setTag: string = 'Default') {
-  if (!isSupabaseActive || !supabase) throw new Error("Supabase inactive");
-  const fileName = `${Math.random()}.${file.name.split('.').pop()}`;
+  if (!isSupabaseActive || !supabase) throw new Error("Supabase connection is not active.");
+  
+  const fileExt = file.name.split('.').pop();
+  const fileName = `tat_${Math.random().toString(36).substring(7)}.${fileExt}`;
+  
+  console.log(`Starting TAT upload to bucket 'tat-images'...`);
   const { error: uploadError } = await supabase.storage.from('tat-images').upload(fileName, file);
-  if (uploadError) throw uploadError;
+  
+  if (uploadError) {
+    console.error("Supabase Storage Error:", uploadError);
+    throw new Error(`Storage Upload Error (403): ${uploadError.message}. Make sure the bucket 'tat-images' exists and has RLS policies configured.`);
+  }
+  
   const { data: { publicUrl } } = supabase.storage.from('tat-images').getPublicUrl(fileName);
-  return await supabase.from('tat_scenarios').insert([{ image_url: publicUrl, description, set_tag: setTag }]).select();
+  
+  const { error: dbError, data } = await supabase.from('tat_scenarios').insert([{ 
+    image_url: publicUrl, 
+    description, 
+    set_tag: setTag 
+  }]).select();
+  
+  if (dbError) throw new Error(`Database Insert Error: ${dbError.message}. Ensure RLS policies allow inserts on table 'tat_scenarios'.`);
+  return data;
 }
 
 export async function getTATScenarios() {

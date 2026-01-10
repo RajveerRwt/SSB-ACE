@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ShieldCheck, Mail, Lock, Loader2, Shield, AlertCircle, User, UserPlus, LogIn } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, Loader2, Shield, AlertCircle, User, UserPlus, LogIn, Ghost } from 'lucide-react';
 import { signInWithEmail, signUpWithEmail } from '../services/supabaseService';
 
 interface LoginProps {
@@ -38,27 +38,34 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         const { data, error } = await signUpWithEmail(email, password, fullName);
         if (error) throw error;
         if (data.user) {
-          // If email confirmation is enabled in Supabase, user might not be able to login immediately
-          // Check if session exists, otherwise ask to check email
           if (data.session) {
             onLogin(data.user.id, data.user.email);
           } else {
-            setSuccessMsg("Registration successful! Please check your email to confirm your account.");
+            setSuccessMsg("Registration successful! Please check your email inbox to confirm your account before logging in.");
             setIsLoading(false);
           }
         }
       } else {
         const { data, error } = await signInWithEmail(email, password);
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes("Invalid login credentials")) {
+            throw new Error("Invalid credentials. If you just registered, please check your email for a confirmation link.");
+          }
+          throw error;
+        }
         if (data.user) {
           onLogin(data.user.id, data.user.email);
         }
       }
     } catch (err: any) {
       console.error("Auth Error:", err);
-      setError(err.message || "Authentication failed. Please check credentials.");
+      setError(err.message || "Authentication failed.");
       setIsLoading(false);
     }
+  };
+
+  const handleDemoLogin = () => {
+    onLogin('demo-aspirant-99', 'demo@ssbprep.online');
   };
 
   return (
@@ -92,90 +99,99 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                <p className="text-green-800 font-bold text-sm">{successMsg}</p>
                <button 
                   onClick={() => { setIsSignUp(false); setSuccessMsg(''); }}
-                  className="text-xs font-black uppercase tracking-widest text-green-600 hover:underline"
+                  className="w-full py-4 bg-green-600 text-white rounded-xl font-black uppercase text-xs tracking-widest"
                >
-                 Go to Login
+                 Back to Login
                </button>
             </div>
           ) : (
-            <form onSubmit={handleAuth} className="space-y-4 md:space-y-6">
-              {isSignUp && (
-                <div className="space-y-2 animate-in slide-in-from-top-4 duration-300">
-                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-2">Full Name</label>
+            <>
+              <form onSubmit={handleAuth} className="space-y-4 md:space-y-6">
+                {isSignUp && (
+                  <div className="space-y-2 animate-in slide-in-from-top-4 duration-300">
+                    <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-2">Full Name</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Cadet Name"
+                        className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 focus:border-slate-900 rounded-2xl font-bold text-slate-800 outline-none transition-all placeholder:text-slate-300"
+                        disabled={isLoading}
+                      />
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-2">Email Address</label>
                   <div className="relative">
                     <input
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="Cadet Name"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="cadet@example.com"
                       className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 focus:border-slate-900 rounded-2xl font-bold text-slate-800 outline-none transition-all placeholder:text-slate-300"
                       disabled={isLoading}
                     />
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                   </div>
                 </div>
-              )}
 
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-2">Email Address</label>
-                <div className="relative">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="cadet@example.com"
-                    className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 focus:border-slate-900 rounded-2xl font-bold text-slate-800 outline-none transition-all placeholder:text-slate-300"
-                    disabled={isLoading}
-                  />
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-2">Password</label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 focus:border-slate-900 rounded-2xl font-bold text-slate-800 outline-none transition-all placeholder:text-slate-300"
+                      disabled={isLoading}
+                    />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-2">Password</label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 focus:border-slate-900 rounded-2xl font-bold text-slate-800 outline-none transition-all placeholder:text-slate-300"
-                    disabled={isLoading}
-                  />
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                </div>
-              </div>
-
-              {error && (
-                <div className="flex items-center gap-2 text-red-500 px-2 animate-pulse">
-                  <AlertCircle size={14} />
-                  <p className="text-[10px] font-black uppercase tracking-widest">{error}</p>
-                </div>
-              )}
-
-              <button 
-                type="submit" 
-                disabled={isLoading}
-                className="w-full py-5 bg-slate-900 hover:bg-black text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {isLoading ? <Loader2 className="animate-spin" size={18} /> : (
-                  <>
-                    {isSignUp ? 'Initialize Dossier' : 'Authenticate'} 
-                    {isSignUp ? <UserPlus size={16} /> : <LogIn size={16} />}
-                  </>
+                {error && (
+                  <div className="flex items-start gap-2 text-red-500 bg-red-50 p-4 rounded-xl border border-red-100">
+                    <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                    <p className="text-[10px] font-bold leading-relaxed">{error}</p>
+                  </div>
                 )}
-              </button>
-            </form>
-          )}
 
-          <div className="mt-8 pt-6 border-t border-slate-100 text-center">
-            <button 
-              onClick={() => { setIsSignUp(!isSignUp); setError(''); setSuccessMsg(''); }}
-              className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors"
-            >
-              {isSignUp ? 'Already have a service number? Login' : 'New Candidate? Register here'}
-            </button>
-          </div>
+                <button 
+                  type="submit" 
+                  disabled={isLoading}
+                  className="w-full py-5 bg-slate-900 hover:bg-black text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-70"
+                >
+                  {isLoading ? <Loader2 className="animate-spin" size={18} /> : (
+                    <>
+                      {isSignUp ? 'Initialize Dossier' : 'Authenticate'} 
+                      {isSignUp ? <UserPlus size={16} /> : <LogIn size={16} />}
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col gap-4">
+                <button 
+                  onClick={() => { setIsSignUp(!isSignUp); setError(''); setSuccessMsg(''); }}
+                  className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors"
+                >
+                  {isSignUp ? 'Already registered? Login' : 'New Candidate? Register here'}
+                </button>
+                
+                <button 
+                  onClick={handleDemoLogin}
+                  className="flex items-center justify-center gap-2 py-3 px-4 bg-slate-50 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all border border-slate-100"
+                >
+                  <Ghost size={14} /> Enter in Demo Mode
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
       

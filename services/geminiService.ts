@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 // Helper to get Gemini client with API key from environment
@@ -11,6 +12,29 @@ export const getGeminiClient = () => {
 
   // Fixed: Always use exactly new GoogleGenAI({ apiKey: process.env.API_KEY }) as per guidelines
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
+};
+
+// Helper to safely parse JSON from AI response that might contain Markdown code blocks
+const safeJSONParse = (text: string | undefined) => {
+  if (!text) return {};
+  try {
+    // Strip markdown code fences if present (e.g. ```json ... ```)
+    const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error("JSON Parse Error on AI Response:", e);
+    // Return a valid fallback structure so the UI doesn't crash
+    return {
+      score: 0,
+      verdict: "Evaluation Error",
+      recommendations: "The AI assessment could not be processed. This might be due to a network interruption or empty response content.",
+      strengths: ["N/A"],
+      weaknesses: ["N/A"],
+      factorAnalysis: {},
+      perception: {},
+      individualStories: []
+    };
+  }
 };
 
 /**
@@ -128,8 +152,7 @@ export async function extractPIQFromImage(base64Data: string, mimeType: string) 
       }
     }
   });
-  // Fix: Ensure text is not undefined before parsing
-  return JSON.parse(response.text || '{}');
+  return safeJSONParse(response.text);
 }
 
 /**
@@ -196,25 +219,21 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
   } catch (error) {
     console.error("Image Gen Error (using fallback):", error);
     
-    // ENHANCED BACKUP STRATEGY (V5 - Vercel Fix):
-    // Use high-quality Unsplash source URLs but force them to be BLACK & WHITE and BLURRED.
-    // This prevents "real photographs" from ruining the immersion if the API fails.
-    
-    // Params: &sat=-100 (Grayscale), &blur=2 (Hazy), &contrast=10 (High Contrast)
+    // ENHANCED BACKUP STRATEGY:
     const filters = "&sat=-100&blur=2&contrast=20";
 
     if (scenarioType === 'PPDT') {
         const backups = [
-          `https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80${filters}`, // Office/Group
-          `https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=800&q=80${filters}`, // Friends
-          `https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=800&q=80${filters}`  // Meeting
+          `https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80${filters}`, 
+          `https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=800&q=80${filters}`, 
+          `https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=800&q=80${filters}` 
         ];
         return backups[Math.floor(Math.random() * backups.length)];
     } else {
         const backups = [
-           `https://images.unsplash.com/photo-1504194569302-3c4ba34c1422?auto=format&fit=crop&w=800&q=80${filters}`, // Silhouette
-           `https://images.unsplash.com/photo-1485178575877-1a13bf489dfe?auto=format&fit=crop&w=800&q=80${filters}`, // Shadowy Figure
-           `https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=800&q=80${filters}`  // Person thinking
+           `https://images.unsplash.com/photo-1504194569302-3c4ba34c1422?auto=format&fit=crop&w=800&q=80${filters}`, 
+           `https://images.unsplash.com/photo-1485178575877-1a13bf489dfe?auto=format&fit=crop&w=800&q=80${filters}`, 
+           `https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=800&q=80${filters}` 
         ];
         return backups[Math.floor(Math.random() * backups.length)];
     }
@@ -284,14 +303,17 @@ export async function generateTestContent(type: string) {
     }
   });
 
-  const text = response.text || '{"items": []}';
-  const parsed = JSON.parse(text);
+  const parsed = safeJSONParse(response.text);
   
   // Cleanup prefixes if any exist
-  parsed.items = parsed.items.map((item: any) => ({
-    ...item,
-    content: item.content.replace(/^(TAT|WAT|SRT|Word|Situation):\s*/i, '').trim()
-  }));
+  if (parsed.items) {
+      parsed.items = parsed.items.map((item: any) => ({
+        ...item,
+        content: item.content.replace(/^(TAT|WAT|SRT|Word|Situation):\s*/i, '').trim()
+      }));
+  } else {
+      parsed.items = [];
+  }
 
   return parsed;
 }
@@ -319,7 +341,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
     contents.push({ text: prompt });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview', // Using Flash for faster evaluation
       contents: { parts: contents },
       config: {
         responseMimeType: 'application/json',
@@ -348,7 +370,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
       }
     });
-    return JSON.parse(response.text || '{}');
+    return safeJSONParse(response.text);
   } 
   
   // 2. PPDT EVALUATION
@@ -366,7 +388,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
     contents.push({ text: prompt });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: { parts: contents },
       config: {
         responseMimeType: 'application/json',
@@ -400,19 +422,25 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
       }
     });
-    return JSON.parse(response.text || '{}');
+    return safeJSONParse(response.text);
   }
 
   // 3. INTERVIEW EVALUATION
   else if (testType.includes('Interview')) {
      const prompt = `Act as an Interviewing Officer (IO) at SSB.
      Analyze this interview transcript based on the 4 factors of Officer Like Qualities (OLQ).
-     Transcript: "${userData.transcript}".
-     PIQ Context: ${JSON.stringify(userData.piq)}.`;
+     
+     INPUT DATA:
+     Transcript: "${userData.transcript || 'No verbal response recorded.'}"
+     PIQ Context: ${JSON.stringify(userData.piq || {})}
+     
+     TASK:
+     Provide a JSON assessment of the candidate's performance. Even if the transcript is short, assess the demeanor and potential.`;
+     
      contents.push({ text: prompt });
 
      const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: { parts: contents },
       config: {
         responseMimeType: 'application/json',
@@ -438,7 +466,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
       }
     });
-    return JSON.parse(response.text || '{}');
+    return safeJSONParse(response.text);
   }
 
   return { score: 0, verdict: 'Error', strengths: [], weaknesses: [], recommendations: 'Could not process test type.' };
