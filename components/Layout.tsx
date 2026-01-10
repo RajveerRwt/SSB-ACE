@@ -90,10 +90,17 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
       `}>
         {/* Sidebar Content Wrapper to prevent squashing during width transition */}
         <div className="w-64 h-full flex flex-col">
-          <div className="p-6 flex items-center justify-between border-b border-white/10 h-20 shrink-0">
+          <div className="p-6 flex items-center justify-between border-b border-white/10 h-24 shrink-0">
             <div className="flex items-center gap-3">
-              <ShieldCheck className="w-8 h-8 text-yellow-400" />
-              <h1 className="text-xl font-bold tracking-tight">SSBprep</h1>
+              <ShieldCheck className="w-10 h-10 text-yellow-400" />
+              <div className="flex flex-col">
+                <h1 className="text-xl font-black tracking-tighter uppercase leading-none text-white">
+                  SSB<span className="text-yellow-400">PREP</span>.ONLINE
+                </h1>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                  Prepare. Lead. Succeed
+                </p>
+              </div>
             </div>
             <button 
               onClick={() => setSidebarOpen(false)}
@@ -172,7 +179,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
           </div>
 
           <div className="p-4 text-[10px] text-slate-500 uppercase tracking-widest text-center shrink-0">
-            <p>© 2024 SSBprep.online</p>
+            <p>© 2024 SSBPREP.ONLINE</p>
           </div>
         </div>
       </aside>

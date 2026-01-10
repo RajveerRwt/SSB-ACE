@@ -1,6 +1,6 @@
 {
-  "name": "SSBprep.online: Virtual Defense Aspirant Platform",
-  "description": "A comprehensive preparation platform for SSB aspirants featuring OIR, PPDT, Psychology tests (TAT, WAT, SRT), and a real-time AI Virtual Interviewer with visual body language analysis.",
+  "name": "SSBPREP.ONLINE",
+  "description": "Prepare. Lead. Succeed. A comprehensive preparation platform for SSB aspirants featuring OIR, PPDT, Psychology tests (TAT, WAT, SRT), and a real-time AI Virtual Interviewer.",
   "requestFramePermissions": [
     "camera",
     "microphone"
