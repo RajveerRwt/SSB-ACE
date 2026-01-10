@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ShieldCheck, Mail, Lock, Loader2, Shield, AlertCircle, User, UserPlus, LogIn, Ghost } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, Loader2, Shield, AlertCircle, User, UserPlus, LogIn } from 'lucide-react';
 import { signInWithEmail, signUpWithEmail } from '../services/supabaseService';
 
 interface LoginProps {
@@ -62,10 +62,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       setError(err.message || "Authentication failed.");
       setIsLoading(false);
     }
-  };
-
-  const handleDemoLogin = () => {
-    onLogin('demo-aspirant-99', 'demo@ssbprep.online');
   };
 
   return (
@@ -185,13 +181,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors"
                 >
                   {isSignUp ? 'Already registered? Login' : 'New Candidate? Register here'}
-                </button>
-                
-                <button 
-                  onClick={handleDemoLogin}
-                  className="flex items-center justify-center gap-2 py-3 px-4 bg-slate-50 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all border border-slate-100"
-                >
-                  <Ghost size={14} /> Enter in Demo Mode
                 </button>
               </div>
             </>
