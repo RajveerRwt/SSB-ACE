@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain } from 'lucide-react';
-import { generateTestContent, generateTATStimulus, evaluatePerformance } from '../services/geminiService';
+import { generateTestContent, evaluatePerformance } from '../services/geminiService';
+import { getTATScenarios } from '../services/supabaseService';
 import { TestType } from '../types';
 
 interface PsychologyProps {
@@ -23,7 +25,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [phase, setPhase] = useState<PsychologyPhase>(PsychologyPhase.IDLE);
   const [timeLeft, setTimeLeft] = useState(-1);
-  const [totalTimeLeft, setTotalTimeLeft] = useState(1800); 
+  const [activeSetName, setActiveSetName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [pregeneratedImages, setPregeneratedImages] = useState<Record<string, string>>({});
   const [loadProgress, setLoadProgress] = useState(0);
@@ -32,18 +34,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
   const [feedback, setFeedback] = useState<any>(null);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const totalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeUploadIndex = useRef<number | null>(null);
 
   const playBuzzer = (freq: number = 200, duration: number = 0.5) => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
+    if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     const ctx = audioCtxRef.current;
     if (ctx.state === 'suspended') ctx.resume();
-    
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sawtooth';
@@ -62,33 +60,57 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
     setLoadProgress(0);
     
     try {
-      const data = await generateTestContent(type);
-      let finalItems = data.items;
-      
+      let finalItems: any[] = [];
+
       if (type === TestType.TAT) {
-        if (finalItems.length > 11) finalItems = finalItems.slice(0, 11);
-        const images: Record<string, string> = {};
-        const totalToLoad = finalItems.length;
+        // FETCH ONLY FROM DATABASE
+        const dbScenarios = await getTATScenarios();
         
-        let currentLoaded = 0;
-        for (const item of finalItems) {
-          try {
-            const imgUrl = await generateTATStimulus(item.content);
-            images[item.id] = imgUrl;
-          } catch (err) {
-            console.error("Failed to generate image for", item.id, err);
-            // Fallback to Unsplash is handled in service, but if that fails, use a generic one.
-            images[item.id] = "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=800&q=80&grayscale=true";
-          }
-          currentLoaded++;
-          setLoadProgress((currentLoaded / totalToLoad) * 100);
+        if (!dbScenarios || dbScenarios.length === 0) {
+           alert("No TAT images found in database. Please upload images in Admin Panel first.");
+           setPhase(PsychologyPhase.IDLE);
+           setIsLoading(false);
+           return;
         }
+
+        // Group by Set Tag
+        const sets: Record<string, any[]> = dbScenarios.reduce((acc: any, img: any) => {
+          const tag = img.set_tag || 'Default';
+          if (!acc[tag]) acc[tag] = [];
+          acc[tag].push(img);
+          return acc;
+        }, {});
+
+        // Prefer sets with 11 images, or pick any set if none have 11
+        const setNames = Object.keys(sets);
+        const completeSets = setNames.filter(name => sets[name].length >= 11);
+        const selectedSetName = completeSets.length > 0 
+          ? completeSets[Math.floor(Math.random() * completeSets.length)]
+          : setNames[Math.floor(Math.random() * setNames.length)];
+
+        setActiveSetName(selectedSetName);
+        const setImages = sets[selectedSetName].slice(0, 11);
+        const images: Record<string, string> = {};
+
+        finalItems = setImages.map((s: any, i: number) => ({
+          id: `tat-db-${i}`,
+          content: s.description || 'Picture Story',
+          imageUrl: s.image_url
+        }));
+
+        finalItems.forEach((item) => {
+           images[item.id] = item.imageUrl;
+        });
 
         setPregeneratedImages(images);
         finalItems.push({ id: 'tat-12-blank', content: 'BLANK SLIDE' });
-      } else if (type === TestType.WAT || type === TestType.SRT) {
+        setLoadProgress(100);
+
+      } else {
+        // WAT / SRT still use AI content generation (text-only)
+        const data = await generateTestContent(type);
+        finalItems = data.items;
         if (finalItems.length > 60) finalItems = finalItems.slice(0, 60);
-        if (type === TestType.SRT) setTotalTimeLeft(1800); 
       }
       
       setItems(finalItems);
@@ -104,45 +126,20 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
 
   const setupSlide = (index: number, currentItems: any[]) => {
     if (index >= currentItems.length) {
-      if (type === TestType.TAT) {
-        setPhase(PsychologyPhase.UPLOADING_STORIES);
-      } else {
-        setPhase(PsychologyPhase.COMPLETED);
-      }
+      if (type === TestType.TAT) setPhase(PsychologyPhase.UPLOADING_STORIES);
+      else setPhase(PsychologyPhase.COMPLETED);
       return;
     }
-
-    if (type === TestType.TAT) {
-      setTimeLeft(30); 
-      setPhase(PsychologyPhase.VIEWING);
-    } else if (type === TestType.WAT) {
-      setTimeLeft(15);
-      setPhase(PsychologyPhase.WRITING);
-    } else if (type === TestType.SRT) {
-      setTimeLeft(30);
-      setPhase(PsychologyPhase.WRITING);
-    }
+    if (type === TestType.TAT) { setTimeLeft(30); setPhase(PsychologyPhase.VIEWING); }
+    else if (type === TestType.WAT) { setTimeLeft(15); setPhase(PsychologyPhase.WRITING); }
+    else if (type === TestType.SRT) { setTimeLeft(30); setPhase(PsychologyPhase.WRITING); }
   };
 
   useEffect(() => {
-    if (type === TestType.SRT && currentIndex >= 0 && phase !== PsychologyPhase.COMPLETED) {
-      if (totalTimeLeft > 0) {
-        totalTimerRef.current = setTimeout(() => setTotalTimeLeft(prev => prev - 1), 1000);
-      } else {
-        setPhase(PsychologyPhase.COMPLETED);
-      }
-    }
-    return () => { if (totalTimerRef.current) clearTimeout(totalTimerRef.current); };
-  }, [totalTimeLeft, currentIndex, phase]);
-
-  useEffect(() => {
     const isTimedPhase = phase === PsychologyPhase.VIEWING || phase === PsychologyPhase.WRITING;
-    
     if (currentIndex >= 0 && currentIndex < items.length && isTimedPhase && timeLeft >= 0) {
       if (timeLeft > 0) {
-        timerRef.current = setTimeout(() => {
-          setTimeLeft((prev) => prev - 1);
-        }, 1000);
+        timerRef.current = setTimeout(() => setTimeLeft((prev) => prev - 1), 1000);
       } else {
         handleTimerEnd();
       }
@@ -158,15 +155,12 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
     } else {
       const nextIdx = currentIndex + 1;
       if (nextIdx < items.length) {
-        if (type === TestType.WAT || type === TestType.SRT) playBuzzer(300, 0.1);
+        playBuzzer(300, 0.1);
         setCurrentIndex(nextIdx);
         setupSlide(nextIdx, items);
       } else {
-        if (type === TestType.TAT) {
-          setPhase(PsychologyPhase.UPLOADING_STORIES);
-        } else {
-          setPhase(PsychologyPhase.COMPLETED);
-        }
+        if (type === TestType.TAT) setPhase(PsychologyPhase.UPLOADING_STORIES);
+        else setPhase(PsychologyPhase.COMPLETED);
       }
     }
   };
@@ -200,13 +194,9 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
         itemCount: 12
       });
       setFeedback(result);
-      
-      // Save result along with images for history
       if (onSave) onSave({ ...result, tatImages: tatUploads });
-      
       setPhase(PsychologyPhase.COMPLETED);
     } catch (err) {
-      console.error(err);
       setPhase(PsychologyPhase.UPLOADING_STORIES);
     }
   };
@@ -219,28 +209,24 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
 
   if (currentIndex === -1 && phase !== PsychologyPhase.PREPARING_STIMULI) {
     return (
-      <div className="bg-white p-6 md:p-16 rounded-[2rem] md:rounded-[4rem] shadow-2xl border-4 border-slate-50 text-center max-w-4xl mx-auto ring-1 ring-slate-100 animate-in fade-in zoom-in duration-500">
-        <div className="w-16 h-16 md:w-24 md:h-24 bg-slate-900 text-yellow-400 rounded-[1.5rem] md:rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 md:mb-10 shadow-2xl rotate-6 border-4 border-slate-800">
-           {type === TestType.TAT ? <ImageIcon className="w-8 h-8 md:w-12 md:h-12"/> : type === TestType.SRT ? <AlertCircle className="w-8 h-8 md:w-12 md:h-12"/> : <Target className="w-8 h-8 md:w-12 md:h-12"/>}
+      <div className="bg-white p-12 md:p-24 rounded-[3rem] md:rounded-[4rem] shadow-2xl border-4 border-slate-50 text-center max-w-4xl mx-auto ring-1 ring-slate-100 animate-in fade-in zoom-in duration-500">
+        <div className="w-20 h-20 md:w-28 md:h-28 bg-slate-900 text-yellow-400 rounded-[2rem] flex items-center justify-center mx-auto mb-10 shadow-2xl rotate-6 border-4 border-slate-800">
+           {type === TestType.TAT ? <ImageIcon size={40}/> : <Target size={40}/>}
         </div>
-        <h2 className="text-3xl md:text-5xl font-black mb-4 md:mb-6 uppercase tracking-tighter text-slate-900">{type} Test Session</h2>
-        <div className="bg-slate-50 p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] mb-8 md:mb-12 text-left border border-slate-200">
-           <h4 className="font-black text-xs uppercase tracking-widest text-blue-600 mb-4 md:mb-6 flex items-center gap-2 underline underline-offset-4">Board Directives:</h4>
+        <h2 className="text-4xl md:text-5xl font-black mb-6 uppercase tracking-tighter text-slate-900">{type} Test</h2>
+        <div className="bg-slate-50 p-8 rounded-[2rem] mb-12 text-left border border-slate-200">
+           <h4 className="font-black text-xs uppercase tracking-widest text-blue-600 mb-4 underline">Board Briefing:</h4>
            <div className="text-slate-600 font-medium text-sm md:text-lg leading-relaxed italic space-y-4">
-             {type === TestType.TAT && (
-               <>
-                 <p>• 12 Slides (11 images + 1 blank). 30s observation, 4m writing.</p>
-                 <p>• Write all stories on paper sequentially.</p>
-                 <p className="font-bold text-slate-900 underline decoration-yellow-400">• After session, upload images of all 12 stories for AI Psychological assessment.</p>
-               </>
+             {type === TestType.TAT ? (
+               <p>• 12 Pictures (11 from DB + 1 Blank). 30s viewing, 4m writing per slide. All images are retrieved from authorized board sets.</p>
+             ) : (
+               <p>• Spontaneous responses required. Quality and speed are being assessed by the psychologists.</p>
              )}
-             {type === TestType.WAT && <p>• 60 Words. 15s per word. Sentences must be spontaneous.</p>}
-             {type === TestType.SRT && <p>• 60 Situations. 30 Minutes. Quality of response is vital.</p>}
            </div>
         </div>
-        <button onClick={startTest} disabled={isLoading} className="bg-slate-900 text-white px-12 md:px-20 py-5 md:py-6 rounded-full font-black text-sm md:text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest active:scale-95 flex items-center justify-center gap-4 md:gap-6 mx-auto w-full md:w-auto">
+        <button onClick={startTest} disabled={isLoading} className="bg-slate-900 text-white px-16 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-6 mx-auto">
           {isLoading ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
-          Commence Session
+          Begin Test
         </button>
       </div>
     );
@@ -248,16 +234,11 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
 
   if (phase === PsychologyPhase.PREPARING_STIMULI) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 md:py-40 space-y-8 md:space-y-12 animate-in fade-in duration-500">
-        <div className="relative">
-          <Loader2 className="w-20 h-20 md:w-32 md:h-32 text-slate-900 animate-spin" strokeWidth={1} />
-          <div className="absolute inset-0 flex items-center justify-center text-lg md:text-xl font-black text-slate-900">
-            {Math.round(loadProgress)}%
-          </div>
-        </div>
-        <div className="text-center space-y-4">
-           <p className="text-slate-900 font-black uppercase tracking-[0.5em] text-xs md:text-sm">Assembling Restricted Materials</p>
-           <p className="text-slate-400 text-xs font-bold italic max-w-sm mx-auto">"Gentleman, the psychologist is finalizing the materials. Ensure your chest number is written clearly."</p>
+      <div className="flex flex-col items-center justify-center py-40 space-y-12">
+        <Loader2 className="w-32 h-32 text-slate-900 animate-spin" />
+        <div className="text-center">
+           <p className="text-slate-900 font-black uppercase tracking-[0.5em] text-sm mb-4">Retrieving {activeSetName || 'Authorized'} Set</p>
+           <p className="text-slate-400 text-xs font-bold italic">Assembling board materials from secure database...</p>
         </div>
       </div>
     );
@@ -265,95 +246,62 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
 
   if (phase === PsychologyPhase.VIEWING || phase === PsychologyPhase.WRITING) {
     const currentItem = items[currentIndex];
-    const isSRT = type === TestType.SRT;
-    const isWAT = type === TestType.WAT;
     const isTAT = type === TestType.TAT;
     const imageUrl = isTAT ? (currentItem.id === 'tat-12-blank' ? 'BLANK' : pregeneratedImages[currentItem.id]) : null;
 
     return (
-      <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 pb-20 animate-in fade-in duration-700">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-          <div className="bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-xl border border-slate-100 flex items-center gap-4 md:gap-6">
-             <div className="w-10 h-10 md:w-12 md:h-12 bg-slate-900 text-white rounded-xl md:rounded-2xl flex items-center justify-center"><Target size={20} /></div>
-             <div><p className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest">Progress</p><p className="text-lg md:text-xl font-black text-slate-900">{currentIndex + 1} of {items.length}</p></div>
+      <div className="max-w-7xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 flex items-center gap-6">
+             <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center"><Target size={24} /></div>
+             <div><p className="text-[10px] font-black uppercase text-slate-400">Progress</p><p className="text-xl font-black">{currentIndex + 1} of {items.length}</p></div>
           </div>
-          <div className="bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col items-center justify-center">
-             <div className="relative w-full max-w-[200px] h-2 bg-slate-100 rounded-full overflow-hidden flex items-center">
-                <div className="absolute left-0 top-0 h-full bg-blue-600 transition-all duration-500 rounded-full" style={{ width: `${((currentIndex + 1) / items.length) * 100}%` }} />
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col items-center justify-center">
+             <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-3">Set: {activeSetName || 'Standard'}</p>
+             <div className="relative w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="absolute left-0 top-0 h-full bg-blue-600" style={{ width: `${((currentIndex + 1) / items.length) * 100}%` }} />
              </div>
-             <p className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 tracking-widest mt-2 md:mt-3">Board Response Map</p>
           </div>
-          <div className={`p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-xl flex items-center justify-between border-4 transition-all duration-300 ${timeLeft < 7 && !isTAT ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 'bg-slate-900 border-slate-800 text-white'}`}>
-             <div className="flex items-center gap-3 md:gap-4"><Timer className="w-6 h-6 md:w-8 md:h-8" /><div><p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest opacity-60">Slide Timer</p><p className="text-xl md:text-2xl font-black font-mono">{formatTime(timeLeft)}</p></div></div>
+          <div className={`p-6 rounded-[2.5rem] shadow-xl border-4 transition-all ${timeLeft < 10 ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 'bg-slate-900 border-slate-800 text-white'}`}>
+             <div className="flex items-center justify-between">
+                <Timer size={32} />
+                <p className="text-2xl font-black font-mono">{formatTime(timeLeft)}</p>
+             </div>
           </div>
         </div>
 
         {isTAT && phase === PsychologyPhase.VIEWING && (
-          <div className="animate-in zoom-in duration-1000">
-             <div className="relative rounded-[2rem] md:rounded-[4rem] overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] border-[8px] md:border-[15px] border-white ring-1 ring-slate-200 bg-white min-h-[50vh] md:min-h-[65vh] flex items-center justify-center p-4">
+          <div className="animate-in zoom-in duration-500">
+             <div className="relative rounded-[4rem] overflow-hidden shadow-2xl border-[15px] border-white ring-1 ring-slate-200 bg-white min-h-[60vh] flex items-center justify-center">
                 {imageUrl === 'BLANK' ? (
-                  <div className="text-center h-full w-full flex flex-col items-center justify-center bg-white p-20 md:p-40">
-                     <div className="text-slate-100 font-black text-[4rem] md:text-[10rem] uppercase tracking-[0.5em] select-none opacity-20 transform -rotate-12">BLANK</div>
-                     <p className="text-slate-400 font-black uppercase tracking-[0.4em] md:tracking-[0.6em] text-sm md:text-xl mt-4 md:mt-8">Prepare Final Imaginary Story</p>
+                  <div className="text-center p-40">
+                     <div className="text-slate-100 font-black text-[10rem] uppercase tracking-[0.5em] opacity-20 transform -rotate-12">BLANK</div>
+                     <p className="text-slate-400 font-black uppercase tracking-[0.6em] text-xl mt-8">Prepare Final Story</p>
                   </div>
                 ) : (
-                  // Improved Image Handling: If image fails, text is shown as fallback
-                  <>
-                     <img 
-                       src={imageUrl!} 
-                       className="mx-auto w-full max-h-[60vh] md:max-h-[75vh] object-contain grayscale contrast-[1.4] brightness-110 blur-[1px]" 
-                       alt="Psychological Stimulus" 
-                       onError={(e) => {
-                         e.currentTarget.style.display = 'none';
-                         const parent = e.currentTarget.parentElement;
-                         if (parent) {
-                           const fallback = document.createElement('div');
-                           fallback.className = "text-center p-12";
-                           fallback.innerHTML = `<h3 class="text-2xl font-black uppercase text-slate-800 mb-4">Scene Description</h3><p class="text-xl italic text-slate-600">"${currentItem.content}"</p><p class="mt-8 text-xs font-bold text-red-400 uppercase tracking-widest">Image Load Failed</p>`;
-                           parent.appendChild(fallback);
-                         }
-                       }}
-                     />
-                  </>
+                  <img src={imageUrl!} className="mx-auto w-full max-h-[75vh] object-contain grayscale contrast-[1.4]" alt="Stimulus" />
                 )}
-                <div className="absolute top-4 left-4 md:top-10 md:left-10 bg-black/70 backdrop-blur-3xl px-6 md:px-10 py-2 md:py-4 rounded-full text-white font-black text-[8px] md:text-[10px] uppercase tracking-[0.3em] md:tracking-[0.4em] border border-white/20 shadow-2xl">OBSERVATION PHASE: 30S</div>
+                <div className="absolute top-10 left-10 bg-black/70 backdrop-blur-3xl px-10 py-4 rounded-full text-white font-black text-[10px] uppercase tracking-[0.4em]">VIEWING PHASE: 30S</div>
              </div>
           </div>
         )}
 
         {isTAT && phase === PsychologyPhase.WRITING && (
-          <div className="bg-slate-950 p-16 md:p-32 rounded-[2rem] md:rounded-[4rem] flex flex-col items-center justify-center text-center space-y-8 md:space-y-12 shadow-2xl animate-in slide-in-from-bottom-12 duration-700 relative overflow-hidden min-h-[50vh]">
-             <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/10 to-transparent opacity-20" />
-             <div className="w-24 h-24 md:w-40 md:h-40 bg-white/5 rounded-full flex items-center justify-center border border-white/10 relative z-10 shadow-inner">
-                <FileText className="text-blue-500 w-12 h-12 md:w-20 md:h-20 animate-pulse" />
+          <div className="bg-slate-950 p-32 rounded-[4rem] flex flex-col items-center justify-center text-center space-y-12 shadow-2xl relative overflow-hidden min-h-[50vh]">
+             <FileText className="text-blue-500 w-24 h-24 animate-pulse" />
+             <div className="space-y-6">
+                <h3 className="text-6xl font-black text-white uppercase tracking-tighter">Writing Phase</h3>
+                <p className="text-slate-400 text-2xl font-medium italic opacity-80">Story #{currentIndex + 1}</p>
              </div>
-             <div className="relative z-10 space-y-4 md:space-y-6">
-                <h3 className="text-4xl md:text-7xl font-black text-white uppercase tracking-tighter">Writing Phase</h3>
-                <p className="text-slate-400 text-xl md:text-3xl font-medium italic max-w-2xl leading-relaxed opacity-80">Construct story #{currentIndex + 1} on your answer sheet.</p>
-             </div>
-             <div className="relative z-10 px-8 md:px-12 py-4 md:py-6 bg-white/5 rounded-full border border-white/10 text-white font-black uppercase tracking-[0.4em] md:tracking-[0.5em] text-[8px] md:text-[10px] shadow-2xl">Automatic transition in {timeLeft}s</div>
           </div>
         )}
 
-        {/* SRT Specific Display: Italic, larger descriptive text */}
-        {isSRT && (
-          <div className="bg-white rounded-[2rem] md:rounded-[4rem] p-12 md:p-40 text-center shadow-2xl border-2 border-slate-50 min-h-[50vh] md:min-h-[60vh] flex flex-col items-center justify-center relative overflow-hidden group">
-             <div className="absolute top-0 left-0 w-full h-2 bg-slate-50">
-                <div className="h-full bg-blue-600 transition-all duration-1000 ease-linear" style={{ width: `${(timeLeft / 30) * 100}%` }} />
-             </div>
-             <h1 className="text-3xl md:text-7xl font-black text-slate-900 tracking-tight italic leading-snug max-w-5xl">"{currentItem.content}"</h1>
-          </div>
-        )}
-
-        {/* WAT Specific Display: Massive, bold, plain uppercase word as shown in screenshot */}
-        {isWAT && (
-          <div className="bg-white rounded-[2rem] md:rounded-[4rem] p-12 md:p-40 text-center shadow-2xl border-2 border-slate-50 min-h-[50vh] md:min-h-[60vh] flex flex-col items-center justify-center relative overflow-hidden">
-             <div className="absolute top-0 left-0 w-full h-2 bg-slate-50">
-                <div className="h-full bg-slate-900 transition-all duration-1000 ease-linear" style={{ width: `${(timeLeft / 15) * 100}%` }} />
-             </div>
-             <h1 className="text-[4rem] md:text-[10rem] font-black text-slate-900 uppercase tracking-tighter scale-110">{currentItem.content}</h1>
-             <p className="text-slate-400 font-bold uppercase tracking-[0.4em] md:tracking-[0.5em] mt-8 md:mt-12 text-xs md:text-base">Spontaneous Response Required</p>
-          </div>
+        {!isTAT && (
+           <div className="bg-white rounded-[4rem] p-40 text-center shadow-2xl border-2 border-slate-50 min-h-[60vh] flex flex-col items-center justify-center">
+              <h1 className={`${type === TestType.WAT ? 'text-[8rem] uppercase' : 'text-5xl italic'} font-black text-slate-900 tracking-tight`}>
+                {type === TestType.WAT ? currentItem.content : `"${currentItem.content}"`}
+              </h1>
+           </div>
         )}
       </div>
     );
@@ -361,40 +309,29 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
 
   if (phase === PsychologyPhase.UPLOADING_STORIES) {
     return (
-      <div className="max-w-5xl mx-auto space-y-8 md:space-y-12 pb-20 animate-in slide-in-from-bottom-20 duration-700">
-         <div className="text-center space-y-4 md:space-y-6">
-            <h2 className="text-3xl md:text-5xl font-black text-slate-900 uppercase tracking-tighter">Dossier Submission</h2>
-            <p className="text-slate-500 text-base md:text-xl font-medium italic">"Upload images of your handwritten stories for Psychological Analysis."</p>
+      <div className="max-w-5xl mx-auto space-y-12 pb-20 animate-in slide-in-from-bottom-20">
+         <div className="text-center space-y-6">
+            <h2 className="text-5xl font-black text-slate-900 uppercase tracking-tighter">Dossier Submission</h2>
+            <p className="text-slate-500 text-xl font-medium italic">"Upload images of your handwritten stories."</p>
          </div>
-         
-         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <input type="file" ref={fileInputRef} onChange={onFileChange} className="hidden" accept="image/*" />
             {tatUploads.map((file, i) => (
-              <div key={i} className={`aspect-[4/5] rounded-[1.5rem] md:rounded-[2rem] border-2 transition-all cursor-pointer relative overflow-hidden group ${file ? 'border-green-500 bg-green-50' : 'border-slate-200 bg-white hover:border-slate-900'}`} onClick={() => handleFileSelect(i)}>
+              <div key={i} className={`aspect-[4/5] rounded-[2rem] border-2 transition-all cursor-pointer relative overflow-hidden group ${file ? 'border-green-500 bg-green-50' : 'border-slate-200 bg-white hover:border-slate-900'}`} onClick={() => handleFileSelect(i)}>
                  {file ? (
-                   <>
-                     <img src={`data:image/jpeg;base64,${file}`} className="w-full h-full object-cover opacity-80" alt={`Story ${i+1}`} />
-                     <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
-                        <div className="w-8 h-8 md:w-10 md:h-10 bg-green-500 text-white rounded-full flex items-center justify-center shadow-xl"><CheckCircle size={16} /></div>
-                     </div>
-                   </>
+                   <img src={`data:image/jpeg;base64,${file}`} className="w-full h-full object-cover opacity-80" alt={`Story ${i+1}`} />
                  ) : (
-                   <div className="flex flex-col items-center justify-center h-full space-y-3 md:space-y-4">
-                      <div className="w-10 h-10 md:w-12 md:h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 group-hover:bg-slate-900 group-hover:text-white transition-colors"><Upload size={16} /></div>
-                      <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-400">Story {i+1}</span>
+                   <div className="flex flex-col items-center justify-center h-full space-y-4">
+                      <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400"><Upload size={16} /></div>
+                      <span className="text-xs font-black uppercase text-slate-400">Story {i+1}</span>
                    </div>
                  )}
               </div>
             ))}
          </div>
-
-         <div className="flex justify-center pt-6 md:pt-10">
-            <button 
-              onClick={submitDossier}
-              disabled={tatUploads.some(u => !u)}
-              className="px-12 md:px-20 py-5 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs md:text-sm hover:bg-black transition-all shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-4"
-            >
-              {tatUploads.some(u => !u) ? 'Complete All Uploads' : 'Submit to Psychologist'}
+         <div className="flex justify-center">
+            <button onClick={submitDossier} disabled={tatUploads.some(u => !u)} className="px-20 py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest hover:bg-black transition-all shadow-2xl disabled:opacity-50">
+              Submit Dossier
             </button>
          </div>
       </div>
@@ -403,86 +340,28 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
 
   if (phase === PsychologyPhase.EVALUATING) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 md:py-40 space-y-8 md:space-y-12">
-        <div className="relative">
-          <Loader2 className="w-20 h-20 md:w-24 md:h-24 text-slate-900 animate-spin" />
-          <Brain className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 text-purple-500" />
-        </div>
-        <div className="text-center">
-          <p className="text-slate-900 font-black uppercase tracking-[0.5em] text-xs md:text-sm mb-2">Psychometric Profiling</p>
-          <p className="text-slate-400 text-xs font-bold italic">Evaluating OLQs: Effective Intelligence, Social Adaptability, Determination...</p>
-        </div>
+      <div className="flex flex-col items-center justify-center py-40 space-y-12">
+        <Loader2 className="w-24 h-24 text-slate-900 animate-spin" />
+        <p className="text-slate-900 font-black uppercase tracking-[0.5em] text-sm">Psychometric Evaluation...</p>
       </div>
     );
   }
 
   if (phase === PsychologyPhase.COMPLETED) {
     return (
-      <div className="max-w-6xl mx-auto space-y-8 md:space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-12 duration-1000">
-        <div className="bg-slate-950 p-8 md:p-16 rounded-[2rem] md:rounded-[4rem] text-white relative overflow-hidden shadow-2xl">
-           <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-12 md:gap-16">
-              <div className="text-center md:text-left space-y-4 md:space-y-6">
-                 <span className="bg-purple-600 text-white px-6 py-2 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] shadow-lg">Psychology Report</span>
-                 <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter leading-none">Dossier <br/><span className="text-purple-500">Analysis</span></h2>
-                 <p className="text-slate-400 font-medium max-w-lg leading-relaxed text-sm md:text-lg italic opacity-80">"{feedback?.recommendations || 'Evaluation Complete.'}"</p>
-              </div>
-              <div className="flex flex-col items-center bg-white/5 p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border border-white/10 backdrop-blur-3xl shadow-2xl">
-                 <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.4em] opacity-40 mb-4">Psych Score</span>
-                 <div className="text-7xl md:text-9xl font-black text-purple-500">{feedback?.score || 0}</div>
-              </div>
+      <div className="max-w-6xl mx-auto space-y-12 pb-20 animate-in fade-in duration-1000">
+        <div className="bg-slate-950 p-16 rounded-[4rem] text-white shadow-2xl flex justify-between items-center">
+           <div className="space-y-6">
+              <span className="bg-purple-600 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest">Psychology Report</span>
+              <h2 className="text-7xl font-black uppercase tracking-tighter">Evaluation <span className="text-purple-500">Complete</span></h2>
+              <p className="text-slate-400 text-lg italic opacity-80">"{feedback?.recommendations || 'Report ready for board conference.'}"</p>
+           </div>
+           <div className="bg-white/5 p-12 rounded-[3.5rem] border border-white/10 backdrop-blur-3xl text-center">
+              <p className="text-[11px] font-black uppercase tracking-[0.4em] opacity-40 mb-4">Score</p>
+              <div className="text-9xl font-black text-purple-500">{feedback?.score || 0}</div>
            </div>
         </div>
-
-        {feedback?.individualStories && (
-          <div className="space-y-6 md:space-y-8">
-             <h4 className="font-black text-xs uppercase tracking-[0.3em] text-slate-400 ml-4">Detailed Story Breakdown</h4>
-             <div className="grid md:grid-cols-2 gap-4 md:gap-6">
-               {feedback.individualStories.map((story: any, i: number) => (
-                 <div key={i} className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 hover:border-slate-900 transition-colors group shadow-sm">
-                    <div className="flex justify-between items-start mb-4">
-                       <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">Story {story.storyIndex}</span>
-                       <span className="text-[9px] md:text-[10px] font-bold text-purple-600 uppercase tracking-widest text-right max-w-[60%]">{story.theme}</span>
-                    </div>
-                    <p className="text-slate-600 text-xs md:text-sm font-medium leading-relaxed mb-4">{story.analysis}</p>
-                    <div className="flex items-center gap-2">
-                       <Award size={14} className="text-yellow-500" />
-                       <span className="text-[9px] md:text-[10px] font-black uppercase text-slate-800 tracking-widest">Projected: {story.olqProjected}</span>
-                    </div>
-                 </div>
-               ))}
-             </div>
-          </div>
-        )}
-
-        <div className="grid md:grid-cols-2 gap-6 md:gap-10">
-           <div className="bg-white p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-50 shadow-2xl">
-              <h4 className="font-black text-xs uppercase tracking-[0.3em] text-green-600 mb-8 md:mb-10 flex items-center gap-4"><CheckCircle className="w-6 h-6" /> Observed Strengths</h4>
-              <div className="space-y-4 md:space-y-5">
-                {feedback?.strengths?.map((s: string, i: number) => (
-                  <div key={i} className="flex gap-4 md:gap-5 p-4 md:p-5 bg-green-50 rounded-2xl md:rounded-3xl border border-green-100 text-slate-800 text-sm font-bold">
-                    <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-green-500 shrink-0" /> {s}
-                  </div>
-                ))}
-              </div>
-           </div>
-           <div className="bg-white p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-50 shadow-2xl">
-              <h4 className="font-black text-xs uppercase tracking-[0.3em] text-red-500 mb-8 md:mb-10 flex items-center gap-4"><AlertCircle className="w-6 h-6" /> Areas of Improvement</h4>
-              <div className="space-y-4 md:space-y-5">
-                {feedback?.weaknesses?.map((w: string, i: number) => (
-                  <div key={i} className="flex gap-4 md:gap-5 p-4 md:p-5 bg-red-50 rounded-2xl md:rounded-3xl border border-red-100 text-slate-800 text-sm font-bold">
-                    <AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-red-500 shrink-0" /> {w}
-                  </div>
-                ))}
-              </div>
-           </div>
-        </div>
-
-        <button 
-          onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); setTatUploads(new Array(12).fill('')); }}
-          className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
-        >
-          Return to Psychology Wing
-        </button>
+        <button onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); }} className="w-full py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs">Return to Wing</button>
       </div>
     );
   }
