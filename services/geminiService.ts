@@ -375,21 +375,46 @@ export async function evaluatePerformance(testType: string, userData: any) {
   
   // 2. PPDT EVALUATION
   else if (testType.includes('PPDT')) {
+    const ppdtParts: any[] = [];
+    
+    // 1. Stimulus Image (The hazy picture)
+    if (userData.stimulusImage) {
+        ppdtParts.push({ text: "Input 1: VISUAL STIMULUS (Hazy Picture shown to candidate):" });
+        ppdtParts.push({
+            inlineData: { data: userData.stimulusImage, mimeType: 'image/jpeg' }
+        });
+    }
+
+    // 2. Candidate's Response (Handwritten)
     if (userData.uploadedStoryImage) {
-      contents.push({
+      ppdtParts.push({ text: "Input 2: CANDIDATE'S HANDWRITTEN RESPONSE (Story + Character Box):" });
+      ppdtParts.push({
         inlineData: { data: userData.uploadedStoryImage, mimeType: 'image/jpeg' }
       });
     }
-    const prompt = `Act as an SSB Psychologist for PPDT.
-    Context Stimulus: "${userData.visualStimulusProvided || 'Unknown'}".
-    Handwritten Story text: "${userData.story}".
-    Narration: "${userData.narration}".
-    Evaluate: Hero, Theme, Action, Outcome.`;
-    contents.push({ text: prompt });
+
+    const prompt = `Act as an Expert SSB Psychologist for PPDT (Picture Perception & Description Test).
+    
+    INPUTS:
+    1. Visual Stimulus: The hazy picture shown above (if provided).
+    2. Handwritten Story: The candidate's paper response (if provided).
+    3. Transcribed Story Text: "${userData.story}".
+    4. Oral Narration Transcript: "${userData.narration}".
+    5. Context Description: "${userData.visualStimulusProvided || 'Unknown'}".
+
+    TASK:
+    1. Compare the candidate's story with the Visual Stimulus. Is the perception accurate to the stimulus?
+    2. Analyze the 'Character Box' data from the handwritten image if visible (Age, Sex, Mood).
+    3. Evaluate the Hero's qualities, the Theme (Action), and the Outcome.
+    4. Check for consistency between the written story and the narration.
+
+    Provide a detailed assessment in JSON.`;
+    
+    ppdtParts.push({ text: prompt });
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: { parts: contents },
+      contents: { parts: ppdtParts },
       config: {
         responseMimeType: 'application/json',
         responseSchema: {

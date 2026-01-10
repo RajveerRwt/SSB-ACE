@@ -265,12 +265,37 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
     setStep(PPDTStep.FINISHED);
     setIsLoading(true);
     try {
+      // Convert currentImageUrl to Base64 to send to AI for comparison
+      let stimulusBase64 = null;
+      if (currentImageUrl) {
+          if (currentImageUrl.startsWith('data:')) {
+              stimulusBase64 = currentImageUrl.split(',')[1];
+          } else {
+              try {
+                  const response = await fetch(currentImageUrl);
+                  const blob = await response.blob();
+                  stimulusBase64 = await new Promise<string>((resolve) => {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                          const result = reader.result as string;
+                          resolve(result.split(',')[1]);
+                      };
+                      reader.readAsDataURL(blob);
+                  });
+              } catch (err) {
+                  console.warn("Failed to fetch/convert stimulus image for AI context:", err);
+              }
+          }
+      }
+
       // Pass the uploaded image data directly for character detection from the box
+      // AND Pass the stimulus image so AI can see what the candidate saw
       const result = await evaluatePerformance('PPDT Screening Board (Stage-1)', { 
         story, 
         narration: narrationText,
         visualStimulusProvided: imageDescription,
-        uploadedStoryImage: uploadedImageBase64
+        uploadedStoryImage: uploadedImageBase64,
+        stimulusImage: stimulusBase64 
       });
       setFeedback(result);
       
