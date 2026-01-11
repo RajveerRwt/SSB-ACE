@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain } from 'lucide-react';
+import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye } from 'lucide-react';
 import { generateTestContent, evaluatePerformance } from '../services/geminiService';
 import { getTATScenarios } from '../services/supabaseService';
 import { TestType } from '../types';
@@ -262,12 +262,22 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
                 <div className="absolute left-0 top-0 h-full bg-blue-600" style={{ width: `${((currentIndex + 1) / items.length) * 100}%` }} />
              </div>
           </div>
-          <div className={`p-6 rounded-[2.5rem] shadow-xl border-4 transition-all ${timeLeft < 10 ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 'bg-slate-900 border-slate-800 text-white'}`}>
-             <div className="flex items-center justify-between">
-                <Timer size={32} />
-                <p className="text-2xl font-black font-mono">{formatTime(timeLeft)}</p>
+          
+          {(isTAT && phase === PsychologyPhase.VIEWING) ? (
+             <div className="p-6 rounded-[2.5rem] shadow-xl border-4 border-blue-100 bg-blue-50 flex items-center justify-center">
+                <div className="flex items-center gap-3 text-blue-600/50">
+                   <Eye size={24} className="animate-pulse" />
+                   <p className="text-xs font-black uppercase tracking-[0.2em]">Observing</p>
+                </div>
              </div>
-          </div>
+          ) : (
+            <div className={`p-6 rounded-[2.5rem] shadow-xl border-4 transition-all ${timeLeft < 10 ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 'bg-slate-900 border-slate-800 text-white'}`}>
+               <div className="flex items-center justify-between">
+                  <Timer size={32} />
+                  <p className="text-2xl font-black font-mono">{formatTime(timeLeft)}</p>
+               </div>
+            </div>
+          )}
         </div>
 
         {isTAT && phase === PsychologyPhase.VIEWING && (
