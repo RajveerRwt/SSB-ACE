@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
@@ -59,6 +59,18 @@ function createBlob(data: Float32Array): { data: string; mimeType: string } {
   };
 }
 
+async function blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
 interface InterviewProps {
   piqData?: PIQData;
   onSave?: (result: any) => void;
@@ -98,6 +110,11 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
   const retryCountRef = useRef(0);
   const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isSocketOpenRef = useRef(false);
+  
+  // Video Refs
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Timer Effect
   useEffect(() => {
@@ -114,6 +131,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
 
   const cleanupAudio = useCallback(async () => {
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
+    if (videoIntervalRef.current) clearInterval(videoIntervalRef.current);
     isSocketOpenRef.current = false;
     
     if (scriptProcessorRef.current) {
@@ -164,15 +182,27 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
     await cleanupSession(); 
 
     try {
+      // Request VIDEO and AUDIO
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
           sampleRate: 16000
-        } 
+        },
+        video: {
+            width: 320,
+            height: 240,
+            frameRate: 10
+        }
       });
       streamRef.current = stream;
+      
+      // Connect stream to video element for self-view
+      if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(e => console.error("Video play failed", e));
+      }
       
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
@@ -189,14 +219,20 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
           CONTEXT: A rigorous, formal 30-minute Personal Interview.
           PIQ DATA: ${JSON.stringify(piqData)}.
           
-          *** CRITICAL PROTOCOL: NETWORK RESILIENCE ***
-          1. This is a practice session over a potentially unstable network.
-          2. If the prompt indicates a RESUME, DO NOT RESTART. Pick up from context.
+          *** CRITICAL PROTOCOL: VISUAL & ETIQUETTE ***
+          1. VISUAL INPUT: You are receiving a video feed of the candidate. Monitor their body language.
+             - Check for upright posture.
+             - Check for eye contact (looking at camera).
+             - If they are slouching, looking away, or look nervous, STERNLY correct them verbally (e.g., "Sit up straight!", "Look at me when I speak").
           
-          STRATEGY:
-          - Deep Probe: If answers are short, ask "Why?", "How?", "Tell me more".
-          - Rapid Fire: Ask multiple questions in one go.
-          - Stress: If they fumble, pressure them slightly.
+          2. GREETING PROTOCOL: 
+             - Wait for the candidate to GREET you first (e.g., "Good Morning Sir", "Jai Hind").
+             - If they do not greet within the first 10 seconds of the call, reprimand them immediately for lack of officer-like etiquette.
+
+          3. STRATEGY:
+             - Deep Probe: If answers are short, ask "Why?", "How?", "Tell me more".
+             - Rapid Fire: Ask multiple questions in one go.
+             - Stress: If they fumble, pressure them slightly.
 
           TONE: Authoritative, Skeptical, Thorough.`;
 
@@ -211,7 +247,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
           LAST KNOWN CONTEXT: "${recentHistory}"
           INSTRUCTION: Briefly acknowledge the drop ("We had a glitch, carry on with..."). Then RESUME probing the last topic immediately. DO NOT RESTART INTRO.`;
       } else {
-          finalInstruction += `\n\nINSTRUCTION: START_INTERVIEW. Candidate has just entered. Greet by Chest Number and begin the interview immediately.`;
+          finalInstruction += `\n\nINSTRUCTION: START_INTERVIEW. Candidate has just entered. Wait for greeting.`;
       }
 
       const sessionPromise = ai.live.connect({
@@ -230,7 +266,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
             isSocketOpenRef.current = true;
             retryCountRef.current = 0; 
 
-            // Input Pipeline
+            // 1. Audio Input Pipeline
             const source = inputAudioContextRef.current!.createMediaStreamSource(streamRef.current!);
             const scriptProcessor = inputAudioContextRef.current!.createScriptProcessor(4096, 1, 1);
             scriptProcessorRef.current = scriptProcessor;
@@ -251,6 +287,28 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
             
             source.connect(scriptProcessor);
             scriptProcessor.connect(inputAudioContextRef.current!.destination);
+
+            // 2. Video Input Loop (1 FPS to save bandwidth/processing, sufficient for body language)
+            videoIntervalRef.current = setInterval(() => {
+                if (isSocketOpenRef.current && sessionPromiseRef.current && videoRef.current && canvasRef.current) {
+                    const ctx = canvasRef.current.getContext('2d');
+                    if (ctx) {
+                        canvasRef.current.width = 320;
+                        canvasRef.current.height = 240;
+                        ctx.drawImage(videoRef.current, 0, 0, 320, 240);
+                        canvasRef.current.toBlob(async (blob) => {
+                            if (blob) {
+                                const base64 = await blobToBase64(blob);
+                                sessionPromiseRef.current?.then(session => {
+                                    try {
+                                        session.sendRealtimeInput({ media: { mimeType: 'image/jpeg', data: base64 } });
+                                    } catch(e) {}
+                                });
+                            }
+                        }, 'image/jpeg', 0.5);
+                    }
+                }
+            }, 1000); // 1 Frame per second
           },
           onmessage: async (message: LiveServerMessage) => {
             // Aggregate transcript
@@ -388,17 +446,24 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
                    <Clock size={12} /> 30 Minutes
                  </span>
                  <span className="px-3 md:px-4 py-1.5 bg-green-500/20 text-green-300 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-green-500/30 flex items-center gap-2">
-                   <ShieldCheck size={12} /> Live Assessment
+                   <Video size={12} /> Body Language Analysis
                  </span>
               </div>
-              <p className="text-slate-400 text-sm md:text-lg font-medium italic max-w-xl mx-auto leading-relaxed opacity-80">
-                "Gentleman, this is a comprehensive 30-minute evaluation. We will discuss your PIQ, Education, and General Awareness. Ensure you are in a quiet room."
-              </p>
+              
+              <div className="bg-white/5 p-6 rounded-2xl border border-white/10 text-left max-w-xl mx-auto space-y-3">
+                 <h4 className="text-yellow-400 font-black uppercase text-xs tracking-widest flex items-center gap-2"><Info size={14} /> Entry Instructions</h4>
+                 <ul className="text-slate-300 text-xs space-y-2 font-medium">
+                    <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Camera Permission Required for Body Language check.</li>
+                    <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Sit in a well-lit room with upright posture.</li>
+                    <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> <b>Greeting Mandatory:</b> Wish the Officer (e.g. "Good Morning Sir") immediately upon entering.</li>
+                 </ul>
+              </div>
+
               <button 
                 onClick={() => startBoardSession(false)} 
                 className="px-12 md:px-16 py-5 md:py-7 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all hover:scale-105 active:scale-95"
               >
-                Enter Interview Room
+                Allow Camera & Enter Room
               </button>
            </div>
         </div>
@@ -408,6 +473,9 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-4 md:space-y-6 pb-32 md:pb-40">
+      {/* Hidden Canvas for Frame Capture */}
+      <canvas ref={canvasRef} className="hidden" />
+
       {error && (
         <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-center justify-between text-red-600 font-black text-xs animate-in slide-in-from-top duration-300 shadow-lg">
            <div className="flex items-center gap-3">
@@ -423,7 +491,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center space-y-8 animate-in fade-in">
            <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
            <p className="text-white font-black uppercase tracking-[0.4em] text-sm">
-             {connectionStatus === 'RECONNECTING' ? 'Link Interrupted. Resuming Protocol...' : 'Establishing Uplink...'}
+             {connectionStatus === 'RECONNECTING' ? 'Link Interrupted. Resuming Protocol...' : 'Establishing Secure Video Uplink...'}
            </p>
            {connectionStatus === 'RECONNECTING' && <p className="text-slate-400 text-xs">Preserving Context. Standby...</p>}
         </div>
@@ -432,7 +500,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6">
         {/* TIMER & SIGNAL */}
         <div className="md:col-span-4 bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-xl border border-slate-100 flex items-center justify-between px-6 md:px-8 relative overflow-hidden">
-           {/* Timer hidden for candidate realism */}
            <div className="flex items-center gap-4 md:gap-5">
               <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center text-white bg-slate-900">
                 <ShieldCheck size={20} className="md:w-6 md:h-6" />
@@ -462,7 +529,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
                  {isAiSpeaking ? (
                    <span className="text-blue-600 flex items-center gap-2"><Volume2 size={14} className="animate-pulse" /> IO Speaking...</span>
                  ) : (
-                   <span className="text-green-600 flex items-center gap-2"><Mic size={14} /> Listening...</span>
+                   <span className="text-green-600 flex items-center gap-2"><Mic size={14} /> Listening & Watching...</span>
                  )}
               </div>
            </div>
@@ -471,8 +538,19 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8 h-auto md:h-[55vh]">
-        {/* AVATAR */}
+        {/* AVATAR & SELF VIEW */}
         <div className="xl:col-span-8 bg-slate-950 rounded-[2.5rem] md:rounded-[4rem] border-4 border-slate-900 relative overflow-hidden flex flex-col items-center justify-center shadow-2xl min-h-[400px]">
+           {/* Self View (PIP) */}
+           <div className="absolute top-6 right-6 w-32 h-24 md:w-48 md:h-36 bg-black rounded-2xl overflow-hidden border-2 border-slate-700 shadow-xl z-30">
+              <video 
+                 ref={videoRef} 
+                 className="w-full h-full object-cover mirror-mode"
+                 muted 
+                 playsInline
+              />
+              <div className="absolute bottom-2 left-2 bg-red-600 w-2 h-2 rounded-full animate-pulse shadow-sm"></div>
+           </div>
+
            <div className={`w-40 h-40 md:w-64 md:h-64 lg:w-[400px] lg:h-[400px] rounded-full border-2 border-white/5 bg-slate-900 flex items-center justify-center relative z-10 transition-all duration-300 ${isAiSpeaking ? 'scale-105 border-blue-500/30 shadow-[0_0_100px_rgba(59,130,246,0.2)]' : ''}`}>
               <Disc size={60} className={`text-blue-500/30 md:w-20 md:h-20 transition-all duration-1000 ${isAiSpeaking ? 'animate-spin opacity-100' : 'opacity-50'}`} style={{ animationDuration: '4s' }} />
               <div className="absolute inset-0 flex items-center justify-center opacity-40">
@@ -513,7 +591,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
                 <p className="text-[9px] font-black uppercase tracking-widest">Protocol</p>
              </div>
              <p className="text-xs text-slate-400 italic font-medium leading-relaxed relative z-10">
-               "Answer clusters of questions (Rapid Fire) sequentially. If the IO interrupts, stop immediately and listen."
+               "Maintain eye contact with the camera. The IO is observing your facial expressions and confidence levels in real-time."
              </p>
              <Zap className="absolute -bottom-4 -right-4 w-24 h-24 text-white/5 rotate-12" />
            </div>
@@ -566,6 +644,29 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
               <div className="bg-slate-50 p-6 md:p-16 rounded-[2.5rem] md:rounded-[4rem] border-2 border-white shadow-xl space-y-8 md:space-y-10">
                  <p className="text-slate-600 font-medium italic text-lg md:text-2xl leading-relaxed">"{finalAnalysis.recommendations}"</p>
                  
+                 {finalAnalysis.bodyLanguage && (
+                     <div className="bg-white p-8 rounded-[2rem] border-l-4 border-yellow-400 shadow-sm space-y-4">
+                        <div className="flex items-center gap-3 mb-2">
+                           <Eye className="text-yellow-500" size={24} />
+                           <h4 className="text-lg font-black uppercase tracking-tighter text-slate-900">Visual Observations</h4>
+                        </div>
+                        <div className="grid md:grid-cols-3 gap-6">
+                           <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Posture</p>
+                              <p className="text-sm font-bold text-slate-700">{finalAnalysis.bodyLanguage.posture || "No remarks"}</p>
+                           </div>
+                           <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Eye Contact</p>
+                              <p className="text-sm font-bold text-slate-700">{finalAnalysis.bodyLanguage.eyeContact || "No remarks"}</p>
+                           </div>
+                           <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Demeanor</p>
+                              <p className="text-sm font-bold text-slate-700">{finalAnalysis.bodyLanguage.gestures || "No remarks"}</p>
+                           </div>
+                        </div>
+                     </div>
+                 )}
+
                  {finalAnalysis.factorAnalysis && (
                    <div className="grid md:grid-cols-2 gap-6 md:gap-8 mb-8">
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">

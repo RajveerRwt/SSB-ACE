@@ -32,7 +32,8 @@ const safeJSONParse = (text: string | undefined) => {
       weaknesses: ["N/A"],
       factorAnalysis: {},
       perception: {},
-      individualStories: []
+      individualStories: [],
+      bodyLanguage: { posture: "Not Assessed", eyeContact: "Not Assessed", gestures: "Not Assessed" }
     };
   }
 };
@@ -453,14 +454,17 @@ export async function evaluatePerformance(testType: string, userData: any) {
   // 3. INTERVIEW EVALUATION
   else if (testType.includes('Interview')) {
      const prompt = `Act as an Interviewing Officer (IO) at SSB.
-     Analyze this interview transcript based on the 4 factors of Officer Like Qualities (OLQ).
+     Analyze this interview transcript.
+     
+     IMPORTANT: During the interview, you had a visual feed of the candidate. 
+     If the transcript contains your comments about their body language (e.g., you told them to sit up straight, or praised their eye contact), incorporate these observations into the "bodyLanguage" section of the report.
      
      INPUT DATA:
      Transcript: "${userData.transcript || 'No verbal response recorded.'}"
      PIQ Context: ${JSON.stringify(userData.piq || {})}
      
      TASK:
-     Provide a JSON assessment of the candidate's performance. Even if the transcript is short, assess the demeanor and potential.`;
+     Provide a JSON assessment of the candidate's performance. Include OLQ analysis and Body Language observations based on the interaction.`;
      
      contents.push({ text: prompt });
 
@@ -482,6 +486,14 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 factor3_effectiveness: { type: Type.STRING },
                 factor4_dynamic: { type: Type.STRING }
               }
+            },
+            bodyLanguage: {
+               type: Type.OBJECT,
+               properties: {
+                  posture: { type: Type.STRING },
+                  eyeContact: { type: Type.STRING },
+                  gestures: { type: Type.STRING }
+               }
             },
             strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
             weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
