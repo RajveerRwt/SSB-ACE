@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Mail, Lock, Loader2, Shield, AlertCircle, User, UserPlus, LogIn, ArrowLeft } from 'lucide-react';
 import { signInWithEmail, signUpWithEmail } from '../services/supabaseService';
+import { SSBLogo } from './Logo';
 
 interface LoginProps {
   onLogin: (identifier: string, email?: string) => void;
@@ -81,7 +82,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel }) => {
 
       <div className="mb-8 text-center space-y-4 animate-in fade-in slide-in-from-top-8 duration-700">
         <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-3xl flex items-center justify-center mx-auto border border-white/20 shadow-[0_0_50px_rgba(255,255,255,0.1)]">
-          <ShieldCheck className="w-8 h-8 md:w-10 md:h-10 text-yellow-400" />
+          <SSBLogo className="w-10 h-10 md:w-12 md:h-12" />
         </div>
         <div>
           <h1 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter">

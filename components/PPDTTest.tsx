@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
 import { getPPDTScenarios } from '../services/supabaseService';
+import { SSBLogo } from './Logo';
 
 enum PPDTStep {
   IDLE,
@@ -316,7 +317,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
         return (
           <div className="max-w-3xl mx-auto text-center py-24 md:py-32 space-y-8 md:space-y-12 animate-in fade-in zoom-in duration-500">
             <div className="w-24 h-24 md:w-32 md:h-32 bg-slate-900 text-yellow-400 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-2xl rotate-3 border-8 border-slate-50 ring-4 ring-slate-100">
-              <ShieldCheck className="w-12 h-12 md:w-16 md:h-16" />
+              <SSBLogo className="w-12 h-12 md:w-16 md:h-16" />
             </div>
             
             <div className="space-y-4">

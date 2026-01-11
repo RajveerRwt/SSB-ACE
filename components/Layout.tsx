@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { TestType } from '../types';
+import { SSBLogo } from './Logo';
 import { 
   LayoutDashboard, 
   ImageIcon, 
@@ -93,7 +94,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
         <div className="w-64 h-full flex flex-col">
           <div className="p-6 flex items-center justify-between border-b border-white/10 h-24 shrink-0">
             <div className="flex items-center gap-3">
-              <ShieldCheck className="w-10 h-10 text-yellow-400" />
+              <SSBLogo className="w-10 h-10" />
               <div className="flex flex-col">
                 <h1 className="text-xl font-black tracking-tighter uppercase leading-none text-white">
                   SSB<span className="text-yellow-400">PREP</span>.ONLINE
