@@ -483,9 +483,10 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin }) => {
                       <textarea 
                         value={story}
                         onChange={(e) => setStory(e.target.value)}
-                        disabled={isTranscribing || isTimeUp}
-                        placeholder={uploadedImageBase64 ? "Scanning text..." : "Your story will appear here automatically once you upload your paper image..."}
-                        className={`w-full ${uploadedImageBase64 ? 'h-[400px]' : 'h-[400px] md:h-[500px]'} p-6 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-100 focus:border-slate-900 outline-none transition-all text-lg leading-relaxed shadow-xl bg-white font-medium ${isTranscribing || isTimeUp ? 'opacity-50 blur-[1px]' : ''}`}
+                        // FIXED: Allow editing if image is uploaded OR if it's not time up yet.
+                        disabled={isTranscribing || (isTimeUp && !uploadedImageBase64)}
+                        placeholder={uploadedImageBase64 ? "Review and edit the AI transcription here..." : "Your story will appear here automatically once you upload your paper image..."}
+                        className={`w-full ${uploadedImageBase64 ? 'h-[400px]' : 'h-[400px] md:h-[500px]'} p-6 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-100 focus:border-slate-900 outline-none transition-all text-lg leading-relaxed shadow-xl bg-white font-medium ${isTranscribing || (isTimeUp && !uploadedImageBase64) ? 'opacity-50 blur-[1px]' : ''}`}
                       />
                       {isTranscribing && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-xl rounded-[2.5rem] md:rounded-[3.5rem] z-10">
