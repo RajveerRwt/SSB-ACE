@@ -334,11 +334,11 @@ export async function evaluatePerformance(testType: string, userData: any) {
     const introPrompt = `Act as a Senior SSB Psychologist. You are evaluating a Thematic Apperception Test (TAT).
     You will be provided with a series of pairs:
     1. The STIMULUS IMAGE shown to the candidate (if applicable).
-    2. The HANDWRITTEN STORY written by the candidate for that image.
+    2. The CANDIDATE'S RESPONSE (Handwritten Image OR Digital Transcript).
 
     TASK:
     For EACH story (1 to 12):
-    1. Read the handwritten story.
+    1. Read the story (use the digital transcript if provided, otherwise read handwriting).
     2. Compare it specifically with the Stimulus Image shown. 
        - Did the candidate perceive the image accurately?
        - Is the story relevant to the visual cues (characters, setting, mood)?
@@ -369,8 +369,15 @@ export async function evaluatePerformance(testType: string, userData: any) {
             tatParts.push({ text: `Stimulus for Story ${pair.storyIndex}: [BLANK SLIDE / Description: ${pair.stimulusDesc || 'Blank'}]` });
         }
 
-        // User Response
-        if (pair.userStoryImage) {
+        // User Response - Prioritize Text if available (edited by user), else use Image
+        if (pair.userStoryText) {
+             tatParts.push({ text: `Candidate's Transcribed Text for Story ${pair.storyIndex}: "${pair.userStoryText}"` });
+             // Optionally attach image as backup reference
+             if (pair.userStoryImage) {
+                tatParts.push({ text: `(Reference Image of handwriting below)` });
+                tatParts.push({ inlineData: { data: pair.userStoryImage, mimeType: 'image/jpeg' } });
+             }
+        } else if (pair.userStoryImage) {
             tatParts.push({ text: `Candidate's Handwritten Response for Story ${pair.storyIndex}:` });
             tatParts.push({ inlineData: { data: pair.userStoryImage, mimeType: 'image/jpeg' } });
         }

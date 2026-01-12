@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward } from 'lucide-react';
+import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3 } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
 import { getPPDTScenarios } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
@@ -441,7 +441,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin }) => {
       case PPDTStep.UPLOAD_GRACE_PERIOD:
         const isTimeUp = step === PPDTStep.UPLOAD_GRACE_PERIOD;
         return (
-          <div className="max-w-6xl mx-auto space-y-6 md:space-y-10">
+          <div className="max-w-7xl mx-auto space-y-6 md:space-y-10">
              <div className="flex justify-between items-end border-b pb-4 md:pb-6 border-slate-100">
                 <div>
                   <h3 className="text-2xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter">Story Writing Phase</h3>
@@ -460,27 +460,47 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin }) => {
                   </div>
                 )}
                 
-                <div className="relative">
-                  <textarea 
-                    value={story}
-                    onChange={(e) => setStory(e.target.value)}
-                    disabled={isTranscribing || isTimeUp}
-                    placeholder="Your story will appear here once you upload your paper image..."
-                    className={`w-full h-[400px] md:h-[500px] p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-100 focus:border-slate-900 outline-none transition-all text-lg md:text-xl leading-relaxed shadow-2xl bg-slate-50/30 font-medium ${isTranscribing || isTimeUp ? 'opacity-50 blur-[1px]' : ''}`}
-                  />
-                  {isTranscribing && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-xl rounded-[2.5rem] md:rounded-[3.5rem] z-10">
-                       <Loader2 className="w-12 h-12 md:w-16 md:h-16 text-slate-900 animate-spin mb-6" />
-                       <p className="text-slate-900 font-black uppercase tracking-[0.4em] text-xs">AI OCR: Reading story & Character box...</p>
-                    </div>
-                  )}
+                {/* SPLIT VIEW FOR PPDT EDITING */}
+                <div className={`grid ${uploadedImageBase64 ? 'grid-cols-1 lg:grid-cols-2 gap-6' : 'grid-cols-1'}`}>
+                   {/* LEFT: Uploaded Image Preview */}
+                   {uploadedImageBase64 && (
+                      <div className="relative rounded-[2.5rem] overflow-hidden border-4 border-slate-100 bg-slate-50 min-h-[300px] lg:h-auto shadow-inner flex items-center justify-center group">
+                         <img src={`data:image/jpeg;base64,${uploadedImageBase64}`} className="w-full h-full object-contain p-4 transition-transform group-hover:scale-105" alt="Uploaded Answer" />
+                         <div className="absolute top-4 left-4 bg-slate-900/80 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md flex items-center gap-2">
+                            <ImageIcon size={12} /> Original Scan
+                         </div>
+                      </div>
+                   )}
+
+                   {/* RIGHT: Text Area */}
+                   <div className="relative flex flex-col h-full">
+                      {uploadedImageBase64 && (
+                        <div className="flex items-center gap-2 mb-2 text-blue-600 px-2">
+                           <Edit3 size={14} />
+                           <p className="text-[10px] font-black uppercase tracking-widest">Digital Transcript (Review & Edit)</p>
+                        </div>
+                      )}
+                      <textarea 
+                        value={story}
+                        onChange={(e) => setStory(e.target.value)}
+                        disabled={isTranscribing || isTimeUp}
+                        placeholder={uploadedImageBase64 ? "Scanning text..." : "Your story will appear here automatically once you upload your paper image..."}
+                        className={`w-full ${uploadedImageBase64 ? 'h-[400px]' : 'h-[400px] md:h-[500px]'} p-6 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-100 focus:border-slate-900 outline-none transition-all text-lg leading-relaxed shadow-xl bg-white font-medium ${isTranscribing || isTimeUp ? 'opacity-50 blur-[1px]' : ''}`}
+                      />
+                      {isTranscribing && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-xl rounded-[2.5rem] md:rounded-[3.5rem] z-10">
+                           <Loader2 className="w-12 h-12 md:w-16 md:h-16 text-slate-900 animate-spin mb-6" />
+                           <p className="text-slate-900 font-black uppercase tracking-[0.4em] text-xs">AI OCR: Reading Handwriting...</p>
+                        </div>
+                      )}
+                   </div>
                 </div>
 
                 <div className="flex flex-col md:flex-row gap-4 md:gap-6 justify-between items-center bg-white p-6 rounded-[2.5rem] border-2 border-slate-50 shadow-lg">
                   <div className="flex gap-4 w-full md:w-auto">
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
                     <button onClick={() => fileInputRef.current?.click()} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-8 md:px-10 py-4 md:py-5 bg-blue-600 text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl">
-                      <Upload className="w-4 h-4" /> Upload Paper Image
+                      <Upload className="w-4 h-4" /> {uploadedImageBase64 ? 'Re-Upload Image' : 'Upload Paper Image'}
                     </button>
                   </div>
                   <button 

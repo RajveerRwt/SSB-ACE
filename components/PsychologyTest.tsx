@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward } from 'lucide-react';
-import { generateTestContent, evaluatePerformance } from '../services/geminiService';
+import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw } from 'lucide-react';
+import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory } from '../services/geminiService';
 import { getTATScenarios } from '../services/supabaseService';
 import { TestType } from '../types';
 
@@ -32,6 +31,10 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   const [loadProgress, setLoadProgress] = useState(0);
   
   const [tatUploads, setTatUploads] = useState<string[]>(new Array(12).fill(''));
+  const [tatTexts, setTatTexts] = useState<string[]>(new Array(12).fill(''));
+  const [transcribingIndices, setTranscribingIndices] = useState<number[]>([]);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  
   const [feedback, setFeedback] = useState<any>(null);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -174,13 +177,33 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && activeUploadIndex.current !== null) {
+      const index = activeUploadIndex.current;
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const base64 = (reader.result as string).split(',')[1];
-        const newUploads = [...tatUploads];
-        newUploads[activeUploadIndex.current!] = base64;
-        setTatUploads(newUploads);
+        
+        // Update Image State
+        setTatUploads(prev => {
+            const next = [...prev];
+            next[index] = base64;
+            return next;
+        });
         activeUploadIndex.current = null;
+
+        // Auto Start Transcription
+        setTranscribingIndices(prev => [...prev, index]);
+        try {
+            const text = await transcribeHandwrittenStory(base64, file.type);
+            setTatTexts(prev => {
+                const next = [...prev];
+                next[index] = text;
+                return next;
+            });
+        } catch (err) {
+            console.error("Transcription Failed", err);
+        } finally {
+            setTranscribingIndices(prev => prev.filter(i => i !== index));
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -217,7 +240,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
             storyIndex: index + 1,
             stimulusImage: stimulusBase64,
             stimulusDesc: item.content,
-            userStoryImage: userStoryImage
+            userStoryImage: userStoryImage,
+            userStoryText: tatTexts[index] // Include the verified text
         };
       }));
 
@@ -370,16 +394,38 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
       <div className="max-w-5xl mx-auto space-y-12 pb-20 animate-in slide-in-from-bottom-20">
          <div className="text-center space-y-6">
             <h2 className="text-5xl font-black text-slate-900 uppercase tracking-tighter">Dossier Submission</h2>
-            <p className="text-slate-500 text-xl font-medium italic">"Upload images of your handwritten stories."</p>
+            <p className="text-slate-500 text-xl font-medium italic">"Upload images of your handwritten stories. Review text before submitting."</p>
          </div>
          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <input type="file" ref={fileInputRef} onChange={onFileChange} className="hidden" accept="image/*" />
             {tatUploads.map((file, i) => (
-              <div key={i} className={`aspect-[4/5] rounded-[2rem] border-2 transition-all cursor-pointer relative overflow-hidden group ${file ? 'border-green-500 bg-green-50' : 'border-slate-200 bg-white hover:border-slate-900'}`} onClick={() => handleFileSelect(i)}>
+              <div key={i} className={`aspect-[4/5] rounded-[2rem] border-2 transition-all relative overflow-hidden group ${file ? 'border-green-500 bg-green-50' : 'border-slate-200 bg-white hover:border-slate-900'}`}>
                  {file ? (
-                   <img src={`data:image/jpeg;base64,${file}`} className="w-full h-full object-cover opacity-80" alt={`Story ${i+1}`} />
+                   <>
+                     <img src={`data:image/jpeg;base64,${file}`} className="w-full h-full object-cover opacity-80" alt={`Story ${i+1}`} />
+                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                        <button 
+                          onClick={() => setEditingIndex(i)}
+                          className="px-4 py-2 bg-white text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2"
+                        >
+                          <Edit size={12} /> Review
+                        </button>
+                        <button 
+                          onClick={() => handleFileSelect(i)}
+                          className="px-4 py-2 bg-slate-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-600 transition-all flex items-center gap-2"
+                        >
+                          <RefreshCw size={12} /> Replace
+                        </button>
+                     </div>
+                     {transcribingIndices.includes(i) && (
+                        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center">
+                           <Loader2 className="animate-spin text-slate-900 mb-2" />
+                           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Scanning...</span>
+                        </div>
+                     )}
+                   </>
                  ) : (
-                   <div className="flex flex-col items-center justify-center h-full space-y-4">
+                   <div onClick={() => handleFileSelect(i)} className="flex flex-col items-center justify-center h-full space-y-4 cursor-pointer">
                       <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400"><Upload size={16} /></div>
                       <span className="text-xs font-black uppercase text-slate-400">Story {i+1}</span>
                    </div>
@@ -392,6 +438,58 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
               Submit Dossier
             </button>
          </div>
+
+         {/* EDIT MODAL */}
+         {editingIndex !== null && (
+            <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 md:p-8 animate-in fade-in">
+               <div className="bg-white w-full max-w-6xl h-[80vh] rounded-[3rem] overflow-hidden shadow-2xl flex flex-col md:flex-row">
+                  {/* Left: Image */}
+                  <div className="w-full md:w-1/2 bg-slate-100 p-8 flex flex-col relative">
+                     <div className="absolute top-6 left-6 bg-white/80 backdrop-blur px-4 py-2 rounded-full font-black text-xs uppercase tracking-widest shadow-sm">
+                       Story {editingIndex + 1} Original
+                     </div>
+                     <img 
+                       src={`data:image/jpeg;base64,${tatUploads[editingIndex]}`} 
+                       className="w-full h-full object-contain rounded-2xl"
+                       alt="Handwritten"
+                     />
+                  </div>
+                  {/* Right: Editor */}
+                  <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col bg-white">
+                     <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-black uppercase tracking-tighter text-slate-900 flex items-center gap-3">
+                           <Edit className="text-blue-600" /> Digital Transcript
+                        </h3>
+                        <button onClick={() => setEditingIndex(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                           <X size={24} />
+                        </button>
+                     </div>
+                     <p className="text-xs text-slate-500 font-medium mb-4">
+                       Verify the AI transcription below. Correct any mistakes before submission.
+                     </p>
+                     <textarea 
+                        value={tatTexts[editingIndex]}
+                        onChange={(e) => {
+                           const newVal = e.target.value;
+                           setTatTexts(prev => {
+                              const next = [...prev];
+                              next[editingIndex] = newVal;
+                              return next;
+                           });
+                        }}
+                        className="flex-1 w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-[2rem] resize-none focus:bg-white focus:border-blue-600 outline-none transition-all font-medium text-lg leading-relaxed shadow-inner"
+                        placeholder="Waiting for transcription..."
+                     />
+                     <button 
+                       onClick={() => setEditingIndex(null)}
+                       className="mt-6 w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl flex items-center justify-center gap-3"
+                     >
+                       <Save size={16} /> Save Correction
+                     </button>
+                  </div>
+               </div>
+            </div>
+         )}
       </div>
     );
   }
