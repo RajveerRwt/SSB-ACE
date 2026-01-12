@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
@@ -74,9 +74,10 @@ async function blobToBase64(blob: Blob): Promise<string> {
 interface InterviewProps {
   piqData?: PIQData;
   onSave?: (result: any) => void;
+  isAdmin?: boolean;
 }
 
-const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
+const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
   const [sessionMode, setSessionMode] = useState<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
   // Ref to track session mode synchronously across callbacks to prevent race conditions during termination
   const sessionModeRef = useRef<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
@@ -475,6 +476,16 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave }) => {
     <div className="max-w-[1400px] mx-auto space-y-4 md:space-y-6 pb-32 md:pb-40">
       {/* Hidden Canvas for Frame Capture */}
       <canvas ref={canvasRef} className="hidden" />
+      
+      {/* Admin Skip Button */}
+      {isAdmin && sessionMode === 'SESSION' && timeLeft > 0 && (
+         <button 
+             onClick={() => setTimeLeft(0)}
+             className="fixed bottom-6 right-6 z-[100] bg-red-600 text-white pl-4 pr-6 py-3 rounded-full font-black text-[10px] uppercase shadow-2xl hover:bg-red-700 transition-all flex items-center gap-2 border-4 border-white animate-pulse hover:animate-none"
+         >
+             <FastForward size={14} fill="currentColor" /> Admin: End Session
+         </button>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-center justify-between text-red-600 font-black text-xs animate-in slide-in-from-top duration-300 shadow-lg">

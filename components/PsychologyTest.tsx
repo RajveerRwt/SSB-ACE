@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye } from 'lucide-react';
+import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward } from 'lucide-react';
 import { generateTestContent, evaluatePerformance } from '../services/geminiService';
 import { getTATScenarios } from '../services/supabaseService';
 import { TestType } from '../types';
@@ -8,6 +8,7 @@ import { TestType } from '../types';
 interface PsychologyProps {
   type: TestType;
   onSave?: (result: any) => void;
+  isAdmin?: boolean;
 }
 
 enum PsychologyPhase {
@@ -20,7 +21,7 @@ enum PsychologyPhase {
   COMPLETED
 }
 
-const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
+const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) => {
   const [items, setItems] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [phase, setPhase] = useState<PsychologyPhase>(PsychologyPhase.IDLE);
@@ -250,7 +251,17 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave }) => {
     const imageUrl = isTAT ? (currentItem.id === 'tat-12-blank' ? 'BLANK' : pregeneratedImages[currentItem.id]) : null;
 
     return (
-      <div className="max-w-7xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700">
+      <div className="max-w-7xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700 relative">
+        {/* Admin Skip Button */}
+        {isAdmin && timeLeft > 0 && (
+            <button 
+                onClick={() => setTimeLeft(0)}
+                className="fixed bottom-6 right-6 z-[100] bg-red-600 text-white pl-4 pr-6 py-3 rounded-full font-black text-[10px] uppercase shadow-2xl hover:bg-red-700 transition-all flex items-center gap-2 border-4 border-white animate-pulse hover:animate-none"
+            >
+                <FastForward size={14} fill="currentColor" /> Admin Skip
+            </button>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 flex items-center gap-6">
              <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center"><Target size={24} /></div>

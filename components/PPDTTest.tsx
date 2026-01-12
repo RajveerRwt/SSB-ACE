@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen } from 'lucide-react';
+import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
 import { getPPDTScenarios } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
@@ -21,9 +21,10 @@ enum PPDTStep {
 // Added onSave to props
 interface PPDTProps {
   onSave?: (result: any) => void;
+  isAdmin?: boolean;
 }
 
-const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
+const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin }) => {
   const [step, setStep] = useState<PPDTStep>(PPDTStep.IDLE);
   const [timeLeft, setTimeLeft] = useState(0);
   const [story, setStory] = useState('');
@@ -652,6 +653,17 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave }) => {
   return (
     <div className={`min-h-[85vh] transition-all duration-500 ease-in-out ${showBuzzer ? 'bg-red-600/20' : 'bg-transparent'}`}>
        <div className="bg-white rounded-[2.5rem] md:rounded-[4.5rem] shadow-2xl border border-slate-100 p-6 md:p-16 min-h-[80vh] relative overflow-hidden ring-1 ring-slate-200/50">
+         
+         {/* Admin Skip Button */}
+         {isAdmin && timeLeft > 0 && (
+            <button 
+                onClick={() => setTimeLeft(0)}
+                className="fixed bottom-6 right-6 z-[100] bg-red-600 text-white pl-4 pr-6 py-3 rounded-full font-black text-[10px] uppercase shadow-2xl hover:bg-red-700 transition-all flex items-center gap-2 border-4 border-white animate-pulse hover:animate-none"
+            >
+                <FastForward size={14} fill="currentColor" /> Admin Skip
+            </button>
+         )}
+
          {showBuzzer && (
             <div className="absolute inset-0 z-[100] border-[12px] md:border-[24px] border-red-600/80 pointer-events-none animate-pulse flex items-center justify-center backdrop-blur-sm">
                <div className="bg-red-600 text-white px-12 md:px-24 py-8 md:py-12 rounded-full font-black text-4xl md:text-7xl shadow-[0_0_100px_rgba(220,38,38,1)] uppercase transform -rotate-12 border-4 md:border-8 border-white">BUZZER</div>

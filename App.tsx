@@ -361,19 +361,21 @@ const App: React.FC = () => {
        return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
     }
 
+    const isAdmin = isUserAdmin(userEmail);
+
     switch (activeTest) {
       case TestType.DASHBOARD:
         return <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} />;
       case TestType.PIQ:
         return <PIQForm key="piq-form" onSave={handlePiqSave} initialData={piqData} />;
       case TestType.PPDT:
-        return <PPDTTest key="ppdt-test" onSave={(res: any) => handleTestCompletion('PPDT', res)} />;
+        return <PPDTTest key="ppdt-test" onSave={(res: any) => handleTestCompletion('PPDT', res)} isAdmin={isAdmin} />;
       case TestType.WAT:
       case TestType.TAT:
       case TestType.SRT:
-        return <PsychologyTest key={activeTest} type={activeTest} onSave={(res: any) => handleTestCompletion(activeTest, res)} />;
+        return <PsychologyTest key={activeTest} type={activeTest} onSave={(res: any) => handleTestCompletion(activeTest, res)} isAdmin={isAdmin} />;
       case TestType.INTERVIEW:
-        return <Interview key="interview-test" piqData={piqData} onSave={(res: any) => handleTestCompletion('INTERVIEW', res)} />;
+        return <Interview key="interview-test" piqData={piqData} onSave={(res: any) => handleTestCompletion('INTERVIEW', res)} isAdmin={isAdmin} />;
       case TestType.AI_BOT:
         return <SSBBot key="ssb-bot" />;
       case TestType.CONTACT:
@@ -382,7 +384,7 @@ const App: React.FC = () => {
         return <SSBStages key="ssb-stages" />;
       case TestType.ADMIN:
         // Double Check render protection
-        return isUserAdmin(userEmail) ? <AdminPanel key="admin-panel" /> : <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} />;
+        return isAdmin ? <AdminPanel key="admin-panel" /> : <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} />;
       default:
         return <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} />;
     }
