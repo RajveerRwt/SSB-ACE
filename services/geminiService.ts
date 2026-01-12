@@ -169,7 +169,7 @@ export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', descr
     "A man helping another man climb a wall or steep ledge",
     "Students sitting in a circle having a discussion",
     "A farmer talking to a man in formal clothes in a field",
-    "A scene of an accident on the road with a few people gathering",
+    "A scene with an accident on the road with a few people gathering",
     "Two people pushing a cart uphill",
     "3 people gathered around a table with papers on it",
     "A person saving someone from drowning"
@@ -327,23 +327,60 @@ export async function evaluatePerformance(testType: string, userData: any) {
   const contents: any[] = [];
   
   // 1. TAT EVALUATION
-  if (userData.testType === 'TAT' && userData.tatImages) {
-    userData.tatImages.forEach((base64: string, i: number) => {
-      if (base64) {
-        contents.push({
-          inlineData: { data: base64, mimeType: 'image/jpeg' }
-        });
-      }
-    });
+  if (testType === 'TAT' || (userData.testType === 'TAT')) {
+    const tatParts: any[] = [];
     
-    const prompt = `Act as a Senior SSB Psychologist. Review these handwritten TAT stories (up to 12).
-    Provide a specific analysis for EACH story regarding its theme and the quality projected.
-    Then, provide a final dossier assessment.`;
-    contents.push({ text: prompt });
+    // Updated System Instruction: explicitly asking for comparison between stimulus and response
+    const introPrompt = `Act as a Senior SSB Psychologist. You are evaluating a Thematic Apperception Test (TAT).
+    You will be provided with a series of pairs:
+    1. The STIMULUS IMAGE shown to the candidate (if applicable).
+    2. The HANDWRITTEN STORY written by the candidate for that image.
+
+    TASK:
+    For EACH story (1 to 12):
+    1. Read the handwritten story.
+    2. Compare it specifically with the Stimulus Image shown. 
+       - Did the candidate perceive the image accurately?
+       - Is the story relevant to the visual cues (characters, setting, mood)?
+    3. Analyze the theme, hero's actions, and outcome.
+    4. Assess Officer Like Qualities (OLQs).
+
+    Finally, provide a consolidated dossier assessment.`;
+    
+    tatParts.push({ text: introPrompt });
+
+    // Handle new paired format or fallback to legacy format
+    const pairs = userData.tatPairs || []; 
+    // Legacy fallback: if pairs missing but tatImages present (should not happen with updated frontend)
+    if (pairs.length === 0 && userData.tatImages) {
+        userData.tatImages.forEach((img: string, i: number) => {
+            if (img) pairs.push({ storyIndex: i+1, userStoryImage: img, stimulusDesc: "Legacy Data - No Stimulus" });
+        });
+    }
+
+    for (const pair of pairs) {
+        tatParts.push({ text: `--- STORY ${pair.storyIndex} ---` });
+        
+        // Stimulus
+        if (pair.stimulusImage) {
+            tatParts.push({ text: `Stimulus Image for Story ${pair.storyIndex}:` });
+            tatParts.push({ inlineData: { data: pair.stimulusImage, mimeType: 'image/jpeg' } });
+        } else {
+            tatParts.push({ text: `Stimulus for Story ${pair.storyIndex}: [BLANK SLIDE / Description: ${pair.stimulusDesc || 'Blank'}]` });
+        }
+
+        // User Response
+        if (pair.userStoryImage) {
+            tatParts.push({ text: `Candidate's Handwritten Response for Story ${pair.storyIndex}:` });
+            tatParts.push({ inlineData: { data: pair.userStoryImage, mimeType: 'image/jpeg' } });
+        }
+    }
+
+    tatParts.push({ text: `Generate the JSON report.` });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // Using Flash for faster evaluation
-      contents: { parts: contents },
+      model: 'gemini-3-flash-preview', // Flash has large context window (1M) which is good for many images
+      contents: { parts: tatParts },
       config: {
         responseMimeType: 'application/json',
         responseSchema: {
@@ -357,6 +394,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 type: Type.OBJECT,
                 properties: {
                   storyIndex: { type: Type.INTEGER },
+                  perceivedAccurately: { type: Type.BOOLEAN, description: "Does the story match the visual stimulus?" },
                   theme: { type: Type.STRING },
                   analysis: { type: Type.STRING },
                   olqProjected: { type: Type.STRING }

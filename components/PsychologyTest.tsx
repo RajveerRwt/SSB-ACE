@@ -189,15 +189,52 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   const submitDossier = async () => {
     setPhase(PsychologyPhase.EVALUATING);
     try {
-      const result = await evaluatePerformance('TAT', {
-        tatImages: tatUploads,
-        testType: 'TAT',
-        itemCount: 12
+      // 1. Construct pairs of (Stimulus Image, User Story Image)
+      // This ensures the AI evaluates the story against the ACTUAL image shown.
+      const tatPairs = await Promise.all(items.map(async (item, index) => {
+        const userStoryImage = tatUploads[index];
+        if (!userStoryImage) return null;
+
+        let stimulusBase64: string | undefined = undefined;
+        const url = pregeneratedImages[item.id];
+
+        // If not a blank slide, fetch the stimulus image to send to AI
+        if (url && item.id !== 'tat-12-blank') {
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                stimulusBase64 = await new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+                    reader.readAsDataURL(blob);
+                });
+            } catch (e) {
+                console.warn("Could not fetch stimulus image for AI context:", e);
+            }
+        }
+
+        return {
+            storyIndex: index + 1,
+            stimulusImage: stimulusBase64,
+            stimulusDesc: item.content,
+            userStoryImage: userStoryImage
+        };
+      }));
+
+      // Filter out any failed uploads
+      const validPairs = tatPairs.filter(p => p !== null);
+
+      const result = await evaluatePerformance(type, {
+        tatPairs: validPairs,
+        testType: type,
+        itemCount: items.length
       });
+
       setFeedback(result);
       if (onSave) onSave({ ...result, tatImages: tatUploads });
       setPhase(PsychologyPhase.COMPLETED);
     } catch (err) {
+      console.error("Evaluation error:", err);
       setPhase(PsychologyPhase.UPLOADING_STORIES);
     }
   };
