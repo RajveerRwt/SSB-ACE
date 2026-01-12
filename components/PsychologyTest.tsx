@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory } from '../services/geminiService';
@@ -505,19 +506,101 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
 
   if (phase === PsychologyPhase.COMPLETED) {
     return (
-      <div className="max-w-6xl mx-auto space-y-12 pb-20 animate-in fade-in duration-1000">
+      <div className="max-w-7xl mx-auto space-y-12 pb-20 animate-in fade-in duration-1000">
         <div className="bg-slate-950 p-16 rounded-[4rem] text-white shadow-2xl flex justify-between items-center">
            <div className="space-y-6">
               <span className="bg-purple-600 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest">Psychology Report</span>
               <h2 className="text-7xl font-black uppercase tracking-tighter">Evaluation <span className="text-purple-500">Complete</span></h2>
-              <p className="text-slate-400 text-lg italic opacity-80">"{feedback?.recommendations || 'Report ready for board conference.'}"</p>
+              <p className="text-slate-400 text-lg italic opacity-80 max-w-2xl">"{feedback?.recommendations || 'Report ready for board conference.'}"</p>
            </div>
-           <div className="bg-white/5 p-12 rounded-[3.5rem] border border-white/10 backdrop-blur-3xl text-center">
+           <div className="bg-white/5 p-12 rounded-[3.5rem] border border-white/10 backdrop-blur-3xl text-center hidden md:block">
               <p className="text-[11px] font-black uppercase tracking-[0.4em] opacity-40 mb-4">Score</p>
               <div className="text-9xl font-black text-purple-500">{feedback?.score || 0}</div>
            </div>
         </div>
-        <button onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); }} className="w-full py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs">Return to Wing</button>
+
+        {/* Individual Story Analysis for TAT */}
+        {type === TestType.TAT && feedback?.individualStories && (
+            <div className="space-y-8">
+                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-4 px-4">
+                    <Layers className="text-purple-600" /> Story-wise Assessment
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {feedback.individualStories.map((story: any, i: number) => (
+                        <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-lg hover:shadow-xl transition-all relative overflow-hidden flex flex-col h-full">
+                            <div className="absolute top-0 left-0 w-full h-2 bg-slate-100" />
+                            {story.perceivedAccurately ? (
+                                <div className="absolute top-0 left-0 w-full h-2 bg-green-500" />
+                            ) : (
+                                <div className="absolute top-0 left-0 w-full h-2 bg-orange-500" />
+                            )}
+                            
+                            <div className="flex justify-between items-start mb-4">
+                                <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">Story {story.storyIndex}</span>
+                                {story.perceivedAccurately ? (
+                                    <span className="flex items-center gap-1 text-[9px] font-bold text-green-600 uppercase tracking-wide"><CheckCircle size={12} /> Aligned</span>
+                                ) : (
+                                    <span className="flex items-center gap-1 text-[9px] font-bold text-orange-500 uppercase tracking-wide"><AlertCircle size={12} /> Drift</span>
+                                )}
+                            </div>
+
+                            <div className="mb-4">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Theme</p>
+                                <h4 className="text-base font-bold text-slate-900 leading-tight">{story.theme || "No Theme Identified"}</h4>
+                            </div>
+
+                            <div className="mb-6 flex-1">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Psychologist's Remark</p>
+                                <p className="text-xs text-slate-600 font-medium leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    {story.analysis || "No analysis provided."}
+                                </p>
+                            </div>
+
+                            {story.olqProjected && (
+                                <div className="mt-auto">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">OLQs Observed</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {story.olqProjected.split(',').map((olq: string, idx: number) => (
+                                            <span key={idx} className="px-2 py-1 bg-purple-50 text-purple-600 text-[9px] font-bold uppercase rounded-lg border border-purple-100">
+                                                {olq.trim()}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
+
+        {/* Existing generic strengths/weaknesses */}
+        {feedback?.strengths && (
+             <div className="grid md:grid-cols-2 gap-6 md:gap-10">
+               <div className="bg-white p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-50 shadow-2xl">
+                  <h4 className="font-black text-xs uppercase tracking-[0.3em] text-green-600 mb-8 md:mb-10 flex items-center gap-4"><CheckCircle className="w-6 h-6" /> Key Strengths</h4>
+                  <div className="space-y-4 md:space-y-5">
+                    {feedback.strengths.map((s: string, i: number) => (
+                      <div key={i} className="flex gap-4 md:gap-5 p-4 md:p-5 bg-green-50 rounded-2xl md:rounded-3xl border border-green-100 text-slate-800 text-sm font-bold">
+                        <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-green-500 shrink-0" /> {s}
+                      </div>
+                    ))}
+                  </div>
+               </div>
+               <div className="bg-white p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-50 shadow-2xl">
+                  <h4 className="font-black text-xs uppercase tracking-[0.3em] text-red-500 mb-8 md:mb-10 flex items-center gap-4"><AlertCircle className="w-6 h-6" /> Areas of Improvement</h4>
+                  <div className="space-y-4 md:space-y-5">
+                    {feedback.weaknesses.map((w: string, i: number) => (
+                      <div key={i} className="flex gap-4 md:gap-5 p-4 md:p-5 bg-red-50 rounded-2xl md:rounded-3xl border border-red-100 text-slate-800 text-sm font-bold">
+                        <AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-red-500 shrink-0" /> {w}
+                      </div>
+                    ))}
+                  </div>
+               </div>
+            </div>
+        )}
+
+        <button onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); }} className="w-full py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl">Return to Wing</button>
       </div>
     );
   }
