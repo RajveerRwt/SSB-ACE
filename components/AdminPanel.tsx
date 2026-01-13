@@ -101,13 +101,11 @@ const AdminPanel: React.FC = () => {
           }
           await fetchData(); // Refresh list
       } catch(e: any) {
-          setErrorMsg(e.message || "Action failed");
+          setErrorMsg(e.message || "Action failed. Check Console/RLS Policies.");
       }
   };
 
   const handleDelete = async (id: string, url?: string) => {
-    // Note: We are still using window.confirm for delete as it might not be the critical path failing in sandbox right now,
-    // but if needed, we can expand the confirmAction to handle deletes too.
     if (!window.confirm("Delete this item permanently?")) return;
     setErrorMsg(null);
     try {
@@ -168,6 +166,12 @@ alter table aspirants enable row level security;
 create policy "Public Aspirants View" on aspirants for select using (true);
 create policy "Self Update Aspirants" on aspirants for update using (auth.uid() = user_id);
 create policy "Self Insert Aspirants" on aspirants for insert with check (auth.uid() = user_id);
+
+-- IMPORTANT: Admin Permission Policy (Prevents 'Update Failed' error on payment approval)
+-- Note: Re-running 'create policy' might error if it exists. Ignore if already applied.
+create policy "Admin Update Aspirants" on aspirants for update using (
+  (select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com'
+);
 
 -- 4. Create payment_requests table
 create table if not exists payment_requests (
@@ -247,7 +251,7 @@ create policy "Self Insert History" on test_history for insert with check (auth.
           <div className="flex items-start gap-4 text-red-600">
             <AlertCircle size={28} className="shrink-0 mt-1" />
             <div className="flex-1">
-               <p className="text-[10px] font-black uppercase tracking-widest mb-1">Critical Security Violation (403 Forbidden)</p>
+               <p className="text-[10px] font-black uppercase tracking-widest mb-1">Critical Security Violation</p>
                <p className="text-sm font-bold leading-relaxed">{errorMsg}</p>
             </div>
             <button onClick={() => setErrorMsg(null)} className="text-xs font-black uppercase p-2 hover:bg-red-100 rounded-lg">Dismiss</button>

@@ -81,11 +81,16 @@ export async function updateUserSubscription(userId: string, subData: UserSubscr
   localStorage.setItem(`ssb_sub_${userId}`, JSON.stringify(subData));
   
   if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
-    await supabase.from('aspirants').upsert({
+    const { error } = await supabase.from('aspirants').upsert({
       user_id: userId,
       subscription_data: subData,
       last_active: new Date().toISOString()
     }, { onConflict: 'user_id' });
+
+    if (error) {
+       console.error("DB Update Failed:", error);
+       throw new Error(`DB Update Failed: ${error.message}. Check RLS Policies.`);
+    }
   }
 }
 
@@ -223,7 +228,11 @@ export async function getPendingPayments() {
 export async function approvePaymentRequest(requestId: string, userId: string, planType: 'PRO_SUBSCRIPTION' | 'INTERVIEW_ADDON') {
   if (!isSupabaseActive || !supabase) return false;
 
-  // 1. Mark as Approved
+  // 1. Grant Benefits FIRST (Critical Step)
+  // If this fails (e.g. Permissions), we should NOT mark as approved.
+  await processPaymentSuccess(userId, planType);
+
+  // 2. Mark as Approved
   const { error: updateError } = await supabase
     .from('payment_requests')
     .update({ status: 'APPROVED' })
@@ -231,8 +240,6 @@ export async function approvePaymentRequest(requestId: string, userId: string, p
   
   if (updateError) throw updateError;
 
-  // 2. Grant Benefits
-  await processPaymentSuccess(userId, planType);
   return true;
 }
 
