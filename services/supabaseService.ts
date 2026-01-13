@@ -155,10 +155,8 @@ export async function submitPaymentRequest(userId: string, utr: string, amount: 
   });
 
   if (error) {
-    // Log the full JSON error so it's readable in the console
     console.error("Payment Submit Error Details:", JSON.stringify(error, null, 2));
     
-    // Throw a readable message
     if (error.code === '42501') {
         throw new Error("Permission Denied: Please check database policies.");
     } else if (error.code === '23505') {
@@ -171,7 +169,6 @@ export async function submitPaymentRequest(userId: string, utr: string, amount: 
   }
 
   // 2. Send Email Notification to Admin (using Formspree)
-  // We reuse the ID from ContactForm.tsx since it's already configured for the admin.
   try {
     await fetch('https://formspree.io/f/mdaoqdqy', {
       method: 'POST',
@@ -179,24 +176,36 @@ export async function submitPaymentRequest(userId: string, utr: string, amount: 
       body: JSON.stringify({
         subject: "NEW PAYMENT RECEIVED - SSBPREP",
         message: `User ${userId} submitted a payment.\nUTR: ${utr}\nAmount: ₹${amount}\nPlan: ${planType}\n\nPlease check Admin Panel to approve.`,
-        email: "system@ssbprep.online" // Dummy sender
+        email: "system@ssbprep.online" 
       })
     });
   } catch (emailErr) {
     console.warn("Failed to send admin email notification", emailErr);
-    // Don't block the UI success if email fails, database is what matters
   }
 
   return true;
+}
+
+// USER: Check status of their own request
+export async function getLatestPaymentRequest(userId: string) {
+  if (!isSupabaseActive || !supabase || userId.startsWith('demo')) return null;
+  
+  const { data, error } = await supabase
+    .from('payment_requests')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error && error.code !== 'PGRST116') return null; // PGRST116 = Row not found
+  return data;
 }
 
 // ADMIN ONLY
 export async function getPendingPayments() {
   if (!isSupabaseActive || !supabase) return [];
   
-  // Note: This join requires a foreign key relationship between payment_requests.user_id and aspirants.user_id
-  // or payment_requests.user_id and auth.users. 
-  // If the relationship is missing in DB schema, this might fail or return null for joined data.
   const { data, error } = await supabase
     .from('payment_requests')
     .select('*, aspirants(email, full_name)') 
@@ -205,7 +214,7 @@ export async function getPendingPayments() {
 
   if (error) {
      console.error("Error fetching payments:", error);
-     throw error; // Throw error so AdminPanel can catch it and show SQL setup
+     throw error;
   }
   return data || [];
 }
@@ -239,17 +248,14 @@ export async function processPaymentSuccess(userId: string, planType: 'PRO_SUBSC
 
   if (planType === 'PRO_SUBSCRIPTION') {
     sub.tier = 'PRO';
-    // Set expiry to 30 days from now
     const d = new Date();
     d.setDate(d.getDate() + 30);
     sub.expiryDate = d.toISOString();
     
-    // Reset limits to Pro
     sub.usage.interview_limit = PRO_LIMITS.interview;
     sub.usage.ppdt_limit = PRO_LIMITS.ppdt;
     sub.usage.tat_limit = PRO_LIMITS.tat;
   } else if (planType === 'INTERVIEW_ADDON') {
-    // Add 1 extra interview credit
     sub.extra_credits.interview += 1;
   }
 
@@ -312,7 +318,6 @@ export async function syncUserProfile(user: any) {
 }
 
 export async function getUserData(userId: string): Promise<PIQData | null> {
-  // 1. Try Local Storage (Cache/Demo)
   let localData: PIQData | null = null;
   try {
     const stored = localStorage.getItem(`ssb_data_${userId}`);
@@ -323,7 +328,6 @@ export async function getUserData(userId: string): Promise<PIQData | null> {
 
   if (userId.startsWith('demo')) return localData;
 
-  // 2. Try Supabase
   if (isSupabaseActive && supabase) {
     try {
       const { data, error } = await supabase
@@ -333,7 +337,6 @@ export async function getUserData(userId: string): Promise<PIQData | null> {
         .single();
 
       if (data && data.piq_data) {
-          // Update local cache
           localStorage.setItem(`ssb_data_${userId}`, JSON.stringify(data.piq_data));
           return data.piq_data as PIQData;
       }
@@ -348,7 +351,6 @@ export async function getUserData(userId: string): Promise<PIQData | null> {
 }
 
 export async function saveUserData(userId: string, data: Partial<PIQData>) {
-  // Update Local Cache
   try {
       const existing = localStorage.getItem(`ssb_data_${userId}`);
       let merged = data;
@@ -423,7 +425,6 @@ export async function uploadPPDTScenario(file: File, description: string) {
 export async function deletePPDTScenario(id: string, url: string) {
   if (!isSupabaseActive || !supabase) return;
   await supabase.from('ppdt_scenarios').delete().eq('id', id);
-  // Extract filename from URL
   const path = url.split('/').pop();
   if (path) await supabase.storage.from('ppdt-images').remove([path]);
 }

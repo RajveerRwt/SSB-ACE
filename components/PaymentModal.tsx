@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock } from 'lucide-react';
-import { submitPaymentRequest } from '../services/supabaseService';
+import { submitPaymentRequest, getLatestPaymentRequest } from '../services/supabaseService';
 
 // --- CONFIGURATION ---
 const ADMIN_UPI_ID = "9131112322@ybl"; 
@@ -22,6 +22,22 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
   const [utr, setUtr] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState('');
+  const [pendingReq, setPendingReq] = useState<any>(null);
+
+  useEffect(() => {
+    if (isOpen && userId && !userId.startsWith('demo')) {
+        // Check if user already has a pending request
+        getLatestPaymentRequest(userId).then((req) => {
+            if (req && req.status === 'PENDING') {
+                setPendingReq(req);
+                setStep('PENDING');
+            } else {
+                setPendingReq(null);
+                setStep('SELECT');
+            }
+        });
+    }
+  }, [isOpen, userId]);
 
   if (!isOpen) return null;
 
@@ -54,6 +70,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
         await submitPaymentRequest(userId, utr, selectedAmount, selectedPlan);
         setVerifying(false);
         setStep('PENDING'); // Show success message
+        setPendingReq({ utr: utr }); // Mock updated state immediately
     } catch (e: any) {
         setVerifying(false);
         setError(e.message || "Submission failed. Please try again.");
@@ -173,17 +190,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                   <div className="space-y-2">
                      <h3 className="text-2xl font-black text-slate-900 uppercase">Verification Pending</h3>
                      <p className="text-slate-500 font-medium text-sm leading-relaxed px-4">
-                        Your payment details have been sent to the admin. Access will be granted shortly after manual verification (approx 30 mins).
+                        Your payment details have been sent to the admin. <br/>
+                        <span className="text-slate-900 font-bold">Estimated Time: Approx. 30-60 Minutes.</span>
                      </p>
                   </div>
                   <div className="bg-slate-50 p-4 rounded-xl text-xs text-slate-600 font-mono">
-                     Ref: {utr}
+                     Ref: {pendingReq?.utr || utr}
                   </div>
                   <button 
                     onClick={onClose}
                     className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-lg"
                   >
-                    Close & Return
+                    Close & Check Dashboard
                   </button>
                </div>
              )}

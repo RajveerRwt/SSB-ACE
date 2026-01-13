@@ -13,8 +13,8 @@ import AdminPanel from './components/AdminPanel';
 import PaymentModal from './components/PaymentModal';
 import LegalPages from './components/LegalPages';
 import { TestType, PIQData } from './types';
-import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription } from './services/supabaseService';
-import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown } from 'lucide-react';
+import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest } from './services/supabaseService';
+import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle } from 'lucide-react';
 
 // Dashboard Component
 const Dashboard: React.FC<{ 
@@ -29,6 +29,7 @@ const Dashboard: React.FC<{
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
+  const [paymentStatus, setPaymentStatus] = useState<any>(null);
   
   const quotes = [
     { text: "Either I will come back after hoisting the Tricolour, or I will come back wrapped in it, but I will be back for sure.", author: "Capt. Vikram Batra, PVC" },
@@ -45,7 +46,7 @@ const Dashboard: React.FC<{
     return () => clearInterval(timer);
   }, [quotes.length]);
 
-  // Fetch History and Sub Stats
+  // Fetch History, Sub Stats, and Payment Status
   useEffect(() => {
     if (isLoggedIn && user && !user.startsWith('demo')) {
       setLoadingHistory(true);
@@ -54,11 +55,59 @@ const Dashboard: React.FC<{
         setLoadingHistory(false);
       });
       getUserSubscription(user).then(sub => setSubscription(sub));
+      
+      const fetchStatus = () => {
+         getLatestPaymentRequest(user).then(status => setPaymentStatus(status));
+      };
+      
+      // Initial fetch
+      fetchStatus();
+
+      // Poll for updates if pending (auto-refresh pro status)
+      const interval = setInterval(() => {
+          fetchStatus();
+          // Also refresh subscription to catch approval
+          getUserSubscription(user).then(sub => setSubscription(sub));
+      }, 30000); // Check every 30s
+      
+      return () => clearInterval(interval);
     }
   }, [isLoggedIn, user]);
 
   return (
     <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-20">
+      
+      {/* PAYMENT STATUS BANNER */}
+      {paymentStatus && paymentStatus.status === 'PENDING' && (
+         <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top">
+            <div className="flex items-center gap-4">
+               <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600 animate-pulse">
+                  <Clock size={20} />
+               </div>
+               <div>
+                  <h4 className="font-black text-slate-900 uppercase text-xs tracking-widest">Verification In Progress</h4>
+                  <p className="text-xs text-slate-600 font-medium">Your payment of ₹{paymentStatus.amount} is being reviewed. Estimated time: 30-60 Mins.</p>
+               </div>
+            </div>
+            <div className="text-[10px] font-mono text-slate-400">UTR: {paymentStatus.utr}</div>
+         </div>
+      )}
+
+      {paymentStatus && paymentStatus.status === 'REJECTED' && (
+         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top">
+            <div className="flex items-center gap-4">
+               <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600">
+                  <AlertCircle size={20} />
+               </div>
+               <div>
+                  <h4 className="font-black text-red-900 uppercase text-xs tracking-widest">Payment Rejected</h4>
+                  <p className="text-xs text-red-700 font-medium">Admin could not verify UTR: {paymentStatus.utr}. Please check and try again.</p>
+               </div>
+            </div>
+            <button onClick={onOpenPayment} className="px-4 py-2 bg-red-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest">Retry Payment</button>
+         </div>
+      )}
+
       {/* HERO SECTION */}
       <div className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl border-b-8 border-yellow-500">
          <div className="relative z-10 grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
@@ -89,7 +138,7 @@ const Dashboard: React.FC<{
                    {!piqLoaded && !isLoading && <span className="absolute -bottom-10 left-0 text-[8px] text-red-400 font-black opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap hidden md:block">CLEARANCE REQUIRED: PIQ MISSING</span>}
                  </button>
                  
-                 {subscription?.tier === 'FREE' && (
+                 {subscription?.tier === 'FREE' && (!paymentStatus || paymentStatus.status !== 'PENDING') && (
                     <button 
                       onClick={onOpenPayment}
                       className="flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-[11px] hover:bg-blue-700 transition-all flex items-center justify-center gap-3 shadow-lg"
@@ -169,7 +218,7 @@ const Dashboard: React.FC<{
                           </div>
                           <div>
                             <p className="text-xs font-black uppercase text-slate-800 tracking-wide">{h.type}</p>
-                            <p className="text-[9px] text-slate-400 font-bold">{new Date(h.timestamp).toLocaleDateString()}</p>
+                            <p className="text--[9px] text-slate-400 font-bold">{new Date(h.timestamp).toLocaleDateString()}</p>
                           </div>
                         </div>
                         <div className="text-right flex md:block w-full md:w-auto justify-between items-center">
