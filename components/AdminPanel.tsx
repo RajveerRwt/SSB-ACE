@@ -141,7 +141,7 @@ const AdminPanel: React.FC = () => {
 
   // Cleaned SQL without quotes in comments to prevent parser errors
   const storageSQL = `
--- 1. Create Storage Buckets
+-- 1. Storage Buckets (Safe to re-run)
 insert into storage.buckets (id, name, public) 
 values ('ppdt-images', 'ppdt-images', true), ('tat-images', 'tat-images', true)
 on conflict (id) do nothing;
@@ -159,16 +159,22 @@ create table if not exists aspirants (
   full_name text,
   avatar_url text,
   piq_data jsonb default '{}'::jsonb,
-  subscription_data jsonb default '{"tier": "FREE", "usage": {"ppdt_used": 0, "ppdt_limit": 5, "tat_used": 0, "tat_limit": 2, "interview_used": 0, "interview_limit": 1}, "extra_credits": {"interview": 0}}'::jsonb,
   last_active timestamp with time zone default timezone('utc'::text, now())
 );
+
+-- CRITICAL FIX: Ensure columns exist (Run this if you get 'column not found' errors)
+alter table aspirants add column if not exists subscription_data jsonb default '{"tier": "FREE", "usage": {"ppdt_used": 0, "ppdt_limit": 5, "tat_used": 0, "tat_limit": 2, "interview_used": 0, "interview_limit": 1}, "extra_credits": {"interview": 0}}'::jsonb;
+
 alter table aspirants enable row level security;
+
+-- Policies
 create policy "Public Aspirants View" on aspirants for select using (true);
 create policy "Self Update Aspirants" on aspirants for update using (auth.uid() = user_id);
 create policy "Self Insert Aspirants" on aspirants for insert with check (auth.uid() = user_id);
 
--- IMPORTANT: Admin Permission Policy (Prevents 'Update Failed' error on payment approval)
--- Note: Re-running 'create policy' might error if it exists. Ignore if already applied.
+-- ADMIN OVERRIDE POLICY (REQUIRED FOR APPROVALS)
+-- We drop first to ensure we can update the logic if needed
+drop policy if exists "Admin Update Aspirants" on aspirants;
 create policy "Admin Update Aspirants" on aspirants for update using (
   (select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com'
 );
@@ -188,7 +194,7 @@ create policy "User Insert Payments" on payment_requests for insert with check (
 create policy "Admin View Payments" on payment_requests for select using (true);
 create policy "Admin Update Payments" on payment_requests for update using (true);
 
--- 5. Create Content Tables
+-- 5. Content Tables
 create table if not exists ppdt_scenarios (
   id uuid default gen_random_uuid() primary key,
   image_url text,
@@ -260,7 +266,7 @@ create policy "Self Insert History" on test_history for insert with check (auth.
           <div className="bg-white p-8 rounded-[2rem] border border-red-200 space-y-6">
             <div className="flex items-center gap-3 text-slate-900">
               <Settings className="text-blue-600" size={24} />
-              <h5 className="text-sm font-black uppercase tracking-widest">Database/Storage Setup Required:</h5>
+              <h5 className="text-sm font-black uppercase tracking-widest">Database Setup Required:</h5>
             </div>
             
             <div className="relative group">
