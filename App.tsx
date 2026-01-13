@@ -158,23 +158,37 @@ const Dashboard: React.FC<{
                   <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Sign up to access AI Interview & Psychology Tests</p>
                </div>
              )}
-           </div>
 
-           <div className="hidden lg:block relative">
-              {/* Credit Stats Card */}
-              {isLoggedIn && subscription && (
-                 <div className="absolute -top-6 -right-6 z-20 bg-white p-4 rounded-2xl shadow-xl border border-slate-100 transform rotate-2">
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Training Credits</p>
-                    <div className="space-y-2 text-xs font-bold text-slate-700">
-                        <div className="flex justify-between gap-8"><span>Interview:</span> <span>{subscription.usage.interview_used}/{subscription.usage.interview_limit + subscription.extra_credits.interview}</span></div>
-                        <div className="flex justify-between gap-8"><span>PPDT Sets:</span> <span>{subscription.usage.ppdt_used}/{subscription.usage.ppdt_limit}</span></div>
-                        <div className="flex justify-between gap-8"><span>TAT Sets:</span> <span>{subscription.usage.tat_used}/{subscription.usage.tat_limit}</span></div>
-                        <div className="w-full h-1 bg-slate-100 rounded-full mt-2 overflow-hidden">
-                           <div className="h-full bg-blue-500" style={{ width: `${(subscription.usage.interview_used / (subscription.usage.interview_limit + subscription.extra_credits.interview)) * 100}%` }}></div>
+             {/* UPDATED CREDIT STATS LOCATION - Integrated into Left Column */}
+             {isLoggedIn && subscription && (
+                 <div className="mt-4 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                            <Zap size={14} className="text-yellow-400" /> Training Resources
+                        </p>
+                        <span className={`text-[9px] font-bold px-2 py-1 rounded uppercase tracking-widest ${subscription.tier === 'PRO' ? 'bg-blue-600/20 text-blue-300 border border-blue-600/30' : 'bg-slate-700 text-slate-400'}`}>
+                           {subscription.tier} Plan
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 md:gap-4 divide-x divide-white/5">
+                        <div className="space-y-1 pr-2">
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Interview</p>
+                            <p className="text-sm md:text-base font-black text-white">{subscription.usage.interview_used} <span className="text-slate-600 text-[10px]">/ {subscription.usage.interview_limit + subscription.extra_credits.interview}</span></p>
+                        </div>
+                        <div className="space-y-1 px-2">
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">PPDT</p>
+                            <p className="text-sm md:text-base font-black text-white">{subscription.usage.ppdt_used} <span className="text-slate-600 text-[10px]">/ {subscription.usage.ppdt_limit}</span></p>
+                        </div>
+                        <div className="space-y-1 pl-2">
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">TAT</p>
+                            <p className="text-sm md:text-base font-black text-white">{subscription.usage.tat_used} <span className="text-slate-600 text-[10px]">/ {subscription.usage.tat_limit}</span></p>
                         </div>
                     </div>
                  </div>
-              )}
+             )}
+           </div>
+
+           <div className="hidden lg:block relative">
               <div className="bg-white/5 backdrop-blur-3xl p-10 rounded-[3rem] border border-white/10 space-y-8 relative z-10 shadow-inner group overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                   <Quote size={120} />
