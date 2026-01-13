@@ -48,7 +48,7 @@ const LegalPages: React.FC<LegalPageProps> = ({ type, onBack }) => {
         return (
           <div className="space-y-6 text-slate-700 text-sm leading-relaxed">
             <h3 className="text-xl font-black uppercase text-slate-900">Privacy Policy</h3>
-            <p className="italic text-xs text-slate-400">Last Updated: March 2024</p>
+            <p className="italic text-xs text-slate-400">Last Updated: January 2026</p>
 
             <section>
               <h4 className="font-bold text-slate-900 uppercase text-xs mb-2">1. Information We Collect</h4>
@@ -82,7 +82,7 @@ const LegalPages: React.FC<LegalPageProps> = ({ type, onBack }) => {
         return (
           <div className="space-y-6 text-slate-700 text-sm leading-relaxed">
             <h3 className="text-xl font-black uppercase text-slate-900">Cancellation & Refund Policy</h3>
-            <p className="italic text-xs text-slate-400">Last Updated: March 2024</p>
+            <p className="italic text-xs text-slate-400">Last Updated: January 2026</p>
 
             <section>
               <h4 className="font-bold text-slate-900 uppercase text-xs mb-2">1. Digital Services</h4>
@@ -101,7 +101,7 @@ const LegalPages: React.FC<LegalPageProps> = ({ type, onBack }) => {
 
             <section>
               <h4 className="font-bold text-slate-900 uppercase text-xs mb-2">4. Contact for Issues</h4>
-              <p>If you face any technical issues preventing you from using the service you purchased, please contact us at <strong>support@ssbprep.online</strong> within 24 hours of purchase.</p>
+              <p>If you face any technical issues preventing you from using the service you purchased, please contact us at <strong>contact.ssbprep@gmail.com</strong> within 24 hours of purchase.</p>
             </section>
           </div>
         );
@@ -149,7 +149,7 @@ const LegalPages: React.FC<LegalPageProps> = ({ type, onBack }) => {
 
         <div className="bg-slate-50 p-6 text-center border-t border-slate-100">
            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-             Questions? Contact us at support@ssbprep.online
+             Questions? Contact us at contact.ssbprep@gmail.com
            </p>
         </div>
       </div>
