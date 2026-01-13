@@ -145,7 +145,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                 </button>
               </>
             )}
-
           </nav>
           
           {/* User & Logout Section */}
@@ -180,7 +179,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
              )}
           </div>
 
-          <div className="p-4 text-[10px] text-slate-500 uppercase tracking-widest text-center shrink-0">
+          <div className="p-4 text-[10px] text-slate-500 uppercase tracking-widest text-center shrink-0 border-t border-white/5 bg-black/40">
+            <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mb-2">
+              <button onClick={() => handleNavClick(TestType.TERMS)} className="hover:text-white transition-colors">Terms</button>
+              <button onClick={() => handleNavClick(TestType.PRIVACY)} className="hover:text-white transition-colors">Privacy</button>
+              <button onClick={() => handleNavClick(TestType.REFUND)} className="hover:text-white transition-colors">Refunds</button>
+            </div>
             <p>© 2024 SSBPREP.ONLINE</p>
           </div>
         </div>
@@ -197,7 +201,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                <Menu size={24} />
             </button>
             <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest truncate max-w-[150px] md:max-w-none">
-              {navItems.find(i => i.id === activeTest)?.label || (activeTest === TestType.ADMIN ? 'Admin Command' : '')}
+              {navItems.find(i => i.id === activeTest)?.label 
+               || (activeTest === TestType.ADMIN ? 'Admin Command' : '')
+               || (activeTest === TestType.TERMS ? 'Terms of Service' : '')
+               || (activeTest === TestType.PRIVACY ? 'Privacy Policy' : '')
+               || (activeTest === TestType.REFUND ? 'Refund Policy' : '')}
             </h2>
 
             {/* Back to Dashboard Button */}

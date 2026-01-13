@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { PIQData, UserSubscription } from '../types';
+import { PIQData, UserSubscription, PaymentRequest } from '../types';
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://nidbiyrliunqhakkqdvn.supabase.co';
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pZGJpeXJsaXVucWhha2txZHZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczNjczMTUsImV4cCI6MjA4Mjk0MzMxNX0.FfSHE1ZAokWxbfG6qyCXdnOJpReW5PMyZg4wrN7sjXY';
@@ -65,8 +65,6 @@ export async function getUserSubscription(userId: string): Promise<UserSubscript
 
   if (isSupabaseActive && supabase) {
      try {
-       // Attempt to fetch from 'profiles' or 'subscriptions' table
-       // Assuming simple schema: tier, usage_data jsonb in 'aspirants' table for now
        const { data, error } = await supabase.from('aspirants').select('subscription_data').eq('user_id', userId).single();
        
        if (data && data.subscription_data) {
@@ -125,6 +123,115 @@ export async function incrementUsage(userId: string, testType: string) {
   else if (testType === 'SRT') sub.usage.srt_used += 1;
 
   await updateUserSubscription(userId, sub);
+}
+
+// --- PAYMENT & ADMIN APPROVAL ---
+
+export async function submitPaymentRequest(userId: string, utr: string, amount: number, planType: 'PRO_SUBSCRIPTION' | 'INTERVIEW_ADDON') {
+  // Handle Demo/Guest Users Gracefully
+  if (userId.startsWith('demo')) {
+      console.log("Demo user payment simulated.");
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      return true;
+  }
+
+  if (!isSupabaseActive || !supabase) {
+      alert("Database inactive. Cannot submit request.");
+      return false;
+  }
+
+  if (!userId) {
+    throw new Error("User ID missing. Please login again.");
+  }
+  
+  // 1. Save to Supabase
+  const { error } = await supabase.from('payment_requests').insert({
+    user_id: userId,
+    utr: utr,
+    amount: amount,
+    plan_type: planType,
+    status: 'PENDING'
+  });
+
+  if (error) {
+    // Log the full JSON error so it's readable in the console
+    console.error("Payment Submit Error Details:", JSON.stringify(error, null, 2));
+    
+    // Throw a readable message
+    if (error.code === '42501') {
+        throw new Error("Permission Denied: Please check database policies.");
+    } else if (error.code === '23505') {
+        throw new Error("This UTR has already been submitted.");
+    } else if (error.code === '22P02') {
+        throw new Error("Invalid User ID format. Please re-login.");
+    }
+    
+    throw new Error(error.message || "Failed to submit payment. Please try again.");
+  }
+
+  // 2. Send Email Notification to Admin (using Formspree)
+  // We reuse the ID from ContactForm.tsx since it's already configured for the admin.
+  try {
+    await fetch('https://formspree.io/f/mdaoqdqy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subject: "NEW PAYMENT RECEIVED - SSBPREP",
+        message: `User ${userId} submitted a payment.\nUTR: ${utr}\nAmount: ₹${amount}\nPlan: ${planType}\n\nPlease check Admin Panel to approve.`,
+        email: "system@ssbprep.online" // Dummy sender
+      })
+    });
+  } catch (emailErr) {
+    console.warn("Failed to send admin email notification", emailErr);
+    // Don't block the UI success if email fails, database is what matters
+  }
+
+  return true;
+}
+
+// ADMIN ONLY
+export async function getPendingPayments() {
+  if (!isSupabaseActive || !supabase) return [];
+  
+  // Note: This join requires a foreign key relationship between payment_requests.user_id and aspirants.user_id
+  // or payment_requests.user_id and auth.users. 
+  // If the relationship is missing in DB schema, this might fail or return null for joined data.
+  const { data, error } = await supabase
+    .from('payment_requests')
+    .select('*, aspirants(email, full_name)') 
+    .eq('status', 'PENDING')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+     console.error("Error fetching payments:", error);
+     throw error; // Throw error so AdminPanel can catch it and show SQL setup
+  }
+  return data || [];
+}
+
+// ADMIN ONLY
+export async function approvePaymentRequest(requestId: string, userId: string, planType: 'PRO_SUBSCRIPTION' | 'INTERVIEW_ADDON') {
+  if (!isSupabaseActive || !supabase) return false;
+
+  // 1. Mark as Approved
+  const { error: updateError } = await supabase
+    .from('payment_requests')
+    .update({ status: 'APPROVED' })
+    .eq('id', requestId);
+  
+  if (updateError) throw updateError;
+
+  // 2. Grant Benefits
+  await processPaymentSuccess(userId, planType);
+  return true;
+}
+
+// ADMIN ONLY
+export async function rejectPaymentRequest(requestId: string) {
+  if (!isSupabaseActive || !supabase) return false;
+  await supabase.from('payment_requests').update({ status: 'REJECTED' }).eq('id', requestId);
+  return true;
 }
 
 export async function processPaymentSuccess(userId: string, planType: 'PRO_SUBSCRIPTION' | 'INTERVIEW_ADDON') {
@@ -204,7 +311,54 @@ export async function syncUserProfile(user: any) {
   } catch (error) {}
 }
 
+export async function getUserData(userId: string): Promise<PIQData | null> {
+  // 1. Try Local Storage (Cache/Demo)
+  let localData: PIQData | null = null;
+  try {
+    const stored = localStorage.getItem(`ssb_data_${userId}`);
+    if (stored) localData = JSON.parse(stored);
+  } catch (e) {
+    console.warn("Local storage read error", e);
+  }
+
+  if (userId.startsWith('demo')) return localData;
+
+  // 2. Try Supabase
+  if (isSupabaseActive && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('aspirants')
+        .select('piq_data')
+        .eq('user_id', userId)
+        .single();
+
+      if (data && data.piq_data) {
+          // Update local cache
+          localStorage.setItem(`ssb_data_${userId}`, JSON.stringify(data.piq_data));
+          return data.piq_data as PIQData;
+      }
+      
+      if (error && error.code !== 'PGRST116') console.error("Supabase fetch error:", error);
+    } catch (error) {
+      console.error("Error loading user data from cloud:", error);
+    }
+  }
+  
+  return localData;
+}
+
 export async function saveUserData(userId: string, data: Partial<PIQData>) {
+  // Update Local Cache
+  try {
+      const existing = localStorage.getItem(`ssb_data_${userId}`);
+      let merged = data;
+      if (existing) {
+          const parsed = JSON.parse(existing);
+          merged = { ...parsed, ...data };
+      }
+      localStorage.setItem(`ssb_data_${userId}`, JSON.stringify(merged));
+  } catch(e) {}
+
   if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
     const { error } = await supabase.from('aspirants').upsert({ 
       user_id: userId, 
@@ -213,143 +367,103 @@ export async function saveUserData(userId: string, data: Partial<PIQData>) {
     }, { onConflict: 'user_id' });
     return !error;
   }
-  return false;
+  return true;
 }
 
 export async function saveTestAttempt(userId: string, testType: string, resultData: any) {
-  // Increment usage first
-  await incrementUsage(userId, testType);
-
   if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
     const { error } = await supabase.from('test_history').insert({
       user_id: userId,
       test_type: testType,
       score: resultData.score || 0,
-      result_data: resultData,
-      created_at: new Date().toISOString()
+      result_data: resultData
     });
     return !error;
   }
-  return false;
-}
-
-export async function getUserData(userId: string): Promise<PIQData | null> {
-  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
-    const { data } = await supabase.from('aspirants').select('piq_data').eq('user_id', userId).single();
-    if (data) return data.piq_data as PIQData;
-  }
-  return null;
+  return true;
 }
 
 export async function getUserHistory(userId: string) {
   if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
-    const { data } = await supabase.from('test_history').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5);
-    return data?.map((item: any) => ({
+    const { data } = await supabase
+      .from('test_history')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    
+    if (data) return data.map((item: any) => ({
       id: item.id,
       type: item.test_type,
       timestamp: item.created_at,
       score: item.score,
       result: item.result_data
-    })) || [];
+    }));
   }
   return [];
 }
 
-// --- PPDT & TAT Image Management ---
+export async function getPPDTScenarios() {
+  if (isSupabaseActive && supabase) {
+     const { data } = await supabase.from('ppdt_scenarios').select('*');
+     return data || [];
+  }
+  return [];
+}
 
 export async function uploadPPDTScenario(file: File, description: string) {
-  if (!isSupabaseActive || !supabase) throw new Error("Supabase connection is not active.");
-  
-  const fileExt = file.name.split('.').pop();
-  const fileName = `ppdt_${Math.random().toString(36).substring(7)}.${fileExt}`;
-  
+  if (!isSupabaseActive || !supabase) return;
+  const fileName = `${Date.now()}-${file.name}`;
   const { error: uploadError } = await supabase.storage.from('ppdt-images').upload(fileName, file);
-  
-  if (uploadError) {
-    throw new Error(`Storage Upload Error (403): ${uploadError.message}. Make sure the bucket 'ppdt-images' exists and has RLS policies configured.`);
-  }
-  
+  if (uploadError) throw uploadError;
   const { data: { publicUrl } } = supabase.storage.from('ppdt-images').getPublicUrl(fileName);
-  
-  const { error: dbError, data } = await supabase.from('ppdt_scenarios').insert([{ 
-    image_url: publicUrl, 
-    description 
-  }]).select();
-  
-  if (dbError) throw new Error(`Database Insert Error: ${dbError.message}. Ensure RLS policies allow inserts on table 'ppdt_scenarios'.`);
-  return data;
+  await supabase.from('ppdt_scenarios').insert({ image_url: publicUrl, description });
 }
 
-export async function getPPDTScenarios() {
-  if (!isSupabaseActive || !supabase) return [];
-  const { data } = await supabase.from('ppdt_scenarios').select('*').order('created_at', { ascending: false });
-  return data || [];
-}
-
-export async function deletePPDTScenario(id: string, imageUrl: string) {
+export async function deletePPDTScenario(id: string, url: string) {
   if (!isSupabaseActive || !supabase) return;
   await supabase.from('ppdt_scenarios').delete().eq('id', id);
-  const path = imageUrl.split('/').pop();
+  // Extract filename from URL
+  const path = url.split('/').pop();
   if (path) await supabase.storage.from('ppdt-images').remove([path]);
 }
 
-export async function uploadTATScenario(file: File, description: string, setTag: string = 'Default') {
-  if (!isSupabaseActive || !supabase) throw new Error("Supabase connection is not active.");
-  
-  const fileExt = file.name.split('.').pop();
-  const fileName = `tat_${Math.random().toString(36).substring(7)}.${fileExt}`;
-  
-  const { error: uploadError } = await supabase.storage.from('tat-images').upload(fileName, file);
-  
-  if (uploadError) {
-    throw new Error(`Storage Upload Error (403): ${uploadError.message}. Make sure the bucket 'tat-images' exists and has RLS policies configured.`);
-  }
-  
-  const { data: { publicUrl } } = supabase.storage.from('tat-images').getPublicUrl(fileName);
-  
-  const { error: dbError, data } = await supabase.from('tat_scenarios').insert([{ 
-    image_url: publicUrl, 
-    description, 
-    set_tag: setTag 
-  }]).select();
-  
-  if (dbError) throw new Error(`Database Insert Error: ${dbError.message}. Ensure RLS policies allow inserts on table 'tat_scenarios'.`);
-  return data;
-}
-
 export async function getTATScenarios() {
-  if (!isSupabaseActive || !supabase) return [];
-  const { data } = await supabase.from('tat_scenarios').select('*').order('created_at', { ascending: false });
-  return data || [];
+  if (isSupabaseActive && supabase) {
+     const { data } = await supabase.from('tat_scenarios').select('*');
+     return data || [];
+  }
+  return [];
 }
 
-export async function deleteTATScenario(id: string, imageUrl: string) {
+export async function uploadTATScenario(file: File, description: string, setTag: string) {
+  if (!isSupabaseActive || !supabase) return;
+  const fileName = `${Date.now()}-${file.name}`;
+  const { error: uploadError } = await supabase.storage.from('tat-images').upload(fileName, file);
+  if (uploadError) throw uploadError;
+  const { data: { publicUrl } } = supabase.storage.from('tat-images').getPublicUrl(fileName);
+  await supabase.from('tat_scenarios').insert({ image_url: publicUrl, description, set_tag: setTag });
+}
+
+export async function deleteTATScenario(id: string, url: string) {
   if (!isSupabaseActive || !supabase) return;
   await supabase.from('tat_scenarios').delete().eq('id', id);
-  const path = imageUrl.split('/').pop();
+  const path = url.split('/').pop();
   if (path) await supabase.storage.from('tat-images').remove([path]);
 }
 
-// --- WAT WORD MANAGEMENT ---
-
-export async function uploadWATWords(words: string[]) {
-  if (!isSupabaseActive || !supabase) throw new Error("Supabase connection is not active.");
-  
-  // Create rows for insertion
-  const rows = words.map(word => ({ word: word.trim() })).filter(r => r.word.length > 0);
-  
-  if (rows.length === 0) return;
-
-  const { error, data } = await supabase.from('wat_words').insert(rows).select();
-  if (error) throw new Error(`WAT Insert Error: ${error.message}`);
-  return data;
+export async function getWATWords() {
+  if (isSupabaseActive && supabase) {
+     const { data } = await supabase.from('wat_words').select('*');
+     return data || [];
+  }
+  return [];
 }
 
-export async function getWATWords() {
-  if (!isSupabaseActive || !supabase) return [];
-  // Randomize retrieval if possible, or just get all and shuffle client side
-  const { data } = await supabase.from('wat_words').select('*').order('created_at', { ascending: false });
-  return data || [];
+export async function uploadWATWords(words: string[]) {
+  if (!isSupabaseActive || !supabase) return;
+  const payload = words.map(w => ({ word: w }));
+  await supabase.from('wat_words').insert(payload);
 }
 
 export async function deleteWATWord(id: string) {

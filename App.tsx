@@ -11,6 +11,7 @@ import SSBStages from './components/SSBStages';
 import SSBBot from './components/SSBBot';
 import AdminPanel from './components/AdminPanel';
 import PaymentModal from './components/PaymentModal';
+import LegalPages from './components/LegalPages';
 import { TestType, PIQData } from './types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription } from './services/supabaseService';
 import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown } from 'lucide-react';
@@ -344,7 +345,7 @@ const App: React.FC = () => {
   };
 
   const handleNavigation = async (test: TestType) => {
-    const publicTests = [TestType.DASHBOARD, TestType.STAGES, TestType.CONTACT, TestType.LOGIN];
+    const publicTests = [TestType.DASHBOARD, TestType.STAGES, TestType.CONTACT, TestType.LOGIN, TestType.TERMS, TestType.PRIVACY, TestType.REFUND];
     
     // Check for Admin Access Attempt
     if (test === TestType.ADMIN && !isUserAdmin(userEmail)) {
@@ -405,6 +406,10 @@ const App: React.FC = () => {
         return <SSBStages key="ssb-stages" />;
       case TestType.ADMIN:
         return isAdmin ? <AdminPanel key="admin-panel" /> : <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} onOpenPayment={() => setIsPaymentModalOpen(true)} />;
+      case TestType.TERMS:
+      case TestType.PRIVACY:
+      case TestType.REFUND:
+        return <LegalPages type={activeTest} onBack={() => setActiveTest(TestType.DASHBOARD)} />;
       default:
         return <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} onOpenPayment={() => setIsPaymentModalOpen(true)} />;
     }

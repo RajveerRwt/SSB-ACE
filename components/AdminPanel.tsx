@@ -1,14 +1,16 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
-  uploadWATWords, getWATWords, deleteWATWord
+  uploadWATWords, getWATWords, deleteWATWord,
+  getPendingPayments, approvePaymentRequest, rejectPaymentRequest
 } from '../services/supabaseService';
 
 const AdminPanel: React.FC = () => {
   const [items, setItems] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
@@ -17,7 +19,10 @@ const AdminPanel: React.FC = () => {
   const [setTag, setSetTag] = useState('Set 1');
   const [watBulkInput, setWatBulkInput] = useState('');
   
-  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT'>('PPDT');
+  // Confirmation Modal State
+  const [confirmAction, setConfirmAction] = useState<{id: string, type: 'APPROVE' | 'REJECT', userId: string, planType: any} | null>(null);
+  
+  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'PAYMENTS'>('PAYMENTS');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -26,16 +31,19 @@ const AdminPanel: React.FC = () => {
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      let data;
-      if (activeTab === 'PPDT') data = await getPPDTScenarios();
-      else if (activeTab === 'TAT') data = await getTATScenarios();
-      else if (activeTab === 'WAT') data = await getWATWords();
-      
-      setItems(data || []);
+      if (activeTab === 'PAYMENTS') {
+        const p = await getPendingPayments();
+        setPayments(p);
+      } else {
+        let data;
+        if (activeTab === 'PPDT') data = await getPPDTScenarios();
+        else if (activeTab === 'TAT') data = await getTATScenarios();
+        else if (activeTab === 'WAT') data = await getWATWords();
+        setItems(data || []);
+      }
     } catch (e: any) {
       console.error(e);
       setErrorMsg(e.message || "Failed to fetch data.");
-      setItems([]);
     } finally {
       setIsLoading(false);
     }
@@ -75,7 +83,31 @@ const AdminPanel: React.FC = () => {
     }
   };
 
+  // Replaces window.confirm
+  const handlePaymentAction = (id: string, action: 'APPROVE' | 'REJECT', userId: string, planType: any) => {
+      setConfirmAction({ id, type: action, userId, planType });
+  };
+
+  const executeConfirmAction = async () => {
+      if (!confirmAction) return;
+      const { id, type, userId, planType } = confirmAction;
+      setConfirmAction(null); // Close modal
+      
+      try {
+          if (type === 'APPROVE') {
+              await approvePaymentRequest(id, userId, planType);
+          } else {
+              await rejectPaymentRequest(id);
+          }
+          await fetchData(); // Refresh list
+      } catch(e: any) {
+          setErrorMsg(e.message || "Action failed");
+      }
+  };
+
   const handleDelete = async (id: string, url?: string) => {
+    // Note: We are still using window.confirm for delete as it might not be the critical path failing in sandbox right now,
+    // but if needed, we can expand the confirmAction to handle deletes too.
     if (!window.confirm("Delete this item permanently?")) return;
     setErrorMsg(null);
     try {
@@ -109,41 +141,91 @@ const AdminPanel: React.FC = () => {
       }, {})
     : (activeTab === 'PPDT' ? { "All PPDT": items } : {});
 
-  const storageSQL = `-- STEP 1: CREATE BUCKETS
--- Go to Storage > New Bucket and create these TWO buckets:
--- 1. 'ppdt-images'
--- 2. 'tat-images'
--- Make sure to toggle 'Public' to ON for both.
+  // Cleaned SQL without quotes in comments to prevent parser errors
+  const storageSQL = `
+-- 1. Create Storage Buckets
+insert into storage.buckets (id, name, public) 
+values ('ppdt-images', 'ppdt-images', true), ('tat-images', 'tat-images', true)
+on conflict (id) do nothing;
 
--- STEP 2: RUN THIS SQL FOR STORAGE POLICIES
--- Copy/Paste this into the SQL Editor:
+-- 2. Storage Policies
+create policy "Public Select PPDT" on storage.objects for select using (bucket_id = 'ppdt-images');
+create policy "Public Upload PPDT" on storage.objects for insert with check (bucket_id = 'ppdt-images');
+create policy "Public Select TAT" on storage.objects for select using (bucket_id = 'tat-images');
+create policy "Public Upload TAT" on storage.objects for insert with check (bucket_id = 'tat-images');
 
--- Policies for PPDT
-CREATE POLICY "Public Upload PPDT" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'ppdt-images');
-CREATE POLICY "Public Select PPDT" ON storage.objects FOR SELECT USING (bucket_id = 'ppdt-images');
-CREATE POLICY "Public Delete PPDT" ON storage.objects FOR DELETE USING (bucket_id = 'ppdt-images');
+-- 3. Create aspirants table
+create table if not exists aspirants (
+  user_id uuid references auth.users not null primary key,
+  email text,
+  full_name text,
+  avatar_url text,
+  piq_data jsonb default '{}'::jsonb,
+  subscription_data jsonb default '{"tier": "FREE", "usage": {"ppdt_used": 0, "ppdt_limit": 5, "tat_used": 0, "tat_limit": 2, "interview_used": 0, "interview_limit": 1}, "extra_credits": {"interview": 0}}'::jsonb,
+  last_active timestamp with time zone default timezone('utc'::text, now())
+);
+alter table aspirants enable row level security;
+create policy "Public Aspirants View" on aspirants for select using (true);
+create policy "Self Update Aspirants" on aspirants for update using (auth.uid() = user_id);
+create policy "Self Insert Aspirants" on aspirants for insert with check (auth.uid() = user_id);
 
--- Policies for TAT
-CREATE POLICY "Public Upload TAT" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'tat-images');
-CREATE POLICY "Public Select TAT" ON storage.objects FOR SELECT USING (bucket_id = 'tat-images');
-CREATE POLICY "Public Delete TAT" ON storage.objects FOR DELETE USING (bucket_id = 'tat-images');
-
--- STEP 3: ENABLE TABLE ACCESS & CREATE TABLES
-ALTER TABLE ppdt_scenarios ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Access PPDT Table" ON ppdt_scenarios FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE tat_scenarios ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Access TAT Table" ON tat_scenarios FOR ALL USING (true) WITH CHECK (true);
-
--- Create WAT Words Table if not exists
-create table if not exists wat_words (
+-- 4. Create payment_requests table
+create table if not exists payment_requests (
   id uuid default gen_random_uuid() primary key,
-  word text not null,
+  user_id uuid references aspirants(user_id) not null,
+  utr text not null unique,
+  amount numeric not null,
+  plan_type text not null,
+  status text check (status in ('PENDING', 'APPROVED', 'REJECTED')) default 'PENDING',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+alter table payment_requests enable row level security;
+create policy "User Insert Payments" on payment_requests for insert with check (auth.uid() = user_id);
+create policy "Admin View Payments" on payment_requests for select using (true);
+create policy "Admin Update Payments" on payment_requests for update using (true);
 
-ALTER TABLE wat_words ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Access WAT Table" ON wat_words FOR ALL USING (true) WITH CHECK (true);
+-- 5. Create Content Tables
+create table if not exists ppdt_scenarios (
+  id uuid default gen_random_uuid() primary key,
+  image_url text,
+  description text,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+alter table ppdt_scenarios enable row level security;
+create policy "Public View PPDT" on ppdt_scenarios for select using (true);
+create policy "Public Insert PPDT" on ppdt_scenarios for insert with check (true);
+
+create table if not exists tat_scenarios (
+  id uuid default gen_random_uuid() primary key,
+  image_url text,
+  description text,
+  set_tag text default 'Set 1',
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+alter table tat_scenarios enable row level security;
+create policy "Public View TAT" on tat_scenarios for select using (true);
+create policy "Public Insert TAT" on tat_scenarios for insert with check (true);
+
+create table if not exists wat_words (
+  id uuid default gen_random_uuid() primary key,
+  word text,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+alter table wat_words enable row level security;
+create policy "Public View WAT" on wat_words for select using (true);
+create policy "Public Insert WAT" on wat_words for insert with check (true);
+
+create table if not exists test_history (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users not null,
+  test_type text not null,
+  score numeric,
+  result_data jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+alter table test_history enable row level security;
+create policy "Self View History" on test_history for select using (auth.uid() = user_id);
+create policy "Self Insert History" on test_history for insert with check (auth.uid() = user_id);
 `;
 
   return (
@@ -205,11 +287,54 @@ CREATE POLICY "Public Access WAT Table" ON wat_words FOR ALL USING (true) WITH C
       )}
 
       <div className="flex flex-wrap justify-center md:justify-start gap-4">
+         <button onClick={() => setActiveTab('PAYMENTS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PAYMENTS' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><IndianRupee size={16} /> Payments {payments.length > 0 && `(${payments.length})`}</button>
          <button onClick={() => setActiveTab('PPDT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PPDT' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Target size={16} /> PPDT Pool</button>
          <button onClick={() => setActiveTab('TAT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'TAT' ? 'bg-purple-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Layers size={16} /> TAT Sets</button>
          <button onClick={() => setActiveTab('WAT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'WAT' ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><FileText size={16} /> WAT Bank</button>
       </div>
 
+      {activeTab === 'PAYMENTS' ? (
+          <div className="space-y-6">
+              {payments.length === 0 ? (
+                  <div className="p-12 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-xl">
+                      <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                      <h3 className="text-xl font-black text-slate-900 uppercase">All Clear</h3>
+                      <p className="text-slate-500 text-xs font-bold mt-2">No pending payment approvals.</p>
+                  </div>
+              ) : (
+                  payments.map(req => (
+                      <div key={req.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-bottom-2">
+                          <div className="flex items-center gap-6 w-full md:w-auto">
+                              <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-2xl flex items-center justify-center shrink-0">
+                                  <Clock size={24} />
+                              </div>
+                              <div className="space-y-1">
+                                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{new Date(req.created_at).toLocaleString()}</p>
+                                  <h4 className="font-bold text-slate-900 text-lg">UTR: <span className="font-mono bg-slate-100 px-2 rounded">{req.utr}</span></h4>
+                                  <p className="text-xs font-medium text-slate-600">
+                                      {req.aspirants?.full_name || 'Unknown User'} • {req.plan_type === 'PRO_SUBSCRIPTION' ? 'Pro Plan' : 'Add-on'} • ₹{req.amount}
+                                  </p>
+                              </div>
+                          </div>
+                          <div className="flex gap-4 w-full md:w-auto">
+                              <button 
+                                onClick={() => handlePaymentAction(req.id, 'REJECT', req.user_id, req.plan_type)}
+                                className="flex-1 md:flex-none px-6 py-3 bg-red-50 text-red-600 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                              >
+                                  <XCircle size={16} /> Reject
+                              </button>
+                              <button 
+                                onClick={() => handlePaymentAction(req.id, 'APPROVE', req.user_id, req.plan_type)}
+                                className="flex-1 md:flex-none px-6 py-3 bg-green-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-lg"
+                              >
+                                  <CheckCircle size={16} /> Approve
+                              </button>
+                          </div>
+                      </div>
+                  ))
+              )}
+          </div>
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* LEFT COLUMN: Input */}
         <div className="lg:col-span-1 space-y-6">
@@ -336,6 +461,28 @@ CREATE POLICY "Public Access WAT Table" ON wat_words FOR ALL USING (true) WITH C
            )}
         </div>
       </div>
+      )}
+      
+      {/* CONFIRMATION MODAL OVERLAY */}
+      {confirmAction && (
+        <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+           <div className="bg-white p-8 rounded-[2.5rem] max-w-sm w-full shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-200">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${confirmAction.type === 'APPROVE' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                 {confirmAction.type === 'APPROVE' ? <CheckCircle size={32} /> : <XCircle size={32} />}
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900 uppercase">Confirm {confirmAction.type === 'APPROVE' ? 'Approval' : 'Rejection'}?</h3>
+                <p className="text-slate-500 text-sm mt-2 font-medium">Are you sure you want to proceed? This action cannot be undone.</p>
+              </div>
+              <div className="flex gap-3">
+                 <button onClick={() => setConfirmAction(null)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-black uppercase text-xs tracking-widest transition-colors">Cancel</button>
+                 <button onClick={executeConfirmAction} className={`flex-1 py-3 text-white rounded-xl font-black uppercase text-xs tracking-widest transition-colors shadow-lg ${confirmAction.type === 'APPROVE' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>
+                    Yes, {confirmAction.type === 'APPROVE' ? 'Approve' : 'Reject'}
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

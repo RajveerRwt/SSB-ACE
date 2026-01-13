@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Send, MessageSquare, Loader2, CheckCircle2, AlertOctagon, Mail } from 'lucide-react';
+import { Send, MessageSquare, Loader2, CheckCircle2, AlertOctagon, Mail, MapPin } from 'lucide-react';
 import { PIQData } from '../types';
 
 // Updated to accept piqData prop to resolve "Property 'piqData' does not exist on type 'IntrinsicAttributes'" error in App.tsx
@@ -59,6 +59,30 @@ const ContactForm: React.FC<{ piqData?: PIQData }> = ({ piqData }) => {
       <div className="text-center space-y-4">
         <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-slate-900">Support <span className="text-blue-600">Desk</span></h1>
         <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px]">Direct Uplink to Board Admin</p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg flex items-start gap-4">
+           <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+              <Mail size={20} />
+           </div>
+           <div>
+              <h5 className="font-black uppercase text-xs tracking-widest text-slate-900 mb-1">Email Support</h5>
+              <p className="text-sm font-medium text-slate-600">support@ssbprep.online</p>
+              <p className="text-[10px] text-slate-400 mt-1">Response time: 24 Hours</p>
+           </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg flex items-start gap-4">
+           <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+              <MapPin size={20} />
+           </div>
+           <div>
+              <h5 className="font-black uppercase text-xs tracking-widest text-slate-900 mb-1">Registered Office</h5>
+              <p className="text-sm font-medium text-slate-600">123, Defence Enclave, Sector 62</p>
+              <p className="text-sm font-medium text-slate-600">Noida, Uttar Pradesh, 201309</p>
+           </div>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border border-slate-100 space-y-6 md:space-y-8">

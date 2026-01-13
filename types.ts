@@ -11,7 +11,10 @@ export enum TestType {
   CONTACT = 'CONTACT',
   STAGES = 'STAGES',
   AI_BOT = 'AI_BOT',
-  ADMIN = 'ADMIN'
+  ADMIN = 'ADMIN',
+  TERMS = 'TERMS',
+  PRIVACY = 'PRIVACY',
+  REFUND = 'REFUND'
 }
 
 export interface PIQData {
@@ -82,4 +85,14 @@ export interface UserSubscription {
   extra_credits: {
     interview: number;
   }
+}
+
+export interface PaymentRequest {
+  id: string;
+  user_id: string;
+  utr: string;
+  amount: number;
+  plan_type: 'PRO_SUBSCRIPTION' | 'INTERVIEW_ADDON';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  created_at: string;
 }
