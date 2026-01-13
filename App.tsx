@@ -13,7 +13,7 @@ import AdminPanel from './components/AdminPanel';
 import PaymentModal from './components/PaymentModal';
 import LegalPages from './components/LegalPages';
 import { TestType, PIQData } from './types';
-import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest } from './services/supabaseService';
+import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage } from './services/supabaseService';
 import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle } from 'lucide-react';
 
 // Dashboard Component
@@ -390,6 +390,9 @@ const App: React.FC = () => {
   const handleTestCompletion = async (testType: string, resultData: any) => {
     if (user) {
       await saveTestAttempt(user, testType, resultData);
+      
+      // Update credits (FIX: Decrement usage)
+      await incrementUsage(user, testType);
     }
   };
 
