@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw } from 'lucide-react';
-import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory } from '../services/geminiService';
-import { getTATScenarios } from '../services/supabaseService';
+import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, STANDARD_WAT_SET } from '../services/geminiService';
+import { getTATScenarios, getWATWords } from '../services/supabaseService';
 import { TestType } from '../types';
 
 interface PsychologyProps {
@@ -29,11 +29,9 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   const [activeSetName, setActiveSetName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [pregeneratedImages, setPregeneratedImages] = useState<Record<string, string>>({});
-  const [loadProgress, setLoadProgress] = useState(0);
   
   const [tatUploads, setTatUploads] = useState<string[]>(new Array(12).fill(''));
   const [tatTexts, setTatTexts] = useState<string[]>(new Array(12).fill(''));
-  const [transcribingIndices, setTranscribingIndices] = useState<number[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   
   const [feedback, setFeedback] = useState<any>(null);
@@ -62,7 +60,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   const startTest = async () => {
     setIsLoading(true);
     setPhase(PsychologyPhase.PREPARING_STIMULI);
-    setLoadProgress(0);
     
     try {
       let finalItems: any[] = [];
@@ -109,10 +106,32 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
 
         setPregeneratedImages(images);
         finalItems.push({ id: 'tat-12-blank', content: 'BLANK SLIDE' });
-        setLoadProgress(100);
+
+      } else if (type === TestType.WAT) {
+        // FETCH WAT FROM DB OR FALLBACK
+        const dbWords = await getWATWords();
+        let wordList: string[] = [];
+        
+        if (dbWords && dbWords.length > 0) {
+            // Shuffle database words
+            wordList = dbWords.map((row: any) => row.word);
+            wordList = wordList.sort(() => Math.random() - 0.5);
+            setActiveSetName('Custom Database Set');
+        } else {
+            // Use Standard Fallback
+            wordList = [...STANDARD_WAT_SET];
+            wordList = wordList.sort(() => Math.random() - 0.5);
+            setActiveSetName('Standard Fallback Set');
+        }
+
+        // Slice to 60 words for standard test
+        finalItems = wordList.slice(0, 60).map((word, index) => ({
+            id: `wat-${index}`,
+            content: word
+        }));
 
       } else {
-        // WAT / SRT still use AI content generation (text-only)
+        // SRT still uses generated content or static list from geminiService
         const data = await generateTestContent(type);
         finalItems = data.items;
         if (finalItems.length > 60) finalItems = finalItems.slice(0, 60);
@@ -190,21 +209,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
             return next;
         });
         activeUploadIndex.current = null;
-
-        // Auto Start Transcription
-        setTranscribingIndices(prev => [...prev, index]);
-        try {
-            const text = await transcribeHandwrittenStory(base64, file.type);
-            setTatTexts(prev => {
-                const next = [...prev];
-                next[index] = text;
-                return next;
-            });
-        } catch (err) {
-            console.error("Transcription Failed", err);
-        } finally {
-            setTranscribingIndices(prev => prev.filter(i => i !== index));
-        }
+        
+        // COST SAVING: Auto-transcription disabled. User must type.
       };
       reader.readAsDataURL(file);
     }
@@ -242,7 +248,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
             stimulusImage: stimulusBase64,
             stimulusDesc: item.content,
             userStoryImage: userStoryImage,
-            userStoryText: tatTexts[index] // Include the verified text
+            userStoryText: tatTexts[index] // Include the manually verified/typed text
         };
       }));
 
@@ -395,7 +401,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
       <div className="max-w-5xl mx-auto space-y-12 pb-20 animate-in slide-in-from-bottom-20">
          <div className="text-center space-y-6">
             <h2 className="text-5xl font-black text-slate-900 uppercase tracking-tighter">Dossier Submission</h2>
-            <p className="text-slate-500 text-xl font-medium italic">"Upload images of your handwritten stories. Review text before submitting."</p>
+            <p className="text-slate-500 text-xl font-medium italic">"Upload images of your handwritten stories. Then manually type the text for analysis."</p>
          </div>
          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <input type="file" ref={fileInputRef} onChange={onFileChange} className="hidden" accept="image/*" />
@@ -409,7 +415,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
                           onClick={() => setEditingIndex(i)}
                           className="px-4 py-2 bg-white text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2"
                         >
-                          <Edit size={12} /> Review
+                          <Edit size={12} /> {tatTexts[i] ? 'Edit Text' : 'Type Story'}
                         </button>
                         <button 
                           onClick={() => handleFileSelect(i)}
@@ -418,12 +424,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
                           <RefreshCw size={12} /> Replace
                         </button>
                      </div>
-                     {transcribingIndices.includes(i) && (
-                        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center">
-                           <Loader2 className="animate-spin text-slate-900 mb-2" />
-                           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Scanning...</span>
-                        </div>
-                     )}
                    </>
                  ) : (
                    <div onClick={() => handleFileSelect(i)} className="flex flex-col items-center justify-center h-full space-y-4 cursor-pointer">
@@ -459,14 +459,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
                   <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col bg-white">
                      <div className="flex justify-between items-center mb-6">
                         <h3 className="text-xl font-black uppercase tracking-tighter text-slate-900 flex items-center gap-3">
-                           <Edit className="text-blue-600" /> Digital Transcript
+                           <Edit className="text-blue-600" /> Manual Transcript
                         </h3>
                         <button onClick={() => setEditingIndex(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
                            <X size={24} />
                         </button>
                      </div>
                      <p className="text-xs text-slate-500 font-medium mb-4">
-                       Verify the AI transcription below. Correct any mistakes before submission.
+                       Type your story below exactly as written. AI auto-transcription is disabled to optimize resources.
                      </p>
                      <textarea 
                         value={tatTexts[editingIndex]}
@@ -479,13 +479,13 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
                            });
                         }}
                         className="flex-1 w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-[2rem] resize-none focus:bg-white focus:border-blue-600 outline-none transition-all font-medium text-lg leading-relaxed shadow-inner"
-                        placeholder="Waiting for transcription..."
+                        placeholder="Type your story here..."
                      />
                      <button 
                        onClick={() => setEditingIndex(null)}
                        className="mt-6 w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl flex items-center justify-center gap-3"
                      >
-                       <Save size={16} /> Save Correction
+                       <Save size={16} /> Save Text
                      </button>
                   </div>
                </div>

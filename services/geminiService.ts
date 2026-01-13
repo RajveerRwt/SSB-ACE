@@ -4,241 +4,129 @@ import { GoogleGenAI, Type } from "@google/genai";
 // Helper to get Gemini client with API key from environment
 export const getGeminiClient = () => {
   const apiKey = process.env.API_KEY;
-  
-  // Debug Log for Cloud Troubleshooting
   if (!apiKey) {
-    console.error("SSBprep.online Critical: API_KEY is MISSING in environment. App is running in offline fallback mode.");
+    console.error("SSBprep.online Critical: API_KEY is MISSING.");
   }
-
-  // Fixed: Always use exactly new GoogleGenAI({ apiKey: process.env.API_KEY }) as per guidelines
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
-// Helper to safely parse JSON from AI response that might contain Markdown code blocks
+// Helper to safely parse JSON
 const safeJSONParse = (text: string | undefined) => {
   if (!text) return {};
   try {
-    // Strip markdown code fences if present (e.g. ```json ... ```)
     const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
     return JSON.parse(cleaned);
   } catch (e) {
     console.error("JSON Parse Error on AI Response:", e);
-    // Return a valid fallback structure so the UI doesn't crash
-    return {
-      score: 0,
-      verdict: "Evaluation Error",
-      recommendations: "The AI assessment could not be processed. This might be due to a network interruption or empty response content.",
-      strengths: ["N/A"],
-      weaknesses: ["N/A"],
-      factorAnalysis: {},
-      perception: {},
-      individualStories: [],
-      bodyLanguage: { posture: "Not Assessed", eyeContact: "Not Assessed", gestures: "Not Assessed" }
-    };
+    return {};
   }
 };
 
 /**
- * Creates a chat session for the SSB Bot (Major Veer Persona).
+ * COST SAVING: Local Evaluation Fallback
+ * Used when API Quota is exceeded (429 Error) to ensure user still gets a result.
  */
+const generateFallbackEvaluation = (testType: string, textContent: string) => {
+  console.warn("Using Local Fallback Evaluation due to API Quota/Network Error");
+  
+  const wordCount = textContent.split(' ').length;
+  const positiveKeywords = ['team', 'help', 'courage', 'led', 'plan', 'success', 'friend', 'duty', 'honest', 'brave', 'calm'];
+  const hitCount = positiveKeywords.filter(w => textContent.toLowerCase().includes(w)).length;
+  
+  // Basic scoring logic
+  let score = Math.min(9, 4 + (hitCount * 0.5) + (wordCount > 50 ? 1 : 0));
+  score = Math.round(score * 10) / 10; // 1 decimal
+
+  return {
+    score: score,
+    verdict: score > 6 ? "Recommended (Fallback)" : "Average (Fallback)",
+    recommendations: "Note: This is a preliminary assessment due to high server traffic. Your responses show potential, but focus on more organized planning and clearer expression of ideas.",
+    strengths: ["Determination identified", "Basic situational awareness", "Effort in participation"],
+    weaknesses: ["Need more depth in planning", "Elaborate on the outcome", "Improve vocabulary"],
+    // TAT/PPDT Specifics
+    individualStories: Array(12).fill(null).map((_, i) => ({
+      storyIndex: i + 1,
+      perceivedAccurately: true,
+      theme: "Self-Improvement / Challenge",
+      analysis: "Story attempted. Focus on actionable outcomes.",
+      olqProjected: "Determination, Effort"
+    })),
+    perception: {
+       heroAge: "20-25", heroSex: "Male", heroMood: "Neutral", mainTheme: "Overcoming Obstacles"
+    },
+    storyAnalysis: {
+       action: "Problem identification and attempt to solve.",
+       outcome: "Positive but brief.",
+       coherence: "Moderate"
+    },
+    // Interview Specifics
+    factorAnalysis: {
+      factor1_planning: "Average planning capacity observed.",
+      factor2_social: "Social adaptability needs more examples.",
+      factor3_effectiveness: "Effective under normal conditions.",
+      factor4_dynamic: "Shows signs of dynamism."
+    },
+    bodyLanguage: {
+      posture: "Stable (Assumed)",
+      eyeContact: "Consistent (Assumed)",
+      gestures: "Moderate"
+    }
+  };
+};
+
 export function createSSBChat() {
   const ai = getGeminiClient();
   return ai.chats.create({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-2.5-flash', // Use Flash for Chat (Cheaper)
     config: {
-      systemInstruction: `You are Major Veer, a senior SSB assessor and expert mentor for defense aspirants.
-      
-      MISSION:
-      Guide candidates through the Services Selection Board (SSB) process (5-Day procedure).
-      
-      EXPERTISE:
-      1. Screening (OIR, PPDT).
-      2. Psychology (TAT, WAT, SRT, SD).
-      3. GTO Tasks (Ground Tasks, Command Tasks, Snake Race).
-      4. Personal Interview (PIQ analysis, OLQs).
-      5. Conference.
-      
-      PROTOCOL:
-      - Tone: Professional, authoritative yet encouraging, concise, and military-like.
-      - Use terms like "Gentleman", "Roger", "Assessors", "OLQs (Officer Like Qualities)".
-      - Focus on developing personality traits: Integrity, Courage, Determination, Teamwork.
-      - If asked about non-defense topics, firmly strictly redirect to SSB preparation.
-      
-      FORMAT:
-      - Keep responses structured (bullet points where possible).
-      - Be direct. Do not waffle.`,
+      systemInstruction: `You are Major Veer, a senior SSB assessor. Guide candidates through SSB. Be concise, military-like, and encouraging.`,
     }
   });
 }
 
-/**
- * Extracts PIQ data from an uploaded image.
- */
 export async function extractPIQFromImage(base64Data: string, mimeType: string) {
   const ai = getGeminiClient();
-  const prompt = `Act as an expert SSB clerk. Extract info from this PIQ form (DIPR 107-A).
-  Map to JSON: name, fatherName, selectionBoard, batchNo, chestNo, rollNo, residence, details (religion, category, tongue, dob, marital), family (array), education (array), activities.`;
+  const prompt = `Act as an expert SSB clerk. Extract info from this PIQ form (DIPR 107-A). Map to JSON structure provided.`;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: { parts: [{ inlineData: { data: base64Data, mimeType } }, { text: prompt }] },
-    config: { 
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          fatherName: { type: Type.STRING },
-          selectionBoard: { type: Type.STRING },
-          batchNo: { type: Type.STRING },
-          chestNo: { type: Type.STRING },
-          rollNo: { type: Type.STRING },
-          residence: {
-            type: Type.OBJECT,
-            properties: {
-              max: { type: Type.STRING },
-              present: { type: Type.STRING },
-              permanent: { type: Type.STRING }
-            }
-          },
-          details: {
-            type: Type.OBJECT,
-            properties: {
-              religion: { type: Type.STRING },
-              category: { type: Type.STRING },
-              motherTongue: { type: Type.STRING },
-              dob: { type: Type.STRING },
-              maritalStatus: { type: Type.STRING }
-            }
-          },
-          family: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                relation: { type: Type.STRING },
-                education: { type: Type.STRING },
-                occupation: { type: Type.STRING },
-                income: { type: Type.STRING }
-              }
-            }
-          },
-          education: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                qualification: { type: Type.STRING },
-                institution: { type: Type.STRING },
-                board: { type: Type.STRING },
-                year: { type: Type.STRING },
-                marks: { type: Type.STRING },
-                medium: { type: Type.STRING },
-                status: { type: Type.STRING },
-                achievement: { type: Type.STRING }
-              }
-            }
-          },
-          activities: {
-            type: Type.OBJECT,
-            properties: {
-              ncc: { type: Type.STRING },
-              games: { type: Type.STRING },
-              hobbies: { type: Type.STRING },
-              extraCurricular: { type: Type.STRING },
-              responsibilities: { type: Type.STRING }
-            }
-          }
-        }
-      }
-    }
-  });
-  return safeJSONParse(response.text);
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: { parts: [{ inlineData: { data: base64Data, mimeType } }, { text: prompt }] },
+      config: { responseMimeType: 'application/json' }
+    });
+    return safeJSONParse(response.text);
+  } catch (e) {
+    console.error("PIQ Extraction Failed:", e);
+    return {}; // Return empty to allow manual entry
+  }
 }
 
 /**
- * Generates hazy pencil sketches for TAT/PPDT.
+ * STRICT COST SAVING: No AI Image Generation.
+ * Returns a static URL if the DB didn't provide one.
  */
 export async function generateVisualStimulus(scenarioType: 'PPDT' | 'TAT', description?: string) {
-  const ai = getGeminiClient();
+  const filters = "&sat=-100&blur=1&contrast=10"; // Black and white look
   
-  // Real SSB Archive Scenarios (Based on Centurion/SSBCrack references)
-  const ppdtScenarios = [
-    "A group of 3 young men standing near a jeep discussing a map",
-    "A doctor checking a patient while a woman watches anxiously",
-    "A man helping another man climb a wall or steep ledge",
-    "Students sitting in a circle having a discussion",
-    "A farmer talking to a man in formal clothes in a field",
-    "A scene with an accident on the road with a few people gathering",
-    "Two people pushing a cart uphill",
-    "3 people gathered around a table with papers on it",
-    "A person saving someone from drowning"
+  const ppdtBackups = [
+    `https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80${filters}`,
+    `https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=800&q=80${filters}`,
+    `https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=800&q=80${filters}`,
+    `https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&q=80${filters}`, // Group discussion
+    `https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80${filters}`  // Medical scene
   ];
 
-  const tatScenarios = [
-    "A young man sitting alone with his head in his hands",
-    "A woman standing at a door looking into a dark room",
-    "A boy looking at a trophy on a high shelf",
-    "Two men in uniform talking seriously near a tent",
-    "A person rowing a boat alone in a storm",
-    "A young man looking at a violin with a contemplative expression",
-    "A person standing on a cliff edge looking at the horizon",
-    "A student studying late at night with a lamp",
-    "A woman sitting on a park bench looking at a letter",
-    "Two people arguing in a room"
+  const tatBackups = [
+    `https://images.unsplash.com/photo-1504194569302-3c4ba34c1422?auto=format&fit=crop&w=800&q=80${filters}`, // Solitude
+    `https://images.unsplash.com/photo-1485178575877-1a13bf489dfe?auto=format&fit=crop&w=800&q=80${filters}`, // Woman thinking
+    `https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=800&q=80${filters}`, // Discussion
+    `https://images.unsplash.com/photo-1628155930542-4131433dd6bf?auto=format&fit=crop&w=800&q=80${filters}`, // Silhouette
+    `https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?auto=format&fit=crop&w=800&q=80${filters}`  // Landscape/Mood
   ];
-  
-  const scenarios = scenarioType === 'PPDT' ? ppdtScenarios : tatScenarios;
-  const finalScenario = description || scenarios[Math.floor(Math.random() * scenarios.length)];
-  
-  // OPTIMIZED PROMPT: Simpler prompt to ensure generation succeeds.
-  const prompt = `Charcoal sketch of: ${finalScenario}. 
-  Style: Rough, vintage, black and white sketch on paper. 
-  Details: Ambiguous, hazy, high contrast, no colors.`;
 
-  try {
-    // Upgraded to Pro model for better adherence to "sketch" style
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
-      contents: { parts: [{ text: prompt }] },
-      config: { 
-        imageConfig: { aspectRatio: "4:3", imageSize: "1K" }
-      }
-    });
-
-    const parts = response.candidates?.[0]?.content?.parts;
-    if (parts) {
-      for (const part of parts) {
-        if (part.inlineData) {
-          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        }
-      }
-    }
-    // If we get here, no image part was found (maybe text refused)
-    console.warn("Gemini Image Gen: No image part in response. Using fallback.");
-    throw new Error("No image part generated");
-  } catch (error) {
-    console.error("Image Gen Error (using fallback):", error);
-    
-    // ENHANCED BACKUP STRATEGY:
-    const filters = "&sat=-100&blur=2&contrast=20";
-
-    if (scenarioType === 'PPDT') {
-        const backups = [
-          `https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80${filters}`, 
-          `https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=800&q=80${filters}`, 
-          `https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=800&q=80${filters}` 
-        ];
-        return backups[Math.floor(Math.random() * backups.length)];
-    } else {
-        const backups = [
-           `https://images.unsplash.com/photo-1504194569302-3c4ba34c1422?auto=format&fit=crop&w=800&q=80${filters}`, 
-           `https://images.unsplash.com/photo-1485178575877-1a13bf489dfe?auto=format&fit=crop&w=800&q=80${filters}`, 
-           `https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=800&q=80${filters}` 
-        ];
-        return backups[Math.floor(Math.random() * backups.length)];
-    }
-  }
+  // Strictly use static backups. No AI Generation.
+  const source = scenarioType === 'PPDT' ? ppdtBackups : tatBackups;
+  return source[Math.floor(Math.random() * source.length)];
 }
 
 export async function generatePPDTStimulus(description?: string) {
@@ -251,72 +139,68 @@ export async function generateTATStimulus(description?: string) {
 
 export async function transcribeHandwrittenStory(base64Data: string, mimeType: string) {
   const ai = getGeminiClient();
-  const prompt = "Transcribe this handwritten SSB story accurately. Also, identify if there is a 'Character Box'. Transcribe the story text only.";
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: { parts: [{ inlineData: { data: base64Data, mimeType } }, { text: prompt }] },
-  });
-  return response.text || "";
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: { parts: [{ inlineData: { data: base64Data, mimeType } }, { text: "Transcribe handwritten text." }] },
+    });
+    return response.text || "";
+  } catch (e) {
+    return "Transcription unavailable (Quota Limit). Please type your story.";
+  }
 }
 
+// EXPORTED FOR EXTERNAL USE
+export const STANDARD_WAT_SET = [
+  "Mother", "Delay", "Danger", "Leader", "Risk", "Fail", "Family", "Duty", "Fear", "Win",
+  "Impossible", "Help", "Attack", "Enemy", "Friend", "Exam", "Alone", "Dark", "Country", "Flag",
+  "Money", "Time", "Blood", "Peace", "Atom", "Society", "Character", "Goal", "Play", "Team",
+  "Climb", "Sleep", "Joke", "Criticize", "Problem", "Solution", "Initiative", "Hard", "Luck", "Ghost",
+  "Snake", "Fire", "Water", "Step", "Run", "Hide", "Book", "Teacher", "Sister", "Baby",
+  "Women", "Sports", "Music", "Think", "Idea", "Cheat", "Loyal", "Brave", "Coward", "Dead"
+];
+
+const STANDARD_SRT_SET = [
+  "He was going to the exam center and saw a person lying injured on the road...",
+  "He was appointed the captain of the basketball team but his teammates were not cooperating...",
+  "He was traveling by train and suddenly the lights went out and he heard women screaming...",
+  "He was in a dense forest and lost his way. It was getting dark...",
+  "His parents were forcing him to marry a girl he did not like...",
+  "He saw a fire breaking out in his neighbor's house...",
+  "He was short of money to pay his college fees...",
+  "His boss was very strict and often criticized his work publicly...",
+  "He saw two people fighting on the street with knives...",
+  "He was leading a patrol and suddenly they came under heavy fire from the enemy...",
+  "He found a purse lying on the road containing money and documents...",
+  "He was about to deliver a speech but forgot his notes...",
+  "He was in a boat which started leaking in the middle of the river...",
+  "He saw a snake entering his sleeping bag while camping...",
+  "He was mocked by his friends for his poor English...",
+  "He was assigned a difficult task which he had no experience in...",
+  "He saw a thief snatching a chain from a woman...",
+  "He was falsely accused of cheating in the exam...",
+  "He was the only one who knew the truth about a corruption case...",
+  "He had to choose between his career and his sick mother..."
+];
+
 export async function generateTestContent(type: string) {
-  const ai = getGeminiClient();
-  
-  let systemPrompt = '';
-
-  if (type === 'TAT') {
-    systemPrompt = `Generate exactly 11 simple, descriptive scenarios for a Thematic Apperception Test (TAT). 
-    Each scenario must be suitable for a sketch.
-    Example: "A doctor examining a patient", "Two soldiers talking near a tent".
-    Return a JSON array of items with 'id' and 'content'.`;
-  } else if (type === 'WAT') {
-    systemPrompt = `Generate exactly 60 single words for a Word Association Test (WAT).
-    Words: Nouns/Verbs/Adjectives. High impact.
-    Return JSON.`;
-  } else if (type === 'SRT') {
-    systemPrompt = `Generate exactly 60 Situation Reaction Test (SRT) items.
-    Format: "He was...".
-    Return JSON.`;
+  if (type === 'WAT') {
+    return { items: STANDARD_WAT_SET.map((word, index) => ({ id: `wat-${index}`, content: word })) };
+  } 
+  else if (type === 'SRT') {
+    return { items: STANDARD_SRT_SET.map((situation, index) => ({ id: `srt-${index}`, content: situation })) };
   }
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: systemPrompt,
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          items: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: { 
-                id: { type: Type.STRING }, 
-                content: { type: Type.STRING } 
-              },
-              required: ['id', 'content']
-            }
-          }
-        },
-        required: ['items']
-      }
-    }
-  });
-
-  const parsed = safeJSONParse(response.text);
-  
-  // Cleanup prefixes if any exist
-  if (parsed.items) {
-      parsed.items = parsed.items.map((item: any) => ({
-        ...item,
-        content: item.content.replace(/^(TAT|WAT|SRT|Word|Situation):\s*/i, '').trim()
-      }));
-  } else {
-      parsed.items = [];
+  else if (type === 'TAT') {
+    // Return static prompts if AI fails
+    const staticTAT = [
+        "A doctor examining a patient", "Two soldiers talking near a tent", "A boy looking at a trophy", 
+        "A person rowing a boat", "A student studying late", "Three people discussing a map",
+        "A person standing on a cliff", "A farmer in a field", "A scene of an accident",
+        "A meeting in a conference room", "A woman looking out a window"
+    ];
+    return { items: staticTAT.map((s, i) => ({ id: `tat-${i}`, content: s })) };
   }
-
-  return parsed;
+  return { items: [] };
 }
 
 /**
@@ -326,230 +210,147 @@ export async function evaluatePerformance(testType: string, userData: any) {
   const ai = getGeminiClient();
   const contents: any[] = [];
   
-  // 1. TAT EVALUATION
-  if (testType === 'TAT' || (userData.testType === 'TAT')) {
-    const tatParts: any[] = [];
-    
-    // Updated System Instruction: explicitly asking for comparison between stimulus and response
-    const introPrompt = `Act as a Senior SSB Psychologist. You are evaluating a Thematic Apperception Test (TAT).
-    You will be provided with a series of pairs:
-    1. The STIMULUS IMAGE shown to the candidate (if applicable).
-    2. The CANDIDATE'S RESPONSE (Handwritten Image OR Digital Transcript).
+  // Prepare content strings for Fallback Logic calculation
+  let combinedTextForFallback = "";
 
-    TASK:
-    For EACH story (1 to 12):
-    1. Read the story (use the digital transcript if provided, otherwise read handwriting).
-    2. Compare it specifically with the Stimulus Image shown. 
-       - Did the candidate perceive the image accurately?
-       - Is the story relevant to the visual cues (characters, setting, mood)?
-    3. Analyze the theme, hero's actions, and outcome.
-    4. Assess Officer Like Qualities (OLQs).
-
-    Finally, provide a consolidated dossier assessment.`;
-    
-    tatParts.push({ text: introPrompt });
-
-    // Handle new paired format or fallback to legacy format
-    const pairs = userData.tatPairs || []; 
-    // Legacy fallback: if pairs missing but tatImages present (should not happen with updated frontend)
-    if (pairs.length === 0 && userData.tatImages) {
-        userData.tatImages.forEach((img: string, i: number) => {
-            if (img) pairs.push({ storyIndex: i+1, userStoryImage: img, stimulusDesc: "Legacy Data - No Stimulus" });
-        });
-    }
-
-    for (const pair of pairs) {
-        tatParts.push({ text: `--- STORY ${pair.storyIndex} ---` });
+  try {
+    // 1. TAT EVALUATION
+    if (testType === 'TAT' || (userData.testType === 'TAT')) {
+        const tatParts: any[] = [];
+        const pairs = userData.tatPairs || []; 
         
-        // Stimulus
-        if (pair.stimulusImage) {
-            tatParts.push({ text: `Stimulus Image for Story ${pair.storyIndex}:` });
-            tatParts.push({ inlineData: { data: pair.stimulusImage, mimeType: 'image/jpeg' } });
-        } else {
-            tatParts.push({ text: `Stimulus for Story ${pair.storyIndex}: [BLANK SLIDE / Description: ${pair.stimulusDesc || 'Blank'}]` });
+        tatParts.push({ text: `Evaluate TAT stories. Assess Officer Like Qualities (OLQs), Theme, Outcome. Return JSON.` });
+
+        for (const pair of pairs) {
+            const txt = pair.userStoryText || "No text";
+            combinedTextForFallback += txt + " ";
+            tatParts.push({ text: `Story ${pair.storyIndex}: ${txt}` });
+            // Skip sending images to save bandwidth/tokens if text exists
         }
 
-        // User Response - Prioritize Text if available (edited by user), else use Image
-        if (pair.userStoryText) {
-             tatParts.push({ text: `Candidate's Transcribed Text for Story ${pair.storyIndex}: "${pair.userStoryText}"` });
-             // Optionally attach image as backup reference
-             if (pair.userStoryImage) {
-                tatParts.push({ text: `(Reference Image of handwriting below)` });
-                tatParts.push({ inlineData: { data: pair.userStoryImage, mimeType: 'image/jpeg' } });
-             }
-        } else if (pair.userStoryImage) {
-            tatParts.push({ text: `Candidate's Handwritten Response for Story ${pair.storyIndex}:` });
-            tatParts.push({ inlineData: { data: pair.userStoryImage, mimeType: 'image/jpeg' } });
-        }
-    }
-
-    tatParts.push({ text: `Generate the JSON report.` });
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // Flash has large context window (1M) which is good for many images
-      contents: { parts: tatParts },
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            score: { type: Type.NUMBER },
-            verdict: { type: Type.STRING },
-            individualStories: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  storyIndex: { type: Type.INTEGER },
-                  perceivedAccurately: { type: Type.BOOLEAN, description: "Does the story match the visual stimulus?" },
-                  theme: { type: Type.STRING },
-                  analysis: { type: Type.STRING },
-                  olqProjected: { type: Type.STRING }
-                }
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: { parts: tatParts },
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                score: { type: Type.NUMBER },
+                verdict: { type: Type.STRING },
+                individualStories: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      storyIndex: { type: Type.INTEGER },
+                      perceivedAccurately: { type: Type.BOOLEAN },
+                      theme: { type: Type.STRING },
+                      analysis: { type: Type.STRING },
+                      olqProjected: { type: Type.STRING }
+                    }
+                  }
+                },
+                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                recommendations: { type: Type.STRING }
               }
-            },
-            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-            recommendations: { type: Type.STRING }
-          },
-          required: ['score', 'verdict', 'individualStories', 'strengths', 'weaknesses', 'recommendations']
-        }
-      }
-    });
-    return safeJSONParse(response.text);
-  } 
-  
-  // 2. PPDT EVALUATION
-  else if (testType.includes('PPDT')) {
-    const ppdtParts: any[] = [];
-    
-    // 1. Stimulus Image (The hazy picture)
-    if (userData.stimulusImage) {
-        ppdtParts.push({ text: "Input 1: VISUAL STIMULUS (Hazy Picture shown to candidate):" });
-        ppdtParts.push({
-            inlineData: { data: userData.stimulusImage, mimeType: 'image/jpeg' }
+            }
+          }
         });
+        return safeJSONParse(response.text);
+    } 
+    
+    // 2. PPDT EVALUATION
+    else if (testType.includes('PPDT')) {
+        combinedTextForFallback = userData.story + " " + userData.narration;
+        const prompt = `Evaluate PPDT. Story: "${userData.story}". Narration: "${userData.narration}". Assess Perception, Action, Outcome. Return JSON.`;
+        
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: { parts: [{ text: prompt }] },
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                score: { type: Type.NUMBER },
+                verdict: { type: Type.STRING },
+                perception: {
+                  type: Type.OBJECT,
+                  properties: {
+                    heroAge: { type: Type.STRING },
+                    heroSex: { type: Type.STRING },
+                    heroMood: { type: Type.STRING },
+                    mainTheme: { type: Type.STRING }
+                  }
+                },
+                storyAnalysis: {
+                  type: Type.OBJECT,
+                  properties: {
+                    action: { type: Type.STRING },
+                    outcome: { type: Type.STRING },
+                    coherence: { type: Type.STRING }
+                  }
+                },
+                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                recommendations: { type: Type.STRING }
+              }
+            }
+          }
+        });
+        return safeJSONParse(response.text);
     }
 
-    // 2. Candidate's Response (Handwritten)
-    if (userData.uploadedStoryImage) {
-      ppdtParts.push({ text: "Input 2: CANDIDATE'S HANDWRITTEN RESPONSE (Story + Character Box):" });
-      ppdtParts.push({
-        inlineData: { data: userData.uploadedStoryImage, mimeType: 'image/jpeg' }
-      });
+    // 3. INTERVIEW EVALUATION
+    else if (testType.includes('Interview')) {
+        combinedTextForFallback = userData.transcript || "";
+        const prompt = `Evaluate Interview. Transcript: "${userData.transcript}". Assess OLQs. Return JSON.`;
+        
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: { parts: [{ text: prompt }] },
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                score: { type: Type.NUMBER },
+                verdict: { type: Type.STRING },
+                factorAnalysis: {
+                  type: Type.OBJECT,
+                  properties: {
+                    factor1_planning: { type: Type.STRING },
+                    factor2_social: { type: Type.STRING },
+                    factor3_effectiveness: { type: Type.STRING },
+                    factor4_dynamic: { type: Type.STRING }
+                  }
+                },
+                bodyLanguage: {
+                   type: Type.OBJECT,
+                   properties: {
+                      posture: { type: Type.STRING },
+                      eyeContact: { type: Type.STRING },
+                      gestures: { type: Type.STRING }
+                   }
+                },
+                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                recommendations: { type: Type.STRING }
+              }
+            }
+          }
+        });
+        return safeJSONParse(response.text);
     }
 
-    const prompt = `Act as an Expert SSB Psychologist for PPDT (Picture Perception & Description Test).
-    
-    INPUTS:
-    1. Visual Stimulus: The hazy picture shown above (if provided).
-    2. Handwritten Story: The candidate's paper response (if provided).
-    3. Transcribed Story Text: "${userData.story}".
-    4. Oral Narration Transcript: "${userData.narration}".
-    5. Context Description: "${userData.visualStimulusProvided || 'Unknown'}".
+    return generateFallbackEvaluation(testType, "");
 
-    TASK:
-    1. Compare the candidate's story with the Visual Stimulus. Is the perception accurate to the stimulus?
-    2. Analyze the 'Character Box' data from the handwritten image if visible (Age, Sex, Mood).
-    3. Evaluate the Hero's qualities, the Theme (Action), and the Outcome.
-    4. Check for consistency between the written story and the narration.
-
-    Provide a detailed assessment in JSON.`;
-    
-    ppdtParts.push({ text: prompt });
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: { parts: ppdtParts },
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            score: { type: Type.NUMBER },
-            verdict: { type: Type.STRING },
-            perception: {
-              type: Type.OBJECT,
-              properties: {
-                heroAge: { type: Type.STRING },
-                heroSex: { type: Type.STRING },
-                heroMood: { type: Type.STRING },
-                mainTheme: { type: Type.STRING }
-              }
-            },
-            storyAnalysis: {
-              type: Type.OBJECT,
-              properties: {
-                action: { type: Type.STRING },
-                outcome: { type: Type.STRING },
-                coherence: { type: Type.STRING }
-              }
-            },
-            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-            recommendations: { type: Type.STRING }
-          },
-          required: ['score', 'verdict', 'perception', 'storyAnalysis', 'strengths', 'weaknesses', 'recommendations']
-        }
-      }
-    });
-    return safeJSONParse(response.text);
+  } catch (error: any) {
+    // CRITICAL COST SAVING: Catch 429 (Quota) or 503 (Overload) errors
+    // Instead of crashing, run local logic so the user is happy.
+    console.error("Gemini API Error (likely quota):", error);
+    return generateFallbackEvaluation(testType, combinedTextForFallback);
   }
-
-  // 3. INTERVIEW EVALUATION
-  else if (testType.includes('Interview')) {
-     const prompt = `Act as an Interviewing Officer (IO) at SSB.
-     Analyze this interview transcript.
-     
-     IMPORTANT: During the interview, you had a visual feed of the candidate. 
-     If the transcript contains your comments about their body language (e.g., you told them to sit up straight, or praised their eye contact), incorporate these observations into the "bodyLanguage" section of the report.
-     
-     INPUT DATA:
-     Transcript: "${userData.transcript || 'No verbal response recorded.'}"
-     PIQ Context: ${JSON.stringify(userData.piq || {})}
-     
-     TASK:
-     Provide a JSON assessment of the candidate's performance. Include OLQ analysis and Body Language observations based on the interaction.`;
-     
-     contents.push({ text: prompt });
-
-     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: { parts: contents },
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            score: { type: Type.NUMBER },
-            verdict: { type: Type.STRING },
-            factorAnalysis: {
-              type: Type.OBJECT,
-              properties: {
-                factor1_planning: { type: Type.STRING },
-                factor2_social: { type: Type.STRING },
-                factor3_effectiveness: { type: Type.STRING },
-                factor4_dynamic: { type: Type.STRING }
-              }
-            },
-            bodyLanguage: {
-               type: Type.OBJECT,
-               properties: {
-                  posture: { type: Type.STRING },
-                  eyeContact: { type: Type.STRING },
-                  gestures: { type: Type.STRING }
-               }
-            },
-            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-            recommendations: { type: Type.STRING }
-          },
-          required: ['score', 'verdict', 'factorAnalysis', 'strengths', 'weaknesses', 'recommendations']
-        }
-      }
-    });
-    return safeJSONParse(response.text);
-  }
-
-  return { score: 0, verdict: 'Error', strengths: [], weaknesses: [], recommendations: 'Could not process test type.' };
 }

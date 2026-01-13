@@ -123,17 +123,17 @@ export async function getUserHistory(userId: string) {
   return [];
 }
 
+// --- PPDT & TAT Image Management ---
+
 export async function uploadPPDTScenario(file: File, description: string) {
   if (!isSupabaseActive || !supabase) throw new Error("Supabase connection is not active.");
   
   const fileExt = file.name.split('.').pop();
   const fileName = `ppdt_${Math.random().toString(36).substring(7)}.${fileExt}`;
   
-  console.log(`Starting PPDT upload to bucket 'ppdt-images'...`);
   const { error: uploadError } = await supabase.storage.from('ppdt-images').upload(fileName, file);
   
   if (uploadError) {
-    console.error("Supabase Storage Error:", uploadError);
     throw new Error(`Storage Upload Error (403): ${uploadError.message}. Make sure the bucket 'ppdt-images' exists and has RLS policies configured.`);
   }
   
@@ -167,11 +167,9 @@ export async function uploadTATScenario(file: File, description: string, setTag:
   const fileExt = file.name.split('.').pop();
   const fileName = `tat_${Math.random().toString(36).substring(7)}.${fileExt}`;
   
-  console.log(`Starting TAT upload to bucket 'tat-images'...`);
   const { error: uploadError } = await supabase.storage.from('tat-images').upload(fileName, file);
   
   if (uploadError) {
-    console.error("Supabase Storage Error:", uploadError);
     throw new Error(`Storage Upload Error (403): ${uploadError.message}. Make sure the bucket 'tat-images' exists and has RLS policies configured.`);
   }
   
@@ -198,4 +196,31 @@ export async function deleteTATScenario(id: string, imageUrl: string) {
   await supabase.from('tat_scenarios').delete().eq('id', id);
   const path = imageUrl.split('/').pop();
   if (path) await supabase.storage.from('tat-images').remove([path]);
+}
+
+// --- WAT WORD MANAGEMENT ---
+
+export async function uploadWATWords(words: string[]) {
+  if (!isSupabaseActive || !supabase) throw new Error("Supabase connection is not active.");
+  
+  // Create rows for insertion
+  const rows = words.map(word => ({ word: word.trim() })).filter(r => r.word.length > 0);
+  
+  if (rows.length === 0) return;
+
+  const { error, data } = await supabase.from('wat_words').insert(rows).select();
+  if (error) throw new Error(`WAT Insert Error: ${error.message}`);
+  return data;
+}
+
+export async function getWATWords() {
+  if (!isSupabaseActive || !supabase) return [];
+  // Randomize retrieval if possible, or just get all and shuffle client side
+  const { data } = await supabase.from('wat_words').select('*').order('created_at', { ascending: false });
+  return data || [];
+}
+
+export async function deleteWATWord(id: string) {
+  if (!isSupabaseActive || !supabase) return;
+  await supabase.from('wat_words').delete().eq('id', id);
 }
