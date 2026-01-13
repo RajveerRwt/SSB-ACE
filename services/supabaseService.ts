@@ -108,7 +108,7 @@ export async function checkLimit(userId: string, testType: string): Promise<{ al
   }
   
   if (testType === 'PPDT') {
-    if (usage.ppdt_used >= usage.ppdt_limit) return { allowed: false, message: `PPDT Daily Limit Reached (${usage.ppdt_used}/${usage.ppdt_limit}). Upgrade for more.` };
+    if (usage.ppdt_used >= usage.ppdt_limit) return { allowed: false, message: `PPDT Limit Reached (${usage.ppdt_used}/${usage.ppdt_limit}). Upgrade for more.` };
   }
 
   if (testType === 'TAT') {

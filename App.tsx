@@ -14,7 +14,7 @@ import PaymentModal from './components/PaymentModal';
 import LegalPages from './components/LegalPages';
 import { TestType, PIQData } from './types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from './services/supabaseService';
-import { ShieldCheck, Flag, CheckCircle, Lock, Quote, Zap, Star, Shield, Crown, Clock, History, ChevronRight, LogIn, Loader2, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle } from 'lucide-react';
 import { SSBLogo } from './components/Logo';
 
 // Dashboard Component
@@ -336,27 +336,208 @@ const Dashboard: React.FC<{
 
 const App: React.FC = () => {
   const [activeTest, setActiveTest] = useState<TestType>(TestType.DASHBOARD);
-  const [user, setUser] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [piqData, setPiqData] = useState<PIQData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isPaymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<string>('');
+  const [userEmail, setUserEmail] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [piqData, setPiqData] = useState<PIQData | undefined>(undefined);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
+  // Initial Load and Real-time Auth Subscription
   useEffect(() => {
-    checkAuthSession().then(async (sessionUser) => {
-      if (sessionUser) {
-        handleLogin(sessionUser.id, sessionUser.email);
-      } else {
+    // 1. Check local storage first for speed
+    const localUser = localStorage.getItem('ssb_user');
+    if (localUser) {
+      setUser(localUser);
+      setIsLoggedIn(true);
+      getUserData(localUser).then(data => { if(data) setPiqData(data); });
+    }
+
+    // 2. Subscribe to Supabase Auth State (Handles redirects from email links)
+    const unsubscribe = subscribeToAuthChanges(async (sbUser) => {
+      if (sbUser) {
+        setIsLoading(true);
+        const identifier = sbUser.id;
+        setUser(identifier);
+        setUserEmail(sbUser.email || ''); // Track Email
+        setIsLoggedIn(true);
+        localStorage.setItem('ssb_user', identifier);
+        
+        await syncUserProfile(sbUser);
+        const data = await getUserData(identifier);
+        if (data) setPiqData(data);
         setIsLoading(false);
+      } else {
+        // Only log out if we are not using demo mode
+        if (localStorage.getItem('ssb_user')?.startsWith('demo')) return;
+        
+        setIsLoggedIn(false);
+        setUser('');
+        setUserEmail('');
+        setPiqData(undefined);
+        localStorage.removeItem('ssb_user');
       }
     });
 
-    const unsubscribe = subscribeToAuthChanges((sessionUser) => {
-       if (sessionUser) {
-          handleLogin(sessionUser.id, sessionUser.email);
-       } else {
-          handleLogout(false);
-       }
-    });
+    return () => { unsubscribe(); };
+  }, []);
+
+  const handleLogin = async (identifier: string, email?: string) => {
+    setIsLoading(true);
+    setUser(identifier);
+    if(email) setUserEmail(email);
+    setIsLoggedIn(true);
+    localStorage.setItem('ssb_user', identifier);
     
-    return () => unsubscribe();
+    // Attempt to fetch existing data from cloud
+    const data = await getUserData(identifier);
+    if (data) setPiqData(data);
+    
+    setIsLoading(false);
+    setActiveTest(TestType.DASHBOARD);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUser('');
+    setUserEmail('');
+    setPiqData(undefined);
+    localStorage.removeItem('ssb_user');
+    setActiveTest(TestType.DASHBOARD);
+    logoutUser();
+    subscribeToAuthChanges(() => {})(); 
+  };
+
+  const handlePiqSave = async (data: PIQData) => {
+    setPiqData(data);
+    if (user) {
+        setIsLoading(true);
+        await saveUserData(user, data);
+        setIsLoading(false);
+    }
+    setActiveTest(TestType.DASHBOARD);
+  };
+  
+  const handleTestCompletion = async (testType: string, resultData: any) => {
+    if (user) {
+      await saveTestAttempt(user, testType, resultData);
+      
+      // Update credits (FIX: Decrement usage)
+      await incrementUsage(user, testType);
+    }
+  };
+
+  const handleNavigation = async (test: TestType) => {
+    const publicTests = [TestType.DASHBOARD, TestType.STAGES, TestType.CONTACT, TestType.LOGIN, TestType.TERMS, TestType.PRIVACY, TestType.REFUND];
+    
+    // Check for Admin Access Attempt
+    if (test === TestType.ADMIN && !isUserAdmin(userEmail)) {
+        alert("Restricted Area: Command Authorization Required.");
+        return;
+    }
+
+    if (!isLoggedIn && !publicTests.includes(test)) {
+        setActiveTest(TestType.LOGIN);
+        return;
+    }
+
+    // CHECK LIMITS BEFORE STARTING TEST
+    if (user && !publicTests.includes(test) && test !== TestType.PIQ && test !== TestType.AI_BOT) {
+      const limitCheck = await checkLimit(user, test);
+      if (!limitCheck.allowed) {
+        setIsPaymentModalOpen(true);
+        // Optionally show message
+        return;
+      }
+    }
+
+    setActiveTest(test);
+  };
+
+  const renderContent = () => {
+    if (activeTest === TestType.LOGIN) {
+       return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
+    }
+
+    const isAdmin = isUserAdmin(userEmail);
+
+    switch (activeTest) {
+      case TestType.DASHBOARD:
+        return <Dashboard 
+          onStartTest={handleNavigation} 
+          piqLoaded={!!piqData} 
+          isLoggedIn={isLoggedIn} 
+          isLoading={isLoading} 
+          user={user} 
+          onOpenPayment={() => setIsPaymentModalOpen(true)}
+        />;
+      case TestType.PIQ:
+        return <PIQForm key="piq-form" onSave={handlePiqSave} initialData={piqData} />;
+      case TestType.PPDT:
+        return <PPDTTest key="ppdt-test" onSave={(res: any) => handleTestCompletion('PPDT', res)} isAdmin={isAdmin} />;
+      case TestType.WAT:
+      case TestType.TAT:
+      case TestType.SRT:
+        return <PsychologyTest key={activeTest} type={activeTest} onSave={(res: any) => handleTestCompletion(activeTest, res)} isAdmin={isAdmin} />;
+      case TestType.INTERVIEW:
+        return <Interview key="interview-test" piqData={piqData} onSave={(res: any) => handleTestCompletion('INTERVIEW', res)} isAdmin={isAdmin} />;
+      case TestType.AI_BOT:
+        return <SSBBot key="ssb-bot" />;
+      case TestType.CONTACT:
+        return <ContactForm key="contact-form" piqData={piqData} />;
+      case TestType.STAGES:
+        return <SSBStages key="ssb-stages" />;
+      case TestType.ADMIN:
+        return isAdmin ? <AdminPanel key="admin-panel" /> : <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} onOpenPayment={() => setIsPaymentModalOpen(true)} />;
+      case TestType.TERMS:
+      case TestType.PRIVACY:
+      case TestType.REFUND:
+        return <LegalPages type={activeTest} onBack={() => setActiveTest(TestType.DASHBOARD)} />;
+      default:
+        return <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} onOpenPayment={() => setIsPaymentModalOpen(true)} />;
+    }
+  };
+
+  return (
+    <>
+        <PaymentModal 
+          userId={user}
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          onSuccess={() => {
+            // Force refresh of dashboard logic if needed
+            window.location.reload(); 
+          }}
+        />
+
+        {activeTest === TestType.LOGIN ? (
+            <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />
+        ) : (
+            <Layout 
+                activeTest={activeTest} 
+                onNavigate={(t) => {
+                    if (t === TestType.INTERVIEW && !piqData && isLoggedIn) {
+                        setActiveTest(TestType.PIQ);
+                    } else {
+                        handleNavigation(t);
+                    }
+                }} 
+                onLogout={handleLogout} 
+                onLogin={() => setActiveTest(TestType.LOGIN)}
+                user={user}
+                isLoggedIn={isLoggedIn}
+                isAdmin={isUserAdmin(userEmail)}
+            >
+                {isLoading && (
+                  <div className="fixed top-4 right-4 z-50 bg-white/10 backdrop-blur-md border border-white/20 p-2 rounded-xl text-white flex items-center gap-2 text-xs font-bold uppercase tracking-widest shadow-xl">
+                    <Cloud className="animate-bounce text-blue-400" size={14} /> Cloud Sync
+                  </div>
+                )}
+                {renderContent()}
+            </Layout>
+        )}
+    </>
+  );
+};
+
+export default App;

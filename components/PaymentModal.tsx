@@ -117,9 +117,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                        <span className="text-xl font-black text-slate-900">₹299</span>
                     </div>
                     <ul className="text-xs text-slate-600 space-y-2 font-medium">
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 20 PPDT Sets / Day</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 7 TAT Sets / Day</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 5 AI Interviews / Day</li>
+                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 20 PPDT Total Sets</li>
+                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 7 TAT Psychology Sets</li>
+                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 5 AI Mock Interviews</li>
                        <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> Detailed Performance Analytics</li>
                     </ul>
                   </div>
