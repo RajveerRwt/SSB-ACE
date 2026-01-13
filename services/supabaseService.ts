@@ -311,6 +311,12 @@ export async function signInWithEmail(email: string, password: string) {
   return await supabase.auth.signInWithPassword({ email, password });
 }
 
+export async function logoutUser() {
+  if (isSupabaseActive && supabase) {
+    await supabase.auth.signOut();
+  }
+}
+
 export async function syncUserProfile(user: any) {
   if (!isSupabaseActive || !supabase || user.isMock) return;
   try {
