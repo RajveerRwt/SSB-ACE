@@ -10,9 +10,10 @@ import ContactForm from './components/ContactForm';
 import SSBStages from './components/SSBStages';
 import SSBBot from './components/SSBBot';
 import AdminPanel from './components/AdminPanel';
+import PaymentModal from './components/PaymentModal';
 import { TestType, PIQData } from './types';
-import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin } from './services/supabaseService';
-import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History } from 'lucide-react';
+import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription } from './services/supabaseService';
+import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown } from 'lucide-react';
 
 // Dashboard Component
 const Dashboard: React.FC<{ 
@@ -20,11 +21,13 @@ const Dashboard: React.FC<{
   piqLoaded: boolean,
   isLoggedIn: boolean,
   isLoading: boolean,
-  user: string
-}> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user }) => {
+  user: string,
+  onOpenPayment: () => void
+}> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user, onOpenPayment }) => {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [subscription, setSubscription] = useState<any>(null);
   
   const quotes = [
     { text: "Either I will come back after hoisting the Tricolour, or I will come back wrapped in it, but I will be back for sure.", author: "Capt. Vikram Batra, PVC" },
@@ -41,7 +44,7 @@ const Dashboard: React.FC<{
     return () => clearInterval(timer);
   }, [quotes.length]);
 
-  // Fetch History on mount if logged in
+  // Fetch History and Sub Stats
   useEffect(() => {
     if (isLoggedIn && user && !user.startsWith('demo')) {
       setLoadingHistory(true);
@@ -49,6 +52,7 @@ const Dashboard: React.FC<{
         setHistory(data);
         setLoadingHistory(false);
       });
+      getUserSubscription(user).then(sub => setSubscription(sub));
     }
   }, [isLoggedIn, user]);
 
@@ -60,6 +64,7 @@ const Dashboard: React.FC<{
            <div className="space-y-6">
              <div className="flex items-center gap-3">
                <span className="px-3 py-1 bg-yellow-400 text-black text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg animate-bounce">Officer Potential</span>
+               {subscription?.tier === 'PRO' && <span className="px-3 py-1 bg-blue-600 text-white text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full flex items-center gap-2"><Crown size={12}/> Pro Cadet</span>}
                <span className="text-slate-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">Board Simulation v4.0</span>
              </div>
              <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Do You Have It <br/><span className="text-yellow-400 italic font-serif">In You?</span></h1>
@@ -83,17 +88,14 @@ const Dashboard: React.FC<{
                    {!piqLoaded && !isLoading && <span className="absolute -bottom-10 left-0 text-[8px] text-red-400 font-black opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap hidden md:block">CLEARANCE REQUIRED: PIQ MISSING</span>}
                  </button>
                  
-                 <button 
-                    onClick={() => onStartTest(TestType.PIQ)}
-                    className={`flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 font-black rounded-2xl transition-all uppercase tracking-widest text-[10px] md:text-[11px] border flex items-center justify-center gap-3 ${
-                      piqLoaded 
-                      ? 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10' 
-                      : 'bg-blue-600 text-white border-blue-500 hover:bg-blue-500'
-                    }`}
-                  >
-                    {piqLoaded ? <CheckCircle size={16} className="text-green-500" /> : <FileText size={16} />}
-                    {piqLoaded ? 'Dossier Loaded' : 'Complete PIQ Dossier'}
-                  </button>
+                 {subscription?.tier === 'FREE' && (
+                    <button 
+                      onClick={onOpenPayment}
+                      className="flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-[11px] hover:bg-blue-700 transition-all flex items-center justify-center gap-3 shadow-lg"
+                    >
+                      <Crown size={16} /> Upgrade to Pro
+                    </button>
+                 )}
                </div>
              ) : (
                <div className="pt-4">
@@ -109,6 +111,20 @@ const Dashboard: React.FC<{
            </div>
 
            <div className="hidden lg:block relative">
+              {/* Credit Stats Card */}
+              {isLoggedIn && subscription && (
+                 <div className="absolute -top-6 -right-6 z-20 bg-white p-4 rounded-2xl shadow-xl border border-slate-100 transform rotate-2">
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Training Credits</p>
+                    <div className="space-y-2 text-xs font-bold text-slate-700">
+                        <div className="flex justify-between gap-8"><span>Interview:</span> <span>{subscription.usage.interview_used}/{subscription.usage.interview_limit + subscription.extra_credits.interview}</span></div>
+                        <div className="flex justify-between gap-8"><span>PPDT Sets:</span> <span>{subscription.usage.ppdt_used}/{subscription.usage.ppdt_limit}</span></div>
+                        <div className="flex justify-between gap-8"><span>TAT Sets:</span> <span>{subscription.usage.tat_used}/{subscription.usage.tat_limit}</span></div>
+                        <div className="w-full h-1 bg-slate-100 rounded-full mt-2 overflow-hidden">
+                           <div className="h-full bg-blue-500" style={{ width: `${(subscription.usage.interview_used / (subscription.usage.interview_limit + subscription.extra_credits.interview)) * 100}%` }}></div>
+                        </div>
+                    </div>
+                 </div>
+              )}
               <div className="bg-white/5 backdrop-blur-3xl p-10 rounded-[3rem] border border-white/10 space-y-8 relative z-10 shadow-inner group overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                   <Quote size={120} />
@@ -116,11 +132,6 @@ const Dashboard: React.FC<{
                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom duration-1000" key={quoteIndex}>
                   <p className="text-2xl font-black text-white italic leading-tight uppercase tracking-tighter">"{quotes[quoteIndex].text}"</p>
                   <p className="text-yellow-400 font-black uppercase tracking-widest text-[10px]">— {quotes[quoteIndex].author}</p>
-                </div>
-                <div className="flex gap-2">
-                  {quotes.map((_, i) => (
-                    <div key={i} className={`h-1 rounded-full transition-all duration-500 ${i === quoteIndex ? 'w-10 bg-yellow-400' : 'w-2 bg-white/20'}`} />
-                  ))}
                 </div>
               </div>
            </div>
@@ -223,14 +234,6 @@ const Dashboard: React.FC<{
                   <p>"I shall be honest with my words, firm with my actions, and loyal to my team."</p>
                   <p>"Failure is but a lesson in persistence. My resolve is my shield, and my discipline is my weapon."</p>
                </div>
-               <div className="mt-8 md:mt-12 w-full pt-6 md:pt-10 border-t border-white/10 space-y-4">
-                  <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.4em]">Officer Like Qualities (OLQ)</p>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {['Courage', 'Stamina', 'Integrity', 'Social Adaptability', 'Logic'].map((olq, i) => (
-                      <span key={i} className="px-2 md:px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[8px] font-black uppercase text-slate-400">{olq}</span>
-                    ))}
-                  </div>
-               </div>
             </div>
 
             <div className="bg-blue-600 p-8 md:p-10 rounded-[2rem] md:rounded-[3.5rem] text-white shadow-xl flex flex-col items-center text-center gap-6 group hover:scale-[1.02] transition-all">
@@ -258,6 +261,7 @@ const App: React.FC = () => {
   const [userEmail, setUserEmail] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [piqData, setPiqData] = useState<PIQData | undefined>(undefined);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   // Initial Load and Real-time Auth Subscription
   useEffect(() => {
@@ -284,7 +288,7 @@ const App: React.FC = () => {
         if (data) setPiqData(data);
         setIsLoading(false);
       } else {
-        // Only log out if we are not using demo mode (demo mode doesn't use supabase auth)
+        // Only log out if we are not using demo mode
         if (localStorage.getItem('ssb_user')?.startsWith('demo')) return;
         
         setIsLoggedIn(false);
@@ -320,7 +324,6 @@ const App: React.FC = () => {
     setPiqData(undefined);
     localStorage.removeItem('ssb_user');
     setActiveTest(TestType.DASHBOARD);
-    // Also sign out of Supabase
     subscribeToAuthChanges(() => {})(); 
   };
 
@@ -340,7 +343,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleNavigation = (test: TestType) => {
+  const handleNavigation = async (test: TestType) => {
     const publicTests = [TestType.DASHBOARD, TestType.STAGES, TestType.CONTACT, TestType.LOGIN];
     
     // Check for Admin Access Attempt
@@ -351,9 +354,20 @@ const App: React.FC = () => {
 
     if (!isLoggedIn && !publicTests.includes(test)) {
         setActiveTest(TestType.LOGIN);
-    } else {
-        setActiveTest(test);
+        return;
     }
+
+    // CHECK LIMITS BEFORE STARTING TEST
+    if (user && !publicTests.includes(test) && test !== TestType.PIQ && test !== TestType.AI_BOT) {
+      const limitCheck = await checkLimit(user, test);
+      if (!limitCheck.allowed) {
+        setIsPaymentModalOpen(true);
+        // Optionally show message
+        return;
+      }
+    }
+
+    setActiveTest(test);
   };
 
   const renderContent = () => {
@@ -365,7 +379,14 @@ const App: React.FC = () => {
 
     switch (activeTest) {
       case TestType.DASHBOARD:
-        return <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} />;
+        return <Dashboard 
+          onStartTest={handleNavigation} 
+          piqLoaded={!!piqData} 
+          isLoggedIn={isLoggedIn} 
+          isLoading={isLoading} 
+          user={user} 
+          onOpenPayment={() => setIsPaymentModalOpen(true)}
+        />;
       case TestType.PIQ:
         return <PIQForm key="piq-form" onSave={handlePiqSave} initialData={piqData} />;
       case TestType.PPDT:
@@ -383,15 +404,24 @@ const App: React.FC = () => {
       case TestType.STAGES:
         return <SSBStages key="ssb-stages" />;
       case TestType.ADMIN:
-        // Double Check render protection
-        return isAdmin ? <AdminPanel key="admin-panel" /> : <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} />;
+        return isAdmin ? <AdminPanel key="admin-panel" /> : <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} onOpenPayment={() => setIsPaymentModalOpen(true)} />;
       default:
-        return <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} />;
+        return <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} onOpenPayment={() => setIsPaymentModalOpen(true)} />;
     }
   };
 
   return (
     <>
+        <PaymentModal 
+          userId={user}
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          onSuccess={() => {
+            // Force refresh of dashboard logic if needed
+            window.location.reload(); 
+          }}
+        />
+
         {activeTest === TestType.LOGIN ? (
             <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />
         ) : (

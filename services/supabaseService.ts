@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { PIQData } from '../types';
+import { PIQData, UserSubscription } from '../types';
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://nidbiyrliunqhakkqdvn.supabase.co';
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pZGJpeXJsaXVucWhha2txZHZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczNjczMTUsImV4cCI6MjA4Mjk0MzMxNX0.FfSHE1ZAokWxbfG6qyCXdnOJpReW5PMyZg4wrN7sjXY';
@@ -23,6 +23,135 @@ try {
 } catch (error) {
   console.error("Supabase init failed", error);
 }
+
+// --- SUBSCRIPTION & LIMIT LOGIC ---
+
+const DEFAULT_FREE_LIMITS = {
+  interview: 1,
+  ppdt: 5,
+  tat: 2,
+};
+
+const PRO_LIMITS = {
+  interview: 5,
+  ppdt: 20,
+  tat: 7,
+};
+
+// Mock local storage for subscription data if DB fails or for demo
+const getLocalSubscription = (userId: string): UserSubscription => {
+  const stored = localStorage.getItem(`ssb_sub_${userId}`);
+  if (stored) return JSON.parse(stored);
+  
+  return {
+    tier: 'FREE',
+    expiryDate: null,
+    usage: {
+      interview_used: 0,
+      interview_limit: DEFAULT_FREE_LIMITS.interview,
+      ppdt_used: 0,
+      ppdt_limit: DEFAULT_FREE_LIMITS.ppdt,
+      tat_used: 0,
+      tat_limit: DEFAULT_FREE_LIMITS.tat,
+      wat_used: 0,
+      srt_used: 0
+    },
+    extra_credits: { interview: 0 }
+  };
+};
+
+export async function getUserSubscription(userId: string): Promise<UserSubscription> {
+  if (userId.startsWith('demo')) return getLocalSubscription(userId);
+
+  if (isSupabaseActive && supabase) {
+     try {
+       // Attempt to fetch from 'profiles' or 'subscriptions' table
+       // Assuming simple schema: tier, usage_data jsonb in 'aspirants' table for now
+       const { data, error } = await supabase.from('aspirants').select('subscription_data').eq('user_id', userId).single();
+       
+       if (data && data.subscription_data) {
+         return data.subscription_data as UserSubscription;
+       }
+     } catch (e) {
+       console.warn("Using local subscription fallback");
+     }
+  }
+  return getLocalSubscription(userId);
+}
+
+export async function updateUserSubscription(userId: string, subData: UserSubscription) {
+  localStorage.setItem(`ssb_sub_${userId}`, JSON.stringify(subData));
+  
+  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
+    await supabase.from('aspirants').upsert({
+      user_id: userId,
+      subscription_data: subData,
+      last_active: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+  }
+}
+
+export async function checkLimit(userId: string, testType: string): Promise<{ allowed: boolean; message?: string }> {
+  const sub = await getUserSubscription(userId);
+  const { usage, extra_credits, tier } = sub;
+
+  if (testType === 'WAT' || testType === 'SRT') return { allowed: true }; // Unlimited
+
+  if (testType === 'INTERVIEW') {
+    const totalLimit = usage.interview_limit + extra_credits.interview;
+    if (usage.interview_used >= totalLimit) {
+      return { allowed: false, message: `Interview Limit Reached (${usage.interview_used}/${totalLimit}). Upgrade to Pro or buy Add-ons.` };
+    }
+  }
+  
+  if (testType === 'PPDT') {
+    if (usage.ppdt_used >= usage.ppdt_limit) return { allowed: false, message: `PPDT Daily Limit Reached (${usage.ppdt_used}/${usage.ppdt_limit}). Upgrade for more.` };
+  }
+
+  if (testType === 'TAT') {
+    if (usage.tat_used >= usage.tat_limit) return { allowed: false, message: `TAT Limit Reached (${usage.tat_used}/${usage.tat_limit}). Upgrade for more.` };
+  }
+
+  return { allowed: true };
+}
+
+export async function incrementUsage(userId: string, testType: string) {
+  const sub = await getUserSubscription(userId);
+  
+  if (testType === 'INTERVIEW') sub.usage.interview_used += 1;
+  else if (testType === 'PPDT') sub.usage.ppdt_used += 1;
+  else if (testType === 'TAT') sub.usage.tat_used += 1;
+  else if (testType === 'WAT') sub.usage.wat_used += 1;
+  else if (testType === 'SRT') sub.usage.srt_used += 1;
+
+  await updateUserSubscription(userId, sub);
+}
+
+export async function processPaymentSuccess(userId: string, planType: 'PRO_SUBSCRIPTION' | 'INTERVIEW_ADDON') {
+  const sub = await getUserSubscription(userId);
+
+  if (planType === 'PRO_SUBSCRIPTION') {
+    sub.tier = 'PRO';
+    // Set expiry to 30 days from now
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    sub.expiryDate = d.toISOString();
+    
+    // Reset limits to Pro
+    sub.usage.interview_limit = PRO_LIMITS.interview;
+    sub.usage.ppdt_limit = PRO_LIMITS.ppdt;
+    sub.usage.tat_limit = PRO_LIMITS.tat;
+  } else if (planType === 'INTERVIEW_ADDON') {
+    // Add 1 extra interview credit
+    sub.extra_credits.interview += 1;
+  }
+
+  await updateUserSubscription(userId, sub);
+  return sub;
+}
+
+
+// --- EXISTING AUTH & DATA FUNCTIONS ---
 
 export async function checkAuthSession() {
   if (!isSupabaseActive || !supabase) return null;
@@ -88,6 +217,9 @@ export async function saveUserData(userId: string, data: Partial<PIQData>) {
 }
 
 export async function saveTestAttempt(userId: string, testType: string, resultData: any) {
+  // Increment usage first
+  await incrementUsage(userId, testType);
+
   if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
     const { error } = await supabase.from('test_history').insert({
       user_id: userId,

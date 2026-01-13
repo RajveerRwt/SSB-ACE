@@ -65,3 +65,21 @@ export interface UserResponse {
   responses: Record<string, string>;
   audioBlob?: Blob;
 }
+
+export interface UserSubscription {
+  tier: 'FREE' | 'PRO';
+  expiryDate: string | null; // ISO Date string
+  usage: {
+    interview_used: number;
+    interview_limit: number;
+    ppdt_used: number;
+    ppdt_limit: number;
+    tat_used: number;
+    tat_limit: number;
+    wat_used: number; // Unlimited, but tracking for stats
+    srt_used: number; // Unlimited, but tracking for stats
+  };
+  extra_credits: {
+    interview: number;
+  }
+}
