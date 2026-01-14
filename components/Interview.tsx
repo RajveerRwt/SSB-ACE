@@ -242,7 +242,8 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
              - Rapid Fire: Ask multiple questions in one go.
              - Stress: If they fumble, pressure them slightly.
 
-          TONE: Authoritative, Skeptical, Thorough.`;
+          TONE: Authoritative, Skeptical, Thorough.
+          STYLE: Use a measured, commanding tone typical of a senior Indian Army Officer. Use Indian English phrasing (e.g., "Gentleman", "What say you?", "Fair enough").`;
 
       let finalInstruction = baseInstruction;
       
@@ -265,7 +266,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
           inputAudioTranscription: {}, 
           systemInstruction: finalInstruction,
           speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } },
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } }, // Using Charon for deeper, authoritative tone
           },
         },
         callbacks: {
