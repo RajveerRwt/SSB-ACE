@@ -355,7 +355,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
 
   // --- RENDER LOGIC ---
 
-  if (currentIndex === -1 && phase !== PsychologyPhase.PREPARING_STIMULI && phase !== PsychologyPhase.WRITING) {
+  if (phase === PsychologyPhase.IDLE) {
     return (
       <div className="bg-white p-12 md:p-24 rounded-[3rem] md:rounded-[4rem] shadow-2xl border-4 border-slate-50 text-center max-w-4xl mx-auto ring-1 ring-slate-100 animate-in fade-in zoom-in duration-500">
         <div className="w-20 h-20 md:w-28 md:h-28 bg-slate-900 text-yellow-400 rounded-[2rem] flex items-center justify-center mx-auto mb-10 shadow-2xl rotate-6 border-4 border-slate-800">
