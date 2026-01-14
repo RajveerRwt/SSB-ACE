@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature } from 'lucide-react';
+import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, STANDARD_WAT_SET } from '../services/geminiService';
 import { getTATScenarios, getWATWords } from '../services/supabaseService';
 import { TestType } from '../types';
@@ -54,6 +55,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   });
 
   const [feedback, setFeedback] = useState<any>(null);
+  const [showScoreHelp, setShowScoreHelp] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -719,8 +721,44 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
            <div className="bg-white/5 p-12 rounded-[3.5rem] border border-white/10 backdrop-blur-3xl text-center hidden md:block">
               <p className="text-[11px] font-black uppercase tracking-[0.4em] opacity-40 mb-4">Score</p>
               <div className="text-9xl font-black text-purple-500">{feedback?.score || 0}</div>
+              
+              <button 
+                onClick={() => setShowScoreHelp(!showScoreHelp)}
+                className="mt-6 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/70 hover:text-white transition-colors"
+              >
+                  <HelpCircle size={14} /> Understand Score {showScoreHelp ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+              </button>
            </div>
         </div>
+
+        {/* SCORE EXPLANATION */}
+        {showScoreHelp && (
+            <div className="bg-blue-50 border border-blue-100 p-6 md:p-8 rounded-[2rem] animate-in slide-in-from-top-4">
+            <h4 className="text-sm font-black uppercase tracking-widest text-blue-800 mb-4">Board Grading Standard</h4>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-xl border-l-4 border-green-500 shadow-sm">
+                    <span className="block text-xl font-black text-slate-900">9.0 - 10</span>
+                    <span className="text-[10px] font-bold uppercase text-green-600 tracking-wider">Outstanding</span>
+                    <p className="text-[10px] text-slate-500 mt-1">Exceptional OLQ demonstration. Certain recommendation.</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm">
+                    <span className="block text-xl font-black text-slate-900">7.0 - 8.9</span>
+                    <span className="text-[10px] font-bold uppercase text-blue-600 tracking-wider">High Potential</span>
+                    <p className="text-[10px] text-slate-500 mt-1">Clear pass. Good consistency in thought and expression.</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border-l-4 border-yellow-500 shadow-sm">
+                    <span className="block text-xl font-black text-slate-900">5.0 - 6.9</span>
+                    <span className="text-[10px] font-bold uppercase text-yellow-600 tracking-wider">Borderline</span>
+                    <p className="text-[10px] text-slate-500 mt-1">Average. Needs significant polish in planning or confidence.</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border-l-4 border-red-500 shadow-sm">
+                    <span className="block text-xl font-black text-slate-900">&lt; 5.0</span>
+                    <span className="text-[10px] font-bold uppercase text-red-600 tracking-wider">Below Average</span>
+                    <p className="text-[10px] text-slate-500 mt-1">Foundation weak. Requires introspection and practice.</p>
+                </div>
+            </div>
+            </div>
+        )}
 
         {/* SDT Consistency Check */}
         {type === TestType.SDT && feedback?.consistencyAnalysis && (
@@ -813,7 +851,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
             </div>
         )}
 
-        <button onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); setSdtData({ parents: '', teachers: '', friends: '', self: '', aim: '' }); setSdtImages({ parents: null, teachers: null, friends: null, self: null, aim: null }); }} className="w-full py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl">Return to Wing</button>
+        <button onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); setSdtData({ parents: '', teachers: '', friends: '', self: '', aim: '' }); setSdtImages({ parents: null, teachers: null, friends: null, self: null, aim: null }); setShowScoreHelp(false); }} className="w-full py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl">Return to Wing</button>
       </div>
     );
   }

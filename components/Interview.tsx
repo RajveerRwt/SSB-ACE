@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
@@ -91,6 +91,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [timeLeft, setTimeLeft] = useState(1800); // 30 Minutes
   const timeLeftRef = useRef(1800); // Ref to track time for callbacks
+  const [showScoreHelp, setShowScoreHelp] = useState(false);
 
   // Sync ref
   useEffect(() => {
@@ -644,11 +645,48 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
                     <span className="bg-blue-600 text-white px-6 md:px-8 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Stage 2 Result</span>
                     <h2 className="text-6xl md:text-8xl font-black text-slate-900 uppercase tracking-tighter leading-none">The <span className="text-blue-600">Verdict</span></h2>
                  </div>
-                 <div className="bg-slate-50 p-8 md:p-12 rounded-[3rem] md:rounded-[4rem] border-2 border-slate-100 text-center shadow-inner w-full md:w-auto">
+                 <div className="bg-slate-50 p-8 md:p-12 rounded-[3rem] md:rounded-[4rem] border-2 border-slate-100 text-center shadow-inner w-full md:w-auto flex flex-col items-center">
                     <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.4em] opacity-40 mb-4">Board Grade</p>
                     <div className="text-8xl md:text-[10rem] font-black text-slate-900 leading-none">{finalAnalysis.score}</div>
+                    
+                    {/* SCORE EXPLANATION BUTTON */}
+                    <button 
+                      onClick={() => setShowScoreHelp(!showScoreHelp)}
+                      className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 transition-colors"
+                    >
+                       <HelpCircle size={14} /> Understand Score {showScoreHelp ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                    </button>
                  </div>
               </div>
+
+              {/* SCORE INTERPRETATION GUIDE */}
+              {showScoreHelp && (
+                 <div className="bg-blue-50 border border-blue-100 p-6 md:p-8 rounded-[2rem] animate-in slide-in-from-top-4">
+                    <h4 className="text-sm font-black uppercase tracking-widest text-blue-800 mb-4">Board Grading Standard</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-green-500 shadow-sm">
+                          <span className="block text-xl font-black text-slate-900">9.0 - 10</span>
+                          <span className="text-[10px] font-bold uppercase text-green-600 tracking-wider">Outstanding</span>
+                          <p className="text-[10px] text-slate-500 mt-1">Exceptional OLQ demonstration. Certain recommendation.</p>
+                       </div>
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm">
+                          <span className="block text-xl font-black text-slate-900">7.0 - 8.9</span>
+                          <span className="text-[10px] font-bold uppercase text-blue-600 tracking-wider">High Potential</span>
+                          <p className="text-[10px] text-slate-500 mt-1">Clear pass. Good consistency in thought and expression.</p>
+                       </div>
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-yellow-500 shadow-sm">
+                          <span className="block text-xl font-black text-slate-900">5.0 - 6.9</span>
+                          <span className="text-[10px] font-bold uppercase text-yellow-600 tracking-wider">Borderline</span>
+                          <p className="text-[10px] text-slate-500 mt-1">Average. Needs significant polish in planning or confidence.</p>
+                       </div>
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-red-500 shadow-sm">
+                          <span className="block text-xl font-black text-slate-900">&lt; 5.0</span>
+                          <span className="text-[10px] font-bold uppercase text-red-600 tracking-wider">Below Average</span>
+                          <p className="text-[10px] text-slate-500 mt-1">Foundation weak. Requires introspection and practice.</p>
+                       </div>
+                    </div>
+                 </div>
+              )}
               
               <div className="bg-slate-50 p-6 md:p-16 rounded-[2.5rem] md:rounded-[4rem] border-2 border-white shadow-xl space-y-8 md:space-y-10">
                  <p className="text-slate-600 font-medium italic text-lg md:text-2xl leading-relaxed">"{finalAnalysis.recommendations}"</p>

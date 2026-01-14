@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3 } from 'lucide-react';
+import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
 import { getPPDTScenarios } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
@@ -39,6 +39,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin }) => {
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
   const [uploadedImageBase64, setUploadedImageBase64] = useState<string | null>(null);
   const [customStimulus, setCustomStimulus] = useState<string | null>(null);
+  const [showScoreHelp, setShowScoreHelp] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -604,9 +605,45 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin }) => {
                   <div className="flex flex-col items-center bg-white/5 p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border border-white/10 backdrop-blur-3xl shadow-2xl">
                      <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.4em] opacity-40 mb-4">Board Score</span>
                      <div className="text-7xl md:text-9xl font-black text-yellow-400">{feedback?.score}</div>
+                     
+                     <button 
+                        onClick={() => setShowScoreHelp(!showScoreHelp)}
+                        className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/70 hover:text-white transition-colors"
+                      >
+                         <HelpCircle size={14} /> Understand Score {showScoreHelp ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                      </button>
                   </div>
                </div>
             </div>
+
+            {/* SCORE EXPLANATION */}
+            {showScoreHelp && (
+                 <div className="bg-blue-50 border border-blue-100 p-6 md:p-8 rounded-[2rem] animate-in slide-in-from-top-4">
+                    <h4 className="text-sm font-black uppercase tracking-widest text-blue-800 mb-4">Board Grading Standard</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-green-500 shadow-sm">
+                          <span className="block text-xl font-black text-slate-900">9.0 - 10</span>
+                          <span className="text-[10px] font-bold uppercase text-green-600 tracking-wider">Outstanding</span>
+                          <p className="text-[10px] text-slate-500 mt-1">Exceptional OLQ demonstration. Certain recommendation.</p>
+                       </div>
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm">
+                          <span className="block text-xl font-black text-slate-900">7.0 - 8.9</span>
+                          <span className="text-[10px] font-bold uppercase text-blue-600 tracking-wider">High Potential</span>
+                          <p className="text-[10px] text-slate-500 mt-1">Clear pass. Good consistency in thought and expression.</p>
+                       </div>
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-yellow-500 shadow-sm">
+                          <span className="block text-xl font-black text-slate-900">5.0 - 6.9</span>
+                          <span className="text-[10px] font-bold uppercase text-yellow-600 tracking-wider">Borderline</span>
+                          <p className="text-[10px] text-slate-500 mt-1">Average. Needs significant polish in planning or confidence.</p>
+                       </div>
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-red-500 shadow-sm">
+                          <span className="block text-xl font-black text-slate-900">&lt; 5.0</span>
+                          <span className="text-[10px] font-bold uppercase text-red-600 tracking-wider">Below Average</span>
+                          <p className="text-[10px] text-slate-500 mt-1">Foundation weak. Requires introspection and practice.</p>
+                       </div>
+                    </div>
+                 </div>
+            )}
 
             {/* Granular PPDT Feedback Section */}
             {feedback?.perception && (
@@ -661,7 +698,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin }) => {
             </div>
 
             <button 
-              onClick={() => { setStep(PPDTStep.IDLE); setStory(''); setFeedback(null); setNarrationText(''); setUploadedImageBase64(null); setCustomStimulus(null); }}
+              onClick={() => { setStep(PPDTStep.IDLE); setStory(''); setFeedback(null); setNarrationText(''); setUploadedImageBase64(null); setCustomStimulus(null); setShowScoreHelp(false); }}
               className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
             >
               Report for Next Simulation
