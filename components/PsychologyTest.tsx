@@ -690,6 +690,25 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   }
 
   if (phase === PsychologyPhase.COMPLETED) {
+    if (type === TestType.WAT || type === TestType.SRT) {
+       return (
+         <div className="max-w-3xl mx-auto text-center py-32 space-y-8 animate-in fade-in zoom-in">
+            <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-green-50 shadow-xl">
+               <CheckCircle size={48} />
+            </div>
+            <h2 className="text-5xl font-black text-slate-900 uppercase tracking-tighter">Test <span className="text-green-600">Completed</span></h2>
+            <p className="text-slate-500 text-xl font-medium">You have successfully completed the practice set. Your responses have been self-evaluated.</p>
+            
+            <button 
+              onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); }}
+              className="px-16 py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
+            >
+              Return to Dashboard
+            </button>
+         </div>
+       );
+    }
+
     return (
       <div className="max-w-7xl mx-auto space-y-12 pb-20 animate-in fade-in duration-1000">
         <div className="bg-slate-950 p-16 rounded-[4rem] text-white shadow-2xl flex justify-between items-center">
