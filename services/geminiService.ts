@@ -29,42 +29,54 @@ const safeJSONParse = (text: string | undefined) => {
 const generateFallbackEvaluation = (testType: string, textContent: string) => {
   console.warn("Using Local Fallback Evaluation due to API Quota/Network Error");
   
-  const wordCount = textContent.split(' ').length;
+  const wordCount = textContent.trim().split(/\s+/).length;
   const positiveKeywords = ['team', 'help', 'courage', 'led', 'plan', 'success', 'friend', 'duty', 'honest', 'brave', 'calm'];
   const hitCount = positiveKeywords.filter(w => textContent.toLowerCase().includes(w)).length;
   
-  // Basic scoring logic
-  let score = Math.min(9, 4 + (hitCount * 0.5) + (wordCount > 50 ? 1 : 0));
-  score = Math.round(score * 10) / 10; // 1 decimal
+  // STRICTER FALLBACK SCORING
+  let score = 1.0; // Start low
+  
+  if (wordCount > 10) score += 2;
+  if (wordCount > 50) score += 2;
+  if (wordCount > 100) score += 1;
+  score += Math.min(3, hitCount * 0.5);
+  
+  // Cap score
+  score = Math.min(9, score);
+  score = Math.round(score * 10) / 10;
+
+  const isInsufficient = wordCount < 20;
 
   return {
     score: score,
-    verdict: score > 6 ? "Recommended (Fallback)" : "Average (Fallback)",
-    recommendations: "Note: This is a preliminary assessment due to high server traffic. Your responses show potential, but focus on more organized planning and clearer expression of ideas.",
-    strengths: ["Determination identified", "Basic situational awareness", "Effort in participation"],
-    weaknesses: ["Need more depth in planning", "Elaborate on the outcome", "Improve vocabulary"],
+    verdict: isInsufficient ? "Insufficient Data" : (score > 6 ? "Recommended (Fallback)" : "Average (Fallback)"),
+    recommendations: isInsufficient 
+      ? "Assessment incomplete. Your response was too short to evaluate. Please provide more detailed answers." 
+      : "Note: This is a preliminary assessment due to high server traffic. Your responses show potential, but focus on more organized planning and clearer expression of ideas.",
+    strengths: isInsufficient ? [] : ["Effort in participation", "Basic situational awareness"],
+    weaknesses: isInsufficient ? ["Lack of content", "Premature conclusion"] : ["Need more depth in planning", "Elaborate on the outcome"],
     // TAT/PPDT Specifics
     individualStories: Array(12).fill(null).map((_, i) => ({
       storyIndex: i + 1,
       perceivedAccurately: true,
-      theme: "Self-Improvement / Challenge",
-      analysis: "Story attempted. Focus on actionable outcomes.",
-      olqProjected: "Determination, Effort"
+      theme: "Assessment Pending",
+      analysis: "Content length insufficient for full psychological profile.",
+      olqProjected: "N/A"
     })),
     perception: {
-       heroAge: "20-25", heroSex: "Male", heroMood: "Neutral", mainTheme: "Overcoming Obstacles"
+       heroAge: "N/A", heroSex: "N/A", heroMood: "N/A", mainTheme: "N/A"
     },
     storyAnalysis: {
-       action: "Problem identification and attempt to solve.",
-       outcome: "Positive but brief.",
-       coherence: "Moderate"
+       action: "N/A",
+       outcome: "N/A",
+       coherence: "Low"
     },
     // Interview Specifics
     factorAnalysis: {
-      factor1_planning: "Average planning capacity observed.",
-      factor2_social: "Social adaptability needs more examples.",
-      factor3_effectiveness: "Effective under normal conditions.",
-      factor4_dynamic: "Shows signs of dynamism."
+      factor1_planning: isInsufficient ? "Not Observed" : "Average planning capacity observed.",
+      factor2_social: isInsufficient ? "Not Observed" : "Social adaptability needs more examples.",
+      factor3_effectiveness: isInsufficient ? "Not Observed" : "Effective under normal conditions.",
+      factor4_dynamic: isInsufficient ? "Not Observed" : "Shows signs of dynamism."
     },
     bodyLanguage: {
       posture: "Stable (Assumed)",
@@ -195,7 +207,7 @@ export async function generateTestContent(type: string) {
     const staticTAT = [
         "A doctor examining a patient", "Two soldiers talking near a tent", "A boy looking at a trophy", 
         "A person rowing a boat", "A student studying late", "Three people discussing a map",
-        "A person standing on a cliff", "A farmer in a field", "A scene of an accident",
+        "A person standing on a cliff", "A farmer in a field", "A scene with several people gathered around a well in a rural area",
         "A meeting in a conference room", "A woman looking out a window"
     ];
     return { items: staticTAT.map((s, i) => ({ id: `tat-${i}`, content: s })) };
@@ -218,14 +230,20 @@ export async function evaluatePerformance(testType: string, userData: any) {
     if (testType === 'TAT' || (userData.testType === 'TAT')) {
         const tatParts: any[] = [];
         const pairs = userData.tatPairs || []; 
-        
+        let totalWordCount = 0;
+
         tatParts.push({ text: `Evaluate TAT stories. Assess Officer Like Qualities (OLQs), Theme, Outcome. Return JSON.` });
 
         for (const pair of pairs) {
             const txt = pair.userStoryText || "No text";
             combinedTextForFallback += txt + " ";
+            totalWordCount += txt.split(/\s+/).length;
             tatParts.push({ text: `Story ${pair.storyIndex}: ${txt}` });
-            // Skip sending images to save bandwidth/tokens if text exists
+        }
+
+        // GUARDRAIL: Short Content
+        if (totalWordCount < 50) {
+             return generateFallbackEvaluation(testType, combinedTextForFallback);
         }
 
         const response = await ai.models.generateContent({
@@ -263,7 +281,14 @@ export async function evaluatePerformance(testType: string, userData: any) {
     
     // 2. PPDT EVALUATION
     else if (testType.includes('PPDT')) {
-        combinedTextForFallback = userData.story + " " + userData.narration;
+        combinedTextForFallback = (userData.story || "") + " " + (userData.narration || "");
+        const wordCount = combinedTextForFallback.split(/\s+/).length;
+
+        // GUARDRAIL: Short PPDT
+        if (wordCount < 20) {
+            return generateFallbackEvaluation(testType, combinedTextForFallback);
+        }
+
         const prompt = `Evaluate PPDT. Story: "${userData.story}". Narration: "${userData.narration}". Assess Perception, Action, Outcome. Return JSON.`;
         
         const response = await ai.models.generateContent({
@@ -306,7 +331,33 @@ export async function evaluatePerformance(testType: string, userData: any) {
     // 3. INTERVIEW EVALUATION
     else if (testType.includes('Interview')) {
         combinedTextForFallback = userData.transcript || "";
-        const prompt = `Evaluate Interview. Transcript: "${userData.transcript}". Assess OLQs. Return JSON.`;
+        const wordCount = combinedTextForFallback.split(/\s+/).length;
+
+        // GUARDRAIL: Very short interview (e.g., just "hello sir")
+        // Return low score immediately without burning AI tokens
+        if (wordCount < 25) {
+            return {
+               score: 1.5,
+               verdict: "Insufficient Data",
+               recommendations: "The interview duration and content were too short to evaluate. Please ensure you speak at least 3-4 minutes and answer questions fully.",
+               strengths: ["Presence"],
+               weaknesses: ["Lack of content", "Very short responses"],
+               factorAnalysis: {
+                  factor1_planning: "N/A", factor2_social: "N/A", factor3_effectiveness: "N/A", factor4_dynamic: "N/A"
+               },
+               bodyLanguage: { posture: "Unknown", eyeContact: "Unknown", gestures: "Unknown" }
+            };
+        }
+
+        const prompt = `Evaluate the following SSB Personal Interview Transcript. 
+        Transcript: "${combinedTextForFallback}"
+        
+        STRICT SCORING RULES:
+        1. If the candidate only gives one-word answers or the transcript is very short/trivial, score MUST be below 3.0.
+        2. Do not hallucinate qualities if they are not demonstrated in the text.
+        3. Assess 15 Officer Like Qualities (OLQs).
+        
+        Return JSON.`;
         
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
@@ -350,16 +401,10 @@ export async function evaluatePerformance(testType: string, userData: any) {
         const { sdtData, sdtImages } = userData;
         const parts: any[] = [];
         
-        parts.push({ text: `Evaluate the Self Description Test (SDT) for an SSB aspirant. 
-        The candidate has provided responses for 5 sections (Parents, Teachers, Friends, Self, Aim). 
-        Some responses may be typed text, others may be images of handwritten text. 
+        parts.push({ text: `Evaluate the Self Description Test (SDT).
         Analyze ALL provided content (text and images) for consistency, realism, and Officer Like Qualities (OLQs).
         
-        Rules:
-        - Check if opinions (Parents/Teachers) contradict Self opinion.
-        - Check if 'Aim' is realistic based on described qualities.
-        - Detect if the candidate is boasting or being too modest.
-        - If an image is provided, transcribe/read it internally and use its content for evaluation.
+        STRICT RULE: If most sections are empty or trivial, give a low score (below 4.0).
         
         Return JSON.` });
 
