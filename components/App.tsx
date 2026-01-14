@@ -462,7 +462,7 @@ const App: React.FC = () => {
             piqLoaded={!!piqData} 
             isLoggedIn={!!user} 
             isLoading={isLoading} 
-            user={userEmail || ''}
+            user={user || ''}
             onOpenPayment={() => setPaymentOpen(true)}
         />;
       case TestType.TERMS:
@@ -475,7 +475,7 @@ const App: React.FC = () => {
             piqLoaded={!!piqData} 
             isLoggedIn={!!user} 
             isLoading={isLoading} 
-            user={userEmail || ''}
+            user={user || ''}
             onOpenPayment={() => setPaymentOpen(true)}
         />;
     }

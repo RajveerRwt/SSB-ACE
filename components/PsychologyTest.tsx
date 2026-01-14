@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, STANDARD_WAT_SET } from '../services/geminiService';
@@ -427,10 +426,10 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
                           <div className="flex items-center gap-2">
                               <input 
                                 type="file" 
-                                id={`file-${section.key}`} 
+                                id={`file-${String(section.key)}`} 
                                 className="hidden" 
                                 accept="image/*"
-                                onChange={(e) => handleSDTImageUpload(e, section.key)} 
+                                onChange={(e) => handleSDTImageUpload(e, String(section.key))} 
                               />
                               
                               {sdtImages[section.key] ? (
@@ -446,7 +445,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
                                   </div>
                               ) : (
                                   <label 
-                                    htmlFor={`file-${section.key}`}
+                                    htmlFor={`file-${String(section.key)}`}
                                     className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl cursor-pointer transition-all text-[10px] font-bold uppercase tracking-wide"
                                   >
                                       <Upload size={12} /> Upload Handwritten
