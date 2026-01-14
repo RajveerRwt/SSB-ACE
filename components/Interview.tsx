@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward, HelpCircle, ChevronDown, ChevronUp, AlertTriangle, Play } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
@@ -92,6 +92,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
   const [timeLeft, setTimeLeft] = useState(1800); // 30 Minutes
   const timeLeftRef = useRef(1800); // Ref to track time for callbacks
   const [showScoreHelp, setShowScoreHelp] = useState(false);
+  const [showEarlyExitWarning, setShowEarlyExitWarning] = useState(false);
 
   // Sync ref
   useEffect(() => {
@@ -126,7 +127,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
         setTimeLeft(prev => prev - 1);
       }, 1000);
     } else if (timeLeft === 0 && sessionMode === 'SESSION') {
-      endSession();
+      endSession(true); // Force end if time runs out
     }
     return () => clearInterval(interval);
   }, [connectionStatus, timeLeft, sessionMode]);
@@ -385,10 +386,21 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
     }
   };
 
-  const endSession = async () => {
+  const handleEndCallRequest = () => {
+      const durationSeconds = 1800 - timeLeft;
+      // If interview is less than 10 minutes (600 seconds)
+      if (durationSeconds < 600) {
+          setShowEarlyExitWarning(true);
+      } else {
+          endSession();
+      }
+  };
+
+  const endSession = async (force = false) => {
     // CRITICAL: Set intention to RESULT mode BEFORE cleanup to prevent auto-reconnect logic
     sessionModeRef.current = 'RESULT';
     setSessionMode('RESULT');
+    setShowEarlyExitWarning(false);
     
     // Flush any pending transcript that wasn't committed by turnComplete
     if (currentTranscriptBufferRef.current.trim()) {
@@ -621,13 +633,44 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
            </button>
            <div className="h-8 md:h-10 w-[1px] bg-slate-300"></div>
            <button 
-             onClick={endSession} 
+             onClick={handleEndCallRequest} 
              className="px-6 md:px-8 py-3 md:py-4 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 font-black rounded-full flex items-center gap-2 md:gap-3 transition-all uppercase tracking-widest text-[9px] md:text-[10px] border border-red-100 hover:shadow-lg hover:border-red-600 whitespace-nowrap"
            >
              <PhoneOff size={16} className="md:w-[18px]" /> End Call
            </button>
         </div>
       </div>
+
+      {/* EARLY EXIT WARNING MODAL */}
+      {showEarlyExitWarning && (
+        <div className="fixed inset-0 z-[250] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+           <div className="bg-white p-8 rounded-[2.5rem] max-w-sm w-full shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-200">
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-2 animate-bounce">
+                 <AlertTriangle size={32} />
+              </div>
+              <div>
+                 <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Premature Conclusion</h3>
+                 <p className="text-slate-500 text-xs font-medium leading-relaxed mt-2">
+                    A standard IO interview lasts 25-30 minutes. Ending now ({Math.floor((1800 - timeLeft)/60)} mins) will result in an <b>'Insufficient Data'</b> assessment.
+                 </p>
+              </div>
+              <div className="flex gap-3">
+                 <button 
+                   onClick={() => setShowEarlyExitWarning(false)} 
+                   className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg"
+                 >
+                    <Play size={12} fill="currentColor" /> Resume
+                 </button>
+                 <button 
+                   onClick={() => endSession(true)} 
+                   className="flex-1 py-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2"
+                 >
+                    <PhoneOff size={12} /> Abort
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
 
       {/* ANALYSIS LOADER */}
       {isAnalyzing && (
