@@ -19,7 +19,8 @@ import {
   Menu,
   X,
   Lock,
-  ChevronLeft
+  ChevronLeft,
+  FileSignature
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -64,6 +65,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     { id: TestType.TAT, label: 'TAT (Psychology)', icon: PenTool },
     { id: TestType.WAT, label: 'WAT (Psychology)', icon: HelpCircle },
     { id: TestType.SRT, label: 'SRT (Psychology)', icon: HelpCircle },
+    { id: TestType.SDT, label: 'Self Description', icon: FileSignature },
     { id: TestType.INTERVIEW, label: 'AI Interview', icon: Mic },
     { id: TestType.CONTACT, label: 'Support Desk', icon: MessageSquare },
   ];

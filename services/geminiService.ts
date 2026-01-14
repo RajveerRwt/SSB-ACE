@@ -345,6 +345,72 @@ export async function evaluatePerformance(testType: string, userData: any) {
         return safeJSONParse(response.text);
     }
 
+    // 4. SDT EVALUATION
+    else if (testType === 'SDT') {
+        const { sdtData, sdtImages } = userData;
+        const parts: any[] = [];
+        
+        parts.push({ text: `Evaluate the Self Description Test (SDT) for an SSB aspirant. 
+        The candidate has provided responses for 5 sections (Parents, Teachers, Friends, Self, Aim). 
+        Some responses may be typed text, others may be images of handwritten text. 
+        Analyze ALL provided content (text and images) for consistency, realism, and Officer Like Qualities (OLQs).
+        
+        Rules:
+        - Check if opinions (Parents/Teachers) contradict Self opinion.
+        - Check if 'Aim' is realistic based on described qualities.
+        - Detect if the candidate is boasting or being too modest.
+        - If an image is provided, transcribe/read it internally and use its content for evaluation.
+        
+        Return JSON.` });
+
+        const sections = [
+            { key: 'parents', label: '1. Parents Opinion' },
+            { key: 'teachers', label: '2. Teachers/Employers Opinion' },
+            { key: 'friends', label: '3. Friends/Colleagues Opinion' },
+            { key: 'self', label: '4. Self Opinion' },
+            { key: 'aim', label: '5. Future Aim' }
+        ];
+
+        for (const sec of sections) {
+            const key = sec.key as keyof typeof sdtData;
+            const text = sdtData[key];
+            const img = sdtImages ? sdtImages[key] : null;
+            
+            parts.push({ text: `--- SECTION: ${sec.label} ---` });
+            if (text && text.trim()) {
+                parts.push({ text: `Typed Response: "${text}"` });
+                combinedTextForFallback += text + " ";
+            }
+            if (img && img.data) {
+                parts.push({ inlineData: { data: img.data, mimeType: img.mimeType || 'image/jpeg' } });
+            }
+            if (!text && (!img || !img.data)) {
+                parts.push({ text: `(No response provided for this section)` });
+            }
+        }
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: parts },
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        score: { type: Type.NUMBER },
+                        verdict: { type: Type.STRING },
+                        consistencyAnalysis: { type: Type.STRING, description: "Analysis of how consistent the different paragraphs are with each other." },
+                        olqs: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        recommendations: { type: Type.STRING }
+                    }
+                }
+            }
+        });
+        return safeJSONParse(response.text);
+    }
+
     return generateFallbackEvaluation(testType, "");
 
   } catch (error: any) {

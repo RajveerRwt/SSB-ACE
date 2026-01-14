@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw } from 'lucide-react';
+import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, STANDARD_WAT_SET } from '../services/geminiService';
 import { getTATScenarios, getWATWords } from '../services/supabaseService';
 import { TestType } from '../types';
@@ -30,11 +30,30 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   const [isLoading, setIsLoading] = useState(false);
   const [pregeneratedImages, setPregeneratedImages] = useState<Record<string, string>>({});
   
+  // TAT States
   const [tatUploads, setTatUploads] = useState<string[]>(new Array(12).fill(''));
   const [tatTexts, setTatTexts] = useState<string[]>(new Array(12).fill(''));
   const [transcribingIndices, setTranscribingIndices] = useState<number[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   
+  // SDT States
+  const [sdtData, setSdtData] = useState({
+    parents: '',
+    teachers: '',
+    friends: '',
+    self: '',
+    aim: ''
+  });
+  
+  // SDT Image States - Store base64 and mimeType
+  const [sdtImages, setSdtImages] = useState<Record<string, { data: string, mimeType: string } | null>>({
+    parents: null,
+    teachers: null,
+    friends: null,
+    self: null,
+    aim: null
+  });
+
   const [feedback, setFeedback] = useState<any>(null);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -60,6 +79,15 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
 
   const startTest = async () => {
     setIsLoading(true);
+    
+    // SDT Logic Flow
+    if (type === TestType.SDT) {
+        setPhase(PsychologyPhase.WRITING);
+        setTimeLeft(900); // 15 Minutes
+        setIsLoading(false);
+        return;
+    }
+
     setPhase(PsychologyPhase.PREPARING_STIMULI);
     
     try {
@@ -162,7 +190,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
 
   useEffect(() => {
     const isTimedPhase = phase === PsychologyPhase.VIEWING || phase === PsychologyPhase.WRITING;
-    if (currentIndex >= 0 && currentIndex < items.length && isTimedPhase && timeLeft >= 0) {
+    if ((type === TestType.SDT || (currentIndex >= 0 && currentIndex < items.length)) && isTimedPhase && timeLeft >= 0) {
       if (timeLeft > 0) {
         timerRef.current = setTimeout(() => setTimeLeft((prev) => prev - 1), 1000);
       } else {
@@ -173,6 +201,12 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   }, [timeLeft, currentIndex, phase]);
 
   const handleTimerEnd = () => {
+    if (type === TestType.SDT) {
+       playBuzzer(300, 1.0);
+       submitSDT();
+       return;
+    }
+
     if (type === TestType.TAT && phase === PsychologyPhase.VIEWING) {
       playBuzzer(180, 0.4); 
       setTimeLeft(240); 
@@ -228,6 +262,35 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleSDTImageUpload = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              const base64 = (reader.result as string).split(',')[1];
+              setSdtImages(prev => ({
+                  ...prev, 
+                  [key]: { data: base64, mimeType: file.type }
+              }));
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
+  const submitSDT = async () => {
+      setPhase(PsychologyPhase.EVALUATING);
+      try {
+          const result = await evaluatePerformance(type, { sdtData, sdtImages });
+          setFeedback(result);
+          if (onSave) onSave({ ...result, sdtData, sdtImages });
+          setPhase(PsychologyPhase.COMPLETED);
+      } catch (err) {
+          console.error("SDT Eval Error", err);
+          // Fallback to avoid getting stuck
+          setPhase(PsychologyPhase.COMPLETED);
+      }
   };
 
   const submitDossier = async () => {
@@ -290,18 +353,24 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  if (currentIndex === -1 && phase !== PsychologyPhase.PREPARING_STIMULI) {
+  // --- RENDER LOGIC ---
+
+  if (currentIndex === -1 && phase !== PsychologyPhase.PREPARING_STIMULI && phase !== PsychologyPhase.WRITING) {
     return (
       <div className="bg-white p-12 md:p-24 rounded-[3rem] md:rounded-[4rem] shadow-2xl border-4 border-slate-50 text-center max-w-4xl mx-auto ring-1 ring-slate-100 animate-in fade-in zoom-in duration-500">
         <div className="w-20 h-20 md:w-28 md:h-28 bg-slate-900 text-yellow-400 rounded-[2rem] flex items-center justify-center mx-auto mb-10 shadow-2xl rotate-6 border-4 border-slate-800">
-           {type === TestType.TAT ? <ImageIcon size={40}/> : <Target size={40}/>}
+           {type === TestType.TAT ? <ImageIcon size={40}/> : type === TestType.SDT ? <FileSignature size={40} /> : <Target size={40}/>}
         </div>
-        <h2 className="text-4xl md:text-5xl font-black mb-6 uppercase tracking-tighter text-slate-900">{type} Test</h2>
+        <h2 className="text-4xl md:text-5xl font-black mb-6 uppercase tracking-tighter text-slate-900">
+           {type === TestType.SDT ? 'Self Description' : type} Test
+        </h2>
         <div className="bg-slate-50 p-8 rounded-[2rem] mb-12 text-left border border-slate-200">
            <h4 className="font-black text-xs uppercase tracking-widest text-blue-600 mb-4 underline">Board Briefing:</h4>
            <div className="text-slate-600 font-medium text-sm md:text-lg leading-relaxed italic space-y-4">
              {type === TestType.TAT ? (
                <p>• 12 Pictures (11 from DB + 1 Blank). 30s viewing, 4m writing per slide. All images are retrieved from authorized board sets.</p>
+             ) : type === TestType.SDT ? (
+               <p>• Write 5 distinct paragraphs describing opinions of Parents, Teachers, Friends, Self, and Future Aims. Total time: 15 Minutes. Be realistic and honest.</p>
              ) : (
                <p>• Spontaneous responses required. Quality and speed are being assessed by the psychologists.</p>
              )}
@@ -327,6 +396,102 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
     );
   }
 
+  // --- SDT UI ---
+  if (type === TestType.SDT && phase === PsychologyPhase.WRITING) {
+      return (
+        <div className="max-w-5xl mx-auto pb-20 animate-in fade-in duration-700">
+           <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md p-6 rounded-[2rem] shadow-xl border border-slate-100 flex items-center justify-between mb-8">
+              <div>
+                  <h3 className="text-2xl font-black text-slate-900 uppercase">Self Description</h3>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Be realistic. Project your true qualities.</p>
+              </div>
+              <div className={`px-6 py-3 rounded-2xl border-4 transition-all ${timeLeft < 60 ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 'bg-slate-900 border-slate-800 text-white'}`}>
+                 <div className="flex items-center gap-3">
+                    <Timer size={20} />
+                    <span className="text-xl font-black font-mono">{formatTime(timeLeft)}</span>
+                 </div>
+              </div>
+           </div>
+
+           <div className="space-y-6">
+              {[
+                { label: "1. What do your Parents think of you?", key: 'parents' as keyof typeof sdtData, placeholder: "My parents think I am..." },
+                { label: "2. What do your Teachers / Employers think?", key: 'teachers' as keyof typeof sdtData, placeholder: "My teachers appreciate my..." },
+                { label: "3. What do your Friends / Colleagues think?", key: 'friends' as keyof typeof sdtData, placeholder: "My friends find me..." },
+                { label: "4. What is your own opinion of yourself?", key: 'self' as keyof typeof sdtData, placeholder: "I consider myself..." },
+                { label: "5. What kind of person do you want to become?", key: 'aim' as keyof typeof sdtData, placeholder: "I want to improve..." }
+              ].map((section, idx) => (
+                  <div key={idx} className="bg-white p-6 md:p-8 rounded-[2rem] shadow-md border border-slate-100 hover:border-blue-200 transition-colors">
+                      <div className="flex justify-between items-center mb-4">
+                          <label className="block text-sm font-black text-slate-700 uppercase tracking-wide">{section.label}</label>
+                          <div className="flex items-center gap-2">
+                              <input 
+                                type="file" 
+                                id={`file-${section.key}`} 
+                                className="hidden" 
+                                accept="image/*"
+                                onChange={(e) => handleSDTImageUpload(e, section.key)} 
+                              />
+                              
+                              {sdtImages[section.key] ? (
+                                  <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-xl border border-green-100">
+                                      <ImageIcon size={14} className="text-green-600" />
+                                      <span className="text-[10px] font-bold text-green-700 uppercase">Image Attached</span>
+                                      <button 
+                                        onClick={() => setSdtImages(prev => ({...prev, [section.key]: null}))}
+                                        className="ml-1 p-1 hover:bg-red-100 rounded-full text-red-500 transition-colors"
+                                      >
+                                          <Trash2 size={12} />
+                                      </button>
+                                  </div>
+                              ) : (
+                                  <label 
+                                    htmlFor={`file-${section.key}`}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl cursor-pointer transition-all text-[10px] font-bold uppercase tracking-wide"
+                                  >
+                                      <Upload size={12} /> Upload Handwritten
+                                  </label>
+                              )}
+                          </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 gap-4">
+                          <textarea 
+                            value={sdtData[section.key]}
+                            onChange={(e) => setSdtData({...sdtData, [section.key]: e.target.value})}
+                            placeholder={section.placeholder}
+                            className="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-2xl resize-none focus:bg-white focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
+                          />
+                          {sdtImages[section.key] && (
+                              <div className="h-40 bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden relative group">
+                                  <img 
+                                    src={`data:${sdtImages[section.key]?.mimeType};base64,${sdtImages[section.key]?.data}`} 
+                                    alt="Upload Preview" 
+                                    className="w-full h-full object-contain p-2"
+                                  />
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                      <span className="text-white text-xs font-bold uppercase tracking-widest">Image Included</span>
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+                  </div>
+              ))}
+           </div>
+
+           <div className="mt-8 flex justify-center">
+              <button 
+                onClick={() => { playBuzzer(300, 0.5); submitSDT(); }}
+                className="px-16 py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest shadow-2xl hover:bg-black transition-all hover:scale-105"
+              >
+                Submit Description
+              </button>
+           </div>
+        </div>
+      );
+  }
+
+  // --- TAT/WAT/SRT VIEWING/WRITING ---
   if (phase === PsychologyPhase.VIEWING || phase === PsychologyPhase.WRITING) {
     const currentItem = items[currentIndex];
     const isTAT = type === TestType.TAT;
@@ -539,6 +704,16 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
            </div>
         </div>
 
+        {/* SDT Consistency Check */}
+        {type === TestType.SDT && feedback?.consistencyAnalysis && (
+            <div className="bg-white p-10 rounded-[3rem] border-2 border-slate-100 shadow-xl">
+               <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-4 mb-6">
+                  <Brain className="text-purple-600" /> Consistency Analysis
+               </h3>
+               <p className="text-lg text-slate-600 leading-relaxed font-medium">{feedback.consistencyAnalysis}</p>
+            </div>
+        )}
+
         {/* Individual Story Analysis for TAT */}
         {type === TestType.TAT && feedback?.individualStories && (
             <div className="space-y-8">
@@ -620,7 +795,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
             </div>
         )}
 
-        <button onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); }} className="w-full py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl">Return to Wing</button>
+        <button onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); setSdtData({ parents: '', teachers: '', friends: '', self: '', aim: '' }); setSdtImages({ parents: null, teachers: null, friends: null, self: null, aim: null }); }} className="w-full py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl">Return to Wing</button>
       </div>
     );
   }

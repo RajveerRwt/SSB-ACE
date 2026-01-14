@@ -54,7 +54,8 @@ const getLocalSubscription = (userId: string): UserSubscription => {
       tat_used: 0,
       tat_limit: DEFAULT_FREE_LIMITS.tat,
       wat_used: 0,
-      srt_used: 0
+      srt_used: 0,
+      sdt_used: 0
     },
     extra_credits: { interview: 0 }
   };
@@ -98,7 +99,7 @@ export async function checkLimit(userId: string, testType: string): Promise<{ al
   const sub = await getUserSubscription(userId);
   const { usage, extra_credits, tier } = sub;
 
-  if (testType === 'WAT' || testType === 'SRT') return { allowed: true }; // Unlimited
+  if (testType === 'WAT' || testType === 'SRT' || testType === 'SDT') return { allowed: true }; // Unlimited
 
   if (testType === 'INTERVIEW') {
     const totalLimit = usage.interview_limit + extra_credits.interview;
@@ -126,6 +127,7 @@ export async function incrementUsage(userId: string, testType: string) {
   else if (testType === 'TAT') sub.usage.tat_used += 1;
   else if (testType === 'WAT') sub.usage.wat_used += 1;
   else if (testType === 'SRT') sub.usage.srt_used += 1;
+  else if (testType === 'SDT') sub.usage.sdt_used += 1;
 
   await updateUserSubscription(userId, sub);
 }

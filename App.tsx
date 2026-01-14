@@ -273,6 +273,7 @@ const Dashboard: React.FC<{
                 {[
                   { id: TestType.PIQ, name: 'Personal Info Questionnaire', type: 'Phase 0: Admin', time: '15 mins', status: isLoggedIn ? (piqLoaded ? 'Completed' : 'Action Required') : 'Login Required' },
                   { id: TestType.PPDT, name: 'PPDT Simulation', type: 'Stage 1: Screening', time: '10 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
+                  { id: TestType.SDT, name: 'Self Description Test', type: 'Stage 2: Psychology', time: '15 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
                   { id: TestType.INTERVIEW, name: 'Stage 2: Personal Interview', type: 'IO Evaluation', time: '40 mins', status: isLoggedIn ? (piqLoaded ? 'Available' : 'Restricted') : 'Login Required' },
                   { id: TestType.TAT, name: 'Stage 2: Psychology (TAT)', type: 'Mental Strength', time: '45 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
                 ].map((test, i) => (
@@ -336,207 +337,169 @@ const Dashboard: React.FC<{
 
 const App: React.FC = () => {
   const [activeTest, setActiveTest] = useState<TestType>(TestType.DASHBOARD);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState<string>('');
-  const [userEmail, setUserEmail] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [piqData, setPiqData] = useState<PIQData | undefined>(undefined);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [user, setUser] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [piqData, setPiqData] = useState<PIQData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPaymentOpen, setPaymentOpen] = useState(false);
 
-  // Initial Load and Real-time Auth Subscription
   useEffect(() => {
-    // 1. Check local storage first for speed
-    const localUser = localStorage.getItem('ssb_user');
-    if (localUser) {
-      setUser(localUser);
-      setIsLoggedIn(true);
-      getUserData(localUser).then(data => { if(data) setPiqData(data); });
-    }
-
-    // 2. Subscribe to Supabase Auth State (Handles redirects from email links)
-    const unsubscribe = subscribeToAuthChanges(async (sbUser) => {
-      if (sbUser) {
-        setIsLoading(true);
-        const identifier = sbUser.id;
-        setUser(identifier);
-        setUserEmail(sbUser.email || ''); // Track Email
-        setIsLoggedIn(true);
-        localStorage.setItem('ssb_user', identifier);
-        
-        await syncUserProfile(sbUser);
-        const data = await getUserData(identifier);
+    const initAuth = async () => {
+      const sessionUser = await checkAuthSession();
+      if (sessionUser) {
+        setUser(sessionUser.id);
+        setUserEmail(sessionUser.email || '');
+        syncUserProfile(sessionUser);
+        const data = await getUserData(sessionUser.id);
         if (data) setPiqData(data);
-        setIsLoading(false);
+      }
+      setIsLoading(false);
+    };
+    
+    initAuth();
+
+    const unsubscribe = subscribeToAuthChanges((u) => {
+      if (u) {
+        setUser(u.id);
+        setUserEmail(u.email || '');
+        getUserData(u.id).then(d => d && setPiqData(d));
       } else {
-        // Only log out if we are not using demo mode
-        if (localStorage.getItem('ssb_user')?.startsWith('demo')) return;
-        
-        setIsLoggedIn(false);
-        setUser('');
-        setUserEmail('');
-        setPiqData(undefined);
-        localStorage.removeItem('ssb_user');
+        setUser(null);
+        setUserEmail(null);
+        setPiqData(null);
       }
     });
-
-    return () => { unsubscribe(); };
+    
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
   }, []);
 
-  const handleLogin = async (identifier: string, email?: string) => {
-    setIsLoading(true);
-    setUser(identifier);
-    if(email) setUserEmail(email);
-    setIsLoggedIn(true);
-    localStorage.setItem('ssb_user', identifier);
-    
-    // Attempt to fetch existing data from cloud
-    const data = await getUserData(identifier);
-    if (data) setPiqData(data);
-    
-    setIsLoading(false);
+  const handleLogin = (uid: string, email?: string) => {
+    setUser(uid);
+    setUserEmail(email || '');
+    setActiveTest(TestType.DASHBOARD);
+    getUserData(uid).then(d => d && setPiqData(d));
+  };
+
+  const handleLogoutAction = async () => {
+    await logoutUser();
+    setUser(null);
+    setUserEmail(null);
     setActiveTest(TestType.DASHBOARD);
   };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUser('');
-    setUserEmail('');
-    setPiqData(undefined);
-    localStorage.removeItem('ssb_user');
-    setActiveTest(TestType.DASHBOARD);
-    logoutUser();
-    subscribeToAuthChanges(() => {})(); 
-  };
+  const navigateTo = async (test: TestType) => {
+     if (test === TestType.LOGIN && user) return; // Already logged in
+     
+     if ((test === TestType.INTERVIEW || test === TestType.PPDT || test === TestType.TAT) && user) {
+        const { allowed, message } = await checkLimit(user, test);
+        if (!allowed) {
+            alert(message);
+            setPaymentOpen(true);
+            return;
+        }
+     }
+     
+     // Admin check
+     if (test === TestType.ADMIN && !isUserAdmin(userEmail)) {
+        alert("Access Denied.");
+        return;
+     }
 
-  const handlePiqSave = async (data: PIQData) => {
-    setPiqData(data);
-    if (user) {
-        setIsLoading(true);
-        await saveUserData(user, data);
-        setIsLoading(false);
-    }
-    setActiveTest(TestType.DASHBOARD);
+     setActiveTest(test);
   };
   
-  const handleTestCompletion = async (testType: string, resultData: any) => {
-    if (user) {
-      await saveTestAttempt(user, testType, resultData);
+  const handleTestComplete = async (result: any) => {
+      if (!user) return;
       
-      // Update credits (FIX: Decrement usage)
-      await incrementUsage(user, testType);
-    }
-  };
-
-  const handleNavigation = async (test: TestType) => {
-    const publicTests = [TestType.DASHBOARD, TestType.STAGES, TestType.CONTACT, TestType.LOGIN, TestType.TERMS, TestType.PRIVACY, TestType.REFUND];
-    
-    // Check for Admin Access Attempt
-    if (test === TestType.ADMIN && !isUserAdmin(userEmail)) {
-        alert("Restricted Area: Command Authorization Required.");
-        return;
-    }
-
-    if (!isLoggedIn && !publicTests.includes(test)) {
-        setActiveTest(TestType.LOGIN);
-        return;
-    }
-
-    // CHECK LIMITS BEFORE STARTING TEST
-    if (user && !publicTests.includes(test) && test !== TestType.PIQ && test !== TestType.AI_BOT) {
-      const limitCheck = await checkLimit(user, test);
-      if (!limitCheck.allowed) {
-        setIsPaymentModalOpen(true);
-        // Optionally show message
-        return;
-      }
-    }
-
-    setActiveTest(test);
+      // Save Attempt
+      let typeStr = activeTest.toString();
+      await saveTestAttempt(user, typeStr, result);
+      
+      // Increment Usage (Limits)
+      await incrementUsage(user, typeStr);
   };
 
   const renderContent = () => {
-    if (activeTest === TestType.LOGIN) {
-       return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
-    }
-
-    const isAdmin = isUserAdmin(userEmail);
-
     switch (activeTest) {
-      case TestType.DASHBOARD:
-        return <Dashboard 
-          onStartTest={handleNavigation} 
-          piqLoaded={!!piqData} 
-          isLoggedIn={isLoggedIn} 
-          isLoading={isLoading} 
-          user={user} 
-          onOpenPayment={() => setIsPaymentModalOpen(true)}
-        />;
+      case TestType.LOGIN:
+        return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.PIQ:
-        return <PIQForm key="piq-form" onSave={handlePiqSave} initialData={piqData} />;
+        return <PIQForm onSave={async (data) => { 
+            if(user) {
+                await saveUserData(user, data); 
+                setPiqData(data); 
+                alert("PIQ Saved"); 
+                setActiveTest(TestType.DASHBOARD);
+            } else {
+                alert("Please login to save PIQ.");
+                setActiveTest(TestType.LOGIN);
+            }
+        }} initialData={piqData || undefined} />;
       case TestType.PPDT:
-        return <PPDTTest key="ppdt-test" onSave={(res: any) => handleTestCompletion('PPDT', res)} isAdmin={isAdmin} />;
-      case TestType.WAT:
+        return <PPDTTest onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} />;
       case TestType.TAT:
+        return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} />;
+      case TestType.WAT:
+        return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} />;
       case TestType.SRT:
-        return <PsychologyTest key={activeTest} type={activeTest} onSave={(res: any) => handleTestCompletion(activeTest, res)} isAdmin={isAdmin} />;
+        return <PsychologyTest type={TestType.SRT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} />;
+      case TestType.SDT:
+        return <PsychologyTest type={TestType.SDT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} />;
       case TestType.INTERVIEW:
-        return <Interview key="interview-test" piqData={piqData} onSave={(res: any) => handleTestCompletion('INTERVIEW', res)} isAdmin={isAdmin} />;
-      case TestType.AI_BOT:
-        return <SSBBot key="ssb-bot" />;
+        return <Interview piqData={piqData || undefined} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} />;
       case TestType.CONTACT:
-        return <ContactForm key="contact-form" piqData={piqData} />;
+        return <ContactForm piqData={piqData || undefined} />;
       case TestType.STAGES:
-        return <SSBStages key="ssb-stages" />;
+        return <SSBStages />;
+      case TestType.AI_BOT:
+        return <SSBBot />;
       case TestType.ADMIN:
-        return isAdmin ? <AdminPanel key="admin-panel" /> : <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} onOpenPayment={() => setIsPaymentModalOpen(true)} />;
+        return isUserAdmin(userEmail) ? <AdminPanel /> : <Dashboard 
+            onStartTest={navigateTo} 
+            piqLoaded={!!piqData} 
+            isLoggedIn={!!user} 
+            isLoading={isLoading} 
+            user={userEmail || ''}
+            onOpenPayment={() => setPaymentOpen(true)}
+        />;
       case TestType.TERMS:
       case TestType.PRIVACY:
       case TestType.REFUND:
         return <LegalPages type={activeTest} onBack={() => setActiveTest(TestType.DASHBOARD)} />;
       default:
-        return <Dashboard onStartTest={handleNavigation} piqLoaded={!!piqData} isLoggedIn={isLoggedIn} isLoading={isLoading} user={user} onOpenPayment={() => setIsPaymentModalOpen(true)} />;
+        return <Dashboard 
+            onStartTest={navigateTo} 
+            piqLoaded={!!piqData} 
+            isLoggedIn={!!user} 
+            isLoading={isLoading} 
+            user={userEmail || ''}
+            onOpenPayment={() => setPaymentOpen(true)}
+        />;
     }
   };
 
   return (
-    <>
+    <Layout 
+      activeTest={activeTest} 
+      onNavigate={navigateTo} 
+      onLogout={handleLogoutAction}
+      onLogin={() => setActiveTest(TestType.LOGIN)}
+      user={userEmail || undefined}
+      isLoggedIn={!!user}
+      isAdmin={isUserAdmin(userEmail)}
+    >
+      {renderContent()}
+      {user && (
         <PaymentModal 
-          userId={user}
-          isOpen={isPaymentModalOpen}
-          onClose={() => setIsPaymentModalOpen(false)}
-          onSuccess={() => {
-            // Force refresh of dashboard logic if needed
-            window.location.reload(); 
-          }}
+            userId={user} 
+            isOpen={isPaymentOpen} 
+            onClose={() => setPaymentOpen(false)} 
+            onSuccess={() => {}}
         />
-
-        {activeTest === TestType.LOGIN ? (
-            <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />
-        ) : (
-            <Layout 
-                activeTest={activeTest} 
-                onNavigate={(t) => {
-                    if (t === TestType.INTERVIEW && !piqData && isLoggedIn) {
-                        setActiveTest(TestType.PIQ);
-                    } else {
-                        handleNavigation(t);
-                    }
-                }} 
-                onLogout={handleLogout} 
-                onLogin={() => setActiveTest(TestType.LOGIN)}
-                user={user}
-                isLoggedIn={isLoggedIn}
-                isAdmin={isUserAdmin(userEmail)}
-            >
-                {isLoading && (
-                  <div className="fixed top-4 right-4 z-50 bg-white/10 backdrop-blur-md border border-white/20 p-2 rounded-xl text-white flex items-center gap-2 text-xs font-bold uppercase tracking-widest shadow-xl">
-                    <Cloud className="animate-bounce text-blue-400" size={14} /> Cloud Sync
-                  </div>
-                )}
-                {renderContent()}
-            </Layout>
-        )}
-    </>
+      )}
+    </Layout>
   );
 };
 

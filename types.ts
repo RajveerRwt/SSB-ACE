@@ -7,6 +7,7 @@ export enum TestType {
   TAT = 'TAT',
   WAT = 'WAT',
   SRT = 'SRT',
+  SDT = 'SDT',
   INTERVIEW = 'INTERVIEW',
   CONTACT = 'CONTACT',
   STAGES = 'STAGES',
@@ -81,6 +82,7 @@ export interface UserSubscription {
     tat_limit: number;
     wat_used: number; // Unlimited, but tracking for stats
     srt_used: number; // Unlimited, but tracking for stats
+    sdt_used: number; // Unlimited, but tracking for stats
   };
   extra_credits: {
     interview: number;
