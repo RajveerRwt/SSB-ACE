@@ -74,7 +74,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
 
 interface InterviewProps {
   piqData?: PIQData;
-  onSave?: (result: any) => void;
+  onSave?: (result: any) => void | Promise<void>;
   isAdmin?: boolean;
 }
 
@@ -407,7 +407,8 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
       });
       setFinalAnalysis(results);
       if (onSave) {
-        onSave(results);
+        // Await onSave to ensure data is written to DB/storage before UI allows exit
+        await onSave(results);
       }
     } catch (e) {
       console.error(e);
