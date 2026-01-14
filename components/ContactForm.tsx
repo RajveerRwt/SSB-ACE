@@ -68,7 +68,7 @@ const ContactForm: React.FC<{ piqData?: PIQData }> = ({ piqData }) => {
            </div>
            <div>
               <h5 className="font-black uppercase text-xs tracking-widest text-slate-900 mb-1">Email Support</h5>
-              <p className="text-sm font-medium text-slate-600">support@ssbprep.online</p>
+              <p className="text-sm font-medium text-slate-600">contact.ssbprep@gmail.com</p>
               <p className="text-[10px] text-slate-400 mt-1">Response time: 24 Hours</p>
            </div>
         </div>
@@ -77,11 +77,7 @@ const ContactForm: React.FC<{ piqData?: PIQData }> = ({ piqData }) => {
            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
               <MapPin size={20} />
            </div>
-           <div>
-              <h5 className="font-black uppercase text-xs tracking-widest text-slate-900 mb-1">Registered Office</h5>
-              <p className="text-sm font-medium text-slate-600">123, Defence Enclave, Sector 62</p>
-              <p className="text-sm font-medium text-slate-600">Noida, Uttar Pradesh, 201309</p>
-           </div>
+           
         </div>
       </div>
 
