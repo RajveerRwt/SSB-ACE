@@ -514,16 +514,25 @@ export async function evaluatePerformance(testType: string, userData: any) {
             
             Return JSON with overall score and a detailed list.`;
         } else {
-            promptText = `Evaluate these WAT (Word Association Test) sentences for psychological projection.
-            For EACH word, provide an 'idealResponse' that is a SHORT, positive sentence (max 8-10 words) showing officer-like optimism.
-            
-            STRICT FORMAT EXAMPLES for idealResponse:
+            promptText = `Evaluate these WAT (Word Association Test) sentences.
+            For EACH word, provide an 'idealResponse' based on these STRICT GUIDELINES:
+
+            1. POSITIVE & FACTUAL: Use sentences reflecting values (e.g., "Helping is a virtue") or current awareness (e.g., "India promotes peace").
+            2. AVOID:
+               - Idioms/Phrases (Lack originality).
+               - Preaching (e.g., "One should not...").
+               - "I" statements (Reflects selfishness).
+               - Negative thoughts.
+            3. FORMAT: Keep it SHORT (6-10 words).
+
+            EXAMPLES:
             Word: HINT -> Response: A hint is sufficient to solve the puzzle.
             Word: LIMIT -> Response: There is no limit to hard work.
-            
+            Word: TEAM -> Response: Teamwork leads to success.
+
             Input Data:
             ${items.map((i: any) => `Word ${i.id}: "${i.word}" -> User Sentence: "${i.response}"`).join("\n")}
-            
+
             Return JSON with overall score and a detailed list.`;
         }
 
