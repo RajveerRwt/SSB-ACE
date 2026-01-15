@@ -4,7 +4,7 @@ import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Lay
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
-  uploadWATWords, getWATWords, deleteWATWord,
+  uploadWATWords, getWATWords, deleteWATWord, deleteWATSet,
   getPendingPayments, approvePaymentRequest, rejectPaymentRequest
 } from '../services/supabaseService';
 
@@ -121,6 +121,18 @@ const AdminPanel: React.FC = () => {
     } catch (error: any) {
       console.error("Delete failed", error);
       setErrorMsg(error.message || "Failed to delete item.");
+    }
+  };
+
+  const handleDeleteSet = async (tag: string) => {
+    if (!window.confirm(`WARNING: Are you sure you want to delete the entire set "${tag}"? This action cannot be undone and will remove all ${groupedItems[tag]?.length || 0} words in this set.`)) return;
+    setErrorMsg(null);
+    try {
+      await deleteWATSet(tag);
+      await fetchData();
+    } catch (error: any) {
+      console.error("Delete set failed", error);
+      setErrorMsg(error.message || "Failed to delete set.");
     }
   };
 
@@ -445,6 +457,12 @@ create policy "Self Insert History" on test_history for insert with check (auth.
                             <h4 className="font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
                                 <FileText size={18} className="text-green-600" /> {tag} ({groupedItems[tag].length})
                             </h4>
+                            <button 
+                                onClick={() => handleDeleteSet(tag)}
+                                className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-red-600 hover:text-white transition-all flex items-center gap-2"
+                            >
+                                <Trash2 size={14} /> Delete Set
+                            </button>
                         </div>
                         <div className="flex flex-wrap gap-3">
                             {groupedItems[tag].map((item: any) => (

@@ -1,488 +1,313 @@
 
-import { createClient } from '@supabase/supabase-js';
-import { PIQData, UserSubscription, PaymentRequest } from '../types';
+import { createClient, User } from '@supabase/supabase-js';
+import { PIQData, UserSubscription } from '../types';
 
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://nidbiyrliunqhakkqdvn.supabase.co';
-const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pZGJpeXJsaXVucWhha2txZHZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczNjczMTUsImV4cCI6MjA4Mjk0MzMxNX0.FfSHE1ZAokWxbfG6qyCXdnOJpReW5PMyZg4wrN7sjXY';
-
-export const ADMIN_EMAILS = ['rajveerrawat947@gmail.com'];
-
-export const isUserAdmin = (email?: string | null): boolean => {
-  if (!email) return false;
-  return ADMIN_EMAILS.includes(email);
-};
+// --- INITIALIZATION ---
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_KEY || '';
+const ADMIN_EMAIL = 'rajveerrawat947@gmail.com';
 
 let supabase: any = null;
 let isSupabaseActive = false;
 
-try {
-  if (SUPABASE_URL && SUPABASE_URL.startsWith('https://')) {
-      supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      isSupabaseActive = true;
-  }
-} catch (error) {
-  console.error("Supabase init failed", error);
-}
-
-// --- SUBSCRIPTION & LIMIT LOGIC ---
-
-const DEFAULT_FREE_LIMITS = {
-  interview: 1,
-  ppdt: 5,
-  tat: 2,
-};
-
-const PRO_LIMITS = {
-  interview: 5,
-  ppdt: 20,
-  tat: 7,
-};
-
-// Mock local storage for subscription data if DB fails or for demo
-const getLocalSubscription = (userId: string): UserSubscription => {
-  const stored = localStorage.getItem(`ssb_sub_${userId}`);
-  if (stored) return JSON.parse(stored);
-  
-  return {
-    tier: 'FREE',
-    expiryDate: null,
-    usage: {
-      interview_used: 0,
-      interview_limit: DEFAULT_FREE_LIMITS.interview,
-      ppdt_used: 0,
-      ppdt_limit: DEFAULT_FREE_LIMITS.ppdt,
-      tat_used: 0,
-      tat_limit: DEFAULT_FREE_LIMITS.tat,
-      wat_used: 0,
-      srt_used: 0,
-      sdt_used: 0
-    },
-    extra_credits: { interview: 0 }
-  };
-};
-
-export async function getUserSubscription(userId: string): Promise<UserSubscription> {
-  if (userId.startsWith('demo')) return getLocalSubscription(userId);
-
-  if (isSupabaseActive && supabase) {
-     try {
-       const { data, error } = await supabase.from('aspirants').select('subscription_data').eq('user_id', userId).single();
-       
-       if (data && data.subscription_data) {
-         return data.subscription_data as UserSubscription;
-       }
-     } catch (e) {
-       console.warn("Using local subscription fallback");
-     }
-  }
-  return getLocalSubscription(userId);
-}
-
-export async function updateUserSubscription(userId: string, subData: UserSubscription) {
-  localStorage.setItem(`ssb_sub_${userId}`, JSON.stringify(subData));
-  
-  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
-    const { error } = await supabase.from('aspirants').upsert({
-      user_id: userId,
-      subscription_data: subData,
-      last_active: new Date().toISOString()
-    }, { onConflict: 'user_id' });
-
-    if (error) {
-       console.error("DB Update Failed:", error);
-       throw new Error(`DB Update Failed: ${error.message}. Check RLS Policies.`);
-    }
-  }
-}
-
-export async function checkLimit(userId: string, testType: string): Promise<{ allowed: boolean; message?: string }> {
-  const sub = await getUserSubscription(userId);
-  const { usage, extra_credits, tier } = sub;
-
-  if (testType === 'WAT' || testType === 'SRT' || testType === 'SDT') return { allowed: true }; // Unlimited
-
-  if (testType === 'INTERVIEW') {
-    const totalLimit = usage.interview_limit + extra_credits.interview;
-    if (usage.interview_used >= totalLimit) {
-      return { allowed: false, message: `Interview Limit Reached (${usage.interview_used}/${totalLimit}). Upgrade to Pro or buy Add-ons.` };
-    }
-  }
-  
-  if (testType === 'PPDT') {
-    if (usage.ppdt_used >= usage.ppdt_limit) return { allowed: false, message: `PPDT Limit Reached (${usage.ppdt_used}/${usage.ppdt_limit}). Upgrade for more.` };
-  }
-
-  if (testType === 'TAT') {
-    if (usage.tat_used >= usage.tat_limit) return { allowed: false, message: `TAT Limit Reached (${usage.tat_used}/${usage.tat_limit}). Upgrade for more.` };
-  }
-
-  return { allowed: true };
-}
-
-export async function incrementUsage(userId: string, testType: string) {
-  const sub = await getUserSubscription(userId);
-  
-  if (testType === 'INTERVIEW') sub.usage.interview_used += 1;
-  else if (testType === 'PPDT') sub.usage.ppdt_used += 1;
-  else if (testType === 'TAT') sub.usage.tat_used += 1;
-  else if (testType === 'WAT') sub.usage.wat_used += 1;
-  else if (testType === 'SRT') sub.usage.srt_used += 1;
-  else if (testType === 'SDT') sub.usage.sdt_used += 1;
-
-  await updateUserSubscription(userId, sub);
-}
-
-// --- PAYMENT & ADMIN APPROVAL ---
-
-export async function submitPaymentRequest(userId: string, utr: string, amount: number, planType: 'PRO_SUBSCRIPTION' | 'INTERVIEW_ADDON') {
-  // Handle Demo/Guest Users Gracefully
-  if (userId.startsWith('demo')) {
-      console.log("Demo user payment simulated.");
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      return true;
-  }
-
-  if (!isSupabaseActive || !supabase) {
-      alert("Database inactive. Cannot submit request.");
-      return false;
-  }
-
-  if (!userId) {
-    throw new Error("User ID missing. Please login again.");
-  }
-  
-  // 1. Save to Supabase
-  const { error } = await supabase.from('payment_requests').insert({
-    user_id: userId,
-    utr: utr,
-    amount: amount,
-    plan_type: planType,
-    status: 'PENDING'
-  });
-
-  if (error) {
-    console.error("Payment Submit Error Details:", JSON.stringify(error, null, 2));
-    
-    if (error.code === '42501') {
-        throw new Error("Permission Denied: Please check database policies.");
-    } else if (error.code === '23505') {
-        throw new Error("This UTR has already been submitted.");
-    } else if (error.code === '22P02') {
-        throw new Error("Invalid User ID format. Please re-login.");
-    }
-    
-    throw new Error(error.message || "Failed to submit payment. Please try again.");
-  }
-
-  // 2. Send Email Notification to Admin (using Formspree)
+if (SUPABASE_URL && SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY) {
   try {
-    await fetch('https://formspree.io/f/mdaoqdqy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        subject: "NEW PAYMENT RECEIVED - SSBPREP",
-        message: `User ${userId} submitted a payment.\nUTR: ${utr}\nAmount: ₹${amount}\nPlan: ${planType}\n\nPlease check Admin Panel to approve.`,
-        email: "system@ssbprep.online" 
-      })
-    });
-  } catch (emailErr) {
-    console.warn("Failed to send admin email notification", emailErr);
-  }
-
-  return true;
-}
-
-// USER: Check status of their own request
-export async function getLatestPaymentRequest(userId: string) {
-  if (!isSupabaseActive || !supabase || userId.startsWith('demo')) return null;
-  
-  const { data, error } = await supabase
-    .from('payment_requests')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (error && error.code !== 'PGRST116') return null; // PGRST116 = Row not found
-  return data;
-}
-
-// ADMIN ONLY
-export async function getPendingPayments() {
-  if (!isSupabaseActive || !supabase) return [];
-  
-  const { data, error } = await supabase
-    .from('payment_requests')
-    .select('*, aspirants(email, full_name)') 
-    .eq('status', 'PENDING')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-     console.error("Error fetching payments:", error);
-     throw error;
-  }
-  return data || [];
-}
-
-// ADMIN ONLY
-export async function approvePaymentRequest(requestId: string, userId: string, planType: 'PRO_SUBSCRIPTION' | 'INTERVIEW_ADDON') {
-  if (!isSupabaseActive || !supabase) return false;
-
-  // 1. Grant Benefits FIRST (Critical Step)
-  // If this fails (e.g. Permissions), we should NOT mark as approved.
-  await processPaymentSuccess(userId, planType);
-
-  // 2. Mark as Approved
-  const { error: updateError } = await supabase
-    .from('payment_requests')
-    .update({ status: 'APPROVED' })
-    .eq('id', requestId);
-  
-  if (updateError) throw updateError;
-
-  return true;
-}
-
-// ADMIN ONLY
-export async function rejectPaymentRequest(requestId: string) {
-  if (!isSupabaseActive || !supabase) return false;
-  await supabase.from('payment_requests').update({ status: 'REJECTED' }).eq('id', requestId);
-  return true;
-}
-
-export async function processPaymentSuccess(userId: string, planType: 'PRO_SUBSCRIPTION' | 'INTERVIEW_ADDON') {
-  const sub = await getUserSubscription(userId);
-
-  if (planType === 'PRO_SUBSCRIPTION') {
-    sub.tier = 'PRO';
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    sub.expiryDate = d.toISOString();
-    
-    sub.usage.interview_limit = PRO_LIMITS.interview;
-    sub.usage.ppdt_limit = PRO_LIMITS.ppdt;
-    sub.usage.tat_limit = PRO_LIMITS.tat;
-  } else if (planType === 'INTERVIEW_ADDON') {
-    sub.extra_credits.interview += 1;
-  }
-
-  await updateUserSubscription(userId, sub);
-  return sub;
-}
-
-
-// --- EXISTING AUTH & DATA FUNCTIONS ---
-
-export async function checkAuthSession() {
-  if (!isSupabaseActive || !supabase) return null;
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.user || null;
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    isSupabaseActive = true;
   } catch (e) {
-    return null;
+    console.error("Supabase Init Error:", e);
   }
 }
 
-export function subscribeToAuthChanges(callback: (user: any) => void) {
-  if (!isSupabaseActive || !supabase) return () => {};
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
-    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-      callback(session?.user || null);
-    } else if (event === 'SIGNED_OUT') {
-      callback(null);
-    }
-  });
-  return () => {
-    subscription.unsubscribe();
-  };
-}
+// --- AUTHENTICATION ---
 
-export async function signUpWithEmail(email: string, password: string, fullName: string) {
-  if (!isSupabaseActive || !supabase) return { data: null, error: { message: "Supabase inactive" } };
-  return await supabase.auth.signUp({
+export const signUpWithEmail = async (email: string, pass: string, fullName: string) => {
+  if (!isSupabaseActive) throw new Error("Database not connected");
+  const { data, error } = await supabase.auth.signUp({
     email,
-    password,
+    password: pass,
     options: { data: { full_name: fullName } }
   });
-}
+  return { data, error };
+};
 
-export async function signInWithEmail(email: string, password: string) {
-  if (!isSupabaseActive || !supabase) return { data: null, error: { message: "Supabase inactive" } };
-  return await supabase.auth.signInWithPassword({ email, password });
-}
+export const signInWithEmail = async (email: string, pass: string) => {
+  if (!isSupabaseActive) throw new Error("Database not connected");
+  return await supabase.auth.signInWithPassword({ email, password: pass });
+};
 
-export async function logoutUser() {
-  if (isSupabaseActive && supabase) {
-    await supabase.auth.signOut();
-  }
-}
+export const logoutUser = async () => {
+  if (isSupabaseActive) await supabase.auth.signOut();
+};
 
-export async function syncUserProfile(user: any) {
-  if (!isSupabaseActive || !supabase || user.isMock) return;
-  try {
-    await supabase.from('aspirants').upsert({
-      user_id: user.id,
-      email: user.email,
-      full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
-      avatar_url: user.user_metadata?.avatar_url || '',
-      last_active: new Date().toISOString()
-    }, { onConflict: 'user_id' });
-  } catch (error) {}
-}
+export const checkAuthSession = async () => {
+  if (!isSupabaseActive) return null;
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.user || null;
+};
 
-export async function getUserData(userId: string): Promise<PIQData | null> {
-  let localData: PIQData | null = null;
-  try {
-    const stored = localStorage.getItem(`ssb_data_${userId}`);
-    if (stored) localData = JSON.parse(stored);
-  } catch (e) {
-    console.warn("Local storage read error", e);
-  }
+export const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
+  if (!isSupabaseActive) return () => {};
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+    callback(session?.user || null);
+  });
+  return () => subscription.unsubscribe();
+};
 
-  if (userId.startsWith('demo')) return localData;
+export const isUserAdmin = (email: string | null | undefined) => {
+  return email === ADMIN_EMAIL;
+};
 
-  if (isSupabaseActive && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('aspirants')
-        .select('piq_data')
-        .eq('user_id', userId)
-        .single();
+// --- USER PROFILE & DATA ---
 
-      if (data && data.piq_data) {
-          localStorage.setItem(`ssb_data_${userId}`, JSON.stringify(data.piq_data));
-          return data.piq_data as PIQData;
-      }
-      
-      if (error && error.code !== 'PGRST116') console.error("Supabase fetch error:", error);
-    } catch (error) {
-      console.error("Error loading user data from cloud:", error);
-    }
-  }
+export const syncUserProfile = async (user: User) => {
+  if (!isSupabaseActive) return;
+  // Ensure user exists in aspirants table
+  const { error } = await supabase.from('aspirants').upsert({
+    user_id: user.id,
+    email: user.email,
+    full_name: user.user_metadata?.full_name,
+    last_active: new Date().toISOString()
+  }, { onConflict: 'user_id', ignoreDuplicates: true }); 
   
-  return localData;
-}
+  if (error) console.error("Sync Profile Error", error);
+};
 
-export async function saveUserData(userId: string, data: Partial<PIQData>) {
-  try {
-      const existing = localStorage.getItem(`ssb_data_${userId}`);
-      let merged = data;
-      if (existing) {
-          const parsed = JSON.parse(existing);
-          merged = { ...parsed, ...data };
-      }
-      localStorage.setItem(`ssb_data_${userId}`, JSON.stringify(merged));
-  } catch(e) {}
+export const getUserData = async (userId: string): Promise<PIQData | null> => {
+  if (!isSupabaseActive) return null;
+  const { data } = await supabase.from('aspirants').select('piq_data').eq('user_id', userId).single();
+  return data?.piq_data || null;
+};
 
-  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
-    const { error } = await supabase.from('aspirants').upsert({ 
-      user_id: userId, 
-      piq_data: data, 
-      last_active: new Date().toISOString() 
-    }, { onConflict: 'user_id' });
-    return !error;
-  }
-  return true;
-}
+export const saveUserData = async (userId: string, data: PIQData) => {
+  if (!isSupabaseActive) return;
+  await supabase.from('aspirants').update({ piq_data: data }).eq('user_id', userId);
+};
 
-export async function saveTestAttempt(userId: string, testType: string, resultData: any) {
-  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
-    const { error } = await supabase.from('test_history').insert({
-      user_id: userId,
-      test_type: testType,
-      score: resultData.score || 0,
-      result_data: resultData
-    });
-    return !error;
-  }
-  return true;
-}
+export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
+    const defaultSub: UserSubscription = {
+        tier: 'FREE',
+        expiryDate: null,
+        usage: {
+            interview_used: 0, interview_limit: 1,
+            ppdt_used: 0, ppdt_limit: 5,
+            tat_used: 0, tat_limit: 2,
+            wat_used: 0, srt_used: 0, sdt_used: 0
+        },
+        extra_credits: { interview: 0 }
+    };
 
-export async function getUserHistory(userId: string) {
-  if (isSupabaseActive && supabase && !userId.startsWith('demo')) {
-    const { data } = await supabase
-      .from('test_history')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(5);
+    if (!isSupabaseActive) return defaultSub;
+
+    const { data } = await supabase.from('aspirants').select('subscription_data').eq('user_id', userId).single();
+    return data?.subscription_data || defaultSub;
+};
+
+// --- TEST HISTORY ---
+
+export const saveTestAttempt = async (userId: string, testType: string, result: any) => {
+  if (!isSupabaseActive) return;
+  await supabase.from('test_history').insert({
+    user_id: userId,
+    test_type: testType,
+    score: result.score || 0,
+    result_data: result
+  });
+};
+
+export const getUserHistory = async (userId: string) => {
+  if (!isSupabaseActive) return [];
+  const { data } = await supabase.from('test_history').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(10);
+  return data?.map((d: any) => ({
+      id: d.id,
+      type: d.test_type,
+      score: d.score,
+      timestamp: d.created_at,
+      result: d.result_data
+  })) || [];
+};
+
+// --- LIMITS & USAGE ---
+
+export const checkLimit = async (userId: string, testType: string): Promise<{allowed: boolean, message: string}> => {
+    if (!isSupabaseActive) return { allowed: true, message: "Offline Mode" };
     
-    if (data) return data.map((item: any) => ({
-      id: item.id,
-      type: item.test_type,
-      timestamp: item.created_at,
-      score: item.score,
-      result: item.result_data
-    }));
-  }
-  return [];
-}
+    const sub = await getUserSubscription(userId);
+    
+    if (sub.tier === 'PRO') {
+        // PRO logic can be added here
+    }
 
-export async function getPPDTScenarios() {
-  if (isSupabaseActive && supabase) {
-     const { data } = await supabase.from('ppdt_scenarios').select('*');
-     return data || [];
-  }
-  return [];
-}
+    if (testType === 'INTERVIEW') {
+        const total = sub.usage.interview_limit + (sub.extra_credits?.interview || 0);
+        if (sub.usage.interview_used >= total) return { allowed: false, message: "Interview credits exhausted. Please upgrade or buy add-ons." };
+    } else if (testType === 'PPDT') {
+        if (sub.usage.ppdt_used >= sub.usage.ppdt_limit) return { allowed: false, message: "PPDT limit reached for this plan." };
+    } else if (testType === 'TAT') {
+        if (sub.usage.tat_used >= sub.usage.tat_limit) return { allowed: false, message: "TAT limit reached for this plan." };
+    }
+    
+    return { allowed: true, message: "Allowed" };
+};
 
-export async function uploadPPDTScenario(file: File, description: string) {
-  if (!isSupabaseActive || !supabase) return;
-  const fileName = `${Date.now()}-${file.name}`;
-  const { error: uploadError } = await supabase.storage.from('ppdt-images').upload(fileName, file);
-  if (uploadError) throw uploadError;
-  const { data: { publicUrl } } = supabase.storage.from('ppdt-images').getPublicUrl(fileName);
-  await supabase.from('ppdt_scenarios').insert({ image_url: publicUrl, description });
-}
+export const incrementUsage = async (userId: string, testType: string) => {
+    if (!isSupabaseActive) return;
+    
+    const sub = await getUserSubscription(userId);
+    const newUsage = { ...sub.usage };
+    
+    if (testType === 'INTERVIEW') newUsage.interview_used += 1;
+    else if (testType === 'PPDT') newUsage.ppdt_used += 1;
+    else if (testType === 'TAT') newUsage.tat_used += 1;
+    else if (testType === 'WAT') newUsage.wat_used += 1;
+    else if (testType === 'SRT') newUsage.srt_used += 1;
+    else if (testType === 'SDT') newUsage.sdt_used += 1;
 
-export async function deletePPDTScenario(id: string, url: string) {
-  if (!isSupabaseActive || !supabase) return;
-  await supabase.from('ppdt_scenarios').delete().eq('id', id);
-  const path = url.split('/').pop();
-  if (path) await supabase.storage.from('ppdt-images').remove([path]);
-}
+    await supabase.from('aspirants').update({ 
+        subscription_data: { ...sub, usage: newUsage } 
+    }).eq('user_id', userId);
+};
 
-export async function getTATScenarios() {
-  if (isSupabaseActive && supabase) {
-     const { data } = await supabase.from('tat_scenarios').select('*');
-     return data || [];
-  }
-  return [];
-}
 
-export async function uploadTATScenario(file: File, description: string, setTag: string) {
-  if (!isSupabaseActive || !supabase) return;
-  const fileName = `${Date.now()}-${file.name}`;
-  const { error: uploadError } = await supabase.storage.from('tat-images').upload(fileName, file);
-  if (uploadError) throw uploadError;
-  const { data: { publicUrl } } = supabase.storage.from('tat-images').getPublicUrl(fileName);
-  await supabase.from('tat_scenarios').insert({ image_url: publicUrl, description, set_tag: setTag });
-}
+// --- CONTENT MANAGEMENT (ADMIN) ---
 
-export async function deleteTATScenario(id: string, url: string) {
-  if (!isSupabaseActive || !supabase) return;
-  await supabase.from('tat_scenarios').delete().eq('id', id);
-  const path = url.split('/').pop();
-  if (path) await supabase.storage.from('tat-images').remove([path]);
-}
+// PPDT
+export const getPPDTScenarios = async () => {
+    if (!isSupabaseActive) return [];
+    const { data } = await supabase.from('ppdt_scenarios').select('*').order('created_at', { ascending: false });
+    return data || [];
+};
 
-export async function getWATWords() {
-  if (isSupabaseActive && supabase) {
-     const { data } = await supabase.from('wat_words').select('*');
-     return data || [];
-  }
-  return [];
-}
+export const uploadPPDTScenario = async (file: File, desc: string) => {
+    if (!isSupabaseActive) return;
+    const fileName = `ppdt-${Date.now()}-${file.name}`;
+    const { error: uploadError } = await supabase.storage.from('ppdt-images').upload(fileName, file);
+    if (uploadError) throw uploadError;
+    
+    const { data: { publicUrl } } = supabase.storage.from('ppdt-images').getPublicUrl(fileName);
+    
+    await supabase.from('ppdt_scenarios').insert({
+        image_url: publicUrl,
+        description: desc
+    });
+};
 
-export async function uploadWATWords(words: string[], setTag: string = 'General') {
+export const deletePPDTScenario = async (id: string, url: string) => {
+    if (!isSupabaseActive) return;
+    const path = url.split('/').pop();
+    if(path) await supabase.storage.from('ppdt-images').remove([path]);
+    await supabase.from('ppdt_scenarios').delete().eq('id', id);
+};
+
+// TAT
+export const getTATScenarios = async () => {
+    if (!isSupabaseActive) return [];
+    const { data } = await supabase.from('tat_scenarios').select('*').order('created_at', { ascending: false });
+    return data || [];
+};
+
+export const uploadTATScenario = async (file: File, desc: string, setTag: string) => {
+    if (!isSupabaseActive) return;
+    const fileName = `tat-${Date.now()}-${file.name}`;
+    const { error: uploadError } = await supabase.storage.from('tat-images').upload(fileName, file);
+    if (uploadError) throw uploadError;
+    
+    const { data: { publicUrl } } = supabase.storage.from('tat-images').getPublicUrl(fileName);
+    
+    await supabase.from('tat_scenarios').insert({
+        image_url: publicUrl,
+        description: desc,
+        set_tag: setTag
+    });
+};
+
+export const deleteTATScenario = async (id: string, url: string) => {
+    if (!isSupabaseActive) return;
+    const path = url.split('/').pop();
+    if(path) await supabase.storage.from('tat-images').remove([path]);
+    await supabase.from('tat_scenarios').delete().eq('id', id);
+};
+
+// WAT
+export const getWATWords = async () => {
+    if (!isSupabaseActive) return [];
+    const { data } = await supabase.from('wat_words').select('*').order('created_at', { ascending: false });
+    return data || [];
+};
+
+export const uploadWATWords = async (words: string[], setTag: string = 'General') => {
   if (!isSupabaseActive || !supabase) return;
   const payload = words.map(w => ({ word: w, set_tag: setTag }));
   await supabase.from('wat_words').insert(payload);
-}
+};
 
-export async function deleteWATWord(id: string) {
+export const deleteWATWord = async (id: string) => {
   if (!isSupabaseActive || !supabase) return;
   await supabase.from('wat_words').delete().eq('id', id);
-}
+};
+
+export const deleteWATSet = async (setTag: string) => {
+  if (!isSupabaseActive || !supabase) return;
+  await supabase.from('wat_words').delete().eq('set_tag', setTag);
+};
+
+// --- PAYMENTS ---
+
+export const getLatestPaymentRequest = async (userId: string) => {
+    if (!isSupabaseActive) return null;
+    const { data } = await supabase.from('payment_requests').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).single();
+    return data;
+};
+
+export const submitPaymentRequest = async (userId: string, utr: string, amount: number, planType: string) => {
+    if (!isSupabaseActive) throw new Error("Service Offline");
+    
+    // Check if UTR already exists
+    const { data: existing } = await supabase.from('payment_requests').select('id').eq('utr', utr).single();
+    if (existing) throw new Error("This UTR has already been submitted.");
+
+    const { error } = await supabase.from('payment_requests').insert({
+        user_id: userId,
+        utr: utr,
+        amount: amount,
+        plan_type: planType,
+        status: 'PENDING'
+    });
+    
+    if (error) throw error;
+};
+
+export const getPendingPayments = async () => {
+    if (!isSupabaseActive) return [];
+    const { data } = await supabase.from('payment_requests').select('*, aspirants(full_name, email)').eq('status', 'PENDING');
+    return data || [];
+};
+
+export const approvePaymentRequest = async (requestId: string, userId: string, planType: string) => {
+    if (!isSupabaseActive) return;
+    
+    // 1. Update Request Status
+    const { error } = await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', requestId);
+    if (error) throw error;
+
+    // 2. Update User Subscription
+    const sub = await getUserSubscription(userId);
+    const newSub = { ...sub };
+
+    if (planType === 'PRO_SUBSCRIPTION') {
+        newSub.tier = 'PRO';
+        // Reset or increase limits for PRO
+        newSub.usage.interview_limit = 5;
+        newSub.usage.ppdt_limit = 20;
+        newSub.usage.tat_limit = 7;
+    } else if (planType === 'INTERVIEW_ADDON') {
+        newSub.extra_credits.interview = (newSub.extra_credits.interview || 0) + 1;
+    }
+
+    await supabase.from('aspirants').update({ subscription_data: newSub }).eq('user_id', userId);
+};
+
+export const rejectPaymentRequest = async (requestId: string) => {
+    if (!isSupabaseActive) return;
+    await supabase.from('payment_requests').update({ status: 'REJECTED' }).eq('id', requestId);
+};
