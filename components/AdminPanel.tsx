@@ -149,7 +149,7 @@ const AdminPanel: React.FC = () => {
       await fetchData();
     } catch (error: any) {
       console.error("Delete set failed", error);
-      setErrorMsg(error.message || "Failed to delete set. Ensure you have run the SQL to enable delete permissions.");
+      setErrorMsg(error.message || "Failed to delete set. Run the SQL fix below if permission denied.");
     }
   };
 
@@ -167,7 +167,7 @@ const AdminPanel: React.FC = () => {
       return acc;
   }, {});
 
-  // Cleaned SQL with DELETE permissions for Admin
+  // Cleaned SQL with DELETE permissions for Admin and IDEMPOTENT logic
   const storageSQL = `
 -- 1. Storage Buckets & Policies (Idempotent)
 insert into storage.buckets (id, name, public) 
@@ -195,12 +195,8 @@ alter table aspirants add column if not exists subscription_data jsonb default '
 -- 3. RLS Policies for Aspirants
 alter table aspirants enable row level security;
 
--- Standard Policies
-create policy "Public Aspirants View" on aspirants for select using (true);
-create policy "Self Update Aspirants" on aspirants for update using (auth.uid() = user_id);
-create policy "Self Insert Aspirants" on aspirants for insert with check (auth.uid() = user_id);
-
 -- *** SUPER ADMIN POLICY (Modify email as needed) ***
+drop policy if exists "Admin All Aspirants" on aspirants;
 create policy "Admin All Aspirants" on aspirants for all
 using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com')
 with check ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
@@ -213,9 +209,12 @@ create table if not exists ppdt_scenarios (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 alter table ppdt_scenarios enable row level security;
+drop policy if exists "Public View PPDT" on ppdt_scenarios;
 create policy "Public View PPDT" on ppdt_scenarios for select using (true);
+drop policy if exists "Public Insert PPDT" on ppdt_scenarios;
 create policy "Public Insert PPDT" on ppdt_scenarios for insert with check (true);
 -- Allow Admin Delete
+drop policy if exists "Admin Delete PPDT" on ppdt_scenarios;
 create policy "Admin Delete PPDT" on ppdt_scenarios for delete using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
 
 create table if not exists tat_scenarios (
@@ -226,9 +225,12 @@ create table if not exists tat_scenarios (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 alter table tat_scenarios enable row level security;
+drop policy if exists "Public View TAT" on tat_scenarios;
 create policy "Public View TAT" on tat_scenarios for select using (true);
+drop policy if exists "Public Insert TAT" on tat_scenarios;
 create policy "Public Insert TAT" on tat_scenarios for insert with check (true);
 -- Allow Admin Delete
+drop policy if exists "Admin Delete TAT" on tat_scenarios;
 create policy "Admin Delete TAT" on tat_scenarios for delete using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
 
 create table if not exists wat_words (
@@ -238,9 +240,12 @@ create table if not exists wat_words (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 alter table wat_words enable row level security;
+drop policy if exists "Public View WAT" on wat_words;
 create policy "Public View WAT" on wat_words for select using (true);
+drop policy if exists "Public Insert WAT" on wat_words;
 create policy "Public Insert WAT" on wat_words for insert with check (true);
 -- Allow Admin Delete
+drop policy if exists "Admin Delete WAT" on wat_words;
 create policy "Admin Delete WAT" on wat_words for delete using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
 
 create table if not exists srt_questions (
@@ -250,9 +255,12 @@ create table if not exists srt_questions (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 alter table srt_questions enable row level security;
+drop policy if exists "Public View SRT" on srt_questions;
 create policy "Public View SRT" on srt_questions for select using (true);
+drop policy if exists "Public Insert SRT" on srt_questions;
 create policy "Public Insert SRT" on srt_questions for insert with check (true);
 -- Allow Admin Delete
+drop policy if exists "Admin Delete SRT" on srt_questions;
 create policy "Admin Delete SRT" on srt_questions for delete using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
 
 -- 5. Payments & History
@@ -266,8 +274,11 @@ create table if not exists payment_requests (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 alter table payment_requests enable row level security;
+drop policy if exists "User Insert Payments" on payment_requests;
 create policy "User Insert Payments" on payment_requests for insert with check (auth.uid() = user_id);
+drop policy if exists "Admin View Payments" on payment_requests;
 create policy "Admin View Payments" on payment_requests for select using (true);
+drop policy if exists "Admin Update Payments" on payment_requests;
 create policy "Admin Update Payments" on payment_requests for update using (true);
 
 create table if not exists test_history (
@@ -279,7 +290,9 @@ create table if not exists test_history (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 alter table test_history enable row level security;
+drop policy if exists "Self View History" on test_history;
 create policy "Self View History" on test_history for select using (auth.uid() = user_id);
+drop policy if exists "Self Insert History" on test_history;
 create policy "Self Insert History" on test_history for insert with check (auth.uid() = user_id);
 `;
 

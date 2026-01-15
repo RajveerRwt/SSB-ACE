@@ -282,10 +282,15 @@ export const deleteWATWord = async (id: string) => {
 
 export const deleteWATSet = async (setTag: string) => {
   if (!supabase) return;
-  // If setTag is 'General' it might also delete rows with null set_tag if logic handles it, 
-  // but simpler to rely on exact match.
-  const { error } = await supabase.from('wat_words').delete().eq('set_tag', setTag);
-  if (error) throw error;
+  
+  if (setTag === 'General') {
+     // Handle cases where set_tag is explicitly 'General' OR where it is NULL (legacy/default)
+     const { error } = await supabase.from('wat_words').delete().or(`set_tag.eq.${setTag},set_tag.is.null`);
+     if (error) throw error;
+  } else {
+     const { error } = await supabase.from('wat_words').delete().eq('set_tag', setTag);
+     if (error) throw error;
+  }
 };
 
 // SRT
@@ -310,8 +315,15 @@ export const deleteSRTQuestion = async (id: string) => {
 
 export const deleteSRTSet = async (setTag: string) => {
   if (!supabase) return;
-  const { error } = await supabase.from('srt_questions').delete().eq('set_tag', setTag);
-  if (error) throw error;
+  
+  if (setTag === 'General') {
+     // Handle cases where set_tag is explicitly 'General' OR where it is NULL (legacy/default)
+     const { error } = await supabase.from('srt_questions').delete().or(`set_tag.eq.${setTag},set_tag.is.null`);
+     if (error) throw error;
+  } else {
+     const { error } = await supabase.from('srt_questions').delete().eq('set_tag', setTag);
+     if (error) throw error;
+  }
 };
 
 // --- PAYMENTS ---
