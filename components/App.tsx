@@ -391,8 +391,29 @@ const App: React.FC = () => {
   };
 
   const navigateTo = async (test: TestType) => {
-     if (test === TestType.LOGIN && user) return; // Already logged in
+     // 1. Prevent Login page if already logged in
+     if (test === TestType.LOGIN && user) return; 
      
+     // 2. PROTECTED ROUTES CHECK
+     // These sections require a valid user session
+     const protectedRoutes = [
+        TestType.PIQ,
+        TestType.PPDT,
+        TestType.TAT,
+        TestType.WAT,
+        TestType.SRT,
+        TestType.SDT,
+        TestType.INTERVIEW,
+        TestType.AI_BOT
+     ];
+
+     if (protectedRoutes.includes(test) && !user) {
+        alert("Restricted Area. Please Login to access training simulations.");
+        setActiveTest(TestType.LOGIN);
+        return;
+     }
+
+     // 3. SUBSCRIPTION LIMIT CHECK (Only if logged in)
      if ((test === TestType.INTERVIEW || test === TestType.PPDT || test === TestType.TAT) && user) {
         const { allowed, message } = await checkLimit(user, test);
         if (!allowed) {
@@ -402,7 +423,7 @@ const App: React.FC = () => {
         }
      }
      
-     // Admin check
+     // 4. ADMIN CHECK
      if (test === TestType.ADMIN && !isUserAdmin(userEmail)) {
         alert("Access Denied.");
         return;
