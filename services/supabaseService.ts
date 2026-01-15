@@ -214,10 +214,11 @@ export const uploadPPDTScenario = async (file: File, description: string) => {
 
     const { data: { publicUrl } } = supabase.storage.from('ppdt-images').getPublicUrl(filePath);
 
-    await supabase.from('ppdt_scenarios').insert({
+    const { error } = await supabase.from('ppdt_scenarios').insert({
         image_url: publicUrl,
         description
     });
+    if (error) throw error;
 };
 
 export const deletePPDTScenario = async (id: string, url: string) => {
@@ -245,16 +246,18 @@ export const uploadTATScenario = async (file: File, description: string, setTag:
 
     const { data: { publicUrl } } = supabase.storage.from('tat-images').getPublicUrl(filePath);
 
-    await supabase.from('tat_scenarios').insert({
+    const { error } = await supabase.from('tat_scenarios').insert({
         image_url: publicUrl,
         description,
         set_tag: setTag
     });
+    if (error) throw error;
 };
 
 export const deleteTATScenario = async (id: string, url: string) => {
     if (!supabase) return;
-    await supabase.from('tat_scenarios').delete().eq('id', id);
+    const { error } = await supabase.from('tat_scenarios').delete().eq('id', id);
+    if (error) throw error;
 };
 
 // WAT
@@ -267,17 +270,22 @@ export const getWATWords = async () => {
 export const uploadWATWords = async (words: string[], setTag: string = 'General') => {
   if (!supabase) return;
   const payload = words.map(w => ({ word: w, set_tag: setTag }));
-  await supabase.from('wat_words').insert(payload);
+  const { error } = await supabase.from('wat_words').insert(payload);
+  if (error) throw error;
 };
 
 export const deleteWATWord = async (id: string) => {
   if (!supabase) return;
-  await supabase.from('wat_words').delete().eq('id', id);
+  const { error } = await supabase.from('wat_words').delete().eq('id', id);
+  if (error) throw error;
 };
 
 export const deleteWATSet = async (setTag: string) => {
   if (!supabase) return;
-  await supabase.from('wat_words').delete().eq('set_tag', setTag);
+  // If setTag is 'General' it might also delete rows with null set_tag if logic handles it, 
+  // but simpler to rely on exact match.
+  const { error } = await supabase.from('wat_words').delete().eq('set_tag', setTag);
+  if (error) throw error;
 };
 
 // SRT
@@ -290,17 +298,20 @@ export const getSRTQuestions = async () => {
 export const uploadSRTQuestions = async (questions: string[], setTag: string = 'General') => {
   if (!supabase) return;
   const payload = questions.map(q => ({ question: q, set_tag: setTag }));
-  await supabase.from('srt_questions').insert(payload);
+  const { error } = await supabase.from('srt_questions').insert(payload);
+  if (error) throw error;
 };
 
 export const deleteSRTQuestion = async (id: string) => {
   if (!supabase) return;
-  await supabase.from('srt_questions').delete().eq('id', id);
+  const { error } = await supabase.from('srt_questions').delete().eq('id', id);
+  if (error) throw error;
 };
 
 export const deleteSRTSet = async (setTag: string) => {
   if (!supabase) return;
-  await supabase.from('srt_questions').delete().eq('set_tag', setTag);
+  const { error } = await supabase.from('srt_questions').delete().eq('set_tag', setTag);
+  if (error) throw error;
 };
 
 // --- PAYMENTS ---

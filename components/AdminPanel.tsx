@@ -136,7 +136,7 @@ const AdminPanel: React.FC = () => {
       setItems(items.filter(i => i.id !== id));
     } catch (error: any) {
       console.error("Delete failed", error);
-      setErrorMsg(error.message || "Failed to delete item.");
+      setErrorMsg(error.message || "Failed to delete item. Ensure you have run the SQL to enable delete permissions.");
     }
   };
 
@@ -149,7 +149,7 @@ const AdminPanel: React.FC = () => {
       await fetchData();
     } catch (error: any) {
       console.error("Delete set failed", error);
-      setErrorMsg(error.message || "Failed to delete set.");
+      setErrorMsg(error.message || "Failed to delete set. Ensure you have run the SQL to enable delete permissions.");
     }
   };
 
@@ -167,7 +167,7 @@ const AdminPanel: React.FC = () => {
       return acc;
   }, {});
 
-  // Cleaned SQL without quotes in comments to prevent parser errors
+  // Cleaned SQL with DELETE permissions for Admin
   const storageSQL = `
 -- 1. Storage Buckets & Policies (Idempotent)
 insert into storage.buckets (id, name, public) 
@@ -195,24 +195,17 @@ alter table aspirants add column if not exists subscription_data jsonb default '
 -- 3. RLS Policies for Aspirants
 alter table aspirants enable row level security;
 
--- Drop old policies to prevent conflicts
-drop policy if exists "Public Aspirants View" on aspirants;
-drop policy if exists "Self Update Aspirants" on aspirants;
-drop policy if exists "Self Insert Aspirants" on aspirants;
-drop policy if exists "Admin Update Aspirants" on aspirants;
-drop policy if exists "Admin All Aspirants" on aspirants;
-
 -- Standard Policies
 create policy "Public Aspirants View" on aspirants for select using (true);
 create policy "Self Update Aspirants" on aspirants for update using (auth.uid() = user_id);
 create policy "Self Insert Aspirants" on aspirants for insert with check (auth.uid() = user_id);
 
--- *** SUPER ADMIN POLICY ***
+-- *** SUPER ADMIN POLICY (Modify email as needed) ***
 create policy "Admin All Aspirants" on aspirants for all
 using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com')
 with check ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
 
--- 4. Content Tables (PPDT/TAT/WAT/SRT)
+-- 4. Content Tables (PPDT/TAT/WAT/SRT) & PERMISSIONS
 create table if not exists ppdt_scenarios (
   id uuid default gen_random_uuid() primary key,
   image_url text,
@@ -222,6 +215,8 @@ create table if not exists ppdt_scenarios (
 alter table ppdt_scenarios enable row level security;
 create policy "Public View PPDT" on ppdt_scenarios for select using (true);
 create policy "Public Insert PPDT" on ppdt_scenarios for insert with check (true);
+-- Allow Admin Delete
+create policy "Admin Delete PPDT" on ppdt_scenarios for delete using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
 
 create table if not exists tat_scenarios (
   id uuid default gen_random_uuid() primary key,
@@ -233,6 +228,8 @@ create table if not exists tat_scenarios (
 alter table tat_scenarios enable row level security;
 create policy "Public View TAT" on tat_scenarios for select using (true);
 create policy "Public Insert TAT" on tat_scenarios for insert with check (true);
+-- Allow Admin Delete
+create policy "Admin Delete TAT" on tat_scenarios for delete using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
 
 create table if not exists wat_words (
   id uuid default gen_random_uuid() primary key,
@@ -243,6 +240,8 @@ create table if not exists wat_words (
 alter table wat_words enable row level security;
 create policy "Public View WAT" on wat_words for select using (true);
 create policy "Public Insert WAT" on wat_words for insert with check (true);
+-- Allow Admin Delete
+create policy "Admin Delete WAT" on wat_words for delete using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
 
 create table if not exists srt_questions (
   id uuid default gen_random_uuid() primary key,
@@ -253,6 +252,8 @@ create table if not exists srt_questions (
 alter table srt_questions enable row level security;
 create policy "Public View SRT" on srt_questions for select using (true);
 create policy "Public Insert SRT" on srt_questions for insert with check (true);
+-- Allow Admin Delete
+create policy "Admin Delete SRT" on srt_questions for delete using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
 
 -- 5. Payments & History
 create table if not exists payment_requests (
