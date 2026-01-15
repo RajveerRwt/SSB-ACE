@@ -397,6 +397,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         1. If the candidate only gives one-word answers or the transcript is very short/trivial, score MUST be below 3.0.
         2. Do not hallucinate qualities if they are not demonstrated in the text.
         3. Assess 15 Officer Like Qualities (OLQs).
+        4. LOOK FOR VISUAL CUES: Scan the transcript for remarks made by the Interviewer (Major Veer/Col Arjun) regarding the candidate's body language (e.g. "sit straight", "look at me", "you look nervous"). Use these to populate the 'bodyLanguage' field.
         
         Return JSON.`;
         

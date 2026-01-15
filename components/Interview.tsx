@@ -6,7 +6,7 @@ import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
 
 /** 
- * SSB VIRTUAL INTERVIEW PROTOCOL (v5.0 - Video Enabled)
+ * SSB VIRTUAL INTERVIEW PROTOCOL (v5.1 - Enhanced Visual Observation)
  */
 
 function decode(base64: string) {
@@ -235,10 +235,9 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
           
           *** PROTOCOL: AUDIO & VISUAL ***
           1. MODALITY: You can SEE and HEAR the candidate. 
-          2. OBSERVATION: 
-             - Analyze body language: Are they sitting upright? Fidgeting? Eye contact?
-             - Analyze facial expressions: Confident? Nervous? Smiling inappropriately?
-             - Analyze voice: Tone, fluency, modulation.
+          2. MANDATORY VISUAL CHECK: 
+             - At the very beginning, describe one visual detail about the candidate (e.g., "I see you are sitting in a well-lit room," or "Adjust your camera, I can only see your forehead") to confirm you are observing them.
+             - Throughout the interview, if the candidate looks down, fidgets, or looks away, VERBALLY reprimand them immediately (e.g., "Look at me when I speak," "Stop shaking"). This is CRITICAL for the final report.
           
           3. GREETING PROTOCOL: 
              - Wait for the candidate to GREET you first (e.g., "Good Morning Sir", "Jai Hind").
