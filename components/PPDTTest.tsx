@@ -398,20 +398,18 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin }) => {
 
       case PPDTStep.IMAGE:
         return (
-          <div className="flex flex-col items-center animate-in fade-in duration-1000 h-full justify-center">
-            <div className="flex items-center gap-4 mb-6">
-               <Eye className="text-blue-600 animate-pulse" size={24} />
-               <p className="text-blue-600 font-black uppercase tracking-[0.2em] text-xs">Observe Carefully</p>
-            </div>
-            <div className="relative mb-8 md:mb-10 overflow-hidden rounded-[2rem] md:rounded-[4rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] border-[8px] md:border-[12px] border-white ring-1 ring-slate-200">
-              <img 
-                src={currentImageUrl} 
-                alt="PPDT hazy scenario" 
-                className="max-h-[60vh] md:max-h-[70vh] w-auto object-cover opacity-90 grayscale contrast-[1.4] brightness-110 blur-[1px]"
-              />
-              <div className="absolute top-6 left-6 bg-black/60 backdrop-blur-md px-6 py-2 rounded-full border border-white/20">
-                 <p className="text-white font-mono font-black text-xl">{timeLeft}s</p>
-              </div>
+          <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center animate-in fade-in duration-1000 cursor-none">
+            <img 
+              src={currentImageUrl} 
+              alt="PPDT Stimulus" 
+              className="w-full h-full object-contain opacity-90 grayscale contrast-[1.2] brightness-110 blur-[0.5px]"
+            />
+            {/* Subtle Progress Bar (Optional, keeps user grounded without distracting digits) */}
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-900">
+               <div 
+                 className="h-full bg-slate-700 transition-all duration-1000 ease-linear"
+                 style={{ width: `${(timeLeft / 30) * 100}%` }}
+               />
             </div>
           </div>
         );
