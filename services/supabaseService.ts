@@ -281,12 +281,16 @@ export const deleteWATWord = async (id: string) => {
 };
 
 export const deleteWATSet = async (setTag: string) => {
-  if (!supabase) return;
+  if (!supabase) throw new Error("Database connection unavailable");
   
   if (setTag === 'General') {
-     // Handle cases where set_tag is explicitly 'General' OR where it is NULL (legacy/default)
-     const { error } = await supabase.from('wat_words').delete().or(`set_tag.eq.${setTag},set_tag.is.null`);
-     if (error) throw error;
+     // Handle cases where set_tag is explicitly 'General'
+     const { error: err1 } = await supabase.from('wat_words').delete().eq('set_tag', 'General');
+     if (err1) throw err1;
+     
+     // Handle legacy items where set_tag is NULL
+     const { error: err2 } = await supabase.from('wat_words').delete().is('set_tag', null);
+     if (err2) throw err2;
   } else {
      const { error } = await supabase.from('wat_words').delete().eq('set_tag', setTag);
      if (error) throw error;
@@ -314,12 +318,14 @@ export const deleteSRTQuestion = async (id: string) => {
 };
 
 export const deleteSRTSet = async (setTag: string) => {
-  if (!supabase) return;
+  if (!supabase) throw new Error("Database connection unavailable");
   
   if (setTag === 'General') {
-     // Handle cases where set_tag is explicitly 'General' OR where it is NULL (legacy/default)
-     const { error } = await supabase.from('srt_questions').delete().or(`set_tag.eq.${setTag},set_tag.is.null`);
-     if (error) throw error;
+     const { error: err1 } = await supabase.from('srt_questions').delete().eq('set_tag', 'General');
+     if (err1) throw err1;
+     
+     const { error: err2 } = await supabase.from('srt_questions').delete().is('set_tag', null);
+     if (err2) throw err2;
   } else {
      const { error } = await supabase.from('srt_questions').delete().eq('set_tag', setTag);
      if (error) throw error;

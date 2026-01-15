@@ -30,6 +30,9 @@ const AdminPanel: React.FC = () => {
   // Confirmation Modal State
   const [confirmAction, setConfirmAction] = useState<{id: string, type: 'APPROVE' | 'REJECT', userId: string, planType: any} | null>(null);
   
+  // SQL Help Toggle
+  const [showSqlHelp, setShowSqlHelp] = useState(false);
+
   const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS'>('PAYMENTS');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -137,6 +140,7 @@ const AdminPanel: React.FC = () => {
     } catch (error: any) {
       console.error("Delete failed", error);
       setErrorMsg(error.message || "Failed to delete item. Ensure you have run the SQL to enable delete permissions.");
+      setShowSqlHelp(true);
     }
   };
 
@@ -150,6 +154,7 @@ const AdminPanel: React.FC = () => {
     } catch (error: any) {
       console.error("Delete set failed", error);
       setErrorMsg(error.message || "Failed to delete set. Run the SQL fix below if permission denied.");
+      setShowSqlHelp(true);
     }
   };
 
@@ -305,26 +310,38 @@ create policy "Self Insert History" on test_history for insert with check (auth.
           </h1>
           <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-xs mt-2">Resource Management & Deployment</p>
         </div>
-        <button onClick={fetchData} className="p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all text-white">
-          <RefreshCw size={20} className={isLoading ? "animate-spin" : ""} />
-        </button>
+        <div className="flex gap-4">
+            <button onClick={() => setShowSqlHelp(!showSqlHelp)} className="p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all text-white flex items-center gap-2" title="Database Setup Help">
+                <Database size={20} /> <span className="hidden md:inline font-bold text-xs uppercase tracking-widest">DB Setup</span>
+            </button>
+            <button onClick={fetchData} className="p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all text-white">
+                <RefreshCw size={20} className={isLoading ? "animate-spin" : ""} />
+            </button>
+        </div>
       </div>
 
-      {errorMsg && (
-        <div className="p-6 bg-red-50 border-2 border-red-100 rounded-[2.5rem] space-y-6 animate-in slide-in-from-top-4 shadow-xl">
-          <div className="flex items-start gap-4 text-red-600">
-            <AlertCircle size={28} className="shrink-0 mt-1" />
-            <div className="flex-1">
-               <p className="text-[10px] font-black uppercase tracking-widest mb-1">Critical Security Violation</p>
-               <p className="text-sm font-bold leading-relaxed">{errorMsg}</p>
-            </div>
-            <button onClick={() => setErrorMsg(null)} className="text-xs font-black uppercase p-2 hover:bg-red-100 rounded-lg">Dismiss</button>
-          </div>
+      {(errorMsg || showSqlHelp) && (
+        <div className={`p-6 rounded-[2.5rem] space-y-6 animate-in slide-in-from-top-4 shadow-xl ${errorMsg ? 'bg-red-50 border-2 border-red-100' : 'bg-blue-50 border-2 border-blue-100'}`}>
+          {errorMsg && (
+              <div className="flex items-start gap-4 text-red-600">
+                <AlertCircle size={28} className="shrink-0 mt-1" />
+                <div className="flex-1">
+                <p className="text-[10px] font-black uppercase tracking-widest mb-1">Critical Security Violation</p>
+                <p className="text-sm font-bold leading-relaxed">{errorMsg}</p>
+                </div>
+                <button onClick={() => setErrorMsg(null)} className="text-xs font-black uppercase p-2 hover:bg-red-100 rounded-lg">Dismiss</button>
+              </div>
+          )}
           
-          <div className="bg-white p-8 rounded-[2rem] border border-red-200 space-y-6">
-            <div className="flex items-center gap-3 text-slate-900">
-              <Settings className="text-blue-600" size={24} />
-              <h5 className="text-sm font-black uppercase tracking-widest">Database Setup Required:</h5>
+          <div className="bg-white p-8 rounded-[2rem] border border-slate-200 space-y-6">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 text-slate-900">
+                    <Settings className="text-blue-600" size={24} />
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Setup Required:</h5>
+                </div>
+                {showSqlHelp && !errorMsg && (
+                    <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
+                )}
             </div>
             
             <div className="relative group">
