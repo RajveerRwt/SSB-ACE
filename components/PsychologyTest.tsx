@@ -704,18 +704,23 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
         </div>
 
         {isTAT && phase === PsychologyPhase.VIEWING && (
-          <div className="animate-in zoom-in duration-500">
-             <div className="relative rounded-[4rem] overflow-hidden shadow-2xl border-[15px] border-white ring-1 ring-slate-200 bg-white min-h-[60vh] flex items-center justify-center">
+          <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center animate-in fade-in duration-500 cursor-none">
                 {imageUrl === 'BLANK' ? (
                   <div className="text-center p-40">
-                     <div className="text-slate-100 font-black text-[10rem] uppercase tracking-[0.5em] opacity-20 transform -rotate-12">BLANK</div>
-                     <p className="text-slate-400 font-black uppercase tracking-[0.6em] text-xl mt-8">Prepare Final Story</p>
+                     <div className="text-slate-800 font-black text-[10rem] uppercase tracking-[0.5em] opacity-20 transform -rotate-12">BLANK</div>
+                     <p className="text-slate-500 font-black uppercase tracking-[0.6em] text-xl mt-8">Prepare Final Story</p>
                   </div>
                 ) : (
-                  <img src={imageUrl!} className="mx-auto w-full max-h-[75vh] object-contain grayscale contrast-[1.4]" alt="Stimulus" />
+                  <img src={imageUrl!} className="w-full h-full object-contain grayscale contrast-[1.4]" alt="Stimulus" />
                 )}
-                <div className="absolute top-10 left-10 bg-black/70 backdrop-blur-3xl px-10 py-4 rounded-full text-white font-black text-[10px] uppercase tracking-[0.4em]">VIEWING PHASE: 30S</div>
-             </div>
+                
+                {/* Subtle progress bar */}
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-900">
+                   <div 
+                     className="h-full bg-slate-700 transition-all duration-1000 ease-linear"
+                     style={{ width: `${(timeLeft / 30) * 100}%` }}
+                   />
+                </div>
           </div>
         )}
 
