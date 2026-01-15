@@ -6,7 +6,7 @@ import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
 
 /** 
- * SSB VIRTUAL INTERVIEW PROTOCOL (v4.4 - Audio Fixes)
+ * SSB VIRTUAL INTERVIEW PROTOCOL (v5.0 - Video Enabled)
  */
 
 function decode(base64: string) {
@@ -113,6 +113,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const retryCountRef = useRef(0);
   const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const frameIntervalRef = useRef<number | null>(null); // To manage video loop
   const isSocketOpenRef = useRef(false);
   
   // Video Refs
@@ -134,6 +135,8 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
 
   const cleanupAudio = useCallback(async () => {
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
+    if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
+    
     isSocketOpenRef.current = false;
     
     if (scriptProcessorRef.current) {
@@ -201,24 +204,23 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
       await outputAudioContextRef.current.resume();
 
       // 2. Request Media
-      // We request video for Self-View, but we do NOT stream it to AI (Cost Saving)
+      // Request video with specific low-res constraints to save bandwidth but sufficient for AI analysis
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          // Try to request 16k from hardware, but don't fail if ignored
           sampleRate: 16000 
         },
         video: {
             width: 320,
             height: 240,
-            frameRate: 10
+            frameRate: 15
         }
       });
       streamRef.current = stream;
       
-      // Connect stream to video element for self-view
+      // Connect stream to video element for self-view and capture
       if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().catch(e => console.error("Video play failed", e));
@@ -231,17 +233,21 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
           CONTEXT: A rigorous, formal 30-minute Personal Interview.
           PIQ DATA: ${JSON.stringify(piqData)}.
           
-          *** PROTOCOL: VOICE ONLY ***
-          1. AUDIO: This is a voice-only call. Focus on the candidate's tone, confidence, and fluency.
+          *** PROTOCOL: AUDIO & VISUAL ***
+          1. MODALITY: You can SEE and HEAR the candidate. 
+          2. OBSERVATION: 
+             - Analyze body language: Are they sitting upright? Fidgeting? Eye contact?
+             - Analyze facial expressions: Confident? Nervous? Smiling inappropriately?
+             - Analyze voice: Tone, fluency, modulation.
           
-          2. GREETING PROTOCOL: 
+          3. GREETING PROTOCOL: 
              - Wait for the candidate to GREET you first (e.g., "Good Morning Sir", "Jai Hind").
              - If they do not greet within the first 10 seconds of the call, reprimand them immediately for lack of officer-like etiquette.
 
-          3. STRATEGY:
+          4. STRATEGY:
              - Deep Probe: If answers are short, ask "Why?", "How?", "Tell me more".
              - Rapid Fire: Ask multiple questions in one go.
-             - Stress: If they fumble, pressure them slightly.
+             - Stress: If they fumble or look nervous, pressure them slightly.
 
           TONE: Authoritative, Skeptical, Thorough.
           STYLE: Use a measured, commanding tone typical of a senior Indian Army Officer. Use Indian English phrasing (e.g., "Gentleman", "What say you?", "Fair enough").`;
@@ -263,7 +269,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         config: {
-          responseModalities: [Modality.AUDIO], // Audio Only
+          responseModalities: [Modality.AUDIO], // Audio Output
           inputAudioTranscription: {}, 
           systemInstruction: finalInstruction,
           speechConfig: {
@@ -300,8 +306,41 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
               scriptProcessor.connect(inputAudioContextRef.current.destination);
             }
 
-            // NOTE: Video Streaming Disabled for Cost/Bandwidth Optimization. 
-            // The self-view (videoRef) works locally, but no frames are sent to AI.
+            // 2. Video Input Pipeline (1 FPS for bandwidth/cost optimization)
+            const FRAME_RATE = 1; 
+            if (videoRef.current && canvasRef.current) {
+                frameIntervalRef.current = window.setInterval(() => {
+                    const videoEl = videoRef.current;
+                    const canvasEl = canvasRef.current;
+                    if (!videoEl || !canvasEl || !isSocketOpenRef.current) return;
+                    
+                    const ctx = canvasEl.getContext('2d');
+                    if (!ctx) return;
+
+                    // Match capture resolution
+                    canvasEl.width = videoEl.videoWidth;
+                    canvasEl.height = videoEl.videoHeight;
+                    
+                    // Draw video frame
+                    ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+                    
+                    // Convert to Blob and Send
+                    canvasEl.toBlob(async (blob) => {
+                        if (blob && isSocketOpenRef.current && sessionPromiseRef.current) {
+                            try {
+                                const base64Data = await blobToBase64(blob);
+                                sessionPromiseRef.current.then(session => {
+                                    session.sendRealtimeInput({
+                                        media: { data: base64Data, mimeType: 'image/jpeg' }
+                                    });
+                                });
+                            } catch (e) {
+                                console.warn("Frame capture error", e);
+                            }
+                        }
+                    }, 'image/jpeg', 0.6); // 0.6 Quality JPEG
+                }, 1000 / FRAME_RATE);
+            }
           },
           onmessage: async (message: LiveServerMessage) => {
             // Aggregate transcript
@@ -374,6 +413,8 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
 
   const handleAutoReconnect = () => {
     isSocketOpenRef.current = false;
+    if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
+    
     // Faster retry for seamless feeling
     if (retryCountRef.current < 10) {
        const delay = 1000 + (retryCountRef.current * 500); 
@@ -459,14 +500,14 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
                    <Clock size={12} /> 30 Minutes
                  </span>
                  <span className="px-3 md:px-4 py-1.5 bg-green-500/20 text-green-300 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-green-500/30 flex items-center gap-2">
-                   <Mic size={12} /> Voice Only Mode
+                   <Video size={12} /> Video Enabled
                  </span>
               </div>
               
               <div className="bg-white/5 p-6 rounded-2xl border border-white/10 text-left max-w-xl mx-auto space-y-3">
                  <h4 className="text-yellow-400 font-black uppercase text-xs tracking-widest flex items-center gap-2"><Info size={14} /> Entry Instructions</h4>
                  <ul className="text-slate-300 text-xs space-y-2 font-medium">
-                    <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Camera Permission Required (Self-View Only).</li>
+                    <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Camera Permission Required (IO can see you).</li>
                     <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Sit in a well-lit room with upright posture.</li>
                     <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> <b>Greeting Mandatory:</b> Wish the Officer (e.g. "Good Morning Sir") immediately upon entering.</li>
                  </ul>
@@ -476,7 +517,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
                 onClick={() => startBoardSession(false)} 
                 className="px-12 md:px-16 py-5 md:py-7 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all hover:scale-105 active:scale-95"
               >
-                Allow Mic & Enter Room
+                Allow Cam/Mic & Enter
               </button>
            </div>
         </div>
@@ -514,7 +555,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center space-y-8 animate-in fade-in">
            <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
            <p className="text-white font-black uppercase tracking-[0.4em] text-sm">
-             {connectionStatus === 'RECONNECTING' ? 'Link Interrupted. Resuming Protocol...' : 'Establishing Secure Audio Uplink...'}
+             {connectionStatus === 'RECONNECTING' ? 'Link Interrupted. Resuming Protocol...' : 'Establishing Secure Uplink...'}
            </p>
            {connectionStatus === 'RECONNECTING' && <p className="text-slate-400 text-xs">Preserving Context. Standby...</p>}
         </div>
@@ -552,7 +593,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
                  {isAiSpeaking ? (
                    <span className="text-blue-600 flex items-center gap-2"><Volume2 size={14} className="animate-pulse" /> IO Speaking...</span>
                  ) : (
-                   <span className="text-green-600 flex items-center gap-2"><Mic size={14} /> Listening...</span>
+                   <span className="text-green-600 flex items-center gap-2"><Eye size={14} /> IO Observing...</span>
                  )}
               </div>
            </div>
@@ -614,7 +655,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
                 <p className="text-[9px] font-black uppercase tracking-widest">Protocol</p>
              </div>
              <p className="text-xs text-slate-400 italic font-medium leading-relaxed relative z-10">
-               "Maintain professional tone. The IO is analyzing your voice modulation, confidence, and fluency in real-time."
+               "Maintain professional tone. The IO is analyzing your voice modulation, posture, and facial expressions in real-time."
              </p>
              <Zap className="absolute -bottom-4 -right-4 w-24 h-24 text-white/5 rotate-12" />
            </div>
