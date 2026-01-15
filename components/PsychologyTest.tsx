@@ -36,6 +36,9 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   const [transcribingIndices, setTranscribingIndices] = useState<number[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   
+  // SRT States (New)
+  const [srtResponses, setSrtResponses] = useState<string[]>([]);
+
   // SDT States
   const [sdtData, setSdtData] = useState({
     parents: '',
@@ -85,6 +88,29 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
     if (type === TestType.SDT) {
         setPhase(PsychologyPhase.WRITING);
         setTimeLeft(900); // 15 Minutes
+        setIsLoading(false);
+        return;
+    }
+
+    // SRT Logic Flow (Modified: Full 30 mins for all 60 items)
+    if (type === TestType.SRT) {
+        const data = await generateTestContent(type);
+        let srtItems = data.items;
+        
+        // Ensure we have 60 items by repeating if necessary (Simulation)
+        if (srtItems.length < 60 && srtItems.length > 0) {
+             const originalLength = srtItems.length;
+             while (srtItems.length < 60) {
+                 const clone = { ...srtItems[srtItems.length % originalLength] };
+                 clone.id = `srt-${srtItems.length}`;
+                 srtItems.push(clone);
+             }
+        }
+        
+        setItems(srtItems);
+        setSrtResponses(new Array(srtItems.length).fill(''));
+        setPhase(PsychologyPhase.WRITING);
+        setTimeLeft(1800); // 30 Minutes
         setIsLoading(false);
         return;
     }
@@ -160,12 +186,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
             content: word
         }));
 
-      } else {
-        // SRT still uses generated content or static list from geminiService
-        const data = await generateTestContent(type);
-        finalItems = data.items;
-        if (finalItems.length > 60) finalItems = finalItems.slice(0, 60);
       }
+      // Note: SRT case handled above separately
       
       setItems(finalItems);
       setCurrentIndex(0);
@@ -186,12 +208,12 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
     }
     if (type === TestType.TAT) { setTimeLeft(30); setPhase(PsychologyPhase.VIEWING); }
     else if (type === TestType.WAT) { setTimeLeft(15); setPhase(PsychologyPhase.WRITING); }
-    else if (type === TestType.SRT) { setTimeLeft(30); setPhase(PsychologyPhase.WRITING); }
+    // SRT setupSlide logic removed as it uses global timer now
   };
 
   useEffect(() => {
     const isTimedPhase = phase === PsychologyPhase.VIEWING || phase === PsychologyPhase.WRITING;
-    if ((type === TestType.SDT || (currentIndex >= 0 && currentIndex < items.length)) && isTimedPhase && timeLeft >= 0) {
+    if ((type === TestType.SDT || type === TestType.SRT || (currentIndex >= 0 && currentIndex < items.length)) && isTimedPhase && timeLeft >= 0) {
       if (timeLeft > 0) {
         timerRef.current = setTimeout(() => setTimeLeft((prev) => prev - 1), 1000);
       } else {
@@ -199,12 +221,18 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
       }
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [timeLeft, currentIndex, phase]);
+  }, [timeLeft, currentIndex, phase, type]);
 
   const handleTimerEnd = () => {
     if (type === TestType.SDT) {
        playBuzzer(300, 1.0);
        submitSDT();
+       return;
+    }
+
+    if (type === TestType.SRT) {
+       playBuzzer(300, 1.0);
+       submitSRT();
        return;
     }
 
@@ -294,6 +322,23 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
       }
   };
 
+  const submitSRT = async () => {
+      setPhase(PsychologyPhase.EVALUATING);
+      try {
+          // Pass formatted data to eval
+          const result = await evaluatePerformance(type, { 
+              srtResponses: items.map((item, i) => ({ situation: item.content, reaction: srtResponses[i] })),
+              testType: type 
+          });
+          setFeedback(result);
+          if (onSave) onSave({ ...result, srtResponses });
+          setPhase(PsychologyPhase.COMPLETED);
+      } catch (err) {
+          console.error("SRT Eval Error", err);
+          setPhase(PsychologyPhase.COMPLETED);
+      }
+  };
+
   const submitDossier = async () => {
     setPhase(PsychologyPhase.EVALUATING);
     try {
@@ -363,7 +408,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
            {type === TestType.TAT ? <ImageIcon size={40}/> : type === TestType.SDT ? <FileSignature size={40} /> : <Target size={40}/>}
         </div>
         <h2 className="text-4xl md:text-5xl font-black mb-6 uppercase tracking-tighter text-slate-900">
-           {type === TestType.SDT ? 'Self Description' : type} Test
+           {type === TestType.SDT ? 'Self Description' : type === TestType.SRT ? 'Situation Reaction' : type} Test
         </h2>
         <div className="bg-slate-50 p-8 rounded-[2rem] mb-12 text-left border border-slate-200">
            <h4 className="font-black text-xs uppercase tracking-widest text-blue-600 mb-4 underline">Board Briefing:</h4>
@@ -372,6 +417,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
                <p>• 12 Pictures (11 from DB + 1 Blank). 30s viewing, 4m writing per slide. All images are retrieved from authorized board sets.</p>
              ) : type === TestType.SDT ? (
                <p>• Write 5 distinct paragraphs describing opinions of Parents, Teachers, Friends, Self, and Future Aims. Total time: 15 Minutes. Be realistic and honest.</p>
+             ) : type === TestType.SRT ? (
+               <p>• You have 30 minutes to attempt 60 Situations. You can skip and return to any question. Brief, action-oriented responses are expected.</p>
              ) : (
                <p>• Spontaneous responses required. Quality and speed are being assessed by the psychologists.</p>
              )}
@@ -492,7 +539,93 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
       );
   }
 
-  // --- TAT/WAT/SRT VIEWING/WRITING ---
+  // --- SRT WRITING UI (List View) ---
+  if (type === TestType.SRT && phase === PsychologyPhase.WRITING) {
+      return (
+        <div className="max-w-5xl mx-auto pb-20 animate-in fade-in duration-700">
+           {/* Sticky Header */}
+           <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md p-4 md:p-6 rounded-[2rem] shadow-xl border border-slate-100 flex items-center justify-between mb-8 transition-all">
+              <div>
+                  <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight">Situation Reaction Test</h3>
+                  <div className="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 mt-1">
+                     <span>Total: {items.length}</span>
+                     <span>Attempted: {srtResponses.filter(r => r.trim()).length}</span>
+                  </div>
+              </div>
+              <div className="flex items-center gap-4">
+                  <div className={`px-5 py-2 md:px-6 md:py-3 rounded-2xl border-4 transition-all ${timeLeft < 300 ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 'bg-slate-900 border-slate-800 text-white'}`}>
+                     <div className="flex items-center gap-3">
+                        <Timer size={20} />
+                        <span className="text-lg md:text-xl font-black font-mono">{formatTime(timeLeft)}</span>
+                     </div>
+                  </div>
+                  <button 
+                    onClick={() => { playBuzzer(300, 0.5); submitSRT(); }}
+                    className="hidden md:flex bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-all shadow-lg items-center gap-2"
+                  >
+                    <CheckCircle size={16} /> Submit
+                  </button>
+              </div>
+           </div>
+
+           {/* List of SRTs */}
+           <div className="space-y-4">
+              {items.map((item, idx) => (
+                  <div key={item.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow group relative">
+                      <div className="flex gap-4">
+                          <span className="text-slate-300 font-black text-2xl select-none">{(idx + 1).toString().padStart(2, '0')}</span>
+                          <div className="flex-1 space-y-3">
+                              <p className="text-lg font-bold text-slate-800 leading-snug">{item.content}</p>
+                              <input 
+                                type="text"
+                                value={srtResponses[idx]}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSrtResponses(prev => {
+                                        const next = [...prev];
+                                        next[idx] = val;
+                                        return next;
+                                    });
+                                }}
+                                placeholder="Type your reaction..."
+                                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium text-slate-700"
+                              />
+                          </div>
+                      </div>
+                      {/* Completion Indicator */}
+                      {srtResponses[idx] && srtResponses[idx].trim() && (
+                          <div className="absolute top-6 right-6 text-green-500 animate-in fade-in zoom-in">
+                              <CheckCircle size={20} />
+                          </div>
+                      )}
+                  </div>
+              ))}
+           </div>
+
+           {/* Mobile Submit FAB */}
+           <div className="fixed bottom-6 right-6 md:hidden z-30">
+              <button 
+                onClick={() => { playBuzzer(300, 0.5); submitSRT(); }}
+                className="bg-green-600 text-white p-4 rounded-full shadow-2xl hover:bg-green-700 transition-all"
+              >
+                <CheckCircle size={24} />
+              </button>
+           </div>
+           
+           {/* Admin Skip */}
+           {isAdmin && (
+             <button 
+                onClick={() => setTimeLeft(0)}
+                className="fixed bottom-6 left-6 z-[100] bg-red-600 text-white pl-4 pr-6 py-3 rounded-full font-black text-[10px] uppercase shadow-2xl hover:bg-red-700 transition-all flex items-center gap-2 border-4 border-white animate-pulse hover:animate-none"
+             >
+                 <FastForward size={14} fill="currentColor" /> Admin Skip
+             </button>
+           )}
+        </div>
+      );
+  }
+
+  // --- TAT/WAT VIEWING/WRITING ---
   if (phase === PsychologyPhase.VIEWING || phase === PsychologyPhase.WRITING) {
     const currentItem = items[currentIndex];
     const isTAT = type === TestType.TAT;
@@ -701,7 +834,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
             <p className="text-slate-500 text-xl font-medium">You have successfully completed the practice set. Your responses have been self-evaluated.</p>
             
             <button 
-              onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); }}
+              onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); setSrtResponses([]); }}
               className="px-16 py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
             >
               Return to Dashboard
@@ -851,7 +984,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
             </div>
         )}
 
-        <button onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); setSdtData({ parents: '', teachers: '', friends: '', self: '', aim: '' }); setSdtImages({ parents: null, teachers: null, friends: null, self: null, aim: null }); setShowScoreHelp(false); }} className="w-full py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl">Return to Wing</button>
+        <button onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); setSdtData({ parents: '', teachers: '', friends: '', self: '', aim: '' }); setSdtImages({ parents: null, teachers: null, friends: null, self: null, aim: null }); setShowScoreHelp(false); setSrtResponses([]); }} className="w-full py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl">Return to Wing</button>
       </div>
     );
   }
