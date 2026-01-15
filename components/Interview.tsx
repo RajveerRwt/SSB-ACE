@@ -6,7 +6,7 @@ import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
 
 /** 
- * SSB VIRTUAL INTERVIEW PROTOCOL (v5.1 - Enhanced Visual Observation)
+ * SSB VIRTUAL INTERVIEW PROTOCOL (v5.2 - Full Transcript Capture)
  */
 
 function decode(base64: string) {
@@ -102,6 +102,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
   // Persist transcript across re-renders and re-connects
   const conversationHistoryRef = useRef<string[]>([]); 
   const currentTranscriptBufferRef = useRef<string>("");
+  const currentAiTranscriptBufferRef = useRef<string>(""); // New Ref for AI speech
 
   // Refs for stability
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
@@ -270,6 +271,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
         config: {
           responseModalities: [Modality.AUDIO], // Audio Output
           inputAudioTranscription: {}, 
+          outputAudioTranscription: {}, // ENABLED: Capture AI Speech for Transcript
           systemInstruction: finalInstruction,
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } }, // Using Charon for deeper, authoritative tone
@@ -342,17 +344,29 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
             }
           },
           onmessage: async (message: LiveServerMessage) => {
-            // Aggregate transcript
+            // A. Handle User Input Transcription
             if (message.serverContent?.inputTranscription) {
               const text = message.serverContent.inputTranscription.text;
               currentTranscriptBufferRef.current += text;
             }
+
+            // B. Handle Model (AI) Output Transcription
+            if (message.serverContent?.outputTranscription) {
+              const text = message.serverContent.outputTranscription.text;
+              currentAiTranscriptBufferRef.current += text;
+            }
             
-            // When turn completes, commit to history
+            // C. Turn Completion (Commit transcripts to history)
             if (message.serverContent?.turnComplete) {
+               // Commit User Buffer
                if (currentTranscriptBufferRef.current.trim()) {
                  conversationHistoryRef.current.push(`Candidate: ${currentTranscriptBufferRef.current}`);
                  currentTranscriptBufferRef.current = "";
+               }
+               // Commit AI Buffer
+               if (currentAiTranscriptBufferRef.current.trim()) {
+                 conversationHistoryRef.current.push(`IO: ${currentAiTranscriptBufferRef.current}`);
+                 currentAiTranscriptBufferRef.current = "";
                }
             }
 
@@ -446,6 +460,11 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
     if (currentTranscriptBufferRef.current.trim()) {
        conversationHistoryRef.current.push(`Candidate (Last words): ${currentTranscriptBufferRef.current}`);
        currentTranscriptBufferRef.current = "";
+    }
+    // Flush AI pending transcript
+    if (currentAiTranscriptBufferRef.current.trim()) {
+       conversationHistoryRef.current.push(`IO (Last words): ${currentAiTranscriptBufferRef.current}`);
+       currentAiTranscriptBufferRef.current = "";
     }
     
     await cleanupSession();
