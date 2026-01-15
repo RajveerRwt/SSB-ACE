@@ -49,17 +49,18 @@ const SSBStages: React.FC = () => {
     },
     {
       day: 4,
-      title: "Stage IV: GTO-2 & IO",
-      subtitle: "Individual Potential",
+      title: "Stage IV: GTO-2",
+      subtitle: "Individual & Final Tasks",
       icon: Mic,
       color: "bg-yellow-600",
       tasks: [
-        { name: "Individual Obstacles", desc: "10 obstacles to test stamina and courage (e.g., Tiger Leap, Commando Walk)." },
-        { name: "Command Task", desc: "Testing leadership ability. You are the commander and must solve a task." },
-        { name: "Lecturette", desc: "A short 3-minute talk on a topic of your choice from a given card." },
-        { name: "Personal Interview", desc: "In-depth probe by the Interviewing Officer (IO) based on your PIQ form." }
+        { name: "Lecturette", desc: "Individual short speeches on a prepared topic." },
+        { name: "Half Group Task (HGT)", desc: "A smaller group task with specific rules, often splitting the main group." },
+        { name: "Individual Obstacles (IO)", desc: "Candidates individually complete various obstacles, testing physical fitness and stamina." },
+        { name: "Command Task (CT)", desc: "A challenging task where one candidate acts as the commander, directing others." },
+        { name: "Final Group Task (FGT)", desc: "The last major group task, often the most demanding, testing leadership and coordination." }
       ],
-      tip: "Know your PIQ. Any mismatch between your form and your spoken words will be viewed critically."
+      tip: "Demonstrate clear logic, courage, and the ability to influence the group positively during final tasks."
     },
     {
       day: 5,
