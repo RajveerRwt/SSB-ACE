@@ -63,6 +63,8 @@ const generateFallbackEvaluation = (testType: string, textContent: string) => {
       analysis: "Content length insufficient for full psychological profile.",
       olqProjected: "N/A"
     })),
+    // WAT/SRT Specifics
+    detailedComparison: [],
     perception: {
        heroAge: "N/A", heroSex: "N/A", heroMood: "N/A", mainTheme: "N/A"
     },
@@ -260,7 +262,6 @@ export async function generateTestContent(type: string) {
  */
 export async function evaluatePerformance(testType: string, userData: any) {
   const ai = getGeminiClient();
-  const contents: any[] = [];
   
   // Prepare content strings for Fallback Logic calculation
   let combinedTextForFallback = "";
@@ -489,6 +490,66 @@ export async function evaluatePerformance(testType: string, userData: any) {
                         strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
                         weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
                         recommendations: { type: Type.STRING }
+                    }
+                }
+            }
+        });
+        return safeJSONParse(response.text);
+    }
+
+    // 5. SRT & WAT EVALUATION (New)
+    else if (testType === 'SRT' || testType === 'WAT') {
+        const { srtResponses, watResponses } = userData;
+        const isSRT = testType === 'SRT';
+        const items = isSRT ? srtResponses : watResponses;
+        
+        let promptText = "";
+        
+        if (isSRT) {
+            promptText = `Evaluate these SRT (Situation Reaction Test) responses for Officer Like Qualities (OLQ).
+            For EACH situation, provide a brief 'idealResponse' that shows courage, speed, and responsibility.
+            
+            Input Data:
+            ${items.map((i: any) => `Q${i.id}: "${i.situation}" -> User Answer: "${i.response}"`).join("\n")}
+            
+            Return JSON with overall score and a detailed list.`;
+        } else {
+            promptText = `Evaluate these WAT (Word Association Test) sentences for psychological projection.
+            For EACH word, provide an 'idealResponse' that is a SHORT, positive sentence (max 8-10 words) showing officer-like optimism.
+            
+            STRICT FORMAT EXAMPLES for idealResponse:
+            Word: HINT -> Response: A hint is sufficient to solve the puzzle.
+            Word: LIMIT -> Response: There is no limit to hard work.
+            
+            Input Data:
+            ${items.map((i: any) => `Word ${i.id}: "${i.word}" -> User Sentence: "${i.response}"`).join("\n")}
+            
+            Return JSON with overall score and a detailed list.`;
+        }
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [{ text: promptText }] },
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        score: { type: Type.NUMBER },
+                        recommendations: { type: Type.STRING },
+                        detailedComparison: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    id: { type: Type.INTEGER },
+                                    stimulus: { type: Type.STRING },
+                                    userResponse: { type: Type.STRING },
+                                    idealResponse: { type: Type.STRING },
+                                    qualityProjected: { type: Type.STRING }
+                                }
+                            }
+                        }
                     }
                 }
             }

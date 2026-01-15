@@ -39,6 +39,9 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   // SRT States (New)
   const [srtResponses, setSrtResponses] = useState<string[]>([]);
 
+  // WAT States
+  const [watResponses, setWatResponses] = useState<string[]>([]);
+
   // SDT States
   const [sdtData, setSdtData] = useState({
     parents: '',
@@ -83,6 +86,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
 
   const startTest = async () => {
     setIsLoading(true);
+    setFeedback(null);
     
     // SDT Logic Flow
     if (type === TestType.SDT) {
@@ -185,9 +189,9 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
             id: `wat-${index}`,
             content: word
         }));
-
+        
+        setWatResponses(new Array(finalItems.length).fill(''));
       }
-      // Note: SRT case handled above separately
       
       setItems(finalItems);
       setCurrentIndex(0);
@@ -203,6 +207,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   const setupSlide = (index: number, currentItems: any[]) => {
     if (index >= currentItems.length) {
       if (type === TestType.TAT) setPhase(PsychologyPhase.UPLOADING_STORIES);
+      else if (type === TestType.WAT) submitWAT(); // Auto-submit WAT when done
       else setPhase(PsychologyPhase.COMPLETED);
       return;
     }
@@ -248,6 +253,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
         setupSlide(nextIdx, items);
       } else {
         if (type === TestType.TAT) setPhase(PsychologyPhase.UPLOADING_STORIES);
+        else if (type === TestType.WAT) submitWAT();
         else setPhase(PsychologyPhase.COMPLETED);
       }
     }
@@ -325,16 +331,41 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   const submitSRT = async () => {
       setPhase(PsychologyPhase.EVALUATING);
       try {
-          // Pass formatted data to eval
-          const result = await evaluatePerformance(type, { 
-              srtResponses: items.map((item, i) => ({ situation: item.content, reaction: srtResponses[i] })),
-              testType: type 
-          });
+          const payload = {
+              testType: 'SRT',
+              srtResponses: items.map((item, i) => ({ 
+                  id: i + 1, 
+                  situation: item.content, 
+                  response: srtResponses[i] || "" 
+              }))
+          };
+          const result = await evaluatePerformance(type, payload);
           setFeedback(result);
           if (onSave) onSave({ ...result, srtResponses });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) {
           console.error("SRT Eval Error", err);
+          setPhase(PsychologyPhase.COMPLETED);
+      }
+  };
+
+  const submitWAT = async () => {
+      setPhase(PsychologyPhase.EVALUATING);
+      try {
+          const payload = {
+              testType: 'WAT',
+              watResponses: items.map((item, i) => ({ 
+                  id: i + 1, 
+                  word: item.content, 
+                  response: watResponses[i] || "" 
+              }))
+          };
+          const result = await evaluatePerformance(type, payload);
+          setFeedback(result);
+          if (onSave) onSave({ ...result, watResponses });
+          setPhase(PsychologyPhase.COMPLETED);
+      } catch (err) {
+          console.error("WAT Eval Error", err);
           setPhase(PsychologyPhase.COMPLETED);
       }
   };
@@ -420,7 +451,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
              ) : type === TestType.SRT ? (
                <p>• You have 30 minutes to attempt 60 Situations. You can skip and return to any question. Brief, action-oriented responses are expected.</p>
              ) : (
-               <p>• Spontaneous responses required. Quality and speed are being assessed by the psychologists.</p>
+               <p>• Word Association Test. 60 Words. 15 seconds each to view and write a sentence. Spontaneity is key.</p>
              )}
            </div>
         </div>
@@ -699,10 +730,27 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
         )}
 
         {!isTAT && (
-           <div className="bg-white rounded-[4rem] p-40 text-center shadow-2xl border-2 border-slate-50 min-h-[60vh] flex flex-col items-center justify-center">
+           <div className="bg-white rounded-[4rem] p-40 text-center shadow-2xl border-2 border-slate-50 min-h-[60vh] flex flex-col items-center justify-center relative">
               <h1 className={`${type === TestType.WAT ? 'text-[8rem] uppercase' : 'text-5xl italic'} font-black text-slate-900 tracking-tight`}>
                 {type === TestType.WAT ? currentItem.content : `"${currentItem.content}"`}
               </h1>
+              {type === TestType.WAT && (
+                  <input 
+                    type="text" 
+                    value={watResponses[currentIndex]}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        setWatResponses(prev => {
+                            const next = [...prev];
+                            next[currentIndex] = val;
+                            return next;
+                        });
+                    }}
+                    placeholder="Type spontaneous thought..."
+                    className="mt-12 w-full max-w-2xl bg-slate-50 p-6 text-xl md:text-2xl font-bold text-center border-b-4 border-slate-300 focus:border-slate-900 outline-none transition-all placeholder:text-slate-300"
+                    autoFocus
+                  />
+              )}
            </div>
         )}
       </div>
@@ -824,18 +872,68 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
   }
 
   if (phase === PsychologyPhase.COMPLETED) {
+    // SPECIAL UI FOR WAT & SRT: Comparison Table
     if (type === TestType.WAT || type === TestType.SRT) {
+       const isWAT = type === TestType.WAT;
+       const responseList = feedback?.detailedComparison || [];
+
        return (
-         <div className="max-w-3xl mx-auto text-center py-32 space-y-8 animate-in fade-in zoom-in">
-            <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-green-50 shadow-xl">
-               <CheckCircle size={48} />
+         <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700">
+            <div className="text-center space-y-4 py-8">
+               <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-green-200 shadow-xl">
+                  <CheckCircle size={32} />
+               </div>
+               <h2 className="text-3xl md:text-5xl font-black text-slate-900 uppercase tracking-tighter">Test <span className="text-green-600">Debrief</span></h2>
+               <p className="text-slate-500 font-medium">Comparison with Officer Like Responses</p>
             </div>
-            <h2 className="text-5xl font-black text-slate-900 uppercase tracking-tighter">Test <span className="text-green-600">Completed</span></h2>
-            <p className="text-slate-500 text-xl font-medium">You have successfully completed the practice set. Your responses have been self-evaluated.</p>
-            
+
+            <div className="grid md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-md">
+                    <p className="text-xs font-black uppercase text-slate-400 tracking-widest">Your Score</p>
+                    <p className="text-4xl font-black text-slate-900 mt-2">{feedback?.score || "N/A"}</p>
+                </div>
+                <div className="md:col-span-2 bg-slate-900 p-6 rounded-3xl shadow-xl text-white">
+                    <p className="text-xs font-black uppercase text-slate-400 tracking-widest mb-2">Psychologist's Remark</p>
+                    <p className="text-sm md:text-base font-medium leading-relaxed italic">"{feedback?.recommendations || "Good effort. Review the suggestions below."}"</p>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden">
+               <div className="overflow-x-auto">
+               <table className="w-full text-left border-collapse">
+                  <thead>
+                     <tr className="bg-slate-50 border-b border-slate-200">
+                        <th className="p-6 font-black text-xs uppercase tracking-widest text-slate-500 w-16">#</th>
+                        <th className="p-6 font-black text-xs uppercase tracking-widest text-slate-500 w-1/4">{isWAT ? "Stimulus Word" : "Situation"}</th>
+                        <th className="p-6 font-black text-xs uppercase tracking-widest text-slate-500 w-1/3">Your Response</th>
+                        <th className="p-6 font-black text-xs uppercase tracking-widest text-green-600 w-1/3">Recommended (Officer Like)</th>
+                     </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                     {responseList.map((item: any, i: number) => (
+                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                           <td className="p-6 font-bold text-slate-400">{i + 1}</td>
+                           <td className="p-6 font-bold text-slate-800">{item.stimulus}</td>
+                           <td className="p-6 text-sm font-medium text-slate-600">
+                              {item.userResponse ? (
+                                  item.userResponse
+                              ) : (
+                                  <span className="text-red-400 italic text-xs">Skipped / No Response</span>
+                              )}
+                           </td>
+                           <td className="p-6 text-sm font-bold text-green-700 bg-green-50/30 border-l border-green-50">
+                              {item.idealResponse}
+                           </td>
+                        </tr>
+                     ))}
+                  </tbody>
+               </table>
+               </div>
+            </div>
+
             <button 
-              onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); setSrtResponses([]); }}
-              className="px-16 py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
+              onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); setSrtResponses([]); setWatResponses([]); }}
+              className="w-full py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl"
             >
               Return to Dashboard
             </button>
@@ -984,7 +1082,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
             </div>
         )}
 
-        <button onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); setSdtData({ parents: '', teachers: '', friends: '', self: '', aim: '' }); setSdtImages({ parents: null, teachers: null, friends: null, self: null, aim: null }); setShowScoreHelp(false); setSrtResponses([]); }} className="w-full py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl">Return to Wing</button>
+        <button onClick={() => { setPhase(PsychologyPhase.IDLE); setFeedback(null); setSdtData({ parents: '', teachers: '', friends: '', self: '', aim: '' }); setSdtImages({ parents: null, teachers: null, friends: null, self: null, aim: null }); setShowScoreHelp(false); setSrtResponses([]); setWatResponses([]); }} className="w-full py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl">Return to Wing</button>
       </div>
     );
   }
