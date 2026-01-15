@@ -476,9 +476,9 @@ export async function getWATWords() {
   return [];
 }
 
-export async function uploadWATWords(words: string[]) {
+export async function uploadWATWords(words: string[], setTag: string = 'General') {
   if (!isSupabaseActive || !supabase) return;
-  const payload = words.map(w => ({ word: w }));
+  const payload = words.map(w => ({ word: w, set_tag: setTag }));
   await supabase.from('wat_words').insert(payload);
 }
 

@@ -168,15 +168,35 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
         finalItems.push({ id: 'tat-12-blank', content: 'BLANK SLIDE' });
 
       } else if (type === TestType.WAT) {
-        // FETCH WAT FROM DB OR FALLBACK
+        // FETCH WAT FROM DB
         const dbWords = await getWATWords();
         let wordList: string[] = [];
         
         if (dbWords && dbWords.length > 0) {
-            // Shuffle database words
-            wordList = dbWords.map((row: any) => row.word);
-            wordList = wordList.sort(() => Math.random() - 0.5);
-            setActiveSetName('Custom Database Set');
+            // Group by Set Tag
+            const sets: Record<string, string[]> = dbWords.reduce((acc: any, row: any) => {
+                const tag = row.set_tag || 'General';
+                if (!acc[tag]) acc[tag] = [];
+                acc[tag].push(row.word);
+                return acc;
+            }, {});
+
+            const setNames = Object.keys(sets);
+            
+            // Prioritize sets with exactly 60 words, or pick random
+            const idealSets = setNames.filter(name => sets[name].length === 60);
+            const selectedSetName = idealSets.length > 0
+                ? idealSets[Math.floor(Math.random() * idealSets.length)]
+                : setNames[Math.floor(Math.random() * setNames.length)];
+            
+            setActiveSetName(selectedSetName);
+            wordList = sets[selectedSetName];
+            
+            // If the set has fewer than 60 words, we might need to pad it or just use what's there
+            // But if it's the "General" pool (legacy/fallback), we shuffle.
+            if (selectedSetName === 'General') {
+               wordList = wordList.sort(() => Math.random() - 0.5);
+            }
         } else {
             // Use Standard Fallback
             wordList = [...STANDARD_WAT_SET];
@@ -184,7 +204,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
             setActiveSetName('Standard Fallback Set');
         }
 
-        // Slice to 60 words for standard test
+        // Limit to 60 words for standard test
         finalItems = wordList.slice(0, 60).map((word, index) => ({
             id: `wat-${index}`,
             content: word
@@ -451,7 +471,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
              ) : type === TestType.SRT ? (
                <p>• You have 30 minutes to attempt 60 Situations. You can skip and return to any question. Brief, action-oriented responses are expected.</p>
              ) : (
-               <p>• Word Association Test. 60 Words. 15 seconds each to view and write a sentence. Spontaneity is key.</p>
+               <p>• Word Association Test. 60 Words. 15 seconds each to view and write a spontaneous sentence.</p>
              )}
            </div>
         </div>

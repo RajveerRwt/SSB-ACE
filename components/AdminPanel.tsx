@@ -18,6 +18,7 @@ const AdminPanel: React.FC = () => {
   const [newDescription, setNewDescription] = useState('');
   const [setTag, setSetTag] = useState('Set 1');
   const [watBulkInput, setWatBulkInput] = useState('');
+  const [watSetTag, setWatSetTag] = useState('WAT Set 1');
   
   // Confirmation Modal State
   const [confirmAction, setConfirmAction] = useState<{id: string, type: 'APPROVE' | 'REJECT', userId: string, planType: any} | null>(null);
@@ -60,7 +61,7 @@ const AdminPanel: React.FC = () => {
       if (activeTab === 'WAT') {
         const words = watBulkInput.split(/[\n,]+/).map(w => w.trim()).filter(w => w);
         if (words.length === 0) throw new Error("No words entered.");
-        await uploadWATWords(words);
+        await uploadWATWords(words, watSetTag || 'General');
         setWatBulkInput('');
       } else {
         const file = fileInputRef.current?.files?.[0];
@@ -129,15 +130,13 @@ const AdminPanel: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Group TAT images by Set Tag
-  const groupedImages = activeTab === 'TAT' 
-    ? items.reduce((acc: any, img: any) => {
-        const tag = img.set_tag || 'Unset';
-        if (!acc[tag]) acc[tag] = [];
-        acc[tag].push(img);
-        return acc;
-      }, {})
-    : (activeTab === 'PPDT' ? { "All PPDT": items } : {});
+  // Group Images/Words by Set Tag
+  const groupedItems = items.reduce((acc: any, item: any) => {
+      const tag = item.set_tag || 'General';
+      if (!acc[tag]) acc[tag] = [];
+      acc[tag].push(item);
+      return acc;
+  }, {});
 
   // Cleaned SQL without quotes in comments to prevent parser errors
   const storageSQL = `
@@ -225,8 +224,12 @@ create policy "Public Insert TAT" on tat_scenarios for insert with check (true);
 create table if not exists wat_words (
   id uuid default gen_random_uuid() primary key,
   word text,
+  set_tag text default 'General',
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
+-- Ensure column exists for existing tables
+alter table wat_words add column if not exists set_tag text default 'General';
+
 alter table wat_words enable row level security;
 create policy "Public View WAT" on wat_words for select using (true);
 create policy "Public Insert WAT" on wat_words for insert with check (true);
@@ -373,15 +376,27 @@ create policy "Self Insert History" on test_history for insert with check (auth.
                )}
 
                {activeTab === 'WAT' ? (
-                 <div>
-                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Bulk Word Entry</label>
-                   <textarea 
-                      value={watBulkInput}
-                      onChange={(e) => setWatBulkInput(e.target.value)}
-                      placeholder="Enter words separated by commas or new lines. E.g. Army, Flag, Nation"
-                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-40 resize-none"
-                   />
-                   <p className="text-[10px] text-slate-400 mt-2">Allows multiple entries at once.</p>
+                 <div className="space-y-4">
+                   <div>
+                       <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Set Name / Tag</label>
+                       <input 
+                          type="text" 
+                          value={watSetTag}
+                          onChange={(e) => setWatSetTag(e.target.value)}
+                          placeholder="e.g. WAT Set 1"
+                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
+                       />
+                   </div>
+                   <div>
+                       <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Bulk Word Entry</label>
+                       <textarea 
+                          value={watBulkInput}
+                          onChange={(e) => setWatBulkInput(e.target.value)}
+                          placeholder="Enter words separated by commas or new lines."
+                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-40 resize-none"
+                       />
+                       <p className="text-[10px] text-slate-400 mt-2">Paste 60 words for a complete set.</p>
+                   </div>
                  </div>
                ) : (
                  <div>
@@ -423,43 +438,46 @@ create policy "Self Insert History" on test_history for insert with check (auth.
         {/* RIGHT COLUMN: Display */}
         <div className="lg:col-span-2 space-y-12">
            {activeTab === 'WAT' ? (
-              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
-                 <div className="flex justify-between items-center mb-6">
-                    <h4 className="font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
-                       <FileText size={18} className="text-green-600" /> Database Words ({items.length})
-                    </h4>
-                    {items.length === 0 && <span className="text-xs text-slate-400">Using default set</span>}
-                 </div>
-                 <div className="flex flex-wrap gap-3">
-                    {items.map((item: any) => (
-                       <div key={item.id} className="px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-3 group hover:border-slate-300 transition-all">
-                          <span className="font-bold text-slate-700">{item.word}</span>
-                          <button onClick={() => handleDelete(item.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
-                       </div>
-                    ))}
-                    {items.length === 0 && (
+              <div className="space-y-8">
+                 {Object.keys(groupedItems).map((tag) => (
+                    <div key={tag} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
+                        <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                            <h4 className="font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
+                                <FileText size={18} className="text-green-600" /> {tag} ({groupedItems[tag].length})
+                            </h4>
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                            {groupedItems[tag].map((item: any) => (
+                                <div key={item.id} className="px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-3 group hover:border-slate-300 transition-all">
+                                    <span className="font-bold text-slate-700">{item.word}</span>
+                                    <button onClick={() => handleDelete(item.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                 ))}
+                 {items.length === 0 && (
                       <div className="w-full text-center py-12 text-slate-400 font-medium italic">
                          No custom words found. The system is using the built-in fallback set. Add words to override.
                       </div>
-                    )}
-                 </div>
+                 )}
               </div>
            ) : (
-             Object.keys(groupedImages).map((tag) => (
+             Object.keys(groupedItems).map((tag) => (
                <div key={tag} className="space-y-4">
                  <div className="flex items-center justify-between border-b pb-2">
                    <h4 className="font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
                       <Layers size={18} className="text-purple-600" /> {tag} 
-                      {activeTab === 'TAT' && <span className={`ml-2 px-2 py-0.5 rounded text-[10px] ${groupedImages[tag].length >= 11 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{groupedImages[tag].length}/11 Images</span>}
+                      {activeTab === 'TAT' && <span className={`ml-2 px-2 py-0.5 rounded text-[10px] ${groupedItems[tag].length >= 11 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{groupedItems[tag].length}/11 Images</span>}
                    </h4>
                  </div>
-                 {groupedImages[tag].length === 0 ? (
+                 {groupedItems[tag].length === 0 ? (
                    <div className="py-12 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-slate-400 font-bold text-xs uppercase tracking-widest">
                       Empty Pool. Upload images to populate this set.
                    </div>
                  ) : (
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                     {groupedImages[tag].map((img: any) => (
+                     {groupedItems[tag].map((img: any) => (
                        <div key={img.id} className="group relative bg-white rounded-[2rem] border border-slate-100 shadow-lg overflow-hidden hover:shadow-2xl transition-all">
                           <div className="aspect-[4/3] overflow-hidden bg-slate-100">
                              <img src={img.image_url} alt="Scenario" className="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-110" />
