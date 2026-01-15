@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
   uploadWATWords, getWATWords, deleteWATWord, deleteWATSet,
+  getSRTQuestions, uploadSRTQuestions, deleteSRTQuestion, deleteSRTSet,
   getPendingPayments, approvePaymentRequest, rejectPaymentRequest
 } from '../services/supabaseService';
 
@@ -17,13 +18,19 @@ const AdminPanel: React.FC = () => {
   // Inputs
   const [newDescription, setNewDescription] = useState('');
   const [setTag, setSetTag] = useState('Set 1');
+  
+  // WAT Inputs
   const [watBulkInput, setWatBulkInput] = useState('');
   const [watSetTag, setWatSetTag] = useState('WAT Set 1');
+
+  // SRT Inputs
+  const [srtBulkInput, setSrtBulkInput] = useState('');
+  const [srtSetTag, setSrtSetTag] = useState('SRT Set 1');
   
   // Confirmation Modal State
   const [confirmAction, setConfirmAction] = useState<{id: string, type: 'APPROVE' | 'REJECT', userId: string, planType: any} | null>(null);
   
-  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'PAYMENTS'>('PAYMENTS');
+  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS'>('PAYMENTS');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -40,6 +47,7 @@ const AdminPanel: React.FC = () => {
         if (activeTab === 'PPDT') data = await getPPDTScenarios();
         else if (activeTab === 'TAT') data = await getTATScenarios();
         else if (activeTab === 'WAT') data = await getWATWords();
+        else if (activeTab === 'SRT') data = await getSRTQuestions();
         setItems(data || []);
       }
     } catch (e: any) {
@@ -63,6 +71,12 @@ const AdminPanel: React.FC = () => {
         if (words.length === 0) throw new Error("No words entered.");
         await uploadWATWords(words, watSetTag || 'General');
         setWatBulkInput('');
+      } else if (activeTab === 'SRT') {
+        // Split by new line primarily for SRTs as they contain commas
+        const questions = srtBulkInput.split(/[\n]+/).map(q => q.trim()).filter(q => q);
+        if (questions.length === 0) throw new Error("No situations entered.");
+        await uploadSRTQuestions(questions, srtSetTag || 'General');
+        setSrtBulkInput('');
       } else {
         const file = fileInputRef.current?.files?.[0];
         if (!file) throw new Error("No file selected.");
@@ -112,6 +126,8 @@ const AdminPanel: React.FC = () => {
     try {
       if (activeTab === 'WAT') {
         await deleteWATWord(id);
+      } else if (activeTab === 'SRT') {
+        await deleteSRTQuestion(id);
       } else if (activeTab === 'PPDT' && url) {
         await deletePPDTScenario(id, url);
       } else if (activeTab === 'TAT' && url) {
@@ -125,10 +141,11 @@ const AdminPanel: React.FC = () => {
   };
 
   const handleDeleteSet = async (tag: string) => {
-    if (!window.confirm(`WARNING: Are you sure you want to delete the entire set "${tag}"? This action cannot be undone and will remove all ${groupedItems[tag]?.length || 0} words in this set.`)) return;
+    if (!window.confirm(`WARNING: Are you sure you want to delete the entire set "${tag}"? This action cannot be undone and will remove all ${groupedItems[tag]?.length || 0} items in this set.`)) return;
     setErrorMsg(null);
     try {
-      await deleteWATSet(tag);
+      if (activeTab === 'WAT') await deleteWATSet(tag);
+      if (activeTab === 'SRT') await deleteSRTSet(tag);
       await fetchData();
     } catch (error: any) {
       console.error("Delete set failed", error);
@@ -142,7 +159,7 @@ const AdminPanel: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Group Images/Words by Set Tag
+  // Group Items by Set Tag
   const groupedItems = items.reduce((acc: any, item: any) => {
       const tag = item.set_tag || 'General';
       if (!acc[tag]) acc[tag] = [];
@@ -190,28 +207,12 @@ create policy "Public Aspirants View" on aspirants for select using (true);
 create policy "Self Update Aspirants" on aspirants for update using (auth.uid() = user_id);
 create policy "Self Insert Aspirants" on aspirants for insert with check (auth.uid() = user_id);
 
--- *** SUPER ADMIN POLICY (FIXES PERMISSION ERRORS) ***
--- Allows Admin to Select, Insert, Update, Delete ANY row
+-- *** SUPER ADMIN POLICY ***
 create policy "Admin All Aspirants" on aspirants for all
 using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com')
 with check ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
 
--- 4. Payment Requests Table
-create table if not exists payment_requests (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references aspirants(user_id) not null,
-  utr text not null unique,
-  amount numeric not null,
-  plan_type text not null,
-  status text check (status in ('PENDING', 'APPROVED', 'REJECTED')) default 'PENDING',
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-alter table payment_requests enable row level security;
-create policy "User Insert Payments" on payment_requests for insert with check (auth.uid() = user_id);
-create policy "Admin View Payments" on payment_requests for select using (true);
-create policy "Admin Update Payments" on payment_requests for update using (true);
-
--- 5. Content Tables (PPDT/TAT/WAT/History)
+-- 4. Content Tables (PPDT/TAT/WAT/SRT)
 create table if not exists ppdt_scenarios (
   id uuid default gen_random_uuid() primary key,
   image_url text,
@@ -239,12 +240,34 @@ create table if not exists wat_words (
   set_tag text default 'General',
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
--- Ensure column exists for existing tables
-alter table wat_words add column if not exists set_tag text default 'General';
-
 alter table wat_words enable row level security;
 create policy "Public View WAT" on wat_words for select using (true);
 create policy "Public Insert WAT" on wat_words for insert with check (true);
+
+create table if not exists srt_questions (
+  id uuid default gen_random_uuid() primary key,
+  question text,
+  set_tag text default 'General',
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+alter table srt_questions enable row level security;
+create policy "Public View SRT" on srt_questions for select using (true);
+create policy "Public Insert SRT" on srt_questions for insert with check (true);
+
+-- 5. Payments & History
+create table if not exists payment_requests (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references aspirants(user_id) not null,
+  utr text not null unique,
+  amount numeric not null,
+  plan_type text not null,
+  status text check (status in ('PENDING', 'APPROVED', 'REJECTED')) default 'PENDING',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+alter table payment_requests enable row level security;
+create policy "User Insert Payments" on payment_requests for insert with check (auth.uid() = user_id);
+create policy "Admin View Payments" on payment_requests for select using (true);
+create policy "Admin Update Payments" on payment_requests for update using (true);
 
 create table if not exists test_history (
   id uuid default gen_random_uuid() primary key,
@@ -322,6 +345,7 @@ create policy "Self Insert History" on test_history for insert with check (auth.
          <button onClick={() => setActiveTab('PPDT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PPDT' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Target size={16} /> PPDT Pool</button>
          <button onClick={() => setActiveTab('TAT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'TAT' ? 'bg-purple-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Layers size={16} /> TAT Sets</button>
          <button onClick={() => setActiveTab('WAT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'WAT' ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><FileText size={16} /> WAT Bank</button>
+         <button onClick={() => setActiveTab('SRT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'SRT' ? 'bg-orange-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Zap size={16} /> SRT Sets</button>
       </div>
 
       {activeTab === 'PAYMENTS' ? (
@@ -387,7 +411,7 @@ create policy "Self Insert History" on test_history for insert with check (auth.
                  </div>
                )}
 
-               {activeTab === 'WAT' ? (
+               {activeTab === 'WAT' && (
                  <div className="space-y-4">
                    <div>
                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Set Name / Tag</label>
@@ -410,7 +434,34 @@ create policy "Self Insert History" on test_history for insert with check (auth.
                        <p className="text-[10px] text-slate-400 mt-2">Paste 60 words for a complete set.</p>
                    </div>
                  </div>
-               ) : (
+               )}
+
+               {activeTab === 'SRT' && (
+                 <div className="space-y-4">
+                   <div>
+                       <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Set Name / Tag</label>
+                       <input 
+                          type="text" 
+                          value={srtSetTag}
+                          onChange={(e) => setSrtSetTag(e.target.value)}
+                          placeholder="e.g. SRT Set A"
+                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
+                       />
+                   </div>
+                   <div>
+                       <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Bulk SRT Entry</label>
+                       <textarea 
+                          value={srtBulkInput}
+                          onChange={(e) => setSrtBulkInput(e.target.value)}
+                          placeholder="One situation per line."
+                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-60 resize-none"
+                       />
+                       <p className="text-[10px] text-slate-400 mt-2">Paste 60 situations for a full test.</p>
+                   </div>
+                 </div>
+               )}
+
+               {(activeTab === 'PPDT' || activeTab === 'TAT') && (
                  <div>
                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Scene Context</label>
                    <input 
@@ -423,7 +474,7 @@ create policy "Self Insert History" on test_history for insert with check (auth.
                  </div>
                )}
 
-               {activeTab !== 'WAT' && (
+               {(activeTab === 'PPDT' || activeTab === 'TAT') && (
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
                      // Auto-trigger upload is not ideal here since we might want to add desc first, but keeping consistent with existing pattern
                      // Ideally we just select file here and upload on button click
@@ -432,14 +483,14 @@ create policy "Self Insert History" on test_history for insert with check (auth.
 
                <button 
                   onClick={() => {
-                    if (activeTab === 'WAT') handleUpload();
+                    if (activeTab === 'WAT' || activeTab === 'SRT') handleUpload();
                     else fileInputRef.current?.click();
                   }} 
                   disabled={isUploading} 
                   className={`w-full py-5 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 transition-all active:scale-95 bg-slate-900 hover:bg-black`}
                >
                  {isUploading ? <Loader2 className="animate-spin" /> : <Upload size={18} />} 
-                 {isUploading ? 'Processing...' : (activeTab === 'WAT' ? 'Upload Words' : 'Select & Upload File')}
+                 {isUploading ? 'Processing...' : (activeTab === 'WAT' || activeTab === 'SRT' ? 'Upload Content' : 'Select & Upload File')}
                </button>
                {/* Hidden file input handler - if file selected, trigger upload. (Simplification) */}
                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleUpload} />
@@ -449,13 +500,14 @@ create policy "Self Insert History" on test_history for insert with check (auth.
 
         {/* RIGHT COLUMN: Display */}
         <div className="lg:col-span-2 space-y-12">
-           {activeTab === 'WAT' ? (
+           {(activeTab === 'WAT' || activeTab === 'SRT') ? (
               <div className="space-y-8">
                  {Object.keys(groupedItems).map((tag) => (
                     <div key={tag} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
                         <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
                             <h4 className="font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
-                                <FileText size={18} className="text-green-600" /> {tag} ({groupedItems[tag].length})
+                                {activeTab === 'WAT' ? <FileText size={18} className="text-green-600" /> : <Zap size={18} className="text-orange-600" />} 
+                                {tag} ({groupedItems[tag].length})
                             </h4>
                             <button 
                                 onClick={() => handleDeleteSet(tag)}
@@ -466,9 +518,9 @@ create policy "Self Insert History" on test_history for insert with check (auth.
                         </div>
                         <div className="flex flex-wrap gap-3">
                             {groupedItems[tag].map((item: any) => (
-                                <div key={item.id} className="px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-3 group hover:border-slate-300 transition-all">
-                                    <span className="font-bold text-slate-700">{item.word}</span>
-                                    <button onClick={() => handleDelete(item.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
+                                <div key={item.id} className={`px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-3 group hover:border-slate-300 transition-all ${activeTab === 'SRT' ? 'w-full justify-between' : ''}`}>
+                                    <span className="font-bold text-slate-700 text-sm">{activeTab === 'WAT' ? item.word : item.question}</span>
+                                    <button onClick={() => handleDelete(item.id)} className="text-slate-300 hover:text-red-500 transition-colors shrink-0"><Trash2 size={12} /></button>
                                 </div>
                             ))}
                         </div>
@@ -476,7 +528,7 @@ create policy "Self Insert History" on test_history for insert with check (auth.
                  ))}
                  {items.length === 0 && (
                       <div className="w-full text-center py-12 text-slate-400 font-medium italic">
-                         No custom words found. The system is using the built-in fallback set. Add words to override.
+                         No custom {activeTab} content found. The system is using the built-in fallback set. Add content to override.
                       </div>
                  )}
               </div>
