@@ -3,22 +3,9 @@ import React, { useState } from 'react';
 import { Target, Brain, Users, Mic, Award, CheckCircle2, Shield, Calendar, Clock, MapPin, Info, FileText, Activity, Flag } from 'lucide-react';
 
 const SSBStages: React.FC = () => {
-  const [activeDay, setActiveDay] = useState(0);
+  const [activeDay, setActiveDay] = useState(1);
 
   const stages = [
-    {
-      day: 0,
-      title: "Reporting Day",
-      subtitle: "Arrival & Reception",
-      icon: MapPin,
-      color: "bg-slate-600",
-      tasks: [
-        { name: "Reporting", desc: "Candidates report to the designated SSB centre (Movement Control Office) at the specified time." },
-        { name: "Documentation", desc: "Thorough verification of educational certificates, ID proofs, and other mandatory documents." },
-        { name: "Briefing & Allotment", desc: "Opening address by officials. Chest numbers and accommodation are allotted to candidates." }
-      ],
-      tip: "Keep all documents organized in original and photocopies. First impressions regarding punctuality and discipline count."
-    },
     {
       day: 1,
       title: "Stage I: Screening",
@@ -104,7 +91,7 @@ const SSBStages: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
         {stages.map((s) => (
           <button
             key={s.day}
@@ -138,12 +125,6 @@ const SSBStages: React.FC = () => {
               <div className="space-y-2">
                 <h3 className="text-2xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter">{s.title}</h3>
                 <p className="text-blue-600 font-bold uppercase tracking-[0.3em] text-[10px]">{s.subtitle}</p>
-              </div>
-              <div className="bg-slate-50 px-6 py-3 md:px-8 md:py-4 rounded-3xl border border-slate-100">
-                <p className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Schedule</p>
-                <p className="text-lg md:text-xl font-black text-slate-900">
-                    {s.day === 0 ? "Afternoon (Reporting)" : "06:00 AM Sharp"}
-                </p>
               </div>
             </div>
 
