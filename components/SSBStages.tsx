@@ -168,9 +168,8 @@ const SSBStages: React.FC = () => {
       </div>
 
       {/* Footer Info */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
         {[
-          { icon: Calendar, title: "Reporting", detail: "Day 0 Afternoon" },
           { icon: Clock, title: "Total Testing", detail: "5 Intensive Days" },
           { icon: MapPin, title: "Selection Centres", detail: "Kapurthala, Bhopal, Bangalore..." }
         ].map((info, i) => (
