@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
-import { getPPDTScenarios } from '../services/supabaseService';
+import { getPPDTScenarios, getUserSubscription } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
 
 enum PPDTStep {
@@ -22,9 +22,10 @@ enum PPDTStep {
 interface PPDTProps {
   onSave?: (result: any) => void;
   isAdmin?: boolean;
+  userId?: string;
 }
 
-const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin }) => {
+const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
   const [step, setStep] = useState<PPDTStep>(PPDTStep.IDLE);
   const [timeLeft, setTimeLeft] = useState(0);
   const [story, setStory] = useState('');
@@ -97,14 +98,27 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin }) => {
     } else {
         setStep(PPDTStep.LOADING_IMAGE);
         try {
-          // New Logic: Fetch from Supabase DB first
+          // Logic: Fetch from Supabase DB
           const dbImages = await getPPDTScenarios();
           
           if (dbImages && dbImages.length > 0) {
-            // Pick a random image from the database
-            const randomImage = dbImages[Math.floor(Math.random() * dbImages.length)];
-            setCurrentImageUrl(randomImage.image_url);
-            setImageDescription(randomImage.description || "Database Scenario");
+            let selectedImage;
+            
+            // SEQUENTIAL LOGIC:
+            if (userId) {
+                // Fetch usage to pick next index
+                const subscription = await getUserSubscription(userId);
+                const count = subscription.usage.ppdt_used;
+                const index = count % dbImages.length;
+                selectedImage = dbImages[index];
+                console.log(`PPDT Sequence: User has used ${count} times. Serving index ${index} from ${dbImages.length} images.`);
+            } else {
+                // Fallback to random if no userId
+                selectedImage = dbImages[Math.floor(Math.random() * dbImages.length)];
+            }
+
+            setCurrentImageUrl(selectedImage.image_url);
+            setImageDescription(selectedImage.description || "Database Scenario");
           } else {
             // Fallback to AI generation if DB is empty
             const scenarios = [

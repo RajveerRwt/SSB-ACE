@@ -2,13 +2,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, STANDARD_WAT_SET } from '../services/geminiService';
-import { getTATScenarios, getWATWords, getSRTQuestions } from '../services/supabaseService';
+import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
 import { TestType } from '../types';
 
 interface PsychologyProps {
   type: TestType;
   onSave?: (result: any) => void;
   isAdmin?: boolean;
+  userId?: string;
 }
 
 enum PsychologyPhase {
@@ -21,7 +22,7 @@ enum PsychologyPhase {
   COMPLETED
 }
 
-const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) => {
+const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, userId }) => {
   const [items, setItems] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [phase, setPhase] = useState<PsychologyPhase>(PsychologyPhase.IDLE);
@@ -99,6 +100,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
     
     try {
       let finalItems: any[] = [];
+      // Determine user usage count to pick sets sequentially
+      let usageCount = 0;
+      if (userId) {
+          const sub = await getUserSubscription(userId);
+          if (type === TestType.TAT) usageCount = sub.usage.tat_used;
+          else if (type === TestType.WAT) usageCount = sub.usage.wat_used;
+          else if (type === TestType.SRT) usageCount = sub.usage.srt_used;
+      }
 
       if (type === TestType.TAT) {
         // FETCH ONLY FROM DATABASE
@@ -119,15 +128,21 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
           return acc;
         }, {});
 
-        // Prefer sets with 11 images, or pick any set if none have 11
-        const setNames = Object.keys(sets);
+        // Sequential Selection logic
+        const setNames = Object.keys(sets).sort(); // Sort alphabetically for consistency
         const completeSets = setNames.filter(name => sets[name].length >= 11);
-        const selectedSetName = completeSets.length > 0 
-          ? completeSets[Math.floor(Math.random() * completeSets.length)]
-          : setNames[Math.floor(Math.random() * setNames.length)];
+        
+        let selectedSetName = '';
+        if (completeSets.length > 0) {
+            const index = usageCount % completeSets.length;
+            selectedSetName = completeSets[index];
+        } else {
+            const index = usageCount % setNames.length;
+            selectedSetName = setNames[index];
+        }
 
         setActiveSetName(selectedSetName);
-        const setImages = sets[selectedSetName].slice(0, 11);
+        const setImages = sets[selectedSetName].slice(0, 11); // Ensure we take first 11
         const images: Record<string, string> = {};
 
         finalItems = setImages.map((s: any, i: number) => ({
@@ -155,19 +170,28 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
                 return acc;
             }, {});
 
-            const setNames = Object.keys(sets);
+            const setNames = Object.keys(sets).sort();
             const idealSets = setNames.filter(name => sets[name].length === 60);
-            const selectedSetName = idealSets.length > 0
-                ? idealSets[Math.floor(Math.random() * idealSets.length)]
-                : setNames[Math.floor(Math.random() * setNames.length)];
+            
+            let selectedSetName = '';
+            if (idealSets.length > 0) {
+                const index = usageCount % idealSets.length;
+                selectedSetName = idealSets[index];
+            } else {
+                const index = usageCount % setNames.length;
+                selectedSetName = setNames[index];
+            }
             
             setActiveSetName(selectedSetName);
             wordList = sets[selectedSetName];
-            if (selectedSetName === 'General') {
+            // Only shuffle 'General' if explicitly needed, but for "sequence" request, maybe fixed is better? 
+            // Keeping shuffle ONLY if it's the large general pool to vary it slightly, otherwise respected sequence.
+            if (selectedSetName === 'General' && wordList.length > 60) {
                wordList = wordList.sort(() => Math.random() - 0.5);
             }
         } else {
             wordList = [...STANDARD_WAT_SET];
+            // Keep fallback random to avoid repetition if DB fails
             wordList = wordList.sort(() => Math.random() - 0.5);
             setActiveSetName('Standard Fallback Set');
         }
@@ -190,11 +214,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin }) =>
                 return acc;
             }, {});
 
-            const setNames = Object.keys(sets);
-            const selectedSetName = setNames[Math.floor(Math.random() * setNames.length)];
+            const setNames = Object.keys(sets).sort();
+            const index = usageCount % setNames.length;
+            const selectedSetName = setNames[index];
+            
             setActiveSetName(selectedSetName);
             srtList = sets[selectedSetName];
-            if (selectedSetName === 'General') {
+            
+            if (selectedSetName === 'General' && srtList.length > 60) {
                 srtList = srtList.sort(() => Math.random() - 0.5);
             }
         } else {
