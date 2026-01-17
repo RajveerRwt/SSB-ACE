@@ -28,7 +28,14 @@ const AdminPanel: React.FC = () => {
   const [srtSetTag, setSrtSetTag] = useState('SRT Set 1');
   
   // Confirmation Modal State
-  const [confirmAction, setConfirmAction] = useState<{id: string, type: 'APPROVE' | 'REJECT', userId: string, planType: any} | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+      id: string, 
+      type: 'APPROVE' | 'REJECT', 
+      userId: string, 
+      planType: any,
+      email?: string,
+      fullName?: string
+  } | null>(null);
   
   // SQL Help Toggle
   const [showSqlHelp, setShowSqlHelp] = useState(false);
@@ -102,18 +109,42 @@ const AdminPanel: React.FC = () => {
   };
 
   // Replaces window.confirm
-  const handlePaymentAction = (id: string, action: 'APPROVE' | 'REJECT', userId: string, planType: any) => {
-      setConfirmAction({ id, type: action, userId, planType });
+  const handlePaymentAction = (id: string, action: 'APPROVE' | 'REJECT', userId: string, planType: any, email?: string, fullName?: string) => {
+      setConfirmAction({ id, type: action, userId, planType, email, fullName });
   };
 
   const executeConfirmAction = async () => {
       if (!confirmAction) return;
-      const { id, type, userId, planType } = confirmAction;
+      const { id, type, userId, planType, email, fullName } = confirmAction;
       setConfirmAction(null); // Close modal
       
       try {
           if (type === 'APPROVE') {
               await approvePaymentRequest(id, userId, planType);
+              
+              // --- EMAIL GENERATION LOGIC ---
+              if (email) {
+                  const subject = "Deployment Order: Pro Access Activated | SSBPREP.ONLINE";
+                  const body = `Jai Hind ${fullName || 'Cadet'},
+
+Request Verified.
+
+Your payment has been successfully processed by the Board Administration.
+Your account is now upgraded to the PRO CADET TIER.
+
+MISSION BRIEFING:
+1. Refresh your dashboard immediately to sync credits.
+2. Access unlocked PPDT, TAT, and AI Interview modules.
+3. Your additional credits are now active.
+
+"The safety, honour and welfare of your country come first, always and every time."
+
+Prepare Hard.
+Team SSBPREP.ONLINE`;
+
+                  // Open default mail client
+                  window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+              }
           } else {
               await rejectPaymentRequest(id);
           }
@@ -410,7 +441,7 @@ create policy "Self Insert History" on test_history for insert with check (auth.
                                   <XCircle size={16} /> Reject
                               </button>
                               <button 
-                                onClick={() => handlePaymentAction(req.id, 'APPROVE', req.user_id, req.plan_type)}
+                                onClick={() => handlePaymentAction(req.id, 'APPROVE', req.user_id, req.plan_type, req.aspirants?.email, req.aspirants?.full_name)}
                                 className="flex-1 md:flex-none px-6 py-3 bg-green-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-lg"
                               >
                                   <CheckCircle size={16} /> Approve
