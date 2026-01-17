@@ -63,6 +63,8 @@ const generateFallbackEvaluation = (testType: string, textContent: string) => {
       analysis: "Content length insufficient for full psychological profile.",
       olqProjected: "N/A"
     })),
+    // PPDT Specific
+    observationAnalysis: "Could not verify observation accuracy in fallback mode.",
     // WAT/SRT Specifics
     detailedComparison: [],
     perception: {
@@ -273,13 +275,31 @@ export async function evaluatePerformance(testType: string, userData: any) {
         const pairs = userData.tatPairs || []; 
         let totalWordCount = 0;
 
-        tatParts.push({ text: `Evaluate TAT stories. Assess Officer Like Qualities (OLQs), Theme, Outcome. Return JSON.` });
+        tatParts.push({ text: `Evaluate these TAT stories. 
+        CRITICAL INSTRUCTION: For each story, I will provide the Stimulus Image and the User's Story.
+        1. Compare the User's Story with the Stimulus Image. 
+        2. Set 'perceivedAccurately' to FALSE if the story describes things NOT in the image or misses obvious details (e.g. ignoring a dead body, describing a party when it's a funeral).
+        3. In the 'analysis' field, explicitly mention if the story is related to the image or not, and provide specific improvements on observation (e.g., "You missed the gun in the background").
+        4. Assess Officer Like Qualities (OLQs), Theme, and Outcome.
+        
+        Return JSON.` });
 
         for (const pair of pairs) {
             const txt = pair.userStoryText || "No text";
             combinedTextForFallback += txt + " ";
             totalWordCount += txt.split(/\s+/).length;
-            tatParts.push({ text: `Story ${pair.storyIndex}: ${txt}` });
+            
+            tatParts.push({ text: `--- Story ${pair.storyIndex} ---` });
+            
+            // Add Stimulus Image if available
+            if (pair.stimulusImage) {
+                 tatParts.push({ inlineData: { data: pair.stimulusImage, mimeType: 'image/jpeg' } });
+                 tatParts.push({ text: `Stimulus Image above.` });
+            } else {
+                 tatParts.push({ text: `Stimulus Description: ${pair.stimulusDesc}` });
+            }
+            
+            tatParts.push({ text: `User Story: ${txt}` });
         }
 
         // GUARDRAIL: Short Content
@@ -303,9 +323,9 @@ export async function evaluatePerformance(testType: string, userData: any) {
                     type: Type.OBJECT,
                     properties: {
                       storyIndex: { type: Type.INTEGER },
-                      perceivedAccurately: { type: Type.BOOLEAN },
+                      perceivedAccurately: { type: Type.BOOLEAN, description: "True if the story matches the visual details of the image. False if unrelated." },
                       theme: { type: Type.STRING },
-                      analysis: { type: Type.STRING },
+                      analysis: { type: Type.STRING, description: "Detailed feedback on relevance to image and observation accuracy." },
                       olqProjected: { type: Type.STRING }
                     }
                   }
@@ -330,11 +350,27 @@ export async function evaluatePerformance(testType: string, userData: any) {
             return generateFallbackEvaluation(testType, combinedTextForFallback);
         }
 
-        const prompt = `Evaluate PPDT. Story: "${userData.story}". Narration: "${userData.narration}". Assess Perception, Action, Outcome. Return JSON.`;
+        const parts: any[] = [];
+        parts.push({ text: `Evaluate PPDT Performance. 
+        CRITICAL: Analyze the 'Stimulus Image' vs the 'Candidate's Story'.
+        1. Check 'relevance': Is the story physically grounded in the image provided? (e.g. number of characters, gender, mood, setting).
+        2. If the story is completely unrelated to the image (hallucinated), mark it as poor perception and penalize the score significantly.
+        3. Fill 'observationAnalysis': Provide specific feedback on what they missed in the image or if they imagined things not present.
+        4. Assess Perception, Action, Outcome.
+        
+        Return JSON.` });
+
+        if (userData.stimulusImage) {
+             parts.push({ inlineData: { data: userData.stimulusImage, mimeType: 'image/jpeg' } });
+             parts.push({ text: `Stimulus Image (What the candidate saw).` });
+        }
+        
+        parts.push({ text: `Candidate's Story: "${userData.story}"` });
+        parts.push({ text: `Candidate's Narration: "${userData.narration}"` });
         
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
-          contents: { parts: [{ text: prompt }] },
+          contents: { parts: parts },
           config: {
             responseMimeType: 'application/json',
             responseSchema: {
@@ -359,6 +395,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
                     coherence: { type: Type.STRING }
                   }
                 },
+                observationAnalysis: { type: Type.STRING, description: "Feedback on whether the story was related to the image and observation accuracy." },
                 strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
                 weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
                 recommendations: { type: Type.STRING }
