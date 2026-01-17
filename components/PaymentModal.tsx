@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock } from 'lucide-react';
+import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock, Tag } from 'lucide-react';
 import { submitPaymentRequest, getLatestPaymentRequest } from '../services/supabaseService';
 
 // --- CONFIGURATION ---
@@ -23,6 +23,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState('');
   const [pendingReq, setPendingReq] = useState<any>(null);
+
+  // Coupon State
+  const [couponCode, setCouponCode] = useState('');
+  const [discount, setDiscount] = useState(0);
+  const [couponMessage, setCouponMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   useEffect(() => {
     if (isOpen && userId && !userId.startsWith('demo')) {
@@ -47,7 +52,35 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
     setStep('PAY');
     setError('');
     setUtr('');
+    // Reset Coupon
+    setCouponCode('');
+    setDiscount(0);
+    setCouponMessage(null);
   };
+
+  const handleApplyCoupon = () => {
+    setCouponMessage(null);
+    const code = couponCode.trim().toUpperCase();
+
+    if (!code) return;
+
+    if (code === 'REPUBLIC26') {
+        if (selectedPlan === 'PRO_SUBSCRIPTION') {
+            // 26% Discount on 299
+            const discountAmount = Math.round(selectedAmount * 0.26);
+            setDiscount(discountAmount);
+            setCouponMessage({ type: 'success', text: `Republic Day Offer Applied! You saved ₹${discountAmount}.` });
+        } else {
+            setDiscount(0);
+            setCouponMessage({ type: 'error', text: 'This coupon is valid only for the Pro Cadet Plan.' });
+        }
+    } else {
+        setDiscount(0);
+        setCouponMessage({ type: 'error', text: 'Invalid Coupon Code.' });
+    }
+  };
+
+  const finalAmount = selectedAmount - discount;
 
   const handleSubmitRequest = async () => {
     setError('');
@@ -67,7 +100,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
     
     try {
         // 2. Submit to Backend for Manual Review & Email Notification
-        await submitPaymentRequest(userId, utr, selectedAmount, selectedPlan);
+        await submitPaymentRequest(userId, utr, finalAmount, selectedPlan);
         setVerifying(false);
         setStep('PENDING'); // Show success message
         setPendingReq({ utr: utr }); // Mock updated state immediately
@@ -78,7 +111,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
   };
 
   // Generate UPI Deep Link
-  const upiLink = `upi://pay?pa=${ADMIN_UPI_ID}&pn=${encodeURIComponent(ADMIN_NAME)}&am=${selectedAmount}&cu=INR`;
+  const upiLink = `upi://pay?pa=${ADMIN_UPI_ID}&pn=${encodeURIComponent(ADMIN_NAME)}&am=${finalAmount}&cu=INR`;
   // Generate QR Image URL
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiLink)}`;
 
@@ -141,16 +174,62 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
 
              {step === 'PAY' && (
                <div className="space-y-6 text-center animate-in slide-in-from-right duration-300">
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 inline-block mx-auto">
+                  
+                  {/* Amount Display */}
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Scan to Pay</p>
+                    <div className="flex items-center justify-center gap-2">
+                        {discount > 0 && (
+                            <span className="text-lg font-bold text-slate-400 line-through">₹{selectedAmount}</span>
+                        )}
+                        <span className="text-3xl font-black text-slate-900">₹{finalAmount}</span>
+                    </div>
+                  </div>
+
+                  {/* QR Code */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 inline-block mx-auto relative">
                      <img src={qrCodeUrl} alt="UPI QR" className="w-40 h-40 mix-blend-multiply" />
+                     {discount > 0 && (
+                         <div className="absolute -top-2 -right-2 bg-green-500 text-white text-[9px] font-black px-2 py-1 rounded-full shadow-md animate-bounce">
+                             SAVE ₹{discount}
+                         </div>
+                     )}
                   </div>
                   
                   <div className="space-y-1">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Scan to Pay ₹{selectedAmount}</p>
-                    <p className="text-sm font-black text-slate-900 bg-slate-100 py-2 px-4 rounded-lg inline-block">{ADMIN_UPI_ID}</p>
+                    <p className="text-sm font-black text-slate-900 bg-slate-100 py-2 px-4 rounded-lg inline-block select-all">{ADMIN_UPI_ID}</p>
                     <p className="text-[10px] text-slate-400 mt-1">Name: {ADMIN_NAME}</p>
                   </div>
 
+                  {/* Discount Coupon Section */}
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                      <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                              <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <input 
+                                type="text"
+                                value={couponCode}
+                                onChange={(e) => setCouponCode(e.target.value)}
+                                placeholder="Have a coupon code?"
+                                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase placeholder:normal-case outline-none focus:border-slate-900 transition-all"
+                                disabled={discount > 0}
+                              />
+                          </div>
+                          <button 
+                            onClick={discount > 0 ? () => { setDiscount(0); setCouponCode(''); setCouponMessage(null); } : handleApplyCoupon}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${discount > 0 ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-slate-900 text-white hover:bg-black'}`}
+                          >
+                              {discount > 0 ? 'Remove' : 'Apply'}
+                          </button>
+                      </div>
+                      {couponMessage && (
+                          <p className={`text-[10px] font-bold mt-2 ${couponMessage.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
+                              {couponMessage.text}
+                          </p>
+                      )}
+                  </div>
+
+                  {/* UTR Input */}
                   <div className="text-left space-y-2">
                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Enter Transaction ID (UTR)</label>
                      <input 
