@@ -124,26 +124,30 @@ const AdminPanel: React.FC = () => {
               
               // --- EMAIL GENERATION LOGIC ---
               if (email) {
-                  const subject = "Deployment Order: Pro Access Activated | SSBPREP.ONLINE";
-                  const body = `Jai Hind ${fullName || 'Cadet'},
+                  const subject = "OFFICIAL: Pro Access Granted | SSBPREP.ONLINE";
+                  const body = `Candidate ${fullName || 'Aspirant'},
 
-Request Verified.
+1. This communication confirms that your transaction has been verified by the Board Administration.
+2. Your account status has been upgraded to: PRO CADET.
 
-Your payment has been successfully processed by the Board Administration.
-Your account is now upgraded to the PRO CADET TIER.
+ACCESS GRANTED:
+[x] PPDT & TAT Simulation Sets
+[x] AI Interview Credits (Assessment Module)
+[x] Performance Analytics
 
-MISSION BRIEFING:
-1. Refresh your dashboard immediately to sync credits.
-2. Access unlocked PPDT, TAT, and AI Interview modules.
-3. Your additional credits are now active.
+INSTRUCTION:
+Refresh your dashboard to synchronize the new clearance level immediately.
 
-"The safety, honour and welfare of your country come first, always and every time."
+For any technical assistance, reply to this frequency.
 
-Prepare Hard.
-Team SSBPREP.ONLINE`;
+Jai Hind.
 
-                  // Open default mail client
-                  window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+Administrative Officer
+SSBPREP.ONLINE
+(contact.ssbprep@gmail.com)`;
+
+                  // Use window.location.href to avoid popup blockers and ensure it opens in the default mail client
+                  window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
               }
           } else {
               await rejectPaymentRequest(id);
