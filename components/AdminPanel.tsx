@@ -1,17 +1,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
   uploadWATWords, getWATWords, deleteWATWord, deleteWATSet,
   getSRTQuestions, uploadSRTQuestions, deleteSRTQuestion, deleteSRTSet,
-  getPendingPayments, approvePaymentRequest, rejectPaymentRequest
+  getPendingPayments, approvePaymentRequest, rejectPaymentRequest,
+  getAllUsers, deleteUserProfile
 } from '../services/supabaseService';
 
 const AdminPanel: React.FC = () => {
   const [items, setItems] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
@@ -27,6 +29,10 @@ const AdminPanel: React.FC = () => {
   const [srtBulkInput, setSrtBulkInput] = useState('');
   const [srtSetTag, setSrtSetTag] = useState('SRT Set 1');
   
+  // User Management
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+
   // Confirmation Modal State
   const [confirmAction, setConfirmAction] = useState<{
       id: string, 
@@ -40,7 +46,7 @@ const AdminPanel: React.FC = () => {
   // SQL Help Toggle
   const [showSqlHelp, setShowSqlHelp] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS'>('PAYMENTS');
+  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS' | 'USERS'>('PAYMENTS');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,6 +58,9 @@ const AdminPanel: React.FC = () => {
       if (activeTab === 'PAYMENTS') {
         const p = await getPendingPayments();
         setPayments(p);
+      } else if (activeTab === 'USERS') {
+        const u = await getAllUsers();
+        setUsers(u);
       } else {
         let data;
         if (activeTab === 'PPDT') data = await getPPDTScenarios();
@@ -193,6 +202,16 @@ SSBPREP.ONLINE
       setErrorMsg(error.message || "Failed to delete set. Run the SQL fix below if permission denied.");
       setShowSqlHelp(true);
     }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+      if (!window.confirm("CRITICAL: Are you sure you want to delete this user? This will remove their profile and test history permanently. This cannot be undone.")) return;
+      try {
+          await deleteUserProfile(userId);
+          setUsers(users.filter(u => u.user_id !== userId));
+      } catch (e: any) {
+          setErrorMsg(e.message || "Failed to delete user.");
+      }
   };
 
   const copySQL = (sql: string) => {
@@ -338,6 +357,11 @@ drop policy if exists "Self Insert History" on test_history;
 create policy "Self Insert History" on test_history for insert with check (auth.uid() = user_id);
 `;
 
+  const filteredUsers = users.filter(u => 
+      u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      u.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700">
       <div className="bg-slate-900 rounded-[2rem] p-8 md:p-12 text-white shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
@@ -410,6 +434,7 @@ create policy "Self Insert History" on test_history for insert with check (auth.
 
       <div className="flex flex-wrap justify-center md:justify-start gap-4">
          <button onClick={() => setActiveTab('PAYMENTS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PAYMENTS' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><IndianRupee size={16} /> Payments {payments.length > 0 && `(${payments.length})`}</button>
+         <button onClick={() => setActiveTab('USERS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'USERS' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><User size={16} /> Cadets {users.length > 0 && `(${users.length})`}</button>
          <button onClick={() => setActiveTab('PPDT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PPDT' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Target size={16} /> PPDT Pool</button>
          <button onClick={() => setActiveTab('TAT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'TAT' ? 'bg-purple-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Layers size={16} /> TAT Sets</button>
          <button onClick={() => setActiveTab('WAT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'WAT' ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><FileText size={16} /> WAT Bank</button>
@@ -456,6 +481,60 @@ create policy "Self Insert History" on test_history for insert with check (auth.
                       </div>
                   ))
               )}
+          </div>
+      ) : activeTab === 'USERS' ? (
+          <div className="space-y-6">
+              <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-lg flex items-center gap-4 sticky top-24 z-10">
+                  <Search className="text-slate-400 ml-2" size={20} />
+                  <input 
+                    type="text" 
+                    placeholder="Search Cadets by Name or Email..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-transparent font-bold text-slate-700 outline-none placeholder:text-slate-300"
+                  />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredUsers.map(u => (
+                      <div key={u.user_id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-xl flex flex-col justify-between group hover:border-slate-300 transition-all">
+                          <div className="space-y-4 mb-6">
+                              <div className="flex justify-between items-start">
+                                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${u.subscription_data?.tier === 'PRO' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 text-slate-500'}`}>
+                                      {u.subscription_data?.tier === 'PRO' ? <Crown size={24} /> : <User size={24} />}
+                                  </div>
+                                  <div className="px-3 py-1 bg-slate-50 rounded-full text-[9px] font-black uppercase text-slate-400 tracking-widest">
+                                      {u.subscription_data?.tier || 'FREE'}
+                                  </div>
+                              </div>
+                              <div>
+                                  <h4 className="text-lg font-black text-slate-900 truncate">{u.full_name || 'Unknown Cadet'}</h4>
+                                  <p className="text-xs font-medium text-slate-500 truncate">{u.email}</p>
+                              </div>
+                              <div className="flex gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                  <Calendar size={12} /> Active: {new Date(u.last_active).toLocaleDateString()}
+                              </div>
+                          </div>
+                          <div className="flex gap-3 pt-4 border-t border-slate-50">
+                              <button 
+                                onClick={() => setSelectedUser(u)}
+                                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-colors"
+                              >
+                                  <Eye size={14} /> Details
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteUser(u.user_id)}
+                                className="p-3 bg-red-50 hover:bg-red-600 hover:text-white text-red-500 rounded-xl transition-colors"
+                              >
+                                  <Trash2 size={16} />
+                              </button>
+                          </div>
+                      </div>
+                  ))}
+                  {filteredUsers.length === 0 && (
+                      <div className="col-span-full py-12 text-center text-slate-400 font-bold italic">No cadets found matching search.</div>
+                  )}
+              </div>
           </div>
       ) : (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -633,6 +712,64 @@ create policy "Self Insert History" on test_history for insert with check (auth.
            )}
         </div>
       </div>
+      )}
+      
+      {/* USER DETAILS MODAL */}
+      {selectedUser && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl relative">
+                  <div className="sticky top-0 bg-white z-10 p-6 border-b border-slate-100 flex justify-between items-center">
+                      <h3 className="text-xl font-black text-slate-900 uppercase">Cadet Dossier</h3>
+                      <button onClick={() => setSelectedUser(null)} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full"><XCircle size={20} /></button>
+                  </div>
+                  <div className="p-8 space-y-8">
+                      {/* Identity */}
+                      <div className="flex items-center gap-6">
+                          <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-3xl font-black ${selectedUser.subscription_data?.tier === 'PRO' ? 'bg-blue-600 text-white' : 'bg-slate-900 text-yellow-400'}`}>
+                              {selectedUser.full_name?.substring(0, 1) || 'U'}
+                          </div>
+                          <div>
+                              <h2 className="text-2xl font-black text-slate-900">{selectedUser.full_name}</h2>
+                              <p className="text-sm font-bold text-slate-500">{selectedUser.email}</p>
+                              <div className="flex gap-2 mt-2">
+                                  <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedUser.subscription_data?.tier || 'FREE'}</span>
+                                  <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest">Active: {new Date(selectedUser.last_active).toLocaleDateString()}</span>
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* PIQ Snapshot */}
+                      <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                          <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest mb-4">PIQ Snapshot</h4>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div><span className="block text-[10px] text-slate-400 uppercase">Chest No</span><span className="font-bold">{selectedUser.piq_data?.chestNo || 'N/A'}</span></div>
+                              <div><span className="block text-[10px] text-slate-400 uppercase">Batch</span><span className="font-bold">{selectedUser.piq_data?.batchNo || 'N/A'}</span></div>
+                              <div><span className="block text-[10px] text-slate-400 uppercase">Board</span><span className="font-bold">{selectedUser.piq_data?.selectionBoard || 'N/A'}</span></div>
+                              <div><span className="block text-[10px] text-slate-400 uppercase">Attempts</span><span className="font-bold">{selectedUser.piq_data?.previousAttempts?.length || 0}</span></div>
+                          </div>
+                      </div>
+
+                      {/* Usage Stats */}
+                      <div className="space-y-4">
+                          <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest">Resource Usage</h4>
+                          <div className="grid grid-cols-3 gap-4">
+                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
+                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.interview_used || 0}</span>
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase">Interviews</span>
+                              </div>
+                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
+                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.ppdt_used || 0}</span>
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase">PPDT</span>
+                              </div>
+                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
+                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.tat_used || 0}</span>
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase">TAT</span>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
       )}
       
       {/* CONFIRMATION MODAL OVERLAY */}

@@ -106,6 +106,28 @@ export const getUserHistory = async (userId: string) => {
   }));
 };
 
+// --- ADMIN USER MANAGEMENT ---
+
+export const getAllUsers = async () => {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('aspirants')
+    .select('*')
+    .order('last_active', { ascending: false });
+  
+  if (error) throw error;
+  return data || [];
+};
+
+export const deleteUserProfile = async (userId: string) => {
+  if (!supabase) return;
+  // This deletes the profile from 'aspirants'.
+  // Note: This does not delete from auth.users (requires server-side admin client),
+  // but it effectively removes their data and access to the app's logic.
+  const { error } = await supabase.from('aspirants').delete().eq('user_id', userId);
+  if (error) throw error;
+};
+
 // --- SUBSCRIPTION & LIMITS ---
 
 const DEFAULT_LIMITS = {
