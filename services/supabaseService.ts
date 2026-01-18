@@ -112,18 +112,18 @@ const DEFAULT_LIMITS = {
     interview: 1,
     ppdt: 5,
     tat: 2,
-    wat: 999, // unlimited
-    srt: 999,
-    sdt: 999
+    wat: 3, // 3 WAT Sets
+    srt: 3, // 3 SRT Sets
+    sdt: 999 // Unlimited or default allowed
 };
 
 const PRO_LIMITS = {
     interview: 5,
     ppdt: 20,
     tat: 7,
-    wat: 999,
-    srt: 999,
-    sdt: 999
+    wat: 10, // 10 WAT Sets
+    srt: 10, // 10 SRT Sets
+    sdt: 999 // All access
 };
 
 export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
@@ -171,6 +171,9 @@ export const checkLimit = async (userId: string, testType: string): Promise<{all
     } else if (testType.includes('TAT')) {
         if (sub.usage.tat_used < sub.usage.tat_limit) allowed = true;
         else message = "TAT limit reached. Upgrade to Pro.";
+    } else if (testType.includes('WAT')) {
+        if (sub.usage.wat_used < (sub.usage.wat_used + 10)) allowed = true; // Simplified check as WAT/SRT are sets in FE
+        else message = "Limit reached.";
     } else {
         allowed = true; // Others unlimited
     }

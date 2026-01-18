@@ -127,18 +127,20 @@ const AdminPanel: React.FC = () => {
                   const subject = "OFFICIAL: Pro Access Granted | SSBPREP.ONLINE";
                   const body = `Candidate ${fullName || 'Aspirant'},
 
-1. This communication confirms that your transaction has been verified by the Board Administration.
-2. Your account status has been upgraded to: PRO CADET.
+We are pleased to inform you that the Admin has verified your payment.
+Your account status has been upgraded to: PRO CADET.
 
 ACCESS GRANTED:
-[x] PPDT & TAT Simulation Sets
-[x] AI Interview Credits (Assessment Module)
-[x] Performance Analytics
+[x] 20 PPDT Simulation Sets
+[x] 7 TAT Psychology Sets
+[x] 10 WAT & SRT Sets
+[x] 5 AI Video Interview Credits
+[x] Access to AI Guide & SDT
 
 INSTRUCTION:
-Refresh your dashboard to synchronize the new clearance level immediately.
+Please refresh your dashboard to synchronize your new clearance level immediately and start your training.
 
-For any technical assistance, reply to this frequency.
+Prepare hard and enjoy the platform.
 
 Jai Hind.
 

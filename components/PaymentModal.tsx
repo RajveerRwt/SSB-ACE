@@ -66,7 +66,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
 
     if (code === 'REPUBLIC26') {
         if (selectedPlan === 'PRO_SUBSCRIPTION') {
-            // 26% Discount on 299
+            // 26% Discount on 299 -> ~77.74 -> 78 off
             const discountAmount = Math.round(selectedAmount * 0.26);
             setDiscount(discountAmount);
             setCouponMessage({ type: 'success', text: `Republic Day Offer Applied! You saved ₹${discountAmount}.` });
@@ -152,8 +152,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                     <ul className="text-xs text-slate-600 space-y-2 font-medium">
                        <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 20 PPDT Total Sets</li>
                        <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 7 TAT Psychology Sets</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 5 AI Mock Interviews</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> Detailed Performance Analytics</li>
+                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 10 WAT & SRT Sets</li>
+                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 5 AI Mock Interviews (Video)</li>
+                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> AI Guide & SDT Access</li>
                     </ul>
                   </div>
 
