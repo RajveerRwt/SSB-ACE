@@ -460,7 +460,15 @@ const App: React.FC = () => {
         return;
      }
 
-     // 3. SUBSCRIPTION LIMIT CHECK (Only if logged in)
+     // 3. PIQ CHECK (Gatekeeper for Interview)
+     // Prevent starting interview if PIQ data is missing
+     if (test === TestType.INTERVIEW && !piqData) {
+        alert("Clearance Denied: PIQ Not Found.\n\nThe Interviewing Officer requires your Personal Information Questionnaire (PIQ) to conduct the assessment. Please fill it first.");
+        setActiveTest(TestType.PIQ);
+        return;
+     }
+
+     // 4. SUBSCRIPTION LIMIT CHECK (Only if logged in)
      if ((test === TestType.INTERVIEW || test === TestType.PPDT || test === TestType.TAT) && user) {
         const { allowed, message } = await checkLimit(user, test);
         if (!allowed) {
@@ -470,7 +478,7 @@ const App: React.FC = () => {
         }
      }
      
-     // 4. ADMIN CHECK
+     // 5. ADMIN CHECK
      if (test === TestType.ADMIN && !isUserAdmin(userEmail)) {
         alert("Access Denied.");
         return;
