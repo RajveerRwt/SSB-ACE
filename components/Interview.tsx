@@ -6,7 +6,7 @@ import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
 
 /** 
- * SSB VIRTUAL INTERVIEW PROTOCOL (v5.2 - Full Transcript Capture)
+ * SSB VIRTUAL INTERVIEW PROTOCOL (v5.3 - Variable Duration & CIQ)
  */
 
 function decode(base64: string) {
@@ -89,8 +89,9 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
   const [error, setError] = useState<string | null>(null);
   const [finalAnalysis, setFinalAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(1800); // 30 Minutes
-  const timeLeftRef = useRef(1800); // Ref to track time for callbacks
+  const [timeLeft, setTimeLeft] = useState(2400); // Default max, actual set in startSession
+  const [totalDuration, setTotalDuration] = useState(2400); // To track total time for progress/logic
+  const timeLeftRef = useRef(2400); // Ref to track time for callbacks
   const [showScoreHelp, setShowScoreHelp] = useState(false);
   const [showEarlyExitWarning, setShowEarlyExitWarning] = useState(false);
 
@@ -180,6 +181,12 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
       sessionModeRef.current = 'SESSION';
       retryCountRef.current = 0;
       conversationHistoryRef.current = []; // Only clear history on fresh start
+      
+      // VARIABLE DURATION LOGIC: Randomize between 30 mins (1800s) and 40 mins (2400s)
+      const duration = Math.floor(Math.random() * (2400 - 1800 + 1)) + 1800;
+      setTimeLeft(duration);
+      setTotalDuration(duration);
+      timeLeftRef.current = duration;
     }
     
     setConnectionStatus(isRetry ? 'RECONNECTING' : 'CONNECTING');
@@ -231,7 +238,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
       
       // Dynamic System Instruction Generation
       const baseInstruction = `You are Col. Arjun Singh, President of 1 AFSB.
-          CONTEXT: A rigorous, formal 30-minute Personal Interview.
+          CONTEXT: A rigorous, formal Personal Interview for the Indian Armed Forces.
           PIQ DATA: ${JSON.stringify(piqData)}.
           
           *** PROTOCOL: AUDIO & VISUAL ***
@@ -244,10 +251,15 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
              - Wait for the candidate to GREET you first (e.g., "Good Morning Sir", "Jai Hind").
              - If they do not greet within the first 10 seconds of the call, reprimand them immediately for lack of officer-like etiquette.
 
-          4. STRATEGY:
-             - Deep Probe: If answers are short, ask "Why?", "How?", "Tell me more".
-             - Rapid Fire: Ask multiple questions in one go.
-             - Stress: If they fumble or look nervous, pressure them slightly.
+          *** MANDATORY QUESTIONING TECHNIQUES (CIQ & CURRENT AFFAIRS) ***
+          4. COMPREHENSIVE INFORMATION QUESTION (CIQ) / SEQUENCE QUESTIONS:
+             - You MUST ask at least 2-3 "Sequence Questions" (Rapid Fire).
+             - Example: "Tell me about your academic performance starting from 10th to graduation, your favorite subjects, teachers you didn't like and why, who are your best friends, and what games you play." (Ask 4-5 connected questions in one breath).
+             - Expect the candidate to answer them sequentially. If they miss a part, interrupt and ask "You forgot about the teachers part."
+          
+          5. CURRENT AFFAIRS & GENERAL AWARENESS:
+             - Test their awareness of National and International events (e.g., India's foreign relations, Defense deals, Geopolitics).
+             - Ask for their *opinion* ("What do you think about...", "Justify your stance on..."), not just facts.
 
           TONE: Authoritative, Skeptical, Thorough.
           STYLE: Use a measured, commanding tone typical of a senior Indian Army Officer. Use Indian English phrasing (e.g., "Gentleman", "What say you?", "Fair enough").`;
@@ -256,7 +268,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
       
       if (isRetry) {
           const recentHistory = conversationHistoryRef.current.slice(-5).join(" | ");
-          const elapsedTime = 1800 - timeLeftRef.current;
+          const elapsedTime = totalDuration - timeLeftRef.current;
           const minutesPassed = Math.floor(elapsedTime / 60);
           finalInstruction += `\n\n*** NETWORK RESTORATION MODE ***
           STATUS: We are ${minutesPassed} minutes into the interview.
@@ -441,7 +453,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
   };
 
   const handleEndCallRequest = () => {
-      const durationSeconds = 1800 - timeLeft;
+      const durationSeconds = totalDuration - timeLeft;
       // If interview is less than 10 minutes (600 seconds)
       if (durationSeconds < 600) {
           setShowEarlyExitWarning(true);
@@ -474,7 +486,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
       const fullTranscript = conversationHistoryRef.current.join("\n");
       const results = await evaluatePerformance('Personal Interview Board (30 Min)', { 
         piq: piqData, 
-        duration: 1800 - timeLeft, 
+        duration: totalDuration - timeLeft, 
         transcript: fullTranscript || "No verbal response captured.",
         testType: 'Interview' // Ensure service knows this is an Interview
       });
@@ -515,7 +527,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
               <h1 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter">IO <span className="text-blue-500">Interview</span></h1>
               <div className="flex justify-center gap-4">
                  <span className="px-3 md:px-4 py-1.5 bg-blue-500/20 text-blue-300 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-blue-500/30 flex items-center gap-2">
-                   <Clock size={12} /> 30 Minutes
+                   <Clock size={12} /> 30-40 Minutes
                  </span>
                  <span className="px-3 md:px-4 py-1.5 bg-green-500/20 text-green-300 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-green-500/30 flex items-center gap-2">
                    <Video size={12} /> Video Enabled
@@ -710,7 +722,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
               <div>
                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Premature Conclusion</h3>
                  <p className="text-slate-500 text-xs font-medium leading-relaxed mt-2">
-                    A standard IO interview lasts 25-30 minutes. Ending now ({Math.floor((1800 - timeLeft)/60)} mins) will result in an <b>'Insufficient Data'</b> assessment.
+                    A standard IO interview lasts 25-30 minutes. Ending now ({Math.floor((totalDuration - timeLeft)/60)} mins) will result in an <b>'Insufficient Data'</b> assessment.
                  </p>
               </div>
               <div className="flex gap-3">
