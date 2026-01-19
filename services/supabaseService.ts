@@ -149,7 +149,19 @@ const PRO_LIMITS = {
 };
 
 export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
-    if (!supabase) return { tier: 'FREE', expiryDate: null, usage: { interview_used: 0, interview_limit: 1, ppdt_used: 0, ppdt_limit: 5, tat_used: 0, tat_limit: 2, wat_used: 0, srt_used: 0, sdt_used: 0 }, extra_credits: { interview: 0 } };
+    if (!supabase) return { 
+        tier: 'FREE', 
+        expiryDate: null, 
+        usage: { 
+            interview_used: 0, interview_limit: 1, 
+            ppdt_used: 0, ppdt_limit: 5, 
+            tat_used: 0, tat_limit: 2, 
+            wat_used: 0, wat_limit: 3, 
+            srt_used: 0, srt_limit: 3, 
+            sdt_used: 0 
+        }, 
+        extra_credits: { interview: 0 } 
+    };
     
     const { data } = await supabase.from('aspirants').select('subscription_data').eq('user_id', userId).single();
     const sub = data?.subscription_data || {};
@@ -169,7 +181,9 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
             tat_used: sub.usage?.tat_used || 0,
             tat_limit: limits.tat,
             wat_used: sub.usage?.wat_used || 0,
+            wat_limit: limits.wat,
             srt_used: sub.usage?.srt_used || 0,
+            srt_limit: limits.srt,
             sdt_used: sub.usage?.sdt_used || 0,
         },
         extra_credits: {
@@ -194,8 +208,11 @@ export const checkLimit = async (userId: string, testType: string): Promise<{all
         if (sub.usage.tat_used < sub.usage.tat_limit) allowed = true;
         else message = "TAT limit reached. Upgrade to Pro.";
     } else if (testType.includes('WAT')) {
-        if (sub.usage.wat_used < (sub.usage.wat_used + 10)) allowed = true; // Simplified check as WAT/SRT are sets in FE
-        else message = "Limit reached.";
+        if (sub.usage.wat_used < sub.usage.wat_limit) allowed = true;
+        else message = "WAT set limit reached. Upgrade to Pro.";
+    } else if (testType.includes('SRT')) {
+        if (sub.usage.srt_used < sub.usage.srt_limit) allowed = true;
+        else message = "SRT set limit reached. Upgrade to Pro.";
     } else {
         allowed = true; // Others unlimited
     }

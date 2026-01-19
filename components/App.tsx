@@ -210,18 +210,26 @@ const Dashboard: React.FC<{
                            {subscription.tier} Plan
                         </span>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 md:gap-4 divide-x divide-white/5">
-                        <div className="space-y-1 pr-2">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
+                        <div className="space-y-1 border-r border-white/5 pr-2">
                             <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Interview</p>
                             <p className="text-sm md:text-base font-black text-white">{subscription.usage.interview_used} <span className="text-slate-600 text-[10px]">/ {subscription.usage.interview_limit + subscription.extra_credits.interview}</span></p>
                         </div>
-                        <div className="space-y-1 px-2">
+                        <div className="space-y-1 border-r border-white/5 px-2">
                             <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">PPDT</p>
                             <p className="text-sm md:text-base font-black text-white">{subscription.usage.ppdt_used} <span className="text-slate-600 text-[10px]">/ {subscription.usage.ppdt_limit}</span></p>
                         </div>
-                        <div className="space-y-1 pl-2">
+                        <div className="space-y-1 border-r border-white/5 px-2">
                             <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">TAT</p>
                             <p className="text-sm md:text-base font-black text-white">{subscription.usage.tat_used} <span className="text-slate-600 text-[10px]">/ {subscription.usage.tat_limit}</span></p>
+                        </div>
+                        <div className="space-y-1 border-r border-white/5 px-2">
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">WAT</p>
+                            <p className="text-sm md:text-base font-black text-white">{subscription.usage.wat_used} <span className="text-slate-600 text-[10px]">/ {subscription.usage.wat_limit}</span></p>
+                        </div>
+                        <div className="space-y-1 pl-2">
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">SRT</p>
+                            <p className="text-sm md:text-base font-black text-white">{subscription.usage.srt_used} <span className="text-slate-600 text-[10px]">/ {subscription.usage.srt_limit}</span></p>
                         </div>
                     </div>
                     <p className="mt-3 text-[9px] text-slate-500 font-medium italic">* Credits are allocated per subscription period, not daily.</p>

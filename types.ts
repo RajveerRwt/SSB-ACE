@@ -80,9 +80,11 @@ export interface UserSubscription {
     ppdt_limit: number;
     tat_used: number;
     tat_limit: number;
-    wat_used: number; // Unlimited, but tracking for stats
-    srt_used: number; // Unlimited, but tracking for stats
-    sdt_used: number; // Unlimited, but tracking for stats
+    wat_used: number;
+    wat_limit: number;
+    srt_used: number;
+    srt_limit: number;
+    sdt_used: number; 
   };
   extra_credits: {
     interview: number;
