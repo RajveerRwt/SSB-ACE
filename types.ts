@@ -71,7 +71,7 @@ export interface UserResponse {
 }
 
 export interface UserSubscription {
-  tier: 'FREE' | 'PRO';
+  tier: 'FREE' | 'STANDARD' | 'PRO';
   expiryDate: string | null; // ISO Date string
   usage: {
     interview_used: number;
@@ -96,7 +96,7 @@ export interface PaymentRequest {
   user_id: string;
   utr: string;
   amount: number;
-  plan_type: 'PRO_SUBSCRIPTION' | 'INTERVIEW_ADDON';
+  plan_type: 'PRO_SUBSCRIPTION' | 'STANDARD_SUBSCRIPTION' | 'INTERVIEW_ADDON';
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   created_at: string;
 }

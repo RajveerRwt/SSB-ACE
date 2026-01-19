@@ -134,18 +134,27 @@ const DEFAULT_LIMITS = {
     interview: 1,
     ppdt: 5,
     tat: 2,
-    wat: 3, // 3 WAT Sets
-    srt: 3, // 3 SRT Sets
-    sdt: 999 // Unlimited or default allowed
+    wat: 3, 
+    srt: 3, 
+    sdt: 999 
+};
+
+const STANDARD_LIMITS = {
+    interview: 2,
+    ppdt: 10,
+    tat: 4,
+    wat: 5,
+    srt: 5,
+    sdt: 999
 };
 
 const PRO_LIMITS = {
     interview: 5,
     ppdt: 20,
     tat: 7,
-    wat: 10, // 10 WAT Sets
-    srt: 10, // 10 SRT Sets
-    sdt: 999 // All access
+    wat: 10,
+    srt: 10, 
+    sdt: 999 
 };
 
 export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
@@ -168,7 +177,10 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
     
     // Defaults
     const tier = sub.tier || 'FREE';
-    const limits = tier === 'PRO' ? PRO_LIMITS : DEFAULT_LIMITS;
+    
+    let limits = DEFAULT_LIMITS;
+    if (tier === 'PRO') limits = PRO_LIMITS;
+    else if (tier === 'STANDARD') limits = STANDARD_LIMITS;
     
     return {
         tier,
@@ -200,19 +212,19 @@ export const checkLimit = async (userId: string, testType: string): Promise<{all
     if (testType.includes('INTERVIEW')) {
         const totalLimit = sub.usage.interview_limit + sub.extra_credits.interview;
         if (sub.usage.interview_used < totalLimit) allowed = true;
-        else message = "Interview limit reached. Upgrade or buy add-ons.";
+        else message = "Interview limit reached. Upgrade to Standard/Pro or buy add-ons.";
     } else if (testType.includes('PPDT')) {
         if (sub.usage.ppdt_used < sub.usage.ppdt_limit) allowed = true;
-        else message = "PPDT limit reached. Upgrade to Pro.";
+        else message = "PPDT limit reached. Upgrade Subscription.";
     } else if (testType.includes('TAT')) {
         if (sub.usage.tat_used < sub.usage.tat_limit) allowed = true;
-        else message = "TAT limit reached. Upgrade to Pro.";
+        else message = "TAT limit reached. Upgrade Subscription.";
     } else if (testType.includes('WAT')) {
         if (sub.usage.wat_used < sub.usage.wat_limit) allowed = true;
-        else message = "WAT set limit reached. Upgrade to Pro.";
+        else message = "WAT set limit reached. Upgrade Subscription.";
     } else if (testType.includes('SRT')) {
         if (sub.usage.srt_used < sub.usage.srt_limit) allowed = true;
-        else message = "SRT set limit reached. Upgrade to Pro.";
+        else message = "SRT set limit reached. Upgrade Subscription.";
     } else {
         allowed = true; // Others unlimited
     }
@@ -424,7 +436,8 @@ export const approvePaymentRequest = async (id: string, userId: string, planType
     
     if (planType === 'PRO_SUBSCRIPTION') {
         sub.tier = 'PRO';
-        // Reset limits or handle expiry logic here
+    } else if (planType === 'STANDARD_SUBSCRIPTION') {
+        sub.tier = 'STANDARD';
     } else if (planType === 'INTERVIEW_ADDON') {
         sub.extra_credits = sub.extra_credits || {};
         sub.extra_credits.interview = (sub.extra_credits.interview || 0) + 1;
