@@ -434,10 +434,18 @@ export const approvePaymentRequest = async (id: string, userId: string, planType
     const { data } = await supabase.from('aspirants').select('subscription_data').eq('user_id', userId).single();
     let sub = data?.subscription_data || { tier: 'FREE', usage: {}, extra_credits: {} };
     
-    if (planType === 'PRO_SUBSCRIPTION') {
-        sub.tier = 'PRO';
-    } else if (planType === 'STANDARD_SUBSCRIPTION') {
-        sub.tier = 'STANDARD';
+    if (planType === 'PRO_SUBSCRIPTION' || planType === 'STANDARD_SUBSCRIPTION') {
+        sub.tier = planType === 'PRO_SUBSCRIPTION' ? 'PRO' : 'STANDARD';
+        // REFILL: Reset usage limits so the user gets fresh credits
+        sub.usage = {
+            interview_used: 0,
+            ppdt_used: 0,
+            tat_used: 0,
+            wat_used: 0,
+            srt_used: 0,
+            sdt_used: 0
+        };
+        // NOTE: We do NOT wipe extra_credits, so any previously bought add-ons remain valid.
     } else if (planType === 'INTERVIEW_ADDON') {
         sub.extra_credits = sub.extra_credits || {};
         sub.extra_credits.interview = (sub.extra_credits.interview || 0) + 1;
