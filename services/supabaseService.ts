@@ -121,9 +121,6 @@ export const getAllUsers = async () => {
 
 export const deleteUserProfile = async (userId: string) => {
   if (!supabase) return;
-  // This deletes the profile from 'aspirants'.
-  // Note: This does not delete from auth.users (requires server-side admin client),
-  // but it effectively removes their data and access to the app's logic.
   const { error } = await supabase.from('aspirants').delete().eq('user_id', userId);
   if (error) throw error;
 };
@@ -277,8 +274,6 @@ export const uploadPPDTScenario = async (file: File, description: string) => {
 
 export const deletePPDTScenario = async (id: string, url: string) => {
     if (!supabase) return;
-    // extract filename from url if needed, for simplicity assume we just delete record
-    // In real app, delete from storage too
     await supabase.from('ppdt_scenarios').delete().eq('id', id);
 };
 
@@ -338,11 +333,9 @@ export const deleteWATSet = async (setTag: string) => {
   if (!supabase) throw new Error("Database connection unavailable");
   
   if (setTag === 'General') {
-     // Handle cases where set_tag is explicitly 'General'
      const { error: err1 } = await supabase.from('wat_words').delete().eq('set_tag', 'General');
      if (err1) throw err1;
      
-     // Handle legacy items where set_tag is NULL
      const { error: err2 } = await supabase.from('wat_words').delete().is('set_tag', null);
      if (err2) throw err2;
   } else {
@@ -386,20 +379,80 @@ export const deleteSRTSet = async (setTag: string) => {
   }
 };
 
+// --- COUPON MANAGEMENT ---
+
+export const getCoupons = async () => {
+    if (!supabase) return [];
+    const { data, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+};
+
+export const createCoupon = async (code: string, discount: number, influencer: string) => {
+    if (!supabase) throw new Error("Database not connected");
+    const { error } = await supabase.from('coupons').insert({
+        code: code.toUpperCase(),
+        discount_percent: discount,
+        influencer_name: influencer,
+        usage_count: 0
+    });
+    if (error) throw error;
+};
+
+export const deleteCoupon = async (code: string) => {
+    if (!supabase) throw new Error("Database not connected");
+    const { error } = await supabase.from('coupons').delete().eq('code', code);
+    if (error) throw error;
+};
+
+export const validateCoupon = async (code: string) => {
+    if (!supabase) return { valid: false, discount: 0, message: 'Database Unavailable' };
+    
+    const { data, error } = await supabase
+        .from('coupons')
+        .select('discount_percent')
+        .eq('code', code.toUpperCase())
+        .single();
+        
+    if (error || !data) {
+        return { valid: false, discount: 0, message: 'Invalid or Expired Code' };
+    }
+    
+    return { valid: true, discount: data.discount_percent, message: `Success! ${data.discount_percent}% Discount Applied.` };
+};
+
 // --- PAYMENTS ---
 
-export const submitPaymentRequest = async (userId: string, utr: string, amount: number, planType: string) => {
+export const submitPaymentRequest = async (userId: string, utr: string, amount: number, planType: string, couponCode: string = '') => {
     if (!supabase) throw new Error("Database not connected");
     const { error } = await supabase.from('payment_requests').insert({
         user_id: userId,
         utr,
         amount,
         plan_type: planType,
+        coupon_code: couponCode || null,
         status: 'PENDING'
     });
+    
     if (error) {
         if (error.code === '23505') throw new Error("This UTR has already been submitted.");
         throw error;
+    }
+
+    // Increment Lead/Usage for the Coupon Immediately upon submission (tracking Leads)
+    if (couponCode) {
+        const { error: incrementError } = await supabase.rpc('increment_coupon_usage', { code_input: couponCode });
+        // Fallback if RPC doesn't exist yet: fetch, increment, update (less safe for concurrency but works for MVP)
+        if (incrementError) {
+             const { data: c } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).single();
+             if (c) {
+                 await supabase.from('coupons').update({ usage_count: (c.usage_count || 0) + 1 }).eq('code', couponCode);
+             }
+        }
     }
 };
 

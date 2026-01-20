@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock, Tag } from 'lucide-react';
-import { submitPaymentRequest, getLatestPaymentRequest } from '../services/supabaseService';
+import { submitPaymentRequest, getLatestPaymentRequest, validateCoupon } from '../services/supabaseService';
 
 // --- CONFIGURATION ---
 const ADMIN_UPI_ID = "9131112322@ybl"; 
@@ -26,8 +26,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
 
   // Coupon State
   const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState('');
   const [discount, setDiscount] = useState(0);
   const [couponMessage, setCouponMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
 
   useEffect(() => {
     if (isOpen && userId && !userId.startsWith('demo')) {
@@ -54,28 +56,45 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
     setUtr('');
     // Reset Coupon
     setCouponCode('');
+    setAppliedCoupon('');
     setDiscount(0);
     setCouponMessage(null);
   };
 
-  const handleApplyCoupon = () => {
+  const handleApplyCoupon = async () => {
     setCouponMessage(null);
+    setValidatingCoupon(true);
     const code = couponCode.trim().toUpperCase();
 
-    if (!code) return;
+    if (!code) {
+        setValidatingCoupon(false);
+        return;
+    }
 
-    if (code === 'REPUBLIC26') {
-        if (selectedPlan === 'PRO_SUBSCRIPTION' || selectedPlan === 'STANDARD_SUBSCRIPTION') {
-            const discountAmount = Math.round(selectedAmount * 0.26);
+    // Static check for 'REPUBLIC26' to maintain backward compatibility if needed, 
+    // or we can remove it and rely solely on DB. Let's rely on DB primarily but keep Republic if it's in DB.
+    
+    try {
+        const result = await validateCoupon(code);
+        
+        if (result.valid) {
+            if (selectedPlan === 'INTERVIEW_ADDON' && result.discount > 0) {
+                 // Optional: Restrict coupons on tiny addons if needed, but allowing for now
+            }
+            
+            const discountAmount = Math.ceil(selectedAmount * (result.discount / 100));
             setDiscount(discountAmount);
-            setCouponMessage({ type: 'success', text: `Republic Day Offer Applied! You saved ₹${discountAmount}.` });
+            setAppliedCoupon(code);
+            setCouponMessage({ type: 'success', text: result.message });
         } else {
             setDiscount(0);
-            setCouponMessage({ type: 'error', text: 'This coupon is valid only for Subscription Plans.' });
+            setAppliedCoupon('');
+            setCouponMessage({ type: 'error', text: result.message });
         }
-    } else {
-        setDiscount(0);
-        setCouponMessage({ type: 'error', text: 'Invalid Coupon Code.' });
+    } catch (e) {
+        setCouponMessage({ type: 'error', text: "Verification failed. Check network." });
+    } finally {
+        setValidatingCoupon(false);
     }
   };
 
@@ -99,7 +118,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
     
     try {
         // 2. Submit to Backend for Manual Review & Email Notification
-        await submitPaymentRequest(userId, utr, finalAmount, selectedPlan);
+        // Include appliedCoupon to track leads
+        await submitPaymentRequest(userId, utr, finalAmount, selectedPlan, appliedCoupon);
         setVerifying(false);
         setStep('PENDING'); // Show success message
         setPendingReq({ utr: utr }); // Mock updated state immediately
@@ -231,10 +251,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                               />
                           </div>
                           <button 
-                            onClick={discount > 0 ? () => { setDiscount(0); setCouponCode(''); setCouponMessage(null); } : handleApplyCoupon}
+                            onClick={discount > 0 ? () => { setDiscount(0); setCouponCode(''); setAppliedCoupon(''); setCouponMessage(null); } : handleApplyCoupon}
+                            disabled={validatingCoupon}
                             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${discount > 0 ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-slate-900 text-white hover:bg-black'}`}
                           >
-                              {discount > 0 ? 'Remove' : 'Apply'}
+                              {validatingCoupon ? <Loader2 size={12} className="animate-spin" /> : (discount > 0 ? 'Remove' : 'Apply')}
                           </button>
                       </div>
                       {couponMessage && (

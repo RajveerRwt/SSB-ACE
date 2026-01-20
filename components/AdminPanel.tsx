@@ -1,19 +1,20 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
   uploadWATWords, getWATWords, deleteWATWord, deleteWATSet,
   getSRTQuestions, uploadSRTQuestions, deleteSRTQuestion, deleteSRTSet,
   getPendingPayments, approvePaymentRequest, rejectPaymentRequest,
-  getAllUsers, deleteUserProfile
+  getAllUsers, deleteUserProfile, getCoupons, createCoupon, deleteCoupon
 } from '../services/supabaseService';
 
 const AdminPanel: React.FC = () => {
   const [items, setItems] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [coupons, setCoupons] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
@@ -29,6 +30,11 @@ const AdminPanel: React.FC = () => {
   const [srtBulkInput, setSrtBulkInput] = useState('');
   const [srtSetTag, setSrtSetTag] = useState('SRT Set 1');
   
+  // Coupon Inputs
+  const [couponCode, setCouponCode] = useState('');
+  const [couponDiscount, setCouponDiscount] = useState('10');
+  const [influencerName, setInfluencerName] = useState('');
+
   // User Management
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
@@ -46,7 +52,7 @@ const AdminPanel: React.FC = () => {
   // SQL Help Toggle
   const [showSqlHelp, setShowSqlHelp] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS' | 'USERS'>('PAYMENTS');
+  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS' | 'USERS' | 'COUPONS'>('PAYMENTS');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -61,6 +67,9 @@ const AdminPanel: React.FC = () => {
       } else if (activeTab === 'USERS') {
         const u = await getAllUsers();
         setUsers(u);
+      } else if (activeTab === 'COUPONS') {
+        const c = await getCoupons();
+        setCoupons(c);
       } else {
         let data;
         if (activeTab === 'PPDT') data = await getPPDTScenarios();
@@ -91,11 +100,15 @@ const AdminPanel: React.FC = () => {
         await uploadWATWords(words, watSetTag || 'General');
         setWatBulkInput('');
       } else if (activeTab === 'SRT') {
-        // Split by new line primarily for SRTs as they contain commas
         const questions = srtBulkInput.split(/[\n]+/).map(q => q.trim()).filter(q => q);
         if (questions.length === 0) throw new Error("No situations entered.");
         await uploadSRTQuestions(questions, srtSetTag || 'General');
         setSrtBulkInput('');
+      } else if (activeTab === 'COUPONS') {
+        if (!couponCode || !couponDiscount || !influencerName) throw new Error("All fields required.");
+        await createCoupon(couponCode, parseInt(couponDiscount), influencerName);
+        setCouponCode('');
+        setInfluencerName('');
       } else {
         const file = fileInputRef.current?.files?.[0];
         if (!file) throw new Error("No file selected.");
@@ -111,7 +124,7 @@ const AdminPanel: React.FC = () => {
       await fetchData();
     } catch (error: any) {
       console.error("Upload failed", error);
-      setErrorMsg(error.message || "An unknown error occurred during upload.");
+      setErrorMsg(error.message || "An unknown error occurred.");
     } finally {
       setIsUploading(false);
     }
@@ -131,7 +144,6 @@ const AdminPanel: React.FC = () => {
           if (type === 'APPROVE') {
               await approvePaymentRequest(id, userId, planType);
               
-              // --- EMAIL GENERATION LOGIC ---
               if (email) {
                   const subject = "OFFICIAL: Pro Access Granted | SSBPREP.ONLINE";
                   const body = `Candidate ${fullName || 'Aspirant'},
@@ -157,13 +169,12 @@ Administrative Officer
 SSBPREP.ONLINE
 (contact.ssbprep@gmail.com)`;
 
-                  // Use window.location.href to avoid popup blockers and ensure it opens in the default mail client
                   window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
               }
           } else {
               await rejectPaymentRequest(id);
           }
-          await fetchData(); // Refresh list
+          await fetchData(); 
       } catch(e: any) {
           setErrorMsg(e.message || "Action failed. Check Console/RLS Policies.");
       }
@@ -173,39 +184,36 @@ SSBPREP.ONLINE
     if (!window.confirm("Delete this item permanently?")) return;
     setErrorMsg(null);
     try {
-      if (activeTab === 'WAT') {
-        await deleteWATWord(id);
-      } else if (activeTab === 'SRT') {
-        await deleteSRTQuestion(id);
-      } else if (activeTab === 'PPDT' && url) {
-        await deletePPDTScenario(id, url);
-      } else if (activeTab === 'TAT' && url) {
-        await deleteTATScenario(id, url);
-      }
-      setItems(items.filter(i => i.id !== id));
+      if (activeTab === 'WAT') await deleteWATWord(id);
+      else if (activeTab === 'SRT') await deleteSRTQuestion(id);
+      else if (activeTab === 'PPDT' && url) await deletePPDTScenario(id, url);
+      else if (activeTab === 'TAT' && url) await deleteTATScenario(id, url);
+      else if (activeTab === 'COUPONS') await deleteCoupon(id);
+      
+      if (activeTab === 'COUPONS') fetchData();
+      else setItems(items.filter(i => i.id !== id));
     } catch (error: any) {
       console.error("Delete failed", error);
-      setErrorMsg(error.message || "Failed to delete item. Ensure you have run the SQL to enable delete permissions.");
+      setErrorMsg(error.message || "Failed to delete item.");
       setShowSqlHelp(true);
     }
   };
 
   const handleDeleteSet = async (tag: string) => {
-    if (!window.confirm(`WARNING: Are you sure you want to delete the entire set "${tag}"? This action cannot be undone and will remove all ${groupedItems[tag]?.length || 0} items in this set.`)) return;
+    if (!window.confirm(`WARNING: Are you sure you want to delete the entire set "${tag}"?`)) return;
     setErrorMsg(null);
     try {
       if (activeTab === 'WAT') await deleteWATSet(tag);
       if (activeTab === 'SRT') await deleteSRTSet(tag);
       await fetchData();
     } catch (error: any) {
-      console.error("Delete set failed", error);
-      setErrorMsg(error.message || "Failed to delete set. Run the SQL fix below if permission denied.");
+      setErrorMsg(error.message || "Failed to delete set.");
       setShowSqlHelp(true);
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
-      if (!window.confirm("CRITICAL: Are you sure you want to delete this user? This will remove their profile and test history permanently. This cannot be undone.")) return;
+      if (!window.confirm("CRITICAL: Delete User and History?")) return;
       try {
           await deleteUserProfile(userId);
           setUsers(users.filter(u => u.user_id !== userId));
@@ -331,6 +339,7 @@ create table if not exists payment_requests (
   utr text not null unique,
   amount numeric not null,
   plan_type text not null,
+  coupon_code text, -- New Column for Tracking Coupons
   status text check (status in ('PENDING', 'APPROVED', 'REJECTED')) default 'PENDING',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -355,6 +364,28 @@ drop policy if exists "Self View History" on test_history;
 create policy "Self View History" on test_history for select using (auth.uid() = user_id);
 drop policy if exists "Self Insert History" on test_history;
 create policy "Self Insert History" on test_history for insert with check (auth.uid() = user_id);
+
+-- 6. Coupons & Leads
+create table if not exists coupons (
+  code text primary key,
+  discount_percent integer not null,
+  influencer_name text,
+  usage_count integer default 0,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+alter table coupons enable row level security;
+drop policy if exists "Public View Coupons" on coupons;
+create policy "Public View Coupons" on coupons for select using (true);
+drop policy if exists "Admin Manage Coupons" on coupons;
+create policy "Admin Manage Coupons" on coupons for all using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
+
+-- Helper Function to increment lead count safely
+create or replace function increment_coupon_usage(code_input text)
+returns void as $$
+begin
+  update coupons set usage_count = usage_count + 1 where code = code_input;
+end;
+$$ language plpgsql security definer;
 `;
 
   const filteredUsers = users.filter(u => 
@@ -435,6 +466,7 @@ create policy "Self Insert History" on test_history for insert with check (auth.
       <div className="flex flex-wrap justify-center md:justify-start gap-4">
          <button onClick={() => setActiveTab('PAYMENTS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PAYMENTS' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><IndianRupee size={16} /> Payments {payments.length > 0 && `(${payments.length})`}</button>
          <button onClick={() => setActiveTab('USERS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'USERS' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><User size={16} /> Cadets {users.length > 0 && `(${users.length})`}</button>
+         <button onClick={() => setActiveTab('COUPONS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'COUPONS' ? 'bg-pink-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Tag size={16} /> Coupons</button>
          <button onClick={() => setActiveTab('PPDT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PPDT' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Target size={16} /> PPDT Pool</button>
          <button onClick={() => setActiveTab('TAT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'TAT' ? 'bg-purple-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Layers size={16} /> TAT Sets</button>
          <button onClick={() => setActiveTab('WAT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'WAT' ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><FileText size={16} /> WAT Bank</button>
@@ -462,6 +494,11 @@ create policy "Self Insert History" on test_history for insert with check (auth.
                                   <p className="text-xs font-medium text-slate-600">
                                       {req.aspirants?.full_name || 'Unknown User'} • {req.plan_type === 'PRO_SUBSCRIPTION' ? 'Pro Plan' : 'Add-on'} • ₹{req.amount}
                                   </p>
+                                  {req.coupon_code && (
+                                      <p className="text-[10px] bg-pink-50 text-pink-600 px-2 py-1 rounded-lg inline-block font-bold mt-1">
+                                          Coupon: {req.coupon_code}
+                                      </p>
+                                  )}
                               </div>
                           </div>
                           <div className="flex gap-4 w-full md:w-auto">
@@ -533,6 +570,98 @@ create policy "Self Insert History" on test_history for insert with check (auth.
                   ))}
                   {filteredUsers.length === 0 && (
                       <div className="col-span-full py-12 text-center text-slate-400 font-bold italic">No cadets found matching search.</div>
+                  )}
+              </div>
+          </div>
+      ) : activeTab === 'COUPONS' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-1 space-y-6">
+                  <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl sticky top-24">
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6 flex items-center gap-2">
+                          <Plus className="text-pink-600" /> New Coupon
+                      </h3>
+                      <div className="space-y-4">
+                          <div>
+                              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Influencer / Label</label>
+                              <input 
+                                  type="text" 
+                                  value={influencerName}
+                                  onChange={(e) => setInfluencerName(e.target.value)}
+                                  placeholder="e.g. Major Gaurav Arya"
+                                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
+                              />
+                          </div>
+                          <div>
+                              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Unique Code</label>
+                              <input 
+                                  type="text" 
+                                  value={couponCode}
+                                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                                  placeholder="e.g. GAURAV50"
+                                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase"
+                              />
+                          </div>
+                          <div>
+                              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Discount %</label>
+                              <input 
+                                  type="number" 
+                                  value={couponDiscount}
+                                  onChange={(e) => setCouponDiscount(e.target.value)}
+                                  placeholder="25"
+                                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
+                              />
+                          </div>
+                          <button 
+                              onClick={handleUpload}
+                              disabled={isUploading} 
+                              className="w-full py-5 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 transition-all active:scale-95 bg-pink-600 hover:bg-pink-700 shadow-lg"
+                          >
+                              {isUploading ? <Loader2 className="animate-spin" /> : <Tag size={18} />} 
+                              {isUploading ? 'Generating...' : 'Generate Coupon'}
+                          </button>
+                      </div>
+                  </div>
+              </div>
+              <div className="lg:col-span-2 space-y-6">
+                  {coupons.length === 0 ? (
+                      <div className="p-12 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-xl text-slate-400 font-bold uppercase text-xs tracking-widest">
+                          No active coupons. Create one to start tracking leads.
+                      </div>
+                  ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {coupons.map(coupon => (
+                              <div key={coupon.code} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-lg hover:shadow-xl transition-all relative group overflow-hidden">
+                                  <div className="absolute top-0 right-0 bg-slate-100 px-4 py-2 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                      {new Date(coupon.created_at).toLocaleDateString()}
+                                  </div>
+                                  <div className="space-y-4">
+                                      <div>
+                                          <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Code</p>
+                                          <h4 className="text-2xl font-black text-slate-900 tracking-wider">{coupon.code}</h4>
+                                      </div>
+                                      <div className="flex gap-4">
+                                          <div>
+                                              <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Discount</p>
+                                              <p className="text-lg font-bold text-pink-600 flex items-center gap-1"><Percent size={14} /> {coupon.discount_percent}%</p>
+                                          </div>
+                                          <div>
+                                              <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Leads Generated</p>
+                                              <p className="text-lg font-bold text-green-600 flex items-center gap-1"><TrendingUp size={14} /> {coupon.usage_count}</p>
+                                          </div>
+                                      </div>
+                                      <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
+                                          <p className="text-xs font-bold text-slate-600 truncate max-w-[150px]">{coupon.influencer_name}</p>
+                                          <button 
+                                              onClick={() => handleDelete(coupon.code)}
+                                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                          >
+                                              <Trash2 size={16} />
+                                          </button>
+                                      </div>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
                   )}
               </div>
           </div>
@@ -623,8 +752,7 @@ create policy "Self Insert History" on test_history for insert with check (auth.
 
                {(activeTab === 'PPDT' || activeTab === 'TAT') && (
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
-                     // Auto-trigger upload is not ideal here since we might want to add desc first, but keeping consistent with existing pattern
-                     // Ideally we just select file here and upload on button click
+                     // File handler is manual in button
                   }} />
                )}
 
