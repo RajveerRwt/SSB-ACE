@@ -37,6 +37,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [showBuzzer, setShowBuzzer] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  const [ocrError, setOcrError] = useState<string | null>(null);
   const [uploadedImageBase64, setUploadedImageBase64] = useState<string | null>(null);
   const [customStimulus, setCustomStimulus] = useState<string | null>(null);
   const [showScoreHelp, setShowScoreHelp] = useState(false);
@@ -256,17 +257,30 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setIsTranscribing(true);
+    setOcrError(null);
     try {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64Data = (reader.result as string).split(',')[1];
         setUploadedImageBase64(base64Data);
-        const text = await transcribeHandwrittenStory(base64Data, file.type);
-        if (text) setStory(text);
+        
+        try {
+            const text = await transcribeHandwrittenStory(base64Data, file.type);
+            // Check for specific service error message
+            if (text && text.includes("Transcription unavailable")) {
+                setOcrError("Auto-transcription unavailable (Service Busy). Please type your story manually below.");
+                // Do not overwrite story with error message, keep it empty or existing
+            } else if (text) {
+                setStory(text);
+            }
+        } catch (err) {
+            setOcrError("Could not transcribe handwriting. Please type manually.");
+        }
         setIsTranscribing(false);
       };
       reader.readAsDataURL(file);
     } catch (error) {
+      setOcrError("Image processing failed.");
       setIsTranscribing(false);
     }
   };
@@ -465,6 +479,13 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
                     </div>
                 )}
                 
+                {ocrError && (
+                    <div className="bg-yellow-50 text-yellow-800 p-4 rounded-xl border border-yellow-200 text-xs font-bold flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                        <AlertCircle size={18} className="shrink-0" />
+                        <span>{ocrError}</span>
+                    </div>
+                )}
+
                 <div className={`grid ${uploadedImageBase64 ? 'grid-cols-1 lg:grid-cols-2 gap-6' : 'grid-cols-1'}`}>
                     {uploadedImageBase64 && (
                         <div className="relative rounded-[2.5rem] overflow-hidden border-4 border-slate-100 bg-slate-50 min-h-[300px] lg:h-auto shadow-inner flex items-center justify-center group">
@@ -702,7 +723,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
             </div>
 
             <button 
-              onClick={() => { setStep(PPDTStep.IDLE); setStory(''); setFeedback(null); setNarrationText(''); setUploadedImageBase64(null); setCustomStimulus(null); setShowScoreHelp(false); }}
+              onClick={() => { setStep(PPDTStep.IDLE); setStory(''); setFeedback(null); setNarrationText(''); setUploadedImageBase64(null); setCustomStimulus(null); setShowScoreHelp(false); setOcrError(null); }}
               className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
             >
               Report for Next Simulation
