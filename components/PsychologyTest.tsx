@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity } from 'lucide-react';
+import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, STANDARD_WAT_SET } from '../services/geminiService';
 import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
 import { TestType } from '../types';
+import CameraModal from './CameraModal';
 
 interface PsychologyProps {
   type: TestType;
@@ -62,6 +63,10 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
   const [feedback, setFeedback] = useState<any>(null);
   const [showScoreHelp, setShowScoreHelp] = useState(false);
+  
+  // Camera State
+  const [showCamera, setShowCamera] = useState(false);
+  const [activeCameraKey, setActiveCameraKey] = useState<string | number | null>(null); // Number for TAT index, String for SDT key
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -322,16 +327,31 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64 = (reader.result as string).split(',')[1];
-        setTatUploads(prev => { const next = [...prev]; next[index] = base64; return next; });
-        activeUploadIndex.current = null;
-        setTranscribingIndices(prev => [...prev, index]);
-        try {
-            const text = await transcribeHandwrittenStory(base64, file.type);
-            setTatTexts(prev => { const next = [...prev]; next[index] = text; return next; });
-        } catch (err) { console.error("Transcription Failed", err); } finally { setTranscribingIndices(prev => prev.filter(i => i !== index)); }
+        processTATImage(index, base64, file.type);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const processTATImage = async (index: number, base64: string, mimeType: string = 'image/jpeg') => {
+      setTatUploads(prev => { const next = [...prev]; next[index] = base64; return next; });
+      activeUploadIndex.current = null;
+      setTranscribingIndices(prev => [...prev, index]);
+      try {
+          const text = await transcribeHandwrittenStory(base64, mimeType);
+          setTatTexts(prev => { const next = [...prev]; next[index] = text; return next; });
+      } catch (err) { console.error("Transcription Failed", err); } finally { setTranscribingIndices(prev => prev.filter(i => i !== index)); }
+  };
+
+  const handleCameraCapture = (base64: string) => {
+      if (typeof activeCameraKey === 'number') {
+          // It's TAT index
+          processTATImage(activeCameraKey, base64);
+      } else if (typeof activeCameraKey === 'string') {
+          // It's SDT key
+          setSdtImages(prev => ({ ...prev, [activeCameraKey]: { data: base64, mimeType: 'image/jpeg' } }));
+      }
+      setActiveCameraKey(null);
   };
 
   const handleSDTImageUpload = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
@@ -471,7 +491,12 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                           <label className="block text-sm font-black text-slate-700 uppercase tracking-wide">{section.label}</label>
                           <div className="flex items-center gap-2">
                               <input type="file" id={`file-${String(section.key)}`} className="hidden" accept="image/*" onChange={(e) => handleSDTImageUpload(e, String(section.key))} />
-                              {sdtImages[section.key as keyof typeof sdtData] ? <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-xl border border-green-100"><ImageIcon size={14} className="text-green-600" /><span className="text-[10px] font-bold text-green-700 uppercase">Image Attached</span><button onClick={() => setSdtImages(prev => ({...prev, [section.key]: null}))} className="ml-1 p-1 hover:bg-red-100 rounded-full text-red-500 transition-colors"><Trash2 size={12} /></button></div> : <label htmlFor={`file-${String(section.key)}`} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl cursor-pointer transition-all text-[10px] font-bold uppercase tracking-wide"><Upload size={12} /> Upload Handwritten</label>}
+                              {sdtImages[section.key as keyof typeof sdtData] ? <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-xl border border-green-100"><ImageIcon size={14} className="text-green-600" /><span className="text-[10px] font-bold text-green-700 uppercase">Image Attached</span><button onClick={() => setSdtImages(prev => ({...prev, [section.key]: null}))} className="ml-1 p-1 hover:bg-red-100 rounded-full text-red-500 transition-colors"><Trash2 size={12} /></button></div> : (
+                                <div className="flex gap-2">
+                                    <label htmlFor={`file-${String(section.key)}`} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl cursor-pointer transition-all text-[10px] font-bold uppercase tracking-wide"><Upload size={12} /> Upload File</label>
+                                    <button onClick={() => { setActiveCameraKey(section.key); setShowCamera(true); }} className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white hover:bg-black rounded-xl cursor-pointer transition-all text-[10px] font-bold uppercase tracking-wide"><Camera size={12} /> Camera</button>
+                                </div>
+                              )}
                           </div>
                       </div>
                       <div className="grid grid-cols-1 gap-4">
@@ -482,6 +507,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
               ))}
            </div>
            <div className="mt-8 flex justify-center"><button onClick={() => { playBuzzer(300, 0.5); submitSDT(); }} className="px-16 py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest shadow-2xl hover:bg-black transition-all hover:scale-105">Submit Description</button></div>
+           
+           <CameraModal isOpen={showCamera} onClose={() => setShowCamera(false)} onCapture={handleCameraCapture} />
         </div>
       );
   }
@@ -524,9 +551,26 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     return (
       <div className="max-w-5xl mx-auto space-y-12 pb-20 animate-in slide-in-from-bottom-20">
          <div className="text-center space-y-6"><h2 className="text-5xl font-black text-slate-900 uppercase tracking-tighter">Dossier Submission</h2><p className="text-slate-500 font-medium italic">"Upload your written responses for psychometric evaluation."</p></div>
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{items.map((item, index) => { const hasImage = !!tatUploads[index]; const hasText = !!tatTexts[index]; const isTranscribing = transcribingIndices.includes(index); return (<div key={index} className={`bg-white rounded-[2.5rem] p-6 border-2 relative overflow-hidden transition-all ${hasImage ? 'border-green-100 shadow-md' : 'border-slate-100 shadow-sm'}`}><div className="flex justify-between items-center mb-4"><span className="font-black text-slate-300 text-xl select-none">{(index + 1).toString().padStart(2, '0')}</span>{hasImage && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded font-bold uppercase">Uploaded</span>}</div>{hasImage ? (<div className="space-y-4"><div className="relative rounded-2xl overflow-hidden bg-slate-50 h-32 border border-slate-100 group"><img src={`data:image/jpeg;base64,${tatUploads[index]}`} className="w-full h-full object-cover" alt="Upload" /><button onClick={() => { setTatUploads(prev => { const n = [...prev]; n[index] = ''; return n; }); setTatTexts(prev => { const n = [...prev]; n[index] = ''; return n; }); }} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12} /></button></div>{isTranscribing ? (<div className="flex items-center gap-2 text-xs text-blue-600 font-bold animate-pulse"><Loader2 size={12} className="animate-spin" /> Transcribing...</div>) : (<div className="relative"><textarea value={tatTexts[index]} onChange={(e) => setTatTexts(prev => { const n = [...prev]; n[index] = e.target.value; return n; })} className="w-full text-[10px] p-3 bg-slate-50 rounded-xl resize-none outline-none border border-transparent focus:border-slate-200 h-20" placeholder="AI Transcript..." /><div className="absolute bottom-2 right-2 text-slate-400"><Edit size={10} /></div></div>)}</div>) : (<button onClick={() => handleFileSelect(index)} className="w-full h-40 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-3 text-slate-400 hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50 transition-all group"><Upload size={24} className="group-hover:scale-110 transition-transform" /><span className="text-[10px] font-black uppercase tracking-widest">Select Image</span></button>)}</div>); })}</div>
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{items.map((item, index) => { const hasImage = !!tatUploads[index]; const hasText = !!tatTexts[index]; const isTranscribing = transcribingIndices.includes(index); return (
+            <div key={index} className={`bg-white rounded-[2.5rem] p-6 border-2 relative overflow-hidden transition-all ${hasImage ? 'border-green-100 shadow-md' : 'border-slate-100 shadow-sm'}`}>
+                <div className="flex justify-between items-center mb-4"><span className="font-black text-slate-300 text-xl select-none">{(index + 1).toString().padStart(2, '0')}</span>{hasImage && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded font-bold uppercase">Uploaded</span>}</div>
+                {hasImage ? (
+                    <div className="space-y-4">
+                        <div className="relative rounded-2xl overflow-hidden bg-slate-50 h-32 border border-slate-100 group"><img src={`data:image/jpeg;base64,${tatUploads[index]}`} className="w-full h-full object-cover" alt="Upload" /><button onClick={() => { setTatUploads(prev => { const n = [...prev]; n[index] = ''; return n; }); setTatTexts(prev => { const n = [...prev]; n[index] = ''; return n; }); }} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12} /></button></div>
+                        {isTranscribing ? (<div className="flex items-center gap-2 text-xs text-blue-600 font-bold animate-pulse"><Loader2 size={12} className="animate-spin" /> Transcribing...</div>) : (<div className="relative"><textarea value={tatTexts[index]} onChange={(e) => setTatTexts(prev => { const n = [...prev]; n[index] = e.target.value; return n; })} className="w-full text-[10px] p-3 bg-slate-50 rounded-xl resize-none outline-none border border-transparent focus:border-slate-200 h-20" placeholder="AI Transcript..." /><div className="absolute bottom-2 right-2 text-slate-400"><Edit size={10} /></div></div>)}
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-2">
+                        <button onClick={() => handleFileSelect(index)} className="w-full h-24 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50 transition-all group"><Upload size={18} className="group-hover:scale-110 transition-transform" /><span className="text-[10px] font-black uppercase tracking-widest">Select File</span></button>
+                        <button onClick={() => { setActiveCameraKey(index); setShowCamera(true); }} className="w-full h-12 bg-slate-900 text-white rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all"><Camera size={14} /> Camera</button>
+                    </div>
+                )}
+            </div>); })}
+         </div>
          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={onFileChange} />
          <div className="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-lg p-6 border-t border-slate-200 flex justify-center"><button onClick={submitDossier} disabled={tatUploads.filter(u => u).length === 0} className="px-16 py-5 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl disabled:opacity-50">Submit for Assessment</button></div>
+         
+         <CameraModal isOpen={showCamera} onClose={() => setShowCamera(false)} onCapture={handleCameraCapture} />
       </div>
     );
   }

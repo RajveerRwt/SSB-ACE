@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star } from 'lucide-react';
+import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star, Camera } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
 import { getPPDTScenarios, getUserSubscription, checkLimit } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
+import CameraModal from './CameraModal';
 
 enum PPDTStep {
   IDLE,
@@ -42,6 +43,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
   const [customStimulus, setCustomStimulus] = useState<string | null>(null);
   const [showScoreHelp, setShowScoreHelp] = useState(false);
   const [verifyingLimit, setVerifyingLimit] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -256,33 +258,29 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64Data = (reader.result as string).split(',')[1];
+      processImage(base64Data, file.type);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const processImage = async (base64Data: string, mimeType: string = 'image/jpeg') => {
     setIsTranscribing(true);
     setOcrError(null);
+    setUploadedImageBase64(base64Data);
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Data = (reader.result as string).split(',')[1];
-        setUploadedImageBase64(base64Data);
-        
-        try {
-            const text = await transcribeHandwrittenStory(base64Data, file.type);
-            // Check for specific service error message
-            if (text && text.includes("Transcription unavailable")) {
-                setOcrError("Auto-transcription unavailable (Service Busy). Please type your story manually below.");
-                // Do not overwrite story with error message, keep it empty or existing
-            } else if (text) {
-                setStory(text);
-            }
-        } catch (err) {
-            setOcrError("Could not transcribe handwriting. Please type manually.");
+        const text = await transcribeHandwrittenStory(base64Data, mimeType);
+        if (text && text.includes("Transcription unavailable")) {
+            setOcrError("Auto-transcription unavailable (Service Busy). Please type your story manually below.");
+        } else if (text) {
+            setStory(text);
         }
-        setIsTranscribing(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      setOcrError("Image processing failed.");
-      setIsTranscribing(false);
+    } catch (err) {
+        setOcrError("Could not transcribe handwriting. Please type manually.");
     }
+    setIsTranscribing(false);
   };
 
   const finishTest = async () => {
@@ -523,18 +521,28 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
                     <div className="flex gap-4 w-full md:w-auto">
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
                     <button onClick={() => fileInputRef.current?.click()} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-8 md:px-10 py-4 md:py-5 bg-blue-600 text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl">
-                        <Upload className="w-4 h-4" /> {uploadedImageBase64 ? 'Re-Upload Image' : 'Upload Paper Image'}
+                        <Upload className="w-4 h-4" /> {uploadedImageBase64 ? 'Re-Upload File' : 'Upload File'}
+                    </button>
+                    <button onClick={() => setShowCamera(true)} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-8 md:px-10 py-4 md:py-5 bg-slate-900 text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl">
+                        <Camera className="w-4 h-4" /> Use Camera
                     </button>
                     </div>
                     <button 
                     onClick={() => { triggerBuzzer(); setStep(PPDTStep.STORY_SUBMITTED); }}
                     disabled={!story.trim() || isTranscribing}
-                    className="w-full md:w-auto px-12 md:px-16 py-4 md:py-5 bg-slate-900 text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-30"
+                    className="w-full md:w-auto px-12 md:px-16 py-4 md:py-5 bg-green-600 text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-green-700 transition-all shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-30"
                     >
                     Confirm Submission
                     </button>
                 </div>
                 </div>
+                
+                {/* Camera Modal Integration */}
+                <CameraModal 
+                    isOpen={showCamera} 
+                    onClose={() => setShowCamera(false)} 
+                    onCapture={(base64) => processImage(base64)}
+                />
             </div>
          );
 
