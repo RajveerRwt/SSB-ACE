@@ -71,17 +71,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
         return;
     }
 
-    // Static check for 'REPUBLIC26' to maintain backward compatibility if needed, 
-    // or we can remove it and rely solely on DB. Let's rely on DB primarily but keep Republic if it's in DB.
-    
     try {
         const result = await validateCoupon(code);
         
         if (result.valid) {
-            if (selectedPlan === 'INTERVIEW_ADDON' && result.discount > 0) {
-                 // Optional: Restrict coupons on tiny addons if needed, but allowing for now
-            }
-            
+            // Apply discount
             const discountAmount = Math.ceil(selectedAmount * (result.discount / 100));
             setDiscount(discountAmount);
             setAppliedCoupon(code);
@@ -159,14 +153,15 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
              
              {step === 'SELECT' && (
                <div className="space-y-4">
+                  {/* Single PRO Plan - Price updated to 199 */}
                   <div 
-                    onClick={() => initiatePayment(299, 'PRO_SUBSCRIPTION')}
+                    onClick={() => initiatePayment(199, 'PRO_SUBSCRIPTION')}
                     className="p-5 rounded-[2rem] border-2 border-slate-100 hover:border-yellow-400 cursor-pointer transition-all hover:bg-yellow-50/50 group relative overflow-hidden bg-white shadow-sm"
                   >
-                    <div className="absolute top-0 right-0 bg-yellow-400 text-black px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-widest">Recommended</div>
+                    <div className="absolute top-0 right-0 bg-yellow-400 text-black px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-widest">Best Value</div>
                     <div className="flex justify-between items-center mb-2">
                        <h4 className="font-black text-slate-900 uppercase italic text-lg">Pro Cadet</h4>
-                       <span className="text-xl font-black text-slate-900">₹299</span>
+                       <span className="text-xl font-black text-slate-900">₹199</span>
                     </div>
                     <ul className="text-xs text-slate-600 space-y-1.5 font-medium">
                        <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 5 Mock Interviews</li>
@@ -176,29 +171,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                     </ul>
                   </div>
 
+                  {/* Interview Top-up - Price updated to 19 */}
                   <div 
-                    onClick={() => initiatePayment(199, 'STANDARD_SUBSCRIPTION')}
-                    className="p-5 rounded-[2rem] border-2 border-slate-100 hover:border-slate-400 cursor-pointer transition-all hover:bg-slate-50 group"
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                       <h4 className="font-black text-slate-600 uppercase italic text-lg">Standard</h4>
-                       <span className="text-xl font-black text-slate-600">₹199</span>
-                    </div>
-                    <ul className="text-xs text-slate-500 space-y-1.5 font-medium">
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-slate-400" /> 2 Mock Interviews</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-slate-400" /> 10 PPDT Sets</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-slate-400" /> 4 TAT & 5 WAT/SRT Sets</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-slate-400" /> AI Guide & SDT Access</li>
-                    </ul>
-                  </div>
-
-                  <div 
-                    onClick={() => initiatePayment(49, 'INTERVIEW_ADDON')}
+                    onClick={() => initiatePayment(19, 'INTERVIEW_ADDON')}
                     className="p-5 rounded-[2rem] border-2 border-slate-100 hover:border-blue-400 cursor-pointer transition-all hover:bg-blue-50 group"
                   >
                     <div className="flex justify-between items-center mb-2">
                        <h4 className="font-black text-blue-900 uppercase italic text-lg">Interview Top-up</h4>
-                       <span className="text-xl font-black text-blue-900">₹49</span>
+                       <span className="text-xl font-black text-blue-900">₹19</span>
                     </div>
                     <p className="text-xs text-slate-500 font-medium leading-relaxed">
                        Add <span className="text-slate-900 font-bold">1 Extra AI Interview Credit</span> to your existing plan. Valid until used.
