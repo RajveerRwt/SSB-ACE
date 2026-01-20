@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus } from 'lucide-react';
+import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
 import { getPPDTScenarios, getUserSubscription, checkLimit } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
@@ -655,6 +655,29 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
                        </div>
                     </div>
                  </div>
+            )}
+
+            {/* IDEAL STORY SECTION */}
+            {feedback?.idealStory && (
+                <div className="bg-slate-900 p-8 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] shadow-xl relative overflow-hidden mt-8">
+                    <div className="absolute top-0 right-0 p-6 opacity-10">
+                        <BookOpen size={120} className="text-white" />
+                    </div>
+                    <div className="relative z-10 space-y-4">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-yellow-400 rounded-lg text-black">
+                                <Star size={20} fill="currentColor" />
+                            </div>
+                            <h4 className="text-xl font-black uppercase tracking-widest text-white">Board's Recommended Story</h4>
+                        </div>
+                        <p className="text-slate-300 font-medium leading-relaxed text-sm md:text-base italic p-6 bg-white/5 rounded-2xl border border-white/10">
+                            "{feedback.idealStory}"
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-right">
+                            * Example of logical perception & positive action
+                        </p>
+                    </div>
+                </div>
             )}
 
             {feedback?.observationAnalysis && (

@@ -339,10 +339,14 @@ create table if not exists payment_requests (
   utr text not null unique,
   amount numeric not null,
   plan_type text not null,
-  coupon_code text, -- New Column for Tracking Coupons
+  coupon_code text, -- New Column
   status text check (status in ('PENDING', 'APPROVED', 'REJECTED')) default 'PENDING',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- CRITICAL FIX: Ensure column exists if table already existed
+alter table payment_requests add column if not exists coupon_code text;
+
 alter table payment_requests enable row level security;
 drop policy if exists "User Insert Payments" on payment_requests;
 create policy "User Insert Payments" on payment_requests for insert with check (auth.uid() = user_id);

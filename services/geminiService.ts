@@ -55,6 +55,7 @@ const generateFallbackEvaluation = (testType: string, textContent: string) => {
       : "Note: This is a preliminary assessment due to high server traffic. Your responses show potential, but focus on more organized planning and clearer expression of ideas.",
     strengths: isInsufficient ? [] : ["Effort in participation", "Basic situational awareness"],
     weaknesses: isInsufficient ? ["Lack of content", "Premature conclusion"] : ["Need more depth in planning", "Elaborate on the outcome"],
+    idealStory: "An ideal story would clearly identify the main character, establish a problem (e.g., organizing a village fair or helping an injured person), show the character taking concrete steps to solve it with the help of others, and conclude with a positive outcome.",
     // TAT/PPDT Specifics
     individualStories: Array(12).fill(null).map((_, i) => ({
       storyIndex: i + 1,
@@ -357,6 +358,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         2. If the story is completely unrelated to the image (hallucinated), mark it as poor perception and penalize the score significantly.
         3. Fill 'observationAnalysis': Provide specific feedback on what they missed in the image or if they imagined things not present.
         4. Assess Perception, Action, Outcome.
+        5. Generate an 'idealStory': Write a concise, high-scoring sample story (100-120 words) for this specific image that demonstrates excellent Officer Like Qualities (OLQ), clear perception, and a logical outcome.
         
         Return JSON.` });
 
@@ -378,6 +380,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
               properties: {
                 score: { type: Type.NUMBER },
                 verdict: { type: Type.STRING },
+                idealStory: { type: Type.STRING, description: "A sample high-scoring story for this image." },
                 perception: {
                   type: Type.OBJECT,
                   properties: {
