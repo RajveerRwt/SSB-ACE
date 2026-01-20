@@ -343,7 +343,7 @@ const Dashboard: React.FC<{
                       </div>
                       <div>
                         <h5 className="font-black text-slate-900 uppercase text-xs tracking-widest truncate max-w-[150px] md:max-w-none">{test.name}</h5>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 tracking-widest">{test.type} • {test.time}</p>
+                        <p className="text-slate-400 font-bold uppercase mt-1 tracking-widest">{test.type} • {test.time}</p>
                       </div>
                     </div>
                     <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
@@ -469,7 +469,8 @@ const App: React.FC = () => {
      }
 
      // 4. SUBSCRIPTION LIMIT CHECK (Only if logged in)
-     if ((test === TestType.INTERVIEW || test === TestType.PPDT || test === TestType.TAT) && user) {
+     // PPDT is excluded here because it handles its own limit check to allow free custom mode
+     if ((test === TestType.INTERVIEW || test === TestType.TAT) && user) {
         const { allowed, message } = await checkLimit(user, test);
         if (!allowed) {
             alert(message);
@@ -494,8 +495,10 @@ const App: React.FC = () => {
       let typeStr = activeTest.toString();
       await saveTestAttempt(user, typeStr, result);
       
-      // Increment Usage (Limits)
-      await incrementUsage(user, typeStr);
+      // Increment Usage (Limits) - ONLY if it's not a custom free attempt
+      if (!result.isCustomAttempt) {
+          await incrementUsage(user, typeStr);
+      }
   };
 
   const renderContent = () => {
