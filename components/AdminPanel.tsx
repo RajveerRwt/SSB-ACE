@@ -152,10 +152,10 @@ We are pleased to inform you that the Admin has verified your payment.
 Your account status has been upgraded to: PRO CADET.
 
 ACCESS GRANTED:
-[x] 20 PPDT Simulation Sets
+[x] 30 PPDT Simulation Sets
 [x] 7 TAT Psychology Sets
 [x] 10 WAT & SRT Sets
-[x] 5 AI Video Interview Credits
+[x] 7 AI Video Interview Credits
 [x] Access to AI Guide & SDT
 
 INSTRUCTION:
@@ -258,8 +258,8 @@ create table if not exists aspirants (
   last_active timestamp with time zone default timezone('utc'::text, now())
 );
 
--- Ensure Critical Columns Exist
-alter table aspirants add column if not exists subscription_data jsonb default '{"tier": "FREE", "usage": {"ppdt_used": 0, "ppdt_limit": 5, "tat_used": 0, "tat_limit": 2, "interview_used": 0, "interview_limit": 1}, "extra_credits": {"interview": 0}}'::jsonb;
+-- Ensure Critical Columns Exist (Updated Default Limits: 10 PPDT, 2 Interview)
+alter table aspirants add column if not exists subscription_data jsonb default '{"tier": "FREE", "usage": {"ppdt_used": 0, "ppdt_limit": 10, "tat_used": 0, "tat_limit": 2, "interview_used": 0, "interview_limit": 2}, "extra_credits": {"interview": 0}}'::jsonb;
 
 -- 3. RLS Policies for Aspirants
 alter table aspirants enable row level security;

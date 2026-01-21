@@ -128,8 +128,8 @@ export const deleteUserProfile = async (userId: string) => {
 // --- SUBSCRIPTION & LIMITS ---
 
 const DEFAULT_LIMITS = {
-    interview: 1,
-    ppdt: 5,
+    interview: 2,
+    ppdt: 10,
     tat: 2,
     wat: 3, 
     srt: 3, 
@@ -146,8 +146,8 @@ const STANDARD_LIMITS = {
 };
 
 const PRO_LIMITS = {
-    interview: 5,
-    ppdt: 20,
+    interview: 7,
+    ppdt: 30,
     tat: 7,
     wat: 10,
     srt: 10, 
@@ -159,11 +159,11 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
         tier: 'FREE', 
         expiryDate: null, 
         usage: { 
-            interview_used: 0, interview_limit: 1, 
-            ppdt_used: 0, ppdt_limit: 5, 
-            tat_used: 0, tat_limit: 2, 
-            wat_used: 0, wat_limit: 3, 
-            srt_used: 0, srt_limit: 3, 
+            interview_used: 0, interview_limit: DEFAULT_LIMITS.interview, 
+            ppdt_used: 0, ppdt_limit: DEFAULT_LIMITS.ppdt, 
+            tat_used: 0, tat_limit: DEFAULT_LIMITS.tat, 
+            wat_used: 0, wat_limit: DEFAULT_LIMITS.wat, 
+            srt_used: 0, srt_limit: DEFAULT_LIMITS.srt, 
             sdt_used: 0 
         }, 
         extra_credits: { interview: 0 } 
