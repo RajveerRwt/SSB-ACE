@@ -56,8 +56,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Updated Navigation Order: AI Interview moved to top
   const navItems = [
     { id: TestType.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
+    { id: TestType.INTERVIEW, label: 'AI Interview', icon: Mic }, // Core Feature Promoted
     { id: TestType.STAGES, label: 'SSB Journey', icon: Map },
     { id: TestType.AI_BOT, label: 'SSB AI Guide', icon: Bot },
     { id: TestType.PIQ, label: 'PIQ Form', icon: ClipboardList },
@@ -66,7 +68,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     { id: TestType.WAT, label: 'WAT (Psychology)', icon: HelpCircle },
     { id: TestType.SRT, label: 'SRT (Psychology)', icon: HelpCircle },
     { id: TestType.SDT, label: 'Self Description', icon: FileSignature },
-    { id: TestType.INTERVIEW, label: 'AI Interview', icon: Mic },
     { id: TestType.CONTACT, label: 'Support Desk', icon: MessageSquare },
   ];
 
@@ -119,7 +120,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
-                className={`w-full flex items-center gap-3 px-6 py-3 transition-colors text-left ${
+                className={`w-full flex items-center gap-3 px-6 py-3 transition-colors text-left relative group ${
                   activeTest === item.id 
                     ? 'bg-white/10 text-yellow-400 border-r-4 border-yellow-400' 
                     : 'text-slate-300 hover:bg-white/5 hover:text-white'
@@ -127,6 +128,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
               >
                 <item.icon className="w-5 h-5 shrink-0" />
                 <span className="font-medium text-sm truncate">{item.label}</span>
+                {item.id === TestType.INTERVIEW && (
+                    <span className="absolute right-4 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" title="Live Core Feature" />
+                )}
               </button>
             ))}
             
