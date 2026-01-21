@@ -187,7 +187,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
               <button onClick={() => handleNavClick(TestType.PRIVACY)} className="hover:text-white transition-colors">Privacy</button>
               <button onClick={() => handleNavClick(TestType.REFUND)} className="hover:text-white transition-colors">Refunds</button>
             </div>
-            <p>© 2024 SSBPREP.ONLINE</p>
+            <p className="mb-2">© 2024 SSBPREP.ONLINE</p>
+            <p className="text-[8px] opacity-50 leading-relaxed normal-case border-t border-white/5 pt-2">
+                Not affiliated with Indian Army/Govt. "Major Veer" & "Col Arjun Singh" are fictional AI personas for simulation only.
+            </p>
           </div>
         </div>
       </aside>

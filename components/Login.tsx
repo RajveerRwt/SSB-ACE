@@ -205,6 +205,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel }) => {
       <p className="mt-8 text-center text-slate-400/50 text-[9px] font-black uppercase tracking-[0.5em]">
         Defense Aspirant Verification Protocol
       </p>
+
+      {/* DISCLAIMER FOOTER */}
+      <div className="mt-6 max-w-md text-center p-4 rounded-xl border border-white/5 bg-black/20 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-8">
+          <p className="text-[9px] text-slate-400 font-medium leading-relaxed">
+              <span className="font-bold text-yellow-500 uppercase">Disclaimer:</span> This website is <strong>NOT associated</strong> with the Indian Army, Air Force, Navy, or any Government organization. It is not an official SSB website. Names like "Major Veer" and "Col. Arjun Singh" are fictional AI personas created for simulation purposes only.
+          </p>
+      </div>
     </div>
   );
 };

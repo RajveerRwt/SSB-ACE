@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
 // Helper to get Gemini client with API key from environment
@@ -94,7 +93,7 @@ const generateFallbackEvaluation = (testType: string, textContent: string) => {
 export function createSSBChat() {
   const ai = getGeminiClient();
   return ai.chats.create({
-    model: 'gemini-2.5-flash', // Use Flash for Chat (Cheaper)
+    model: 'gemini-3-flash-preview', // Use 3-Flash for Text Chat
     config: {
       systemInstruction: `You are Major Veer, a senior SSB assessor. Guide candidates through SSB. Be concise, military-like, and encouraging.`,
     }
@@ -442,7 +441,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         Return JSON.`;
         
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3-flash-preview', // Updated
           contents: { parts: [{ text: prompt }] },
           config: {
             responseMimeType: 'application/json',
@@ -578,7 +577,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview', // Updated
             contents: { parts: [{ text: promptText }] },
             config: {
                 responseMimeType: 'application/json',

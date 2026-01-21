@@ -17,6 +17,17 @@ const LegalPages: React.FC<LegalPageProps> = ({ type, onBack }) => {
             <h3 className="text-xl font-black uppercase text-slate-900">Terms & Conditions</h3>
             <p className="italic text-xs text-slate-400">Last Updated: March 2024</p>
             
+            {/* OFFICIAL DISCLAIMER SECTION */}
+            <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-xl mb-8">
+                <h4 className="font-black text-red-700 uppercase text-xs mb-3 tracking-widest">Official Disclaimer</h4>
+                <p className="text-red-900/80 font-medium mb-3">
+                    This website (SSBPREP.ONLINE) is a private educational platform and is <strong>NOT associated, affiliated, authorized, endorsed by, or in any way officially connected</strong> with the Indian Army, Indian Air Force, Indian Navy, Ministry of Defence, or any other Government agency.
+                </p>
+                <p className="text-red-900/80 font-medium">
+                    The AI personas <strong>"Major Veer"</strong> (AI Guide) and <strong>"Col. Arjun Singh"</strong> (AI Interviewer) are purely fictional characters created solely for the purpose of providing a realistic simulation environment. They bear no relation to any real persons, living or dead. All assessments are AI-generated estimates for practice purposes only.
+                </p>
+            </div>
+
             <section>
               <h4 className="font-bold text-slate-900 uppercase text-xs mb-2">1. Acceptance of Terms</h4>
               <p>By accessing and using SSBPREP.ONLINE ("the Platform"), you accept and agree to be bound by the terms and provision of this agreement.</p>
@@ -24,7 +35,7 @@ const LegalPages: React.FC<LegalPageProps> = ({ type, onBack }) => {
 
             <section>
               <h4 className="font-bold text-slate-900 uppercase text-xs mb-2">2. Educational Purpose</h4>
-              <p>This Platform is a simulation and training tool designed for SSB aspirants. The assessments (PPDT, TAT, Interview) are AI-generated estimates and do not guarantee selection in the actual Services Selection Board. We are not affiliated with the Indian Armed Forces or the Ministry of Defence.</p>
+              <p>This Platform is a simulation and training tool designed for SSB aspirants. The assessments (PPDT, TAT, Interview) are AI-generated estimates and do not guarantee selection in the actual Services Selection Board.</p>
             </section>
 
             <section>
