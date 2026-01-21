@@ -108,9 +108,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
       return;
     }
 
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    if (!keyId) {
-        setError("Payment System Error: Merchant Key Missing.");
+    // Access Key via Vite Standard Way
+    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID;
+    
+    if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE') {
+        console.error("Razorpay Key is missing or default. Check .env file.");
+        setError("Payment System Error: Merchant Key Missing. Please restart server.");
         setProcessing(false);
         return;
     }
