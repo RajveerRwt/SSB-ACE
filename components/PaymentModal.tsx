@@ -108,18 +108,31 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
       return;
     }
 
-    // Access Key via injected process.env (handled in vite.config.ts)
-    const keyId = process.env.RAZORPAY_KEY_ID;
+    // ROBUST KEY RETRIEVAL STRATEGY
+    // We cast to 'any' to avoid TypeScript build errors if types aren't fully loaded
+    let keyId = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID;
     
     if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE') {
-        console.error("Razorpay Key is missing. Check .env file and restart server.");
-        setError("Payment System Error: Merchant Key Missing. Admin: Check Console.");
+        // Fallback to process.env if available
+        if (typeof process !== 'undefined' && (process as any).env) {
+            keyId = (process as any).env.RAZORPAY_KEY_ID;
+        }
+    }
+    
+    // Direct Fallback if Env fails
+    if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE') {
+        keyId = "rzp_live_S6bUN9RquDzbeY";
+    }
+    
+    if (!keyId) {
+        console.error("Razorpay Key is missing completely.");
+        setError("Payment System Error: Merchant Key Missing. Please restart server.");
         setProcessing(false);
         return;
     }
 
     const options = {
-      key: keyId, // Enter the Key ID generated from the Dashboard
+      key: keyId, 
       amount: finalAmount * 100, // Amount is in currency subunits. Default currency is INR.
       currency: "INR",
       name: "SSBPREP.ONLINE",
