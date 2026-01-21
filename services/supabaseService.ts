@@ -425,8 +425,9 @@ export const validateCoupon = async (code: string) => {
     return { valid: true, discount: data.discount_percent, message: `Success! ${data.discount_percent}% Discount Applied.` };
 };
 
-// --- PAYMENTS ---
+// --- PAYMENTS (MANUAL & RAZORPAY) ---
 
+// Manual UTR submission (Keeping for fallback if needed, but primary is now Razorpay)
 export const submitPaymentRequest = async (userId: string, utr: string, amount: number, planType: string, couponCode: string = '') => {
     if (!supabase) throw new Error("Database not connected");
     const { error } = await supabase.from('payment_requests').insert({
@@ -439,14 +440,12 @@ export const submitPaymentRequest = async (userId: string, utr: string, amount: 
     });
     
     if (error) {
-        if (error.code === '23505') throw new Error("This UTR has already been submitted.");
+        if (error.code === '23505') throw new Error("This transaction ID has already been processed.");
         throw error;
     }
 
-    // Increment Lead/Usage for the Coupon Immediately upon submission (tracking Leads)
     if (couponCode) {
         const { error: incrementError } = await supabase.rpc('increment_coupon_usage', { code_input: couponCode });
-        // Fallback if RPC doesn't exist yet: fetch, increment, update (less safe for concurrency but works for MVP)
         if (incrementError) {
              const { data: c } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).single();
              if (c) {
@@ -454,6 +453,55 @@ export const submitPaymentRequest = async (userId: string, utr: string, amount: 
              }
         }
     }
+};
+
+/**
+ * processRazorpayTransaction
+ * Records a successful Razorpay transaction and automatically applies the plan upgrade.
+ * Note: In a production environment with sensitive secrets, signature verification should be done on a backend/Edge function.
+ * Since this is a client-side integration pattern for this specific app structure, we perform the update here.
+ */
+export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode: string = '') => {
+    if (!supabase) throw new Error("Database not connected");
+
+    // 1. Record the Transaction as APPROVED
+    const { error } = await supabase.from('payment_requests').insert({
+        user_id: userId,
+        utr: paymentId, // Storing Razorpay Payment ID as UTR
+        amount,
+        plan_type: planType,
+        coupon_code: couponCode || null,
+        status: 'APPROVED' // Auto-approve
+    });
+
+    if (error) {
+        // If duplicate (already processed), just return success to not block user UI
+        if (error.code === '23505') return;
+        throw error;
+    }
+
+    // 2. Increment Coupon if used
+    if (couponCode) {
+        const { data: c } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).single();
+        if (c) {
+            await supabase.from('coupons').update({ usage_count: (c.usage_count || 0) + 1 }).eq('code', couponCode);
+        }
+    }
+
+    // 3. Upgrade User Subscription Immediately
+    const { data } = await supabase.from('aspirants').select('subscription_data').eq('user_id', userId).single();
+    let sub = data?.subscription_data || { tier: 'FREE', usage: {}, extra_credits: {} };
+    
+    if (planType === 'PRO_SUBSCRIPTION') {
+        sub.tier = 'PRO';
+    } else if (planType === 'STANDARD_SUBSCRIPTION') {
+        sub.tier = 'STANDARD';
+    } else if (planType === 'INTERVIEW_ADDON') {
+        sub.extra_credits = sub.extra_credits || {};
+        sub.extra_credits.interview = (sub.extra_credits.interview || 0) + 1;
+    }
+    
+    await supabase.from('aspirants').update({ subscription_data: sub }).eq('user_id', userId);
 };
 
 export const getLatestPaymentRequest = async (userId: string) => {

@@ -1,11 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock, Tag } from 'lucide-react';
-import { submitPaymentRequest, getLatestPaymentRequest, validateCoupon } from '../services/supabaseService';
-
-// --- CONFIGURATION ---
-const ADMIN_UPI_ID = "9131112322@ybl"; 
-const ADMIN_NAME = "SSBPrep Admin";
+import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock, Tag, CreditCard } from 'lucide-react';
+import { processRazorpayTransaction, getLatestPaymentRequest, validateCoupon } from '../services/supabaseService';
 
 interface PaymentModalProps {
   userId: string;
@@ -15,14 +11,18 @@ interface PaymentModalProps {
   planType?: 'PRO' | 'ADDON';
 }
 
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
 const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, onSuccess, planType = 'PRO' }) => {
-  const [step, setStep] = useState<'SELECT' | 'PAY' | 'PENDING'>('SELECT');
+  const [step, setStep] = useState<'SELECT' | 'PAY' | 'SUCCESS'>('SELECT');
   const [selectedAmount, setSelectedAmount] = useState(0);
   const [selectedPlan, setSelectedPlan] = useState<'PRO_SUBSCRIPTION' | 'STANDARD_SUBSCRIPTION' | 'INTERVIEW_ADDON'>('PRO_SUBSCRIPTION');
-  const [utr, setUtr] = useState('');
-  const [verifying, setVerifying] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
-  const [pendingReq, setPendingReq] = useState<any>(null);
 
   // Coupon State
   const [couponCode, setCouponCode] = useState('');
@@ -32,19 +32,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
   const [validatingCoupon, setValidatingCoupon] = useState(false);
 
   useEffect(() => {
-    if (isOpen && userId && !userId.startsWith('demo')) {
-        // Check if user already has a pending request
-        getLatestPaymentRequest(userId).then((req) => {
-            if (req && req.status === 'PENDING') {
-                setPendingReq(req);
-                setStep('PENDING');
-            } else {
-                setPendingReq(null);
-                setStep('SELECT');
-            }
-        });
+    if (isOpen) {
+        setStep('SELECT');
+        setError('');
+        setProcessing(false);
     }
-  }, [isOpen, userId]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -53,7 +46,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
     setSelectedPlan(type);
     setStep('PAY');
     setError('');
-    setUtr('');
     // Reset Coupon
     setCouponCode('');
     setAppliedCoupon('');
@@ -94,39 +86,87 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
 
   const finalAmount = selectedAmount - discount;
 
-  const handleSubmitRequest = async () => {
-    setError('');
-
-    // 1. Basic Validation
-    if (utr.length < 10) {
-      setError("Invalid UTR. It must be at least 10-12 digits.");
-      return;
-    }
-    // Regex for numeric or alphanumeric UTR (most banks use 12 digits)
-    if (!/^[a-zA-Z0-9]{10,25}$/.test(utr)) {
-      setError("Invalid format. UTR contains special characters.");
-      return;
-    }
-    
-    setVerifying(true);
-    
-    try {
-        // 2. Submit to Backend for Manual Review & Email Notification
-        // Include appliedCoupon to track leads
-        await submitPaymentRequest(userId, utr, finalAmount, selectedPlan, appliedCoupon);
-        setVerifying(false);
-        setStep('PENDING'); // Show success message
-        setPendingReq({ utr: utr }); // Mock updated state immediately
-    } catch (e: any) {
-        setVerifying(false);
-        setError(e.message || "Submission failed. Please try again.");
-    }
+  const loadRazorpay = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
   };
 
-  // Generate UPI Deep Link
-  const upiLink = `upi://pay?pa=${ADMIN_UPI_ID}&pn=${encodeURIComponent(ADMIN_NAME)}&am=${finalAmount}&cu=INR`;
-  // Generate QR Image URL
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiLink)}`;
+  const handlePayNow = async () => {
+    setProcessing(true);
+    setError('');
+
+    const res = await loadRazorpay();
+
+    if (!res) {
+      setError("Razorpay SDK failed to load. Check connection.");
+      setProcessing(false);
+      return;
+    }
+
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    if (!keyId) {
+        setError("Payment System Error: Merchant Key Missing.");
+        setProcessing(false);
+        return;
+    }
+
+    const options = {
+      key: keyId, // Enter the Key ID generated from the Dashboard
+      amount: finalAmount * 100, // Amount is in currency subunits. Default currency is INR.
+      currency: "INR",
+      name: "SSBPREP.ONLINE",
+      description: selectedPlan === 'PRO_SUBSCRIPTION' ? "Pro Cadet Access" : "Interview Add-on",
+      image: "https://ssbprep.online/logo.svg", // Using site logo
+      handler: async function (response: any) {
+        // Handle Success
+        try {
+            await processRazorpayTransaction(
+                userId, 
+                response.razorpay_payment_id, 
+                finalAmount, 
+                selectedPlan, 
+                appliedCoupon
+            );
+            setStep('SUCCESS');
+            setProcessing(false);
+            onSuccess(); // Trigger parent refresh if needed
+        } catch (e: any) {
+            setError("Payment successful but activation failed. Contact Support with Ref: " + response.razorpay_payment_id);
+            setProcessing(false);
+        }
+      },
+      prefill: {
+        name: "", // Can fetch from user profile if needed
+        email: "",
+        contact: ""
+      },
+      notes: {
+        plan: selectedPlan,
+        userId: userId
+      },
+      theme: {
+        color: "#1e293b"
+      }
+    };
+
+    try {
+        const paymentObject = new window.Razorpay(options);
+        paymentObject.on('payment.failed', function (response: any){
+            setError(response.error.description || "Payment Failed");
+            setProcessing(false);
+        });
+        paymentObject.open();
+    } catch (e) {
+        console.error(e);
+        setError("Could not initialize payment gateway.");
+        setProcessing(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
@@ -142,11 +182,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                  <ArrowLeft size={20} />
                </button>
              )}
-             <div className="w-12 h-12 bg-yellow-400 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg text-slate-900">
-               <ShieldCheck size={24} />
+             <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg text-white">
+               <CreditCard size={24} />
              </div>
-             <h3 className="text-white font-black uppercase tracking-widest text-lg">Premium Access</h3>
-             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">Secure Payment Gateway</p>
+             <h3 className="text-white font-black uppercase tracking-widest text-lg">Secure Checkout</h3>
+             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">Powered by Razorpay</p>
           </div>
 
           <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
@@ -192,28 +232,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                   
                   {/* Amount Display */}
                   <div className="space-y-1">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Scan to Pay</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Payable</p>
                     <div className="flex items-center justify-center gap-2">
                         {discount > 0 && (
                             <span className="text-lg font-bold text-slate-400 line-through">₹{selectedAmount}</span>
                         )}
-                        <span className="text-3xl font-black text-slate-900">₹{finalAmount}</span>
+                        <span className="text-4xl font-black text-slate-900">₹{finalAmount}</span>
                     </div>
-                  </div>
-
-                  {/* QR Code */}
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 inline-block mx-auto relative">
-                     <img src={qrCodeUrl} alt="UPI QR" className="w-40 h-40 mix-blend-multiply" />
-                     {discount > 0 && (
-                         <div className="absolute -top-2 -right-2 bg-green-500 text-white text-[9px] font-black px-2 py-1 rounded-full shadow-md animate-bounce">
-                             SAVE ₹{discount}
-                         </div>
-                     )}
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <p className="text-sm font-black text-slate-900 bg-slate-100 py-2 px-4 rounded-lg inline-block select-all">{ADMIN_UPI_ID}</p>
-                    <p className="text-[10px] text-slate-400 mt-1">Name: {ADMIN_NAME}</p>
                   </div>
 
                   {/* Discount Coupon Section */}
@@ -245,21 +270,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                       )}
                   </div>
 
-                  {/* UTR Input */}
-                  <div className="text-left space-y-2">
-                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Enter Transaction ID (UTR)</label>
-                     <input 
-                        type="text" 
-                        value={utr}
-                        onChange={(e) => setUtr(e.target.value)}
-                        placeholder="e.g. 3289XXXXXXXX"
-                        className="w-full p-4 bg-slate-50 border-2 border-slate-200 focus:border-slate-900 rounded-xl font-bold text-slate-900 outline-none transition-all uppercase placeholder:normal-case"
-                     />
-                     <p className="text-[9px] text-slate-400 leading-relaxed px-1">
-                        * After payment, copy the 12-digit UTR/Reference No. from your UPI app and paste it here for verification.
-                     </p>
-                  </div>
-
                   {error && (
                     <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-xl text-xs font-bold">
                        <AlertCircle size={16} /> {error}
@@ -267,36 +277,39 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                   )}
 
                   <button 
-                    onClick={handleSubmitRequest}
-                    disabled={verifying}
-                    className="w-full py-4 bg-green-600 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-green-700 transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                    onClick={handlePayNow}
+                    disabled={processing}
+                    className="w-full py-4 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {verifying ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle size={16} />}
-                    {verifying ? 'Verifying...' : 'Submit for Verification'}
+                    {processing ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} />}
+                    {processing ? 'Processing...' : 'Pay with Razorpay'}
                   </button>
+                  
+                  <div className="flex justify-center gap-4 opacity-50 grayscale hover:grayscale-0 transition-all">
+                     {/* Placeholder icons for trust badges */}
+                     <span className="text-[10px] font-bold text-slate-400">UPI</span>
+                     <span className="text-[10px] font-bold text-slate-400">Cards</span>
+                     <span className="text-[10px] font-bold text-slate-400">NetBanking</span>
+                  </div>
                </div>
              )}
 
-             {step === 'PENDING' && (
+             {step === 'SUCCESS' && (
                <div className="text-center space-y-6 py-6 animate-in zoom-in duration-300">
-                  <div className="w-20 h-20 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto border-4 border-yellow-50 animate-pulse">
-                     <Clock size={40} />
+                  <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto border-4 border-green-50 shadow-xl">
+                     <CheckCircle size={40} />
                   </div>
                   <div className="space-y-2">
-                     <h3 className="text-2xl font-black text-slate-900 uppercase">Verification Pending</h3>
+                     <h3 className="text-2xl font-black text-slate-900 uppercase">Payment Successful!</h3>
                      <p className="text-slate-500 font-medium text-sm leading-relaxed px-4">
-                        Your payment details have been sent to the admin. <br/>
-                        <span className="text-slate-900 font-bold">Estimated Time: Approx. 30-60 Minutes.</span>
+                        Your plan has been upgraded instantly. You can now access all Pro features.
                      </p>
-                  </div>
-                  <div className="bg-slate-50 p-4 rounded-xl text-xs text-slate-600 font-mono">
-                     Ref: {pendingReq?.utr || utr}
                   </div>
                   <button 
                     onClick={onClose}
                     className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-lg"
                   >
-                    Close & Check Dashboard
+                    Start Training Now
                   </button>
                </div>
              )}
