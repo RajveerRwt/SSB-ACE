@@ -56,13 +56,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Updated Navigation Order: Interview moved to top
+  // Updated Navigation Order: Interview moved after PIQ Form
   const navItems = [
     { id: TestType.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-    { id: TestType.INTERVIEW, label: '1:1 Personal Interview (Virtual)', icon: Mic }, // Core Feature Promoted
     { id: TestType.STAGES, label: 'SSB Journey', icon: Map },
     { id: TestType.AI_BOT, label: 'SSB AI Guide', icon: Bot },
     { id: TestType.PIQ, label: 'PIQ Form', icon: ClipboardList },
+    { id: TestType.INTERVIEW, label: '1:1 Personal Interview (Virtual)', icon: Mic }, 
     { id: TestType.PPDT, label: 'PPDT Round', icon: ImageIcon },
     { id: TestType.TAT, label: 'TAT (Psychology)', icon: PenTool },
     { id: TestType.WAT, label: 'WAT (Psychology)', icon: HelpCircle },

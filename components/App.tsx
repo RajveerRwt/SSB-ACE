@@ -174,7 +174,12 @@ const Dashboard: React.FC<{
                    disabled={isLoading}
                  >
                    {isLoading ? <Loader2 className="animate-spin" size={14}/> : !piqLoaded && <Lock size={14} className="text-slate-500" />}
-                   {isLoading ? 'Syncing...' : 'Commence AI Interview'}
+                   {isLoading ? 'Syncing...' : (
+                       <div className="flex flex-col items-center leading-tight">
+                           <span>Commence Personal Interview</span>
+                           <span className="text-[8px] opacity-70 font-bold normal-case tracking-wide">with Col. Arjun Singh (Virtual IO)</span>
+                       </div>
+                   )}
                    {!piqLoaded && !isLoading && <span className="absolute -bottom-10 left-0 text-[8px] text-red-400 font-black opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap hidden md:block">CLEARANCE REQUIRED: PIQ MISSING</span>}
                  </button>
                  
@@ -343,7 +348,7 @@ const Dashboard: React.FC<{
                       </div>
                       <div>
                         <h5 className="font-black text-slate-900 uppercase text-xs tracking-widest truncate max-w-[150px] md:max-w-none">{test.name}</h5>
-                        <p className="text-slate-400 font-bold uppercase mt-1 tracking-widest">{test.type} • {test.time}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 tracking-widest">{test.type} • {test.time}</p>
                       </div>
                     </div>
                     <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
