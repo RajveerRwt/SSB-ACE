@@ -219,11 +219,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                        <h4 className="font-black text-slate-900 uppercase italic text-lg">Pro Cadet</h4>
                        <span className="text-xl font-black text-slate-900">₹199</span>
                     </div>
-                    <ul className="text-xs text-slate-600 space-y-1.5 font-medium">
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 7 Mock Interviews</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 30 PPDT Sets</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> 7 TAT & 10 WAT/SRT Sets</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500" /> AI Guide & SDT Access</li>
+                    <ul className="text-xs text-slate-600 space-y-2 font-medium">
+                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> 7 Personal Interviews (Virtual)</li>
+                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> 30 PPDT Simulation Sets</li>
+                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> 7 TAT Psychology Sets</li>
+                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> 10 WAT & SRT Sets</li>
+                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Detailed Performance Assessment</li>
+                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> AI Guide & SDT Access</li>
                     </ul>
                   </div>
 
