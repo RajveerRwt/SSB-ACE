@@ -166,22 +166,17 @@ const Dashboard: React.FC<{
              {isLoggedIn ? (
                <div className="flex flex-wrap gap-4 pt-4">
                  <button 
-                   onClick={() => piqLoaded ? onStartTest(TestType.INTERVIEW) : onStartTest(TestType.PIQ)}
-                   className={`flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 font-black rounded-2xl transition-all shadow-xl hover:-translate-y-1 uppercase tracking-widest text-[10px] md:text-[11px] flex items-center justify-center gap-3 ${
-                     piqLoaded 
-                     ? 'bg-yellow-400 text-black hover:bg-yellow-500 shadow-yellow-400/20' 
-                     : 'bg-slate-800 text-slate-500 border border-white/5 cursor-not-allowed group'
-                   }`}
+                   onClick={() => onStartTest(TestType.INTERVIEW)}
+                   className="flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 bg-yellow-400 text-black hover:bg-yellow-500 shadow-yellow-400/20 font-black rounded-2xl transition-all shadow-xl hover:-translate-y-1 uppercase tracking-widest text-[10px] md:text-[11px] flex items-center justify-center gap-3"
                    disabled={isLoading}
                  >
-                   {isLoading ? <Loader2 className="animate-spin" size={14}/> : !piqLoaded && <Lock size={14} className="text-slate-500" />}
+                   {isLoading && <Loader2 className="animate-spin" size={14}/>}
                    {isLoading ? 'Syncing...' : (
                        <div className="flex flex-col items-center leading-tight">
                            <span>Commence Personal Interview</span>
                            <span className="text-[8px] opacity-70 font-bold normal-case tracking-wide">with Col. Arjun Singh (Virtual IO)</span>
                        </div>
                    )}
-                   {!piqLoaded && !isLoading && <span className="absolute -bottom-10 left-0 text-[8px] text-red-400 font-black opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap hidden md:block">CLEARANCE REQUIRED: PIQ MISSING</span>}
                  </button>
                  
                  {subscription?.tier === 'FREE' && (!paymentStatus || paymentStatus.status !== 'PENDING') && (
