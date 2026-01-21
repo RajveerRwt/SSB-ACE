@@ -1,6 +1,7 @@
 
 export enum TestType {
   DASHBOARD = 'DASHBOARD',
+  GUIDE = 'GUIDE',
   LOGIN = 'LOGIN',
   PIQ = 'PIQ',
   PPDT = 'PPDT',

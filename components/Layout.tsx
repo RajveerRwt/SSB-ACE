@@ -20,7 +20,8 @@ import {
   X,
   Lock,
   ChevronLeft,
-  FileSignature
+  FileSignature,
+  BookOpenCheck
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -56,9 +57,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Updated Navigation Order: Interview moved after PIQ Form
+  // Updated Navigation Order
   const navItems = [
     { id: TestType.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
+    { id: TestType.GUIDE, label: 'Platform Guide (SOP)', icon: BookOpenCheck }, // New Item
     { id: TestType.STAGES, label: 'SSB Journey', icon: Map },
     { id: TestType.AI_BOT, label: 'SSB AI Guide', icon: Bot },
     { id: TestType.PIQ, label: 'PIQ Form', icon: ClipboardList },
@@ -214,7 +216,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                || (activeTest === TestType.ADMIN ? 'Admin Command' : '')
                || (activeTest === TestType.TERMS ? 'Terms of Service' : '')
                || (activeTest === TestType.PRIVACY ? 'Privacy Policy' : '')
-               || (activeTest === TestType.REFUND ? 'Refund Policy' : '')}
+               || (activeTest === TestType.REFUND ? 'Refund Policy' : '')
+               || (activeTest === TestType.GUIDE ? 'Platform Guide' : '')}
             </h2>
 
             {/* Back to Dashboard Button */}
