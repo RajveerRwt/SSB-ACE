@@ -194,7 +194,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel }) => {
                   onClick={() => { setIsSignUp(!isSignUp); setError(''); setSuccessMsg(''); }}
                   className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors"
                 >
-                  {isSignUp ? 'Already registered? Login' : 'New Candidate? Register here'}
+                  {isSignUp ? 'Already registered? Login' : 'New Candidate? Create Free Account'}
                 </button>
               </div>
             </>

@@ -193,9 +193,9 @@ const Dashboard: React.FC<{
                     onClick={() => onStartTest(TestType.LOGIN)}
                     className="w-full md:w-auto px-12 py-6 bg-yellow-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3"
                   >
-                    <LogIn size={18} /> Join / Login to Start
+                    <LogIn size={18} /> Try For Free / Login
                   </button>
-                  <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Sign up to access AI Interview & Psychology Tests</p>
+                  <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Get Instant Access to AI Tools. No Credit Card Required.</p>
                </div>
              )}
 
