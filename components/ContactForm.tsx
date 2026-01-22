@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Send, MessageSquare, Loader2, CheckCircle2, AlertOctagon, Mail } from 'lucide-react';
+import { Send, MessageSquare, Loader2, CheckCircle2, AlertOctagon, Mail, Phone } from 'lucide-react';
 import { PIQData } from '../types';
 
 // Updated to accept piqData prop to resolve "Property 'piqData' does not exist on type 'IntrinsicAttributes'" error in App.tsx
@@ -59,6 +59,19 @@ const ContactForm: React.FC<{ piqData?: PIQData }> = ({ piqData }) => {
       <div className="text-center space-y-4">
         <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-slate-900">Support <span className="text-blue-600">Desk</span></h1>
         <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px]">Direct Uplink to Board Admin</p>
+      </div>
+
+      {/* HELPLINE CARD */}
+      <div className="bg-slate-900 text-white p-6 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl border-4 border-slate-800">
+          <div className="text-center md:text-left">
+              <h4 className="font-black uppercase text-xs tracking-widest text-yellow-400 mb-1 flex items-center gap-2 justify-center md:justify-start">
+                  <Phone size={14} className="animate-pulse" /> Direct Helpline
+              </h4>
+              <p className="text-xs font-medium text-slate-300">For urgent technical assistance or payment disputes.</p>
+          </div>
+          <a href="tel:+919131112322" className="flex items-center gap-3 bg-white/10 px-6 py-3 rounded-2xl hover:bg-white/20 transition-all border border-white/10 group">
+              <span className="font-black text-lg md:text-xl text-white group-hover:scale-105 transition-transform">+91 9131112322</span>
+          </a>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border border-slate-100 space-y-6 md:space-y-8">
