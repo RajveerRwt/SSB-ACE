@@ -200,7 +200,6 @@ const Dashboard: React.FC<{
                   >
                     <LogIn size={18} /> Try For Free / Login
                   </button>
-                  <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Get Instant Access to AI Tools. No Credit Card Required.</p>
                </div>
              )}
 
