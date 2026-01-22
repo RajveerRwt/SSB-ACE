@@ -15,7 +15,7 @@ import LegalPages from './LegalPages';
 import HowToUse from './HowToUse';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle, Phone } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Dashboard Component
@@ -384,6 +384,34 @@ const Dashboard: React.FC<{
             </div>
          </div>
       </div>
+
+      {/* SUPPORT & HELP SECTION */}
+      <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-lg flex flex-col md:flex-row items-center justify-between gap-6 animate-in fade-in slide-in-from-bottom-8">
+         <div className="flex items-center gap-6">
+            <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 shrink-0">
+               <AlertCircle size={28} />
+            </div>
+            <div>
+               <h4 className="font-black text-slate-900 uppercase text-sm tracking-widest">Encountered an Error?</h4>
+               <p className="text-slate-500 text-xs font-medium mt-1 max-w-md leading-relaxed">
+                  If you are facing technical issues with the AI Interview, Payment, or Login, please report it immediately to our technical officer.
+               </p>
+               <div className="flex items-center gap-3 mt-3">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Helpline:</span>
+                  <a href="tel:+919131112322" className="text-xs font-black text-slate-900 hover:text-blue-600 transition-colors bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-2">
+                    <Phone size={12} className="text-slate-500" /> +91 9131112322
+                  </a>
+               </div>
+            </div>
+         </div>
+         <button 
+            onClick={() => onStartTest(TestType.CONTACT)}
+            className="w-full md:w-auto px-8 py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-all shadow-lg flex items-center justify-center gap-2 whitespace-nowrap"
+         >
+            Contact Support
+         </button>
+      </div>
+
     </div>
   );
 };
