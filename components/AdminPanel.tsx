@@ -155,7 +155,7 @@ ACCESS GRANTED:
 [x] 30 PPDT Simulation Sets
 [x] 7 TAT Psychology Sets
 [x] 10 WAT & SRT Sets
-[x] 7 AI Video Interview Credits
+[x] 5 AI Video Interview Credits
 [x] Access to AI Guide & SDT
 
 INSTRUCTION:

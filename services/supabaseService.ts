@@ -146,7 +146,7 @@ const STANDARD_LIMITS = {
 };
 
 const PRO_LIMITS = {
-    interview: 7,
+    interview: 5,
     ppdt: 30,
     tat: 7,
     wat: 10,
