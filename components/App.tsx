@@ -166,15 +166,19 @@ const Dashboard: React.FC<{
              {isLoggedIn ? (
                <div className="flex flex-wrap gap-4 pt-4">
                  <button 
-                   onClick={() => onStartTest(TestType.INTERVIEW)}
-                   className="flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 bg-yellow-400 text-black hover:bg-yellow-500 shadow-yellow-400/20 font-black rounded-2xl transition-all shadow-xl hover:-translate-y-1 uppercase tracking-widest text-[10px] md:text-[11px] flex items-center justify-center gap-3"
+                   onClick={() => piqLoaded ? onStartTest(TestType.INTERVIEW) : onStartTest(TestType.PIQ)}
+                   className={`flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 font-black rounded-2xl transition-all shadow-xl hover:-translate-y-1 uppercase tracking-widest text-[10px] md:text-[11px] flex items-center justify-center gap-3 ${
+                     piqLoaded 
+                     ? 'bg-yellow-400 text-black hover:bg-yellow-500 shadow-yellow-400/20' 
+                     : 'bg-slate-800 text-slate-500 border border-white/5 hover:border-red-500/50 hover:text-red-400'
+                   }`}
                    disabled={isLoading}
                  >
-                   {isLoading && <Loader2 className="animate-spin" size={14}/>}
+                   {isLoading ? <Loader2 className="animate-spin" size={14}/> : !piqLoaded && <Lock size={14} />}
                    {isLoading ? 'Syncing...' : (
                        <div className="flex flex-col items-center leading-tight">
-                           <span>Commence Personal Interview</span>
-                           <span className="text-[8px] opacity-70 font-bold normal-case tracking-wide">with Col. Arjun Singh (Virtual IO)</span>
+                           <span>{piqLoaded ? 'Commence Personal Interview' : 'Unlock Interview (Fill PIQ)'}</span>
+                           {piqLoaded && <span className="text-[8px] opacity-70 font-bold normal-case tracking-wide">with Col. Arjun Singh (Virtual IO)</span>}
                        </div>
                    )}
                  </button>
@@ -392,6 +396,13 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentOpen, setPaymentOpen] = useState(false);
 
+  // Helper to check validity of PIQ
+  const isPIQComplete = (data: PIQData | null) => {
+      if (!data) return false;
+      // Basic check: Name and Chest No must be present to be considered "filled"
+      return !!(data.name && data.name.trim().length > 0 && data.chestNo && data.chestNo.trim().length > 0);
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       const sessionUser = await checkAuthSession();
@@ -443,7 +454,6 @@ const App: React.FC = () => {
      if (test === TestType.LOGIN && user) return; 
      
      // 2. PROTECTED ROUTES CHECK
-     // These sections require a valid user session
      const protectedRoutes = [
         TestType.PIQ,
         TestType.PPDT,
@@ -462,11 +472,13 @@ const App: React.FC = () => {
      }
 
      // 3. PIQ CHECK (Gatekeeper for Interview)
-     // Prevent starting interview if PIQ data is missing
-     if (test === TestType.INTERVIEW && !piqData) {
-        alert("Clearance Denied: PIQ Not Found.\n\nThe Interviewing Officer requires your Personal Information Questionnaire (PIQ) to conduct the assessment. Please fill it first.");
-        setActiveTest(TestType.PIQ);
-        return;
+     // Prevent starting interview if PIQ data is missing or incomplete
+     if (test === TestType.INTERVIEW) {
+        if (!isPIQComplete(piqData)) {
+            alert("Clearance Denied: PIQ Form Incomplete.\n\nThe Interviewing Officer requires your Personal Information Questionnaire (Name, Chest No, etc.) to conduct the assessment. Please fill it first.");
+            setActiveTest(TestType.PIQ);
+            return;
+        }
      }
 
      // 4. SUBSCRIPTION LIMIT CHECK (Only if logged in)
@@ -539,7 +551,7 @@ const App: React.FC = () => {
       case TestType.ADMIN:
         return isUserAdmin(userEmail) ? <AdminPanel /> : <Dashboard 
             onStartTest={navigateTo} 
-            piqLoaded={!!piqData} 
+            piqLoaded={isPIQComplete(piqData)} 
             isLoggedIn={!!user} 
             isLoading={isLoading} 
             user={user || ''}
@@ -554,7 +566,7 @@ const App: React.FC = () => {
       default:
         return <Dashboard 
             onStartTest={navigateTo} 
-            piqLoaded={!!piqData} 
+            piqLoaded={isPIQComplete(piqData)} 
             isLoggedIn={!!user} 
             isLoading={isLoading} 
             user={user || ''}
