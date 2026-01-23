@@ -651,7 +651,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
               <div className="relative w-48 h-48 md:w-72 md:h-72 lg:w-[320px] lg:h-[320px] rounded-[2.5rem] overflow-hidden border-4 border-slate-700 shadow-2xl bg-slate-800 flex items-center justify-center">
                   {!imgError ? (
                     <img 
-                        src="https://drive.google.com/file/d/1dbvM4vaqssri5oUjFb8OHq3LCZjaaCba/view?usp=drive_link" 
+                        src="https://github.com/RajveerRwt/SSB-ACE/blob/main/public/io-sikh.png" 
                         onError={() => setImgError(true)}
                         alt="Col. Arjun Singh" 
                         className="w-full h-full object-cover"
