@@ -422,6 +422,7 @@ const App: React.FC = () => {
   const [piqData, setPiqData] = useState<PIQData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentOpen, setPaymentOpen] = useState(false);
+  const [pendingPaymentIntent, setPendingPaymentIntent] = useState(false);
 
   // Helper to check validity of PIQ
   const isPIQComplete = (data: PIQData | null) => {
@@ -465,8 +466,14 @@ const App: React.FC = () => {
   const handleLogin = (uid: string, email?: string) => {
     setUser(uid);
     setUserEmail(email || '');
-    setActiveTest(TestType.DASHBOARD);
     getUserData(uid).then((d: PIQData | null) => d && setPiqData(d));
+    
+    // Redirect Flow Handling
+    setActiveTest(TestType.DASHBOARD);
+    if (pendingPaymentIntent) {
+        setPaymentOpen(true);
+        setPendingPaymentIntent(false);
+    }
   };
 
   const handleLogoutAction = async () => {
@@ -541,10 +548,22 @@ const App: React.FC = () => {
       }
   };
 
+  const handleOpenPayment = () => {
+    if (user) {
+      setPaymentOpen(true);
+    } else {
+      setPendingPaymentIntent(true);
+      setActiveTest(TestType.LOGIN);
+    }
+  };
+
   const renderContent = () => {
     switch (activeTest) {
       case TestType.LOGIN:
-        return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
+        return <Login onLogin={handleLogin} onCancel={() => {
+            setPendingPaymentIntent(false); 
+            setActiveTest(TestType.DASHBOARD);
+        }} />;
       case TestType.PIQ:
         return <PIQForm onSave={async (data: PIQData) => { 
             if(user) {
@@ -582,7 +601,7 @@ const App: React.FC = () => {
             isLoggedIn={!!user} 
             isLoading={isLoading} 
             user={user || ''}
-            onOpenPayment={() => setPaymentOpen(true)}
+            onOpenPayment={handleOpenPayment}
         />;
       case TestType.TERMS:
       case TestType.PRIVACY:
@@ -597,7 +616,7 @@ const App: React.FC = () => {
             isLoggedIn={!!user} 
             isLoading={isLoading} 
             user={user || ''}
-            onOpenPayment={() => setPaymentOpen(true)}
+            onOpenPayment={handleOpenPayment}
         />;
     }
   };
