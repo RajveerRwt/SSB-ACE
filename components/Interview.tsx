@@ -645,26 +645,28 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
               <div className="absolute bottom-2 left-2 bg-green-600 w-2 h-2 rounded-full animate-pulse shadow-sm"></div>
            </div>
 
-           {/* IO AVATAR - IMAGE REPLACEMENT */}
+           {/* IO AVATAR - REALISTIC IMAGE REPLACEMENT */}
            <div className={`relative z-10 transition-all duration-300 ${isAiSpeaking ? 'scale-105' : 'scale-100'}`}>
               <div className="relative w-48 h-48 md:w-72 md:h-72 lg:w-[320px] lg:h-[320px] rounded-[2.5rem] overflow-hidden border-4 border-slate-700 shadow-2xl bg-slate-800">
                   <img 
-                    src="https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&q=80&w=800" 
+                    src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&q=80&w=800" 
+                    onError={(e) => e.currentTarget.src = "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&q=80&w=800"}
                     alt="Col. Arjun Singh" 
-                    className="w-full h-full object-cover opacity-90 filter contrast-125 sepia-[0.2]"
+                    className="w-full h-full object-cover"
                   />
-                  {/* Holographic Overlay Effect */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-blue-900/40 via-transparent to-blue-900/20 mix-blend-overlay" />
-                  <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-150 contrast-150 mix-blend-overlay"></div>
+                  {/* Realistic Video Call Overlay (Vignette) */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
                   
-                  {/* Speaking Animation Overlay */}
+                  {/* Speaking Indicator Badge (Realistic) */}
                   {isAiSpeaking && (
-                      <div className="absolute inset-0 bg-blue-500/10 animate-pulse border-4 border-blue-500/50 rounded-[2.5rem]" />
+                      <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-blue-600/90 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md shadow-lg animate-pulse">
+                        <Mic size={12} /> Speaking
+                      </div>
                   )}
               </div>
               
-              {/* Status Ring */}
-              <div className={`absolute -inset-4 rounded-[3rem] border-2 border-dashed border-blue-500/30 transition-all duration-[3000ms] ${isAiSpeaking ? 'rotate-180 scale-110 opacity-100' : 'rotate-0 scale-100 opacity-30'}`} />
+              {/* Subtle Active Ring */}
+              <div className={`absolute -inset-2 rounded-[2.8rem] border-2 border-blue-500/30 transition-all duration-500 ${isAiSpeaking ? 'opacity-100 scale-[1.02]' : 'opacity-0 scale-100'}`} />
            </div>
 
            <div className="mt-8 md:mt-10 text-center relative z-20">
@@ -672,11 +674,11 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
              <p className="text-blue-500 font-black uppercase tracking-[0.4em] text-[8px] md:text-[10px] mt-2">President, 1 AFSB</p>
            </div>
            
-           {/* Waveform Background Effect */}
+           {/* Waveform Background Effect - Subtle */}
            {isAiSpeaking && (
-             <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-blue-900/20 to-transparent flex items-end justify-center gap-1">
+             <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-blue-900/10 to-transparent flex items-end justify-center gap-1 opacity-50">
                 {[...Array(20)].map((_, i) => (
-                  <div key={i} className="w-1 md:w-2 bg-blue-500/20 rounded-t-full animate-bounce" style={{ height: `${Math.random() * 100}%`, animationDuration: `${0.5 + Math.random()}s` }} />
+                  <div key={i} className="w-1 md:w-2 bg-blue-500/20 rounded-t-full animate-bounce" style={{ height: `${Math.random() * 60}%`, animationDuration: `${0.5 + Math.random()}s` }} />
                 ))}
              </div>
            )}
