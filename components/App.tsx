@@ -110,7 +110,7 @@ const Dashboard: React.FC<{
          </div>
       )}
 
-      {/* REPUBLIC DAY OFFER BANNER */}
+      {/* SPECIAL OFFER BANNER */}
       {(!subscription || subscription.tier === 'FREE') && (
         <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-r from-orange-600 via-white to-green-600 p-[2px] shadow-xl animate-in slide-in-from-bottom-4 duration-700">
           <div className="relative bg-white rounded-[1.9rem] p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden">
@@ -123,12 +123,12 @@ const Dashboard: React.FC<{
                    <span className="text-3xl">🇮🇳</span>
                 </div>
                 <div>
-                   <span className="inline-block px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-[9px] font-black uppercase tracking-widest mb-2">Limited Time Offer</span>
+                   <span className="inline-block px-3 py-1 bg-red-100 text-red-700 rounded-full text-[9px] font-black uppercase tracking-widest mb-2 animate-pulse">Limited Time Offer</span>
                    <h3 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight">
-                      Republic Day <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-green-600">Sale</span>
+                      100% OFF <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-green-600">Pro Plan</span>
                    </h3>
                    <p className="text-slate-500 text-xs font-bold mt-1">
-                      Get <span className="text-green-600 text-sm">26% OFF</span> on Pro Cadet Subscription.
+                      Free for first <span className="text-green-600">100 Users</span> only.
                    </p>
                 </div>
              </div>
@@ -136,13 +136,13 @@ const Dashboard: React.FC<{
              <div className="relative z-10 flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
                 <div className="bg-slate-50 border-2 border-dashed border-slate-300 px-6 py-3 rounded-xl flex flex-col items-center min-w-[140px]">
                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Coupon Code</span>
-                   <span className="text-lg font-black text-slate-900 font-mono tracking-widest select-all">REPUBLIC26</span>
+                   <span className="text-lg font-black text-slate-900 font-mono tracking-widest select-all">JAIHIND100</span>
                 </div>
                 <button 
                   onClick={onOpenPayment}
                   className="w-full md:w-auto px-8 py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-105 active:scale-95"
                 >
-                   Redeem Now <ChevronRight size={14} />
+                   Claim Free Access <ChevronRight size={14} />
                 </button>
              </div>
           </div>
