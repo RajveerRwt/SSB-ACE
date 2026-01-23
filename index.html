@@ -13,6 +13,9 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="language" content="English">
     <meta name="author" content="SSBPREP.ONLINE">
+    
+    <!-- Canonical URL (Important for SEO to prevent duplicate content issues) -->
+    <link rel="canonical" href="https://www.ssbprep.online/" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
@@ -20,6 +23,9 @@
     <meta property="og:title" content="SSBPREP.ONLINE - Prepare. Lead. Succeed">
     <meta property="og:description" content="Master your SSB Interview with AI-driven PPDT, TAT, WAT, SRT tests and a realistic Virtual Interviewing Officer. Prepare for success in the Indian Armed Forces.">
     <meta property="og:image" content="https://www.ssbprep.online/logo.svg">
+    <meta property="og:image:secure_url" content="https://www.ssbprep.online/logo.svg" />
+    <meta property="og:image:type" content="image/svg+xml" />
+    <meta property="og:image:alt" content="SSBPREP Logo" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
@@ -40,33 +46,45 @@
       rel="stylesheet"
     />
     
-    <!-- Structured Data for Google Rich Results (Logo & Organization) -->
+    <!-- Structured Data for Google Rich Results (Logo, Organization & App) -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      "name": "SSBPREP.ONLINE",
-      "url": "https://www.ssbprep.online",
-      "logo": "https://www.ssbprep.online/logo.svg",
-      "sameAs": [
-        "https://www.ssbprep.online"
-      ],
-      "description": "A comprehensive preparation platform for SSB aspirants featuring OIR, PPDT, Psychology tests, and real-time AI Virtual Interview simulations."
-    }
-    </script>
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "SSBPREP.ONLINE",
-      "url": "https://www.ssbprep.online/",
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": "https://www.ssbprep.online/?q={search_term_string}",
-        "query-input": "required name=search_term_string"
+    [
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "SSBPREP.ONLINE",
+        "url": "https://www.ssbprep.online",
+        "logo": "https://www.ssbprep.online/logo.svg",
+        "sameAs": [
+          "https://www.ssbprep.online"
+        ],
+        "description": "A comprehensive preparation platform for SSB aspirants featuring OIR, PPDT, Psychology tests, and real-time AI Virtual Interview simulations."
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "SSBPREP.ONLINE",
+        "url": "https://www.ssbprep.online/",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://www.ssbprep.online/?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "SSBPREP.ONLINE",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web Browser",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "INR"
+        },
+        "featureList": "AI Personal Interview, PPDT Simulation, TAT Psychology Test, WAT Practice, SRT Assessment, Self Description Test"
       }
-    }
+    ]
     </script>
     
     <script type="importmap">
