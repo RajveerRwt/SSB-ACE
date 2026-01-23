@@ -94,6 +94,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
   const timeLeftRef = useRef(2400); // Ref to track time for callbacks
   const [showScoreHelp, setShowScoreHelp] = useState(false);
   const [showEarlyExitWarning, setShowEarlyExitWarning] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   // Sync ref
   useEffect(() => {
@@ -647,13 +648,21 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
 
            {/* IO AVATAR - REALISTIC IMAGE REPLACEMENT */}
            <div className={`relative z-10 transition-all duration-300 ${isAiSpeaking ? 'scale-105' : 'scale-100'}`}>
-              <div className="relative w-48 h-48 md:w-72 md:h-72 lg:w-[320px] lg:h-[320px] rounded-[2.5rem] overflow-hidden border-4 border-slate-700 shadow-2xl bg-slate-800">
-                  <img 
-                    src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&q=80&w=800" 
-                    onError={(e) => e.currentTarget.src = "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&q=80&w=800"}
-                    alt="Col. Arjun Singh" 
-                    className="w-full h-full object-cover"
-                  />
+              <div className="relative w-48 h-48 md:w-72 md:h-72 lg:w-[320px] lg:h-[320px] rounded-[2.5rem] overflow-hidden border-4 border-slate-700 shadow-2xl bg-slate-800 flex items-center justify-center">
+                  {!imgError ? (
+                    <img 
+                        src="/io-sikh.png" 
+                        onError={() => setImgError(true)}
+                        alt="Col. Arjun Singh" 
+                        className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-slate-500 opacity-50 p-8 text-center">
+                        <Users size={64} className="mb-2" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Video Feed Unavailable</span>
+                    </div>
+                  )}
+                  
                   {/* Realistic Video Call Overlay (Vignette) */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
                   
