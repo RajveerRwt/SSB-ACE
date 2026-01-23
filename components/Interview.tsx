@@ -651,7 +651,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
               <div className="relative w-48 h-48 md:w-72 md:h-72 lg:w-[320px] lg:h-[320px] rounded-[2.5rem] overflow-hidden border-4 border-slate-700 shadow-2xl bg-slate-800 flex items-center justify-center">
                   {!imgError ? (
                     <img 
-                        src="/public/io-sikh.png" 
+                        src="/io-sikh.png" 
                         onError={() => setImgError(true)}
                         alt="Col. Arjun Singh" 
                         className="w-full h-full object-cover"
@@ -659,7 +659,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
                   ) : (
                     <div className="flex flex-col items-center justify-center text-slate-500 opacity-50 p-8 text-center">
                         <Users size={64} className="mb-2" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Video Feed Unavailable</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest">Video Feed</span>
                     </div>
                   )}
                   
