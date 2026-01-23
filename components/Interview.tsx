@@ -645,13 +645,28 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
               <div className="absolute bottom-2 left-2 bg-green-600 w-2 h-2 rounded-full animate-pulse shadow-sm"></div>
            </div>
 
-           <div className={`w-40 h-40 md:w-64 md:h-64 lg:w-[400px] lg:h-[400px] rounded-full border-2 border-white/5 bg-slate-900 flex items-center justify-center relative z-10 transition-all duration-300 ${isAiSpeaking ? 'scale-105 border-blue-500/30 shadow-[0_0_100px_rgba(59,130,246,0.2)]' : ''}`}>
-              <Disc size={60} className={`text-blue-500/30 md:w-20 md:h-20 transition-all duration-1000 ${isAiSpeaking ? 'animate-spin opacity-100' : 'opacity-50'}`} style={{ animationDuration: '4s' }} />
-              <div className="absolute inset-0 flex items-center justify-center opacity-40">
-                 <SignalHigh size={80} className={`text-white/10 md:w-[120px] md:h-[120px] ${isAiSpeaking ? 'animate-pulse' : ''}`} />
+           {/* IO AVATAR - IMAGE REPLACEMENT */}
+           <div className={`relative z-10 transition-all duration-300 ${isAiSpeaking ? 'scale-105' : 'scale-100'}`}>
+              <div className="relative w-48 h-48 md:w-72 md:h-72 lg:w-[320px] lg:h-[320px] rounded-[2.5rem] overflow-hidden border-4 border-slate-700 shadow-2xl bg-slate-800">
+                  <img 
+                    src="https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&q=80&w=800" 
+                    alt="Col. Arjun Singh" 
+                    className="w-full h-full object-cover opacity-90 filter contrast-125 sepia-[0.2]"
+                  />
+                  {/* Holographic Overlay Effect */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-blue-900/40 via-transparent to-blue-900/20 mix-blend-overlay" />
+                  <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-150 contrast-150 mix-blend-overlay"></div>
+                  
+                  {/* Speaking Animation Overlay */}
+                  {isAiSpeaking && (
+                      <div className="absolute inset-0 bg-blue-500/10 animate-pulse border-4 border-blue-500/50 rounded-[2.5rem]" />
+                  )}
               </div>
-              <div className={`absolute inset-0 rounded-full border-[4px] border-transparent border-t-blue-500/20 transition-all duration-1000 ${isAiSpeaking ? 'animate-spin' : ''}`} style={{ animationDuration: '2s' }} />
+              
+              {/* Status Ring */}
+              <div className={`absolute -inset-4 rounded-[3rem] border-2 border-dashed border-blue-500/30 transition-all duration-[3000ms] ${isAiSpeaking ? 'rotate-180 scale-110 opacity-100' : 'rotate-0 scale-100 opacity-30'}`} />
            </div>
+
            <div className="mt-8 md:mt-10 text-center relative z-20">
              <h3 className="text-white text-2xl md:text-4xl font-black uppercase tracking-tighter">Col. Arjun Singh</h3>
              <p className="text-blue-500 font-black uppercase tracking-[0.4em] text-[8px] md:text-[10px] mt-2">President, 1 AFSB</p>
