@@ -28,7 +28,9 @@ import {
   Bell,
   Info,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Instagram,
+  Youtube
 } from 'lucide-react';
 import { getRecentAnnouncements, subscribeToAnnouncements } from '../services/supabaseService';
 
@@ -278,6 +280,28 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
           </div>
 
           <div className="p-4 text-[10px] text-slate-500 uppercase tracking-widest text-center shrink-0 border-t border-white/5 bg-black/40">
+            {/* Social Links */}
+            <div className="flex justify-center gap-3 mb-4">
+               <a 
+                 href="https://www.instagram.com/ssbprep.online?utm_source=qr&igsh=ZjdvdGdwZGo5OXBl" 
+                 target="_blank" 
+                 rel="noreferrer"
+                 className="p-2 bg-white/5 hover:bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-600 hover:text-white rounded-xl transition-all text-slate-400 group"
+                 title="Instagram"
+               >
+                 <Instagram size={18} />
+               </a>
+               <a 
+                 href="https://youtube.com/@ssbprep.online?si=616euo_H_rJ4wwFo" 
+                 target="_blank" 
+                 rel="noreferrer" 
+                 className="p-2 bg-white/5 hover:bg-red-600 hover:text-white rounded-xl transition-all text-slate-400"
+                 title="YouTube"
+               >
+                 <Youtube size={18} />
+               </a>
+            </div>
+
             <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mb-2">
               <button onClick={() => handleNavClick(TestType.TERMS)} className="hover:text-white transition-colors">Terms</button>
               <button onClick={() => handleNavClick(TestType.PRIVACY)} className="hover:text-white transition-colors">Privacy</button>
