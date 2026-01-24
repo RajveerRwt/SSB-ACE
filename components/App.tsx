@@ -13,6 +13,7 @@ import AdminPanel from './AdminPanel';
 import PaymentModal from './PaymentModal';
 import LegalPages from './LegalPages';
 import HowToUse from './HowToUse';
+import CurrentAffairs from './CurrentAffairs';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
 import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle, Phone, UserPlus } from 'lucide-react';
@@ -624,6 +625,8 @@ const App: React.FC = () => {
         return <LegalPages type={activeTest} onBack={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.GUIDE:
         return <HowToUse onNavigate={setActiveTest} />;
+      case TestType.CURRENT_AFFAIRS:
+        return <CurrentAffairs />;
       default:
         return <Dashboard 
             onStartTest={navigateTo} 

@@ -21,7 +21,8 @@ import {
   Lock,
   ChevronLeft,
   FileSignature,
-  BookOpenCheck
+  BookOpenCheck,
+  Globe
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -60,7 +61,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
   // Updated Navigation Order
   const navItems = [
     { id: TestType.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-    { id: TestType.GUIDE, label: 'Platform Guide (SOP)', icon: BookOpenCheck }, // New Item
+    { id: TestType.GUIDE, label: 'Platform Guide (SOP)', icon: BookOpenCheck },
+    { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', icon: Globe }, // New Item
     { id: TestType.STAGES, label: 'SSB Journey', icon: Map },
     { id: TestType.AI_BOT, label: 'SSB AI Guide', icon: Bot },
     { id: TestType.PIQ, label: 'PIQ Form', icon: ClipboardList },
@@ -132,6 +134,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                 <span className="font-medium text-sm truncate" title={item.label}>{item.label}</span>
                 {item.id === TestType.INTERVIEW && (
                     <span className="absolute right-4 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" title="Live Core Feature" />
+                )}
+                {item.id === TestType.CURRENT_AFFAIRS && (
+                    <span className="absolute right-4 bg-green-600 text-white text-[8px] px-1.5 py-0.5 rounded font-bold uppercase">LIVE</span>
                 )}
               </button>
             ))}
@@ -217,7 +222,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                || (activeTest === TestType.TERMS ? 'Terms of Service' : '')
                || (activeTest === TestType.PRIVACY ? 'Privacy Policy' : '')
                || (activeTest === TestType.REFUND ? 'Refund Policy' : '')
-               || (activeTest === TestType.GUIDE ? 'Platform Guide' : '')}
+               || (activeTest === TestType.GUIDE ? 'Platform Guide' : '')
+               || (activeTest === TestType.CURRENT_AFFAIRS ? 'Intelligence Brief' : '')}
             </h2>
 
             {/* Back to Dashboard Button */}

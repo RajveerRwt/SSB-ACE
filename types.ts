@@ -11,6 +11,7 @@ export enum TestType {
   SRT = 'SRT',
   SDT = 'SDT',
   INTERVIEW = 'INTERVIEW',
+  CURRENT_AFFAIRS = 'CURRENT_AFFAIRS',
   CONTACT = 'CONTACT',
   STAGES = 'STAGES',
   AI_BOT = 'AI_BOT',

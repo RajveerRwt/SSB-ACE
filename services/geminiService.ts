@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 // Helper to get Gemini client with API key from environment
@@ -98,6 +99,48 @@ export function createSSBChat() {
       systemInstruction: `You are Major Veer, a senior SSB assessor. Guide candidates through SSB. Be concise, military-like, and encouraging.`,
     }
   });
+}
+
+export async function fetchDailyNews() {
+  const ai = getGeminiClient();
+  const date = new Date().toDateString();
+  
+  const prompt = `
+    Act as a Senior Defense Analyst for SSB aspirants.
+    Search for the top 6 most important current affairs news for today (${date}) or this week.
+    Focus on: Defense (New missiles, exercises, deals), Geopolitics (India's relations), National Issues (Schemes, Bills), and International Summits (G20, QUAD, etc.).
+    
+    CRITICAL FORMATTING INSTRUCTION:
+    You must format each news item strictly within '---NEWS_BLOCK---' delimiters so I can parse it programmatically.
+    
+    Structure for each item:
+    ---NEWS_BLOCK---
+    HEADLINE: [Concise Headline]
+    TAG: [Defense / International / National / Economy / Science]
+    SUMMARY: [3-4 sentence summary of the event]
+    SSB_RELEVANCE: [Explain WHY this topic is important for Lecturette or Group Discussion. E.g. "Useful for topics on Indo-China relations."]
+    ---END_BLOCK---
+    
+    Provide 6 diverse items.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+    
+    return {
+        text: response.text,
+        groundingMetadata: response.candidates?.[0]?.groundingMetadata
+    };
+  } catch (e) {
+    console.error("News Fetch Failed:", e);
+    throw new Error("Could not fetch intelligence briefing.");
+  }
 }
 
 export async function extractPIQFromImage(base64Data: string, mimeType: string) {
