@@ -104,3 +104,11 @@ export interface PaymentRequest {
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   created_at: string;
 }
+
+export interface Announcement {
+  id: string;
+  message: string;
+  type: 'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT';
+  is_active: boolean;
+  created_at: string;
+}

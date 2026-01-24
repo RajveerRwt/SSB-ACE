@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
@@ -8,7 +8,7 @@ import {
   getSRTQuestions, uploadSRTQuestions, deleteSRTQuestion, deleteSRTSet,
   getPendingPayments, approvePaymentRequest, rejectPaymentRequest,
   getAllUsers, deleteUserProfile, getCoupons, createCoupon, deleteCoupon,
-  uploadDailyChallenge
+  uploadDailyChallenge, sendAnnouncement
 } from '../services/supabaseService';
 
 const AdminPanel: React.FC = () => {
@@ -40,6 +40,10 @@ const AdminPanel: React.FC = () => {
   const [dailyWat, setDailyWat] = useState('');
   const [dailySrt, setDailySrt] = useState('');
 
+  // Broadcast Inputs
+  const [broadcastMsg, setBroadcastMsg] = useState('');
+  const [broadcastType, setBroadcastType] = useState<'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT'>('INFO');
+
   // User Management
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
@@ -57,7 +61,7 @@ const AdminPanel: React.FC = () => {
   // SQL Help Toggle
   const [showSqlHelp, setShowSqlHelp] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY'>('PAYMENTS');
+  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST'>('PAYMENTS');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -75,7 +79,7 @@ const AdminPanel: React.FC = () => {
       } else if (activeTab === 'COUPONS') {
         const c = await getCoupons();
         setCoupons(c);
-      } else if (activeTab !== 'DAILY') {
+      } else if (activeTab !== 'DAILY' && activeTab !== 'BROADCAST') {
         let data;
         if (activeTab === 'PPDT') data = await getPPDTScenarios();
         else if (activeTab === 'TAT') data = await getTATScenarios();
@@ -99,7 +103,12 @@ const AdminPanel: React.FC = () => {
     setIsUploading(true);
     setErrorMsg(null);
     try {
-      if (activeTab === 'DAILY') {
+      if (activeTab === 'BROADCAST') {
+          if (!broadcastMsg) throw new Error("Message cannot be empty.");
+          await sendAnnouncement(broadcastMsg, broadcastType);
+          setBroadcastMsg('');
+          alert("Notification Sent to All Active Users.");
+      } else if (activeTab === 'DAILY') {
           const file = fileInputRef.current?.files?.[0] || null;
           const wat = dailyWat.split(/[\n,]+/).map(w => w.trim()).filter(w => w).slice(0, 5);
           const srt = dailySrt.split(/[\n]+/).map(q => q.trim()).filter(q => q).slice(0, 5);
@@ -426,6 +435,21 @@ alter table daily_submissions enable row level security;
 create policy "Auth Submit Entry" on daily_submissions for insert with check (auth.uid() = user_id);
 create policy "Public Read Entries" on daily_submissions for select using (true);
 
+-- 8. ANNOUNCEMENTS (REAL-TIME)
+create table if not exists announcements (
+  id uuid default gen_random_uuid() primary key,
+  message text not null,
+  type text check (type in ('INFO', 'WARNING', 'SUCCESS', 'URGENT')) default 'INFO',
+  is_active boolean default true,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+alter table announcements enable row level security;
+create policy "Public Read Announcements" on announcements for select using (true);
+create policy "Admin Manage Announcements" on announcements for all using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
+
+-- CRITICAL: ENABLE REALTIME
+alter publication supabase_realtime add table announcements;
+
 -- Helper Function to increment lead count safely
 create or replace function increment_coupon_usage(code_input text)
 returns void as $$
@@ -513,6 +537,7 @@ $$ language plpgsql security definer;
       <div className="flex flex-wrap justify-center md:justify-start gap-4">
          <button onClick={() => setActiveTab('PAYMENTS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PAYMENTS' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><IndianRupee size={16} /> Payments {payments.length > 0 && `(${payments.length})`}</button>
          <button onClick={() => setActiveTab('USERS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'USERS' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><User size={16} /> Cadets {users.length > 0 && `(${users.length})`}</button>
+         <button onClick={() => setActiveTab('BROADCAST')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'BROADCAST' ? 'bg-red-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Radio size={16} /> Broadcast</button>
          <button onClick={() => setActiveTab('DAILY')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'DAILY' ? 'bg-teal-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><PenTool size={16} /> Daily Challenge</button>
          <button onClick={() => setActiveTab('COUPONS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'COUPONS' ? 'bg-pink-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Tag size={16} /> Coupons</button>
          <button onClick={() => setActiveTab('PPDT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PPDT' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Target size={16} /> PPDT Pool</button>
@@ -521,7 +546,46 @@ $$ language plpgsql security definer;
          <button onClick={() => setActiveTab('SRT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'SRT' ? 'bg-orange-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Zap size={16} /> SRT Sets</button>
       </div>
 
-      {activeTab === 'PAYMENTS' ? (
+      {activeTab === 'BROADCAST' ? (
+          <div className="max-w-2xl mx-auto space-y-6">
+              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6 flex items-center gap-2">
+                      <Megaphone className="text-red-600" /> System Broadcast
+                  </h3>
+                  <div className="space-y-6">
+                      <div>
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Alert Level</label>
+                          <select 
+                              value={broadcastType}
+                              onChange={(e) => setBroadcastType(e.target.value as any)}
+                              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
+                          >
+                              <option value="INFO">Info (Blue)</option>
+                              <option value="SUCCESS">Success (Green)</option>
+                              <option value="WARNING">Warning (Yellow)</option>
+                              <option value="URGENT">Urgent (Red)</option>
+                          </select>
+                      </div>
+                      <div>
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Message</label>
+                          <textarea 
+                              value={broadcastMsg}
+                              onChange={(e) => setBroadcastMsg(e.target.value)}
+                              placeholder="Attention Cadets: Maintenance scheduled for..."
+                              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-32 resize-none"
+                          />
+                      </div>
+                      <button 
+                          onClick={handleUpload}
+                          disabled={isUploading}
+                          className="w-full py-5 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-700 transition-all flex items-center justify-center gap-2 shadow-lg"
+                      >
+                          {isUploading ? <Loader2 className="animate-spin" /> : <Radio size={16} />} Transmit Alert
+                      </button>
+                  </div>
+              </div>
+          </div>
+      ) : activeTab === 'PAYMENTS' ? (
           <div className="space-y-6">
               {payments.length === 0 ? (
                   <div className="p-12 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-xl">

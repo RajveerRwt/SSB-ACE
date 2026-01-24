@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { TestType } from '../types';
+import { TestType, Announcement } from '../types';
 import { SSBLogo } from './Logo';
 import { 
   LayoutDashboard, 
@@ -23,8 +23,14 @@ import {
   FileSignature,
   BookOpenCheck,
   Globe,
-  Clock
+  Clock,
+  Megaphone,
+  Bell,
+  Info,
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react';
+import { getActiveAnnouncement, subscribeToAnnouncements } from '../services/supabaseService';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -40,8 +46,32 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLogout, onLogin, user, isLoggedIn, isAdmin }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Announcement State
+  const [announcement, setAnnouncement] = useState<Announcement | null>(null);
+  const [showAnnouncement, setShowAnnouncement] = useState(false);
 
   useEffect(() => {
+    // 1. Fetch initial active announcement
+    getActiveAnnouncement().then(data => {
+        if (data) {
+            setAnnouncement(data);
+            setShowAnnouncement(true);
+        }
+    });
+
+    // 2. Subscribe to real-time updates
+    const unsubscribe = subscribeToAnnouncements((newAnnouncement) => {
+        setAnnouncement(newAnnouncement);
+        setShowAnnouncement(true);
+        // Play notification sound
+        try {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); 
+            audio.volume = 0.5;
+            audio.play().catch(e => console.log("Audio play blocked", e));
+        } catch(e) {}
+    });
+
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
@@ -52,11 +82,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
       }
     };
     
-    // Initial check
     handleResize();
-    
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+        window.removeEventListener('resize', handleResize);
+        if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   // Updated Navigation Order
@@ -80,6 +111,24 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
   const handleNavClick = (id: TestType) => {
     onNavigate(id);
     if (isMobile) setSidebarOpen(false);
+  };
+
+  const getAnnouncementStyles = (type: string) => {
+      switch(type) {
+          case 'URGENT': return 'bg-red-600 text-white';
+          case 'WARNING': return 'bg-yellow-400 text-black';
+          case 'SUCCESS': return 'bg-green-600 text-white';
+          default: return 'bg-blue-600 text-white';
+      }
+  };
+
+  const getAnnouncementIcon = (type: string) => {
+      switch(type) {
+          case 'URGENT': return <Megaphone size={18} className="animate-pulse" />;
+          case 'WARNING': return <AlertTriangle size={18} />;
+          case 'SUCCESS': return <CheckCircle size={18} />;
+          default: return <Info size={18} />;
+      }
   };
 
   return (
@@ -252,11 +301,43 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                 {isLoggedIn ? 'Active' : 'Preview'}
               </span>
             </div>
+            
+            {/* Notification Bell (Placeholder for future history) */}
+            <button className="p-2 hover:bg-slate-100 rounded-xl relative">
+                <Bell size={20} className="text-slate-600" />
+                {showAnnouncement && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-ping" />}
+            </button>
+
             <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl border flex items-center justify-center text-white font-black text-xs ${isLoggedIn ? (isAdmin ? 'bg-red-600 border-red-500' : 'bg-slate-900 border-slate-700') : 'bg-slate-200 border-slate-300 text-slate-400'}`}>
               {isLoggedIn ? (user ? user.substring(0,2).toUpperCase() : 'JD') : <User size={16}/>}
             </div>
           </div>
         </header>
+
+        {/* REAL-TIME ANNOUNCEMENT BANNER */}
+        {showAnnouncement && announcement && (
+            <div className={`w-full px-4 py-3 flex items-center justify-between shadow-md relative z-20 animate-in slide-in-from-top duration-500 ${getAnnouncementStyles(announcement.type)}`}>
+                <div className="flex items-center gap-3 md:gap-4 container mx-auto max-w-6xl">
+                    <div className="p-2 bg-white/20 rounded-full shrink-0">
+                        {getAnnouncementIcon(announcement.type)}
+                    </div>
+                    <div className="flex-1">
+                        <p className="text-xs md:text-sm font-bold uppercase tracking-wide leading-tight">
+                            {announcement.message}
+                        </p>
+                        <p className="text-[9px] opacity-80 font-mono mt-0.5">
+                            {new Date(announcement.created_at).toLocaleTimeString()}
+                        </p>
+                    </div>
+                    <button 
+                        onClick={() => setShowAnnouncement(false)}
+                        className="p-1 hover:bg-white/20 rounded-full transition-colors"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+            </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
           {children}

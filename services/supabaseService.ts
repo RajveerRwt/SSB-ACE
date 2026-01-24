@@ -1,6 +1,6 @@
 
 import { createClient, User } from '@supabase/supabase-js';
-import { PIQData, UserSubscription } from '../types';
+import { PIQData, UserSubscription, Announcement } from '../types';
 
 // --- SUPABASE CONFIGURATION ---
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || '';
@@ -440,6 +440,48 @@ export const getDailySubmissions = async (challengeId: string) => {
         
     if (error) console.error("Feed error:", error);
     return data || [];
+};
+
+// --- ANNOUNCEMENTS (REAL-TIME NOTIFICATIONS) ---
+
+export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT') => {
+    if (!supabase) throw new Error("Database not connected");
+    // Insert new announcement (Real-time listeners will pick this up)
+    const { error } = await supabase.from('announcements').insert({
+        message,
+        type,
+        is_active: true
+    });
+    if (error) throw error;
+};
+
+export const getActiveAnnouncement = async () => {
+    if (!supabase) return null;
+    const { data } = await supabase
+        .from('announcements')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+    return data;
+};
+
+export const subscribeToAnnouncements = (callback: (payload: Announcement) => void) => {
+    if (!supabase) return;
+    
+    const channel = supabase
+      .channel('public:announcements')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, (payload: any) => {
+          if (payload.new && payload.new.is_active) {
+              callback(payload.new as Announcement);
+          }
+      })
+      .subscribe();
+
+    return () => {
+        supabase?.removeChannel(channel);
+    };
 };
 
 // --- COUPON MANAGEMENT ---
