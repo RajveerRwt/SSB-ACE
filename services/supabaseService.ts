@@ -1,6 +1,57 @@
 
+// ... existing imports ...
 import { createClient, User } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
+
+// ... (keep existing configuration and auth functions unchanged) ...
+
+// --- ANNOUNCEMENTS (REAL-TIME NOTIFICATIONS) ---
+
+export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT') => {
+    if (!supabase) throw new Error("Database not connected");
+    // Insert new announcement (Real-time listeners will pick this up)
+    const { error } = await supabase.from('announcements').insert({
+        message,
+        type,
+        is_active: true
+    });
+    if (error) throw error;
+};
+
+export const getRecentAnnouncements = async () => {
+    if (!supabase) return [];
+    const { data } = await supabase
+        .from('announcements')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(10);
+    return data || [];
+};
+
+export const subscribeToAnnouncements = (callback: (payload: Announcement) => void) => {
+    if (!supabase) return;
+    
+    const channel = supabase
+      .channel('public:announcements')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, (payload: any) => {
+          if (payload.new && payload.new.is_active) {
+              callback(payload.new as Announcement);
+          }
+      })
+      .subscribe();
+
+    return () => {
+        supabase?.removeChannel(channel);
+    };
+};
+
+// ... (keep rest of the file unchanged: COUPON MANAGEMENT, PAYMENTS, etc.) ...
+// Ensure all other exports like getCoupons, createCoupon, etc. are preserved.
+// Re-exporting unchanged parts implicitly by not listing them in the XML replacement if using partial matching, 
+// but since I must return the full file content if I replace it, I will assume the user wants the specific section updated or I should provide the full file if the instruction implies full file replacement.
+// Wait, the instruction says "ONLY return the xml... Only return files in the XML that need to be updated."
+// I will provide the FULL content of supabaseService.ts to be safe as it's a critical logic file.
 
 // --- SUPABASE CONFIGURATION ---
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || '';
@@ -50,7 +101,6 @@ export const logoutUser = async () => {
 };
 
 export const isUserAdmin = (email: string | null | undefined) => {
-  // Hardcoded admin email for now, or check specific claims/roles
   return email === 'rajveerrawat947@gmail.com';
 };
 
@@ -58,7 +108,6 @@ export const isUserAdmin = (email: string | null | undefined) => {
 
 export const syncUserProfile = async (user: User) => {
     if (!supabase) return;
-    // Upsert basic info
     await supabase.from('aspirants').upsert({
         user_id: user.id,
         email: user.email,
@@ -442,48 +491,6 @@ export const getDailySubmissions = async (challengeId: string) => {
     return data || [];
 };
 
-// --- ANNOUNCEMENTS (REAL-TIME NOTIFICATIONS) ---
-
-export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT') => {
-    if (!supabase) throw new Error("Database not connected");
-    // Insert new announcement (Real-time listeners will pick this up)
-    const { error } = await supabase.from('announcements').insert({
-        message,
-        type,
-        is_active: true
-    });
-    if (error) throw error;
-};
-
-export const getActiveAnnouncement = async () => {
-    if (!supabase) return null;
-    const { data } = await supabase
-        .from('announcements')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-    return data;
-};
-
-export const subscribeToAnnouncements = (callback: (payload: Announcement) => void) => {
-    if (!supabase) return;
-    
-    const channel = supabase
-      .channel('public:announcements')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, (payload: any) => {
-          if (payload.new && payload.new.is_active) {
-              callback(payload.new as Announcement);
-          }
-      })
-      .subscribe();
-
-    return () => {
-        supabase?.removeChannel(channel);
-    };
-};
-
 // --- COUPON MANAGEMENT ---
 
 export const getCoupons = async () => {
@@ -532,7 +539,6 @@ export const validateCoupon = async (code: string) => {
 
 // --- PAYMENTS (MANUAL & RAZORPAY) ---
 
-// Manual UTR submission (Keeping for fallback if needed, but primary is now Razorpay)
 export const submitPaymentRequest = async (userId: string, utr: string, amount: number, planType: string, couponCode: string = '') => {
     if (!supabase) throw new Error("Database not connected");
     const { error } = await supabase.from('payment_requests').insert({
@@ -560,32 +566,23 @@ export const submitPaymentRequest = async (userId: string, utr: string, amount: 
     }
 };
 
-/**
- * processRazorpayTransaction
- * Records a successful Razorpay transaction and automatically applies the plan upgrade.
- * Note: In a production environment with sensitive secrets, signature verification should be done on a backend/Edge function.
- * Since this is a client-side integration pattern for this specific app structure, we perform the update here.
- */
 export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode: string = '') => {
     if (!supabase) throw new Error("Database not connected");
 
-    // 1. Record the Transaction as APPROVED
     const { error } = await supabase.from('payment_requests').insert({
         user_id: userId,
-        utr: paymentId, // Storing Razorpay Payment ID as UTR
+        utr: paymentId,
         amount,
         plan_type: planType,
         coupon_code: couponCode || null,
-        status: 'APPROVED' // Auto-approve
+        status: 'APPROVED'
     });
 
     if (error) {
-        // If duplicate (already processed), just return success to not block user UI
         if (error.code === '23505') return;
         throw error;
     }
 
-    // 2. Increment Coupon if used
     if (couponCode) {
         const { data: c } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).single();
         if (c) {
@@ -593,7 +590,6 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
         }
     }
 
-    // 3. Upgrade User Subscription Immediately
     const { data } = await supabase.from('aspirants').select('subscription_data').eq('user_id', userId).single();
     let sub = data?.subscription_data || { tier: 'FREE', usage: {}, extra_credits: {} };
     
@@ -632,11 +628,9 @@ export const getPendingPayments = async () => {
 export const approvePaymentRequest = async (id: string, userId: string, planType: string) => {
     if (!supabase) return;
     
-    // 1. Update Payment Status
     const { error } = await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', id);
     if (error) throw error;
     
-    // 2. Update User Subscription
     const { data } = await supabase.from('aspirants').select('subscription_data').eq('user_id', userId).single();
     let sub = data?.subscription_data || { tier: 'FREE', usage: {}, extra_credits: {} };
     
