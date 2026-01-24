@@ -15,6 +15,7 @@ import LegalPages from './LegalPages';
 import HowToUse from './HowToUse';
 import CurrentAffairs from './CurrentAffairs';
 import DailyPractice from './DailyPractice';
+import Testimonials from './Testimonials';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
 import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle, Phone, UserPlus } from 'lucide-react';
@@ -395,6 +396,9 @@ const Dashboard: React.FC<{
             </div>
          </div>
       </div>
+
+      {/* TESTIMONIALS SECTION */}
+      <Testimonials />
 
       {/* SUPPORT & HELP SECTION */}
       <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-lg flex flex-col md:flex-row items-center justify-between gap-6 animate-in fade-in slide-in-from-bottom-8">
