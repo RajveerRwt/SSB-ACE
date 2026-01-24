@@ -126,7 +126,7 @@ export async function fetchDailyNews() {
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash', // Switched to 2.5-flash for better tool stability
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -139,7 +139,36 @@ export async function fetchDailyNews() {
     };
   } catch (e) {
     console.error("News Fetch Failed:", e);
-    throw new Error("Could not fetch intelligence briefing.");
+    // Return Fallback Data instead of throwing error
+    return {
+        text: `
+---NEWS_BLOCK---
+HEADLINE: Live Intelligence Feed Temporarily Offline
+TAG: System Status
+SUMMARY: We are unable to retrieve real-time updates from the secure server at this moment. This may be due to network restrictions or high traffic.
+SSB_RELEVANCE: Officers must be prepared to operate with limited intelligence. Review the static archives below.
+---END_BLOCK---
+---NEWS_BLOCK---
+HEADLINE: India's Push for Defense Indigenization (Atmanirbhar Bharat)
+TAG: Defense
+SUMMARY: The Ministry of Defence continues to release positive indigenization lists, banning the import of hundreds of military subsystems to boost local manufacturing. This includes light tanks, helicopters, and ammunition.
+SSB_RELEVANCE: Crucial for Lecturette topics on 'Self-Reliance in Defense', 'Make in India', and 'Modernization of Armed Forces'.
+---END_BLOCK---
+---NEWS_BLOCK---
+HEADLINE: India-US Initiative on Critical and Emerging Technology (iCET)
+TAG: International
+SUMMARY: India and the US are deepening cooperation in space, semiconductors, and defense technology. Recent deals include GE jet engines and MQ-9B drones.
+SSB_RELEVANCE: Key points for Group Discussions on 'India-US Relations' vs 'India-Russia Relations'.
+---END_BLOCK---
+---NEWS_BLOCK---
+HEADLINE: Women Officers in Command Roles
+TAG: National
+SUMMARY: The Indian Army has begun assigning women officers to command roles (Colonel rank) in unprecedented numbers, breaking the glass ceiling in combat support arms.
+SSB_RELEVANCE: Highly probable topic for GD: 'Women in Combat Roles' or 'Gender Equality in the Armed Forces'.
+---END_BLOCK---
+        `,
+        groundingMetadata: null
+    };
   }
 }
 
