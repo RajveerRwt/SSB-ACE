@@ -22,7 +22,8 @@ import {
   ChevronLeft,
   FileSignature,
   BookOpenCheck,
-  Globe
+  Globe,
+  Clock
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -62,7 +63,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
   const navItems = [
     { id: TestType.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
     { id: TestType.GUIDE, label: 'Platform Guide (SOP)', icon: BookOpenCheck },
-    { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', icon: Globe }, // New Item
+    { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', icon: Globe },
+    { id: TestType.DAILY_PRACTICE, label: 'Daily Practice', icon: Clock }, // New Item
     { id: TestType.STAGES, label: 'SSB Journey', icon: Map },
     { id: TestType.AI_BOT, label: 'SSB AI Guide', icon: Bot },
     { id: TestType.PIQ, label: 'PIQ Form', icon: ClipboardList },
@@ -223,7 +225,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                || (activeTest === TestType.PRIVACY ? 'Privacy Policy' : '')
                || (activeTest === TestType.REFUND ? 'Refund Policy' : '')
                || (activeTest === TestType.GUIDE ? 'Platform Guide' : '')
-               || (activeTest === TestType.CURRENT_AFFAIRS ? 'Intelligence Brief' : '')}
+               || (activeTest === TestType.CURRENT_AFFAIRS ? 'Intelligence Brief' : '')
+               || (activeTest === TestType.DAILY_PRACTICE ? 'Daily Challenge' : '')}
             </h2>
 
             {/* Back to Dashboard Button */}

@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
   uploadWATWords, getWATWords, deleteWATWord, deleteWATSet,
   getSRTQuestions, uploadSRTQuestions, deleteSRTQuestion, deleteSRTSet,
   getPendingPayments, approvePaymentRequest, rejectPaymentRequest,
-  getAllUsers, deleteUserProfile, getCoupons, createCoupon, deleteCoupon
+  getAllUsers, deleteUserProfile, getCoupons, createCoupon, deleteCoupon,
+  uploadDailyChallenge
 } from '../services/supabaseService';
 
 const AdminPanel: React.FC = () => {
@@ -35,6 +36,10 @@ const AdminPanel: React.FC = () => {
   const [couponDiscount, setCouponDiscount] = useState('10');
   const [influencerName, setInfluencerName] = useState('');
 
+  // Daily Challenge Inputs
+  const [dailyWat, setDailyWat] = useState('');
+  const [dailySrt, setDailySrt] = useState('');
+
   // User Management
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
@@ -52,7 +57,7 @@ const AdminPanel: React.FC = () => {
   // SQL Help Toggle
   const [showSqlHelp, setShowSqlHelp] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS' | 'USERS' | 'COUPONS'>('PAYMENTS');
+  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY'>('PAYMENTS');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -70,7 +75,7 @@ const AdminPanel: React.FC = () => {
       } else if (activeTab === 'COUPONS') {
         const c = await getCoupons();
         setCoupons(c);
-      } else {
+      } else if (activeTab !== 'DAILY') {
         let data;
         if (activeTab === 'PPDT') data = await getPPDTScenarios();
         else if (activeTab === 'TAT') data = await getTATScenarios();
@@ -94,7 +99,20 @@ const AdminPanel: React.FC = () => {
     setIsUploading(true);
     setErrorMsg(null);
     try {
-      if (activeTab === 'WAT') {
+      if (activeTab === 'DAILY') {
+          const file = fileInputRef.current?.files?.[0] || null;
+          const wat = dailyWat.split(/[\n,]+/).map(w => w.trim()).filter(w => w).slice(0, 5);
+          const srt = dailySrt.split(/[\n]+/).map(q => q.trim()).filter(q => q).slice(0, 5);
+          
+          if (wat.length < 5 || srt.length < 5) {
+              throw new Error("Please provide at least 5 WAT words and 5 SRTs.");
+          }
+          await uploadDailyChallenge(file, wat, srt);
+          setDailyWat('');
+          setDailySrt('');
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          alert("Daily Challenge Published!");
+      } else if (activeTab === 'WAT') {
         const words = watBulkInput.split(/[\n,]+/).map(w => w.trim()).filter(w => w);
         if (words.length === 0) throw new Error("No words entered.");
         await uploadWATWords(words, watSetTag || 'General');
@@ -383,6 +401,31 @@ create policy "Public View Coupons" on coupons for select using (true);
 drop policy if exists "Admin Manage Coupons" on coupons;
 create policy "Admin Manage Coupons" on coupons for all using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
 
+-- 7. DAILY PRACTICE CHALLENGES
+create table if not exists daily_challenges (
+  id uuid default gen_random_uuid() primary key,
+  ppdt_image_url text,
+  wat_words text[],
+  srt_situations text[],
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+alter table daily_challenges enable row level security;
+create policy "Admin Insert Challenge" on daily_challenges for insert with check ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
+create policy "Public Read Challenge" on daily_challenges for select using (true);
+
+create table if not exists daily_submissions (
+  id uuid default gen_random_uuid() primary key,
+  challenge_id uuid references daily_challenges(id) not null,
+  user_id uuid references aspirants(user_id) not null,
+  ppdt_story text,
+  wat_answers text[],
+  srt_answers text[],
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+alter table daily_submissions enable row level security;
+create policy "Auth Submit Entry" on daily_submissions for insert with check (auth.uid() = user_id);
+create policy "Public Read Entries" on daily_submissions for select using (true);
+
 -- Helper Function to increment lead count safely
 create or replace function increment_coupon_usage(code_input text)
 returns void as $$
@@ -470,6 +513,7 @@ $$ language plpgsql security definer;
       <div className="flex flex-wrap justify-center md:justify-start gap-4">
          <button onClick={() => setActiveTab('PAYMENTS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PAYMENTS' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><IndianRupee size={16} /> Payments {payments.length > 0 && `(${payments.length})`}</button>
          <button onClick={() => setActiveTab('USERS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'USERS' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><User size={16} /> Cadets {users.length > 0 && `(${users.length})`}</button>
+         <button onClick={() => setActiveTab('DAILY')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'DAILY' ? 'bg-teal-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><PenTool size={16} /> Daily Challenge</button>
          <button onClick={() => setActiveTab('COUPONS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'COUPONS' ? 'bg-pink-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Tag size={16} /> Coupons</button>
          <button onClick={() => setActiveTab('PPDT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PPDT' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Target size={16} /> PPDT Pool</button>
          <button onClick={() => setActiveTab('TAT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'TAT' ? 'bg-purple-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Layers size={16} /> TAT Sets</button>
@@ -522,6 +566,43 @@ $$ language plpgsql security definer;
                       </div>
                   ))
               )}
+          </div>
+      ) : activeTab === 'DAILY' ? (
+          <div className="max-w-2xl mx-auto space-y-6">
+              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6">Create Daily Dossier</h3>
+                  <div className="space-y-6">
+                      <div>
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">PPDT Image</label>
+                          <input type="file" ref={fileInputRef} className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" accept="image/*" />
+                      </div>
+                      <div>
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">5 WAT Words (Comma/Line separated)</label>
+                          <textarea 
+                              value={dailyWat}
+                              onChange={(e) => setDailyWat(e.target.value)}
+                              placeholder="Atom, Peace, War, Love, Hate"
+                              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-32 resize-none"
+                          />
+                      </div>
+                      <div>
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">5 SRT Situations (Line separated)</label>
+                          <textarea 
+                              value={dailySrt}
+                              onChange={(e) => setDailySrt(e.target.value)}
+                              placeholder="He was going for exam and..."
+                              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-32 resize-none"
+                          />
+                      </div>
+                      <button 
+                          onClick={handleUpload}
+                          disabled={isUploading}
+                          className="w-full py-5 bg-teal-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-teal-700 transition-all flex items-center justify-center gap-2 shadow-lg"
+                      >
+                          {isUploading ? <Loader2 className="animate-spin" /> : <PenTool size={16} />} Publish Challenge
+                      </button>
+                  </div>
+              </div>
           </div>
       ) : activeTab === 'USERS' ? (
           <div className="space-y-6">

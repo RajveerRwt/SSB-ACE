@@ -379,6 +379,69 @@ export const deleteSRTSet = async (setTag: string) => {
   }
 };
 
+// --- DAILY PRACTICE & DISCUSSION ---
+
+export const getLatestDailyChallenge = async () => {
+    if (!supabase) return null;
+    const { data } = await supabase
+        .from('daily_challenges')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+    return data;
+};
+
+export const uploadDailyChallenge = async (ppdtFile: File | null, watWords: string[], srtSituations: string[]) => {
+    if (!supabase) throw new Error("DB Connection Error");
+    
+    let ppdtUrl = null;
+    if (ppdtFile) {
+        const fileExt = ppdtFile.name.split('.').pop();
+        const fileName = `daily_${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('ppdt-images').upload(fileName, ppdtFile);
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from('ppdt-images').getPublicUrl(fileName);
+        ppdtUrl = data.publicUrl;
+    }
+
+    const { error } = await supabase.from('daily_challenges').insert({
+        ppdt_image_url: ppdtUrl,
+        wat_words: watWords,
+        srt_situations: srtSituations
+    });
+    
+    if (error) throw error;
+};
+
+export const submitDailyEntry = async (challengeId: string, ppdtStory: string, watAnswers: string[], srtAnswers: string[]) => {
+    if (!supabase) throw new Error("DB Connection Error");
+    const user = (await supabase.auth.getSession()).data.session?.user;
+    if (!user) throw new Error("Please login to submit.");
+
+    const { error } = await supabase.from('daily_submissions').insert({
+        challenge_id: challengeId,
+        user_id: user.id,
+        ppdt_story: ppdtStory,
+        wat_answers: watAnswers,
+        srt_answers: srtAnswers
+    });
+    
+    if (error) throw error;
+};
+
+export const getDailySubmissions = async (challengeId: string) => {
+    if (!supabase) return [];
+    const { data, error } = await supabase
+        .from('daily_submissions')
+        .select('*, aspirants(full_name)')
+        .eq('challenge_id', challengeId)
+        .order('created_at', { ascending: false });
+        
+    if (error) console.error("Feed error:", error);
+    return data || [];
+};
+
 // --- COUPON MANAGEMENT ---
 
 export const getCoupons = async () => {
