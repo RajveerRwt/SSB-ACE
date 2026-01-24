@@ -15,7 +15,7 @@ import LegalPages from './LegalPages';
 import HowToUse from './HowToUse';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle, Phone } from 'lucide-react';
+import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle, Phone, UserPlus } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Dashboard Component
@@ -193,13 +193,23 @@ const Dashboard: React.FC<{
                  )}
                </div>
              ) : (
-               <div className="pt-4">
-                  <button 
-                    onClick={() => onStartTest(TestType.LOGIN)}
-                    className="w-full md:w-auto px-12 py-6 bg-yellow-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3"
-                  >
-                    <LogIn size={18} /> Try For Free / Login
-                  </button>
+               <div className="pt-6">
+                  <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                    <button 
+                        onClick={() => onStartTest(TestType.LOGIN)}
+                        className="flex-1 md:flex-none px-8 md:px-10 py-5 bg-white/5 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3 backdrop-blur-sm"
+                    >
+                        <LogIn size={18} /> Login
+                    </button>
+                    
+                    <button 
+                        onClick={() => onStartTest(TestType.REGISTER)}
+                        className="flex-1 md:flex-none px-8 md:px-10 py-5 bg-yellow-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3"
+                    >
+                        <UserPlus size={18} /> New User Registration
+                    </button>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 pl-1">Sign up to access AI Interview & Psychology Tests</p>
                </div>
              )}
 
@@ -485,7 +495,7 @@ const App: React.FC = () => {
 
   const navigateTo = async (test: TestType) => {
      // 1. Prevent Login page if already logged in
-     if (test === TestType.LOGIN && user) return; 
+     if ((test === TestType.LOGIN || test === TestType.REGISTER) && user) return; 
      
      // 2. PROTECTED ROUTES CHECK
      const protectedRoutes = [
@@ -560,7 +570,12 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTest) {
       case TestType.LOGIN:
-        return <Login onLogin={handleLogin} onCancel={() => {
+        return <Login initialIsSignUp={false} onLogin={handleLogin} onCancel={() => {
+            setPendingPaymentIntent(false); 
+            setActiveTest(TestType.DASHBOARD);
+        }} />;
+      case TestType.REGISTER:
+        return <Login initialIsSignUp={true} onLogin={handleLogin} onCancel={() => {
             setPendingPaymentIntent(false); 
             setActiveTest(TestType.DASHBOARD);
         }} />;

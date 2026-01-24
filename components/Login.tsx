@@ -7,10 +7,11 @@ import { SSBLogo } from './Logo';
 interface LoginProps {
   onLogin: (identifier: string, email?: string) => void;
   onCancel?: () => void;
+  initialIsSignUp?: boolean;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, onCancel }) => {
-  const [isSignUp, setIsSignUp] = useState(false);
+const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = false }) => {
+  const [isSignUp, setIsSignUp] = useState(initialIsSignUp);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
