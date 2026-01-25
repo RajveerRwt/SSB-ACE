@@ -69,15 +69,16 @@ export const syncUserProfile = async (user: any) => {
     .single();
     
   if (!sub) {
+      // NEW USER DEFAULT LIMITS
       await supabase.from('user_subscriptions').insert({
           user_id: user.id,
           tier: 'FREE',
           usage: {
-            interview_used: 0, interview_limit: 0,
-            ppdt_used: 0, ppdt_limit: 3,
-            tat_used: 0, tat_limit: 1,
-            wat_used: 0, wat_limit: 1,
-            srt_used: 0, srt_limit: 1,
+            interview_used: 0, interview_limit: 1, // 1 Free Interview
+            ppdt_used: 0, ppdt_limit: 10,          // 10 Free PPDT
+            tat_used: 0, tat_limit: 2,             // 2 Free TAT Sets
+            wat_used: 0, wat_limit: 3,             // 3 Free WAT Sets
+            srt_used: 0, srt_limit: 3,             // 3 Free SRT Sets
             sdt_used: 0
           },
           extra_credits: { interview: 0 }
@@ -188,7 +189,7 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
     .eq('user_id', userId)
     .single();
 
-  // 2. SELF-HEALING: If subscription is missing or FREE, check for valid payments
+  // 2. SELF-HEALING (PRO): If subscription is missing or FREE, check for valid payments
   if (!sub || sub.tier === 'FREE') {
       const { data: payment } = await supabase
           .from('payment_requests')
@@ -203,17 +204,14 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
       if (payment) {
           console.log(`SSB: Auto-Repairing Subscription for ${userId} based on Payment ID: ${payment.id}`);
           
-          // CRITICAL FIX: Calculate ACTUAL usage from history since payment date
-          // This prevents resetting credits to 0 if the user has already taken tests
           const paymentDate = payment.created_at;
-          
           const getUsageCount = async (testType: string) => {
               const { count } = await supabase
                   .from('test_history')
                   .select('*', { count: 'exact', head: true })
                   .eq('user_id', userId)
                   .eq('test_type', testType)
-                  .gt('created_at', paymentDate); // Only count usage AFTER payment
+                  .gt('created_at', paymentDate);
               return count || 0;
           };
 
@@ -225,7 +223,6 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
               getUsageCount('SRT')
           ]);
 
-          // Construct the correct PRO object with restored usage
           const repairedSub = {
               user_id: userId,
               tier: 'PRO',
@@ -240,17 +237,36 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
                   wat_limit: 10,
                   srt_used: srtUsed,
                   srt_limit: 10,
-                  sdt_used: 0 // SDT is usually unlimited or tracked simply
+                  sdt_used: 0 
               },
               extra_credits: sub?.extra_credits || { interview: 0 }
           };
 
-          // Upsert to DB to fix permanently
           await supabase.from('user_subscriptions').upsert(repairedSub);
-          
-          // Return the repaired object immediately so UI updates
           // @ts-ignore
           return repairedSub;
+      }
+  }
+
+  // 3. MIGRATION FOR LEGACY FREE USERS (If they have 0 interview limit, upgrade them)
+  if (sub && sub.tier === 'FREE') {
+      const currentUsage = sub.usage;
+      // If limits are below the new standard, bump them up
+      if (currentUsage.interview_limit < 1 || currentUsage.ppdt_limit < 10) {
+          console.log("SSB: Migrating Legacy Free User to New Limits");
+          const newUsage = {
+              ...currentUsage,
+              interview_limit: Math.max(currentUsage.interview_limit, 1),
+              ppdt_limit: Math.max(currentUsage.ppdt_limit, 10),
+              tat_limit: Math.max(currentUsage.tat_limit, 2),
+              wat_limit: Math.max(currentUsage.wat_limit, 3),
+              srt_limit: Math.max(currentUsage.srt_limit, 3)
+          };
+          
+          // Update DB
+          await supabase.from('user_subscriptions').update({ usage: newUsage }).eq('user_id', userId);
+          // Update local object
+          sub.usage = newUsage;
       }
   }
     
@@ -258,11 +274,11 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
       tier: 'FREE',
       expiryDate: null,
       usage: {
-        interview_used: 0, interview_limit: 0,
-        ppdt_used: 0, ppdt_limit: 3,
-        tat_used: 0, tat_limit: 1,
-        wat_used: 0, wat_limit: 1,
-        srt_used: 0, srt_limit: 1,
+        interview_used: 0, interview_limit: 1, // New Standard
+        ppdt_used: 0, ppdt_limit: 10,
+        tat_used: 0, tat_limit: 2,
+        wat_used: 0, wat_limit: 3,
+        srt_used: 0, srt_limit: 3,
         sdt_used: 0
       },
       extra_credits: { interview: 0 }
@@ -351,13 +367,13 @@ export const getPendingPayments = async () => {
 export const activatePlanForUser = async (userId: string, planType: string) => {
   let update: any = { user_id: userId };
   
-  // Default usage structure for fallback
+  // Default usage structure for fallback (updated to new Free standards)
   const defaultUsage = {
-      interview_used: 0, interview_limit: 0,
-      ppdt_used: 0, ppdt_limit: 3,
-      tat_used: 0, tat_limit: 1,
-      wat_used: 0, wat_limit: 1,
-      srt_used: 0, srt_limit: 1,
+      interview_used: 0, interview_limit: 1,
+      ppdt_used: 0, ppdt_limit: 10,
+      tat_used: 0, tat_limit: 2,
+      wat_used: 0, wat_limit: 3,
+      srt_used: 0, srt_limit: 3,
       sdt_used: 0
   };
 
