@@ -66,11 +66,11 @@ export const syncUserProfile = async (user: any) => {
     .from('user_subscriptions')
     .select('tier')
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle(); // Use maybeSingle to avoid 406 error if not found
     
   if (!sub) {
       // NEW USER DEFAULT LIMITS
-      await supabase.from('user_subscriptions').insert({
+      const { error: subError } = await supabase.from('user_subscriptions').insert({
           user_id: user.id,
           tier: 'FREE',
           usage: {
@@ -83,6 +83,7 @@ export const syncUserProfile = async (user: any) => {
           },
           extra_credits: { interview: 0 }
       });
+      if (subError) console.warn("Sub Init Error (Table might be missing):", subError);
   }
 };
 
@@ -93,7 +94,7 @@ export const getUserData = async (userId: string): Promise<PIQData | null> => {
     .from('aspirants')
     .select('piq_data')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
   return data?.piq_data || null;
 };
 
@@ -183,11 +184,14 @@ export const deleteUserProfile = async (userId: string) => {
 
 export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
   // 1. Fetch Current Subscription
-  let { data: sub } = await supabase
+  // USE maybeSingle() to return null instead of throwing 406 Error if row is missing
+  let { data: sub, error } = await supabase
     .from('user_subscriptions')
     .select('*')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
+
+  if (error) console.warn("Fetch Sub Error:", error.message);
 
   // 2. SELF-HEALING (PRO): If subscription is missing or FREE, check for valid payments
   if (!sub || sub.tier === 'FREE') {
@@ -199,61 +203,68 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
           .eq('plan_type', 'PRO_SUBSCRIPTION')
           .order('created_at', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle(); // Use maybeSingle to suppress 406
 
       if (payment) {
           console.log(`SSB: Auto-Repairing Subscription for ${userId} based on Payment ID: ${payment.id}`);
           
-          const paymentDate = payment.created_at;
-          const getUsageCount = async (testType: string) => {
-              const { count } = await supabase
-                  .from('test_history')
-                  .select('*', { count: 'exact', head: true })
-                  .eq('user_id', userId)
-                  .eq('test_type', testType)
-                  .gt('created_at', paymentDate);
-              return count || 0;
-          };
+          try {
+              const paymentDate = payment.created_at;
+              const getUsageCount = async (testType: string) => {
+                  const { count } = await supabase
+                      .from('test_history')
+                      .select('*', { count: 'exact', head: true })
+                      .eq('user_id', userId)
+                      .eq('test_type', testType)
+                      .gt('created_at', paymentDate);
+                  return count || 0;
+              };
 
-          const [interviewUsed, ppdtUsed, tatUsed, watUsed, srtUsed] = await Promise.all([
-              getUsageCount('INTERVIEW'),
-              getUsageCount('PPDT'),
-              getUsageCount('TAT'),
-              getUsageCount('WAT'),
-              getUsageCount('SRT')
-          ]);
+              const [interviewUsed, ppdtUsed, tatUsed, watUsed, srtUsed] = await Promise.all([
+                  getUsageCount('INTERVIEW'),
+                  getUsageCount('PPDT'),
+                  getUsageCount('TAT'),
+                  getUsageCount('WAT'),
+                  getUsageCount('SRT')
+              ]);
 
-          const repairedSub = {
-              user_id: userId,
-              tier: 'PRO',
-              usage: {
-                  interview_used: interviewUsed,
-                  interview_limit: 5,
-                  ppdt_used: ppdtUsed,
-                  ppdt_limit: 30,
-                  tat_used: tatUsed,
-                  tat_limit: 7,
-                  wat_used: watUsed,
-                  wat_limit: 10,
-                  srt_used: srtUsed,
-                  srt_limit: 10,
-                  sdt_used: 0 
-              },
-              extra_credits: sub?.extra_credits || { interview: 0 }
-          };
+              const repairedSub = {
+                  user_id: userId,
+                  tier: 'PRO',
+                  usage: {
+                      interview_used: interviewUsed,
+                      interview_limit: 5,
+                      ppdt_used: ppdtUsed,
+                      ppdt_limit: 30,
+                      tat_used: tatUsed,
+                      tat_limit: 7,
+                      wat_used: watUsed,
+                      wat_limit: 10,
+                      srt_used: srtUsed,
+                      srt_limit: 10,
+                      sdt_used: 0 
+                  },
+                  extra_credits: sub?.extra_credits || { interview: 0 }
+              };
 
-          await supabase.from('user_subscriptions').upsert(repairedSub);
-          // @ts-ignore
-          return repairedSub;
+              // Use upsert and handle potential 404 if table missing
+              const { error: upsertError } = await supabase.from('user_subscriptions').upsert(repairedSub);
+              if (!upsertError) {
+                  // @ts-ignore
+                  return repairedSub;
+              } else {
+                  console.error("Self-healing failed:", upsertError);
+              }
+          } catch(e) {
+              console.error("Self-healing crashed", e);
+          }
       }
   }
 
-  // 3. MIGRATION FOR LEGACY FREE USERS (If they have 0 interview limit, upgrade them)
+  // 3. MIGRATION FOR LEGACY FREE USERS
   if (sub && sub.tier === 'FREE') {
       const currentUsage = sub.usage;
-      // If limits are below the new standard, bump them up
       if (currentUsage.interview_limit < 1 || currentUsage.ppdt_limit < 10) {
-          console.log("SSB: Migrating Legacy Free User to New Limits");
           const newUsage = {
               ...currentUsage,
               interview_limit: Math.max(currentUsage.interview_limit, 1),
@@ -262,14 +273,13 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
               wat_limit: Math.max(currentUsage.wat_limit, 3),
               srt_limit: Math.max(currentUsage.srt_limit, 3)
           };
-          
           // Update DB
           await supabase.from('user_subscriptions').update({ usage: newUsage }).eq('user_id', userId);
-          // Update local object
           sub.usage = newUsage;
       }
   }
     
+  // Return Default Free Plan if nothing exists
   if (!sub) return {
       tier: 'FREE',
       expiryDate: null,
@@ -341,13 +351,14 @@ export const incrementUsage = async (userId: string, testType: string) => {
 };
 
 export const getLatestPaymentRequest = async (userId: string) => {
+  // Use maybeSingle to prevent 406
   const { data } = await supabase
     .from('payment_requests')
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
   return data;
 };
 
@@ -362,12 +373,11 @@ export const getPendingPayments = async () => {
 
 /**
  * CORE HELPER: Activates the plan for a user.
- * Separated to be reused by both manual approval and auto-Razorpay flow.
  */
 export const activatePlanForUser = async (userId: string, planType: string) => {
   let update: any = { user_id: userId };
   
-  // Default usage structure for fallback (updated to new Free standards)
+  // Default usage structure for fallback
   const defaultUsage = {
       interview_used: 0, interview_limit: 1,
       ppdt_used: 0, ppdt_limit: 10,
@@ -392,13 +402,10 @@ export const activatePlanForUser = async (userId: string, planType: string) => {
           extra_credits: { interview: 0 } // Initialize extras if new
       };
       
-      // If we are upgrading an existing user, we want to PRESERVE extra_credits.
-      // Use maybeSingle() to avoid error if no row exists (new user)
+      // Preserve existing extras if upgrading
       const { data: existing } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle();
       if (existing) {
           update.extra_credits = existing.extra_credits || { interview: 0 };
-          // If we want to preserve current usage stats too, we could, but resetting stats on Pro upgrade is usually desired?
-          // Let's keep usage reset to give full Pro quota.
       }
       
   } else if (planType === 'INTERVIEW_ADDON') {
@@ -414,33 +421,16 @@ export const activatePlanForUser = async (userId: string, planType: string) => {
           usage: currentUsage,
           extra_credits: { interview: currentExtras + 1 }
       };
-  } else if (planType === 'STANDARD_SUBSCRIPTION') {
-      update = {
-          ...update,
-          tier: 'STANDARD',
-          usage: {
-            interview_used: 0, interview_limit: 2,
-            ppdt_used: 0, ppdt_limit: 15,
-            tat_used: 0, tat_limit: 3,
-            wat_used: 0, wat_limit: 5,
-            srt_used: 0, srt_limit: 5,
-            sdt_used: 0
-          },
-          extra_credits: { interview: 0 }
-      };
   }
   
-  // Use UPSERT to guarantee the record exists
+  // Use UPSERT
   const { error: subError } = await supabase.from('user_subscriptions').upsert(update);
   if (subError) throw subError;
 };
 
 export const approvePaymentRequest = async (id: string, userId: string, planType: string) => {
-  // 1. Update Payment Status in payment_requests table
   const { error: payError } = await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', id);
   if (payError) throw payError;
-  
-  // 2. Activate Plan
   await activatePlanForUser(userId, planType);
 };
 
@@ -449,35 +439,34 @@ export const rejectPaymentRequest = async (id: string) => {
 };
 
 export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode?: string) => {
-    // 1. Insert Payment Record (Status: APPROVED directly)
+    // 1. Insert Payment Record
     const { data, error } = await supabase.from('payment_requests').insert({
         user_id: userId,
         utr: paymentId,
         amount: amount,
         plan_type: planType,
-        status: 'APPROVED', // Auto-approve for online payments
+        status: 'APPROVED', 
         coupon_code: couponCode
     }).select().single();
     
-    if (error) throw error;
+    if (error) {
+        console.error("Payment Record Insert Failed", error);
+        throw new Error("Could not record payment. Database Error.");
+    }
     
-    // 2. Activate Subscription DIRECTLY
-    // We skip 'approvePaymentRequest' because calling update on 'payment_requests' 
-    // might fail due to RLS policies if the user doesn't have update permissions on their own rows.
-    // Since we just inserted it as APPROVED, we only need to update the subscription table.
+    // 2. Activate Subscription
     await activatePlanForUser(userId, planType);
     
     // 3. Increment Coupon Usage
     if (couponCode) {
-        const { data: coupon } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).single();
+        const { data: coupon } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).maybeSingle();
         if (coupon) {
             await supabase.from('coupons').update({ usage_count: (coupon.usage_count || 0) + 1 }).eq('code', couponCode);
         }
     }
 };
 
-// --- CONTENT MANAGEMENT ---
-
+// ... (Rest of content management code remains same) ...
 // PPDT
 export const getPPDTScenarios = async () => {
   const { data } = await supabase.from('ppdt_scenarios').select('*');
@@ -586,7 +575,7 @@ export const deleteCoupon = async (code: string) => {
 };
 
 export const validateCoupon = async (code: string) => {
-  const { data } = await supabase.from('coupons').select('*').eq('code', code.toUpperCase()).single();
+  const { data } = await supabase.from('coupons').select('*').eq('code', code.toUpperCase()).maybeSingle();
   if (!data) return { valid: false, message: 'Invalid Code' };
   return { valid: true, discount: data.discount_percent, message: `Success! ${data.discount_percent}% OFF applied.` };
 };
@@ -598,7 +587,7 @@ export const getLatestDailyChallenge = async () => {
     .select('*')
     .order('created_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
   return data;
 };
 

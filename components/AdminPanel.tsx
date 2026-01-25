@@ -265,7 +265,140 @@ SSBPREP.ONLINE
 
   // Cleaned SQL with DELETE permissions for Admin and IDEMPOTENT logic
   const storageSQL = `
--- (Existing Tables omitted for brevity, ensure previous tables are created)
+-- Enable UUID extension
+create extension if not exists "uuid-ossp";
+
+-- 1. Aspirants Profile
+create table if not exists public.aspirants (
+  user_id uuid references auth.users not null primary key,
+  email text,
+  full_name text,
+  piq_data jsonb,
+  last_active timestamptz default now()
+);
+alter table public.aspirants enable row level security;
+create policy "Users can view own profile" on public.aspirants for select using (auth.uid() = user_id);
+create policy "Users can update own profile" on public.aspirants for update using (auth.uid() = user_id);
+create policy "Users can insert own profile" on public.aspirants for insert with check (auth.uid() = user_id);
+
+-- 2. User Subscriptions
+create table if not exists public.user_subscriptions (
+  user_id uuid references auth.users not null primary key,
+  tier text default 'FREE', -- FREE, STANDARD, PRO
+  usage jsonb default '{"interview_used": 0, "interview_limit": 1, "ppdt_used": 0, "ppdt_limit": 10}'::jsonb,
+  extra_credits jsonb default '{"interview": 0}'::jsonb,
+  expiry_date timestamptz
+);
+alter table public.user_subscriptions enable row level security;
+create policy "Users can view own sub" on public.user_subscriptions for select using (auth.uid() = user_id);
+create policy "Users can update own sub" on public.user_subscriptions for update using (auth.uid() = user_id);
+create policy "Users can insert own sub" on public.user_subscriptions for insert with check (auth.uid() = user_id);
+
+-- 3. Payment Requests
+create table if not exists public.payment_requests (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users not null,
+  utr text,
+  amount numeric,
+  plan_type text,
+  status text default 'PENDING',
+  coupon_code text,
+  created_at timestamptz default now()
+);
+alter table public.payment_requests enable row level security;
+create policy "Users can view own payments" on public.payment_requests for select using (auth.uid() = user_id);
+create policy "Users can insert payments" on public.payment_requests for insert with check (auth.uid() = user_id);
+create policy "Users can update own payments" on public.payment_requests for update using (auth.uid() = user_id);
+
+-- 4. Test History
+create table if not exists public.test_history (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users not null,
+  test_type text,
+  score numeric,
+  result_data jsonb,
+  created_at timestamptz default now()
+);
+alter table public.test_history enable row level security;
+create policy "Users can view own history" on public.test_history for select using (auth.uid() = user_id);
+create policy "Users can insert history" on public.test_history for insert with check (auth.uid() = user_id);
+
+-- 5. Content Tables
+create table if not exists public.ppdt_scenarios (
+  id uuid default uuid_generate_v4() primary key,
+  image_url text not null,
+  description text
+);
+alter table public.ppdt_scenarios enable row level security;
+create policy "Public read ppdt" on public.ppdt_scenarios for select using (true);
+
+create table if not exists public.tat_scenarios (
+  id uuid default uuid_generate_v4() primary key,
+  image_url text not null,
+  description text,
+  set_tag text
+);
+alter table public.tat_scenarios enable row level security;
+create policy "Public read tat" on public.tat_scenarios for select using (true);
+
+create table if not exists public.wat_words (
+  id uuid default uuid_generate_v4() primary key,
+  word text,
+  set_tag text
+);
+alter table public.wat_words enable row level security;
+create policy "Public read wat" on public.wat_words for select using (true);
+
+create table if not exists public.srt_questions (
+  id uuid default uuid_generate_v4() primary key,
+  question text,
+  set_tag text
+);
+alter table public.srt_questions enable row level security;
+create policy "Public read srt" on public.srt_questions for select using (true);
+
+create table if not exists public.coupons (
+  code text primary key,
+  discount_percent integer,
+  influencer_name text,
+  usage_count integer default 0,
+  created_at timestamptz default now()
+);
+alter table public.coupons enable row level security;
+create policy "Public read coupons" on public.coupons for select using (true);
+
+create table if not exists public.daily_challenges (
+  id uuid default uuid_generate_v4() primary key,
+  ppdt_image_url text,
+  wat_words text[],
+  srt_situations text[],
+  created_at timestamptz default now()
+);
+alter table public.daily_challenges enable row level security;
+create policy "Public read daily" on public.daily_challenges for select using (true);
+
+create table if not exists public.daily_submissions (
+  id uuid default uuid_generate_v4() primary key,
+  challenge_id uuid references public.daily_challenges,
+  user_id uuid references auth.users,
+  ppdt_story text,
+  wat_answers text[],
+  srt_answers text[],
+  created_at timestamptz default now()
+);
+alter table public.daily_submissions enable row level security;
+create policy "Public read submissions" on public.daily_submissions for select using (true);
+create policy "Insert submissions" on public.daily_submissions for insert with check (auth.uid() = user_id);
+
+create table if not exists public.announcements (
+  id uuid default uuid_generate_v4() primary key,
+  message text,
+  type text,
+  is_active boolean default true,
+  created_at timestamptz default now()
+);
+alter table public.announcements enable row level security;
+create policy "Public read announcements" on public.announcements for select using (true);
 `;
 
   const filteredUsers = users.filter(u => 
@@ -284,7 +417,7 @@ SSBPREP.ONLINE
         </div>
         <div className="flex gap-4">
             <button onClick={() => setShowSqlHelp(!showSqlHelp)} className="p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all text-white flex items-center gap-2" title="Database Setup Help">
-                <Database size={20} /> <span className="hidden md:inline font-bold text-xs uppercase tracking-widest">DB Setup</span>
+                <Database size={20} /> <span className="hidden md:inline font-bold text-xs uppercase tracking-widest">Fix Database</span>
             </button>
             <button onClick={fetchData} className="p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all text-white">
                 <RefreshCw size={20} className={isLoading ? "animate-spin" : ""} />
@@ -298,7 +431,7 @@ SSBPREP.ONLINE
               <div className="flex items-start gap-4 text-red-600">
                 <AlertCircle size={28} className="shrink-0 mt-1" />
                 <div className="flex-1">
-                <p className="text-[10px] font-black uppercase tracking-widest mb-1">Critical Security Violation</p>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-1">System Alert</p>
                 <p className="text-sm font-bold leading-relaxed">{errorMsg}</p>
                 </div>
                 <button onClick={() => setErrorMsg(null)} className="text-xs font-black uppercase p-2 hover:bg-red-100 rounded-lg">Dismiss</button>
@@ -309,15 +442,19 @@ SSBPREP.ONLINE
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-slate-900">
                     <Settings className="text-blue-600" size={24} />
-                    <h5 className="text-sm font-black uppercase tracking-widest">Database Setup Required:</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script</h5>
                 </div>
                 {showSqlHelp && !errorMsg && (
                     <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
                 )}
             </div>
             
+            <p className="text-xs text-slate-600 font-medium">
+                Copy the code below and run it in the <a href="https://supabase.com/dashboard/project/_/sql" target="_blank" className="text-blue-600 underline font-bold">Supabase SQL Editor</a> to fix "Table Not Found" (404) errors.
+            </p>
+
             <div className="relative group">
-              <pre className="bg-slate-900 text-blue-300 p-6 rounded-2xl text-[10px] font-mono overflow-x-auto border-2 border-slate-800 leading-relaxed shadow-inner max-h-[250px]">
+              <pre className="bg-slate-900 text-blue-300 p-6 rounded-2xl text-[10px] font-mono overflow-x-auto border-2 border-slate-800 leading-relaxed shadow-inner max-h-[300px]">
                 {storageSQL}
               </pre>
               <button 
@@ -343,6 +480,7 @@ SSBPREP.ONLINE
         </div>
       )}
 
+      {/* Rest of the Admin UI (Tabs, etc.) remains same... */}
       <div className="flex flex-wrap justify-center md:justify-start gap-4">
          <button onClick={() => setActiveTab('PAYMENTS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PAYMENTS' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><IndianRupee size={16} /> Payments {payments.length > 0 && `(${payments.length})`}</button>
          <button onClick={() => setActiveTab('USERS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'USERS' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><User size={16} /> Cadets {users.length > 0 && `(${users.length})`}</button>
