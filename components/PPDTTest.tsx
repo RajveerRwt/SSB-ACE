@@ -5,7 +5,6 @@ import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus }
 import { getPPDTScenarios, getUserSubscription, checkLimit } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
 import CameraModal from './CameraModal';
-import SessionFeedback from './SessionFeedback';
 
 enum PPDTStep {
   IDLE,
@@ -45,7 +44,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
   const [showScoreHelp, setShowScoreHelp] = useState(false);
   const [verifyingLimit, setVerifyingLimit] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  const [showFeedback, setShowFeedback] = useState(false);
 
 // ... (Rest of component logic remains same until FINISHED state) ...
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -314,7 +312,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
         stimulusImage: stimulusBase64 
       });
       setFeedback(result);
-      setShowFeedback(true);
       
       // Pass isCustomAttempt flag to prevent usage increment in App.tsx
       if (onSave) onSave({ ...result, uploadedStoryImage: uploadedImageBase64, isCustomAttempt: !!customStimulus });
@@ -755,20 +752,12 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
                </div>
             </div>
 
-            {showFeedback ? (
-                <SessionFeedback 
-                    userId={userId} 
-                    testType="PPDT" 
-                    onComplete={() => setShowFeedback(false)} 
-                />
-            ) : (
-                <button 
-                  onClick={() => setShowFeedback(true)}
-                  className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
-                >
-                  Report for Next Simulation
-                </button>
-            )}
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
+            >
+              Report for Next Simulation
+            </button>
           </div>
         );
     }

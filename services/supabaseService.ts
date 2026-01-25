@@ -517,23 +517,3 @@ export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING'
       is_active: true
   });
 };
-
-// FEEDBACK
-export const submitUserFeedback = async (userId: string, testType: string, rating: number, comment: string) => {
-    if (!supabase) return;
-    await supabase.from('user_feedback').insert({
-        user_id: userId,
-        test_type: testType,
-        rating,
-        comment
-    });
-};
-
-export const getAllUserFeedback = async () => {
-    if (!supabase) return [];
-    const { data } = await supabase
-        .from('user_feedback')
-        .select('*, aspirants(full_name, email)')
-        .order('created_at', { ascending: false });
-    return data || [];
-};

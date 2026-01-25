@@ -5,7 +5,6 @@ import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, S
 import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
 import { TestType } from '../types';
 import CameraModal from './CameraModal';
-import SessionFeedback from './SessionFeedback';
 
 interface PsychologyProps {
   type: TestType;
@@ -64,7 +63,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
   const [feedback, setFeedback] = useState<any>(null);
   const [showScoreHelp, setShowScoreHelp] = useState(false);
-  const [showFeedback, setShowFeedback] = useState(false);
   
   // Camera State
   const [showCamera, setShowCamera] = useState(false);
@@ -95,7 +93,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const startTest = async () => {
     setIsLoading(true);
     setFeedback(null);
-    setShowFeedback(false);
     
     // SDT Logic Flow
     if (type === TestType.SDT) {
@@ -372,7 +369,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       try {
           const result = await evaluatePerformance(type, { sdtData, sdtImages });
           setFeedback(result);
-          setShowFeedback(true);
           if (onSave) onSave({ ...result, sdtData, sdtImages });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) {
@@ -387,7 +383,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           const payload = { testType: 'SRT', srtResponses: items.map((item, i) => ({ id: i + 1, situation: item.content, response: srtResponses[i] || "" })) };
           const result = await evaluatePerformance(type, payload);
           setFeedback(result);
-          setShowFeedback(true);
           if (onSave) onSave({ ...result, srtResponses });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { console.error("SRT Eval Error", err); setPhase(PsychologyPhase.COMPLETED); }
@@ -399,7 +394,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           const payload = { testType: 'WAT', watResponses: items.map((item, i) => ({ id: i + 1, word: item.content, response: watResponses[i] || "" })) };
           const result = await evaluatePerformance(type, payload);
           setFeedback(result);
-          setShowFeedback(true);
           if (onSave) onSave({ ...result, watResponses });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { console.error("WAT Eval Error", err); setPhase(PsychologyPhase.COMPLETED); }
@@ -429,7 +423,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       const validPairs = tatPairs.filter(p => p !== null);
       const result = await evaluatePerformance(type, { tatPairs: validPairs, testType: type, itemCount: items.length });
       setFeedback(result);
-      setShowFeedback(true);
       if (onSave) onSave({ ...result, tatImages: tatUploads });
       setPhase(PsychologyPhase.COMPLETED);
     } catch (err) { console.error("Evaluation error:", err); setPhase(PsychologyPhase.UPLOADING_STORIES); }
@@ -699,20 +692,12 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 <p className="text-lg md:text-2xl font-medium text-blue-900 italic max-w-3xl mx-auto leading-relaxed">"{feedback?.recommendations}"</p>
             </div>
 
-            {showFeedback ? (
-                <SessionFeedback 
-                    userId={userId} 
-                    testType={type} 
-                    onComplete={() => setShowFeedback(false)} 
-                />
-            ) : (
-                <button 
-                  onClick={() => setShowFeedback(true)}
-                  className="w-full py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest hover:bg-black transition-all shadow-2xl"
-                >
-                  Return to Barracks
-                </button>
-            )}
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest hover:bg-black transition-all shadow-2xl"
+            >
+              Return to Barracks
+            </button>
         </div>
     )
   }

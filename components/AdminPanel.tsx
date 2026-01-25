@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, MessageSquare, Star } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
@@ -8,7 +8,7 @@ import {
   getSRTQuestions, uploadSRTQuestions, deleteSRTQuestion, deleteSRTSet,
   getPendingPayments, approvePaymentRequest, rejectPaymentRequest,
   getAllUsers, deleteUserProfile, getCoupons, createCoupon, deleteCoupon,
-  uploadDailyChallenge, sendAnnouncement, getAllUserFeedback
+  uploadDailyChallenge, sendAnnouncement
 } from '../services/supabaseService';
 
 const AdminPanel: React.FC = () => {
@@ -16,7 +16,6 @@ const AdminPanel: React.FC = () => {
   const [payments, setPayments] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [coupons, setCoupons] = useState<any[]>([]);
-  const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
@@ -62,7 +61,7 @@ const AdminPanel: React.FC = () => {
   // SQL Help Toggle
   const [showSqlHelp, setShowSqlHelp] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK'>('PAYMENTS');
+  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST'>('PAYMENTS');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -80,9 +79,6 @@ const AdminPanel: React.FC = () => {
       } else if (activeTab === 'COUPONS') {
         const c = await getCoupons();
         setCoupons(c);
-      } else if (activeTab === 'FEEDBACK') {
-        const f = await getAllUserFeedback();
-        setFeedbacks(f);
       } else if (activeTab !== 'DAILY' && activeTab !== 'BROADCAST') {
         let data;
         if (activeTab === 'PPDT') data = await getPPDTScenarios();
@@ -270,19 +266,6 @@ SSBPREP.ONLINE
   // Cleaned SQL with DELETE permissions for Admin and IDEMPOTENT logic
   const storageSQL = `
 -- (Existing Tables omitted for brevity, ensure previous tables are created)
-
--- 9. USER FEEDBACK
-create table if not exists user_feedback (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references aspirants(user_id) not null,
-  test_type text not null,
-  rating integer not null,
-  comment text,
-  created_at timestamp with time zone default timezone('utc'::text, now())
-);
-alter table user_feedback enable row level security;
-create policy "Users Insert Feedback" on user_feedback for insert with check (auth.uid() = user_id);
-create policy "Admin View Feedback" on user_feedback for select using ((select auth.jwt() ->> 'email') = 'rajveerrawat947@gmail.com');
 `;
 
   const filteredUsers = users.filter(u => 
@@ -362,7 +345,6 @@ create policy "Admin View Feedback" on user_feedback for select using ((select a
 
       <div className="flex flex-wrap justify-center md:justify-start gap-4">
          <button onClick={() => setActiveTab('PAYMENTS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PAYMENTS' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><IndianRupee size={16} /> Payments {payments.length > 0 && `(${payments.length})`}</button>
-         <button onClick={() => setActiveTab('FEEDBACK')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'FEEDBACK' ? 'bg-cyan-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><MessageSquare size={16} /> Feedback</button>
          <button onClick={() => setActiveTab('USERS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'USERS' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><User size={16} /> Cadets {users.length > 0 && `(${users.length})`}</button>
          <button onClick={() => setActiveTab('BROADCAST')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'BROADCAST' ? 'bg-red-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Radio size={16} /> Broadcast</button>
          <button onClick={() => setActiveTab('DAILY')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'DAILY' ? 'bg-teal-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><PenTool size={16} /> Daily Challenge</button>
@@ -373,43 +355,7 @@ create policy "Admin View Feedback" on user_feedback for select using ((select a
          <button onClick={() => setActiveTab('SRT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'SRT' ? 'bg-orange-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Zap size={16} /> SRT Sets</button>
       </div>
 
-      {activeTab === 'FEEDBACK' ? (
-          <div className="space-y-6">
-              {feedbacks.length === 0 ? (
-                  <div className="p-12 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-xl">
-                      <MessageSquare className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                      <h3 className="text-xl font-black text-slate-900 uppercase">No Feedback Yet</h3>
-                      <p className="text-slate-500 text-xs font-bold mt-2">Waiting for cadet reviews.</p>
-                  </div>
-              ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {feedbacks.map(f => (
-                          <div key={f.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg hover:shadow-xl transition-all">
-                              <div className="flex justify-between items-start mb-4">
-                                  <div className="flex items-center gap-3">
-                                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm ${f.rating >= 4 ? 'bg-green-100 text-green-700' : f.rating <= 2 ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                          {f.rating}★
-                                      </div>
-                                      <div>
-                                          <h4 className="font-bold text-slate-900 text-sm truncate max-w-[150px]">{f.test_type}</h4>
-                                          <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{new Date(f.created_at).toLocaleDateString()}</p>
-                                      </div>
-                                  </div>
-                              </div>
-                              <p className="text-xs text-slate-600 font-medium italic mb-4 bg-slate-50 p-3 rounded-xl min-h-[60px]">
-                                  "{f.comment || 'No comment provided.'}"
-                              </p>
-                              <div className="pt-4 border-t border-slate-50">
-                                  <p className="text-[10px] font-bold text-slate-500 truncate">
-                                      User: {f.aspirants?.full_name || 'Anonymous'} ({f.aspirants?.email})
-                                  </p>
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              )}
-          </div>
-      ) : activeTab === 'BROADCAST' ? (
+      {activeTab === 'BROADCAST' ? (
           // ... (Existing Broadcast Code) ...
           <div className="max-w-2xl mx-auto space-y-6">
               <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
