@@ -344,14 +344,23 @@ export const getPendingPayments = async () => {
   return data || [];
 };
 
-export const approvePaymentRequest = async (id: string, userId: string, planType: string) => {
-  // 1. Update Payment Status
-  const { error: payError } = await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', id);
-  if (payError) throw payError;
-  
-  // 2. Upsert Subscription (Update if exists, Insert if not)
+/**
+ * CORE HELPER: Activates the plan for a user.
+ * Separated to be reused by both manual approval and auto-Razorpay flow.
+ */
+export const activatePlanForUser = async (userId: string, planType: string) => {
   let update: any = { user_id: userId };
   
+  // Default usage structure for fallback
+  const defaultUsage = {
+      interview_used: 0, interview_limit: 0,
+      ppdt_used: 0, ppdt_limit: 3,
+      tat_used: 0, tat_limit: 1,
+      wat_used: 0, wat_limit: 1,
+      srt_used: 0, srt_limit: 1,
+      sdt_used: 0
+  };
+
   if (planType === 'PRO_SUBSCRIPTION') {
       update = {
           ...update,
@@ -367,27 +376,20 @@ export const approvePaymentRequest = async (id: string, userId: string, planType
           extra_credits: { interview: 0 } // Initialize extras if new
       };
       
-      // If we are upgrading an existing user, we might want to PRESERVE extra_credits.
-      // Fetch existing first
-      const { data: existing } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).single();
+      // If we are upgrading an existing user, we want to PRESERVE extra_credits.
+      // Use maybeSingle() to avoid error if no row exists (new user)
+      const { data: existing } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle();
       if (existing) {
           update.extra_credits = existing.extra_credits || { interview: 0 };
-          // Reset usage but keep extras
+          // If we want to preserve current usage stats too, we could, but resetting stats on Pro upgrade is usually desired?
+          // Let's keep usage reset to give full Pro quota.
       }
       
   } else if (planType === 'INTERVIEW_ADDON') {
-      // Fetch existing first to add to it
-      const { data: current } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).single();
+      const { data: current } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle();
       
       const currentExtras = current?.extra_credits?.interview || 0;
-      const currentUsage = current?.usage || {
-            interview_used: 0, interview_limit: 0,
-            ppdt_used: 0, ppdt_limit: 3,
-            tat_used: 0, tat_limit: 1,
-            wat_used: 0, wat_limit: 1,
-            srt_used: 0, srt_limit: 1,
-            sdt_used: 0
-      };
+      const currentUsage = current?.usage || defaultUsage;
       const currentTier = current?.tier || 'FREE';
 
       update = {
@@ -417,12 +419,21 @@ export const approvePaymentRequest = async (id: string, userId: string, planType
   if (subError) throw subError;
 };
 
+export const approvePaymentRequest = async (id: string, userId: string, planType: string) => {
+  // 1. Update Payment Status in payment_requests table
+  const { error: payError } = await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', id);
+  if (payError) throw payError;
+  
+  // 2. Activate Plan
+  await activatePlanForUser(userId, planType);
+};
+
 export const rejectPaymentRequest = async (id: string) => {
   await supabase.from('payment_requests').update({ status: 'REJECTED' }).eq('id', id);
 };
 
 export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode?: string) => {
-    // Log request
+    // 1. Insert Payment Record (Status: APPROVED directly)
     const { data, error } = await supabase.from('payment_requests').insert({
         user_id: userId,
         utr: paymentId,
@@ -434,12 +445,14 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
     
     if (error) throw error;
     
-    // Auto-approve logic same as above
-    await approvePaymentRequest(data.id, userId, planType);
+    // 2. Activate Subscription DIRECTLY
+    // We skip 'approvePaymentRequest' because calling update on 'payment_requests' 
+    // might fail due to RLS policies if the user doesn't have update permissions on their own rows.
+    // Since we just inserted it as APPROVED, we only need to update the subscription table.
+    await activatePlanForUser(userId, planType);
     
-    // Increment Coupon Usage
+    // 3. Increment Coupon Usage
     if (couponCode) {
-        // Find coupon and increment
         const { data: coupon } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).single();
         if (coupon) {
             await supabase.from('coupons').update({ usage_count: (coupon.usage_count || 0) + 1 }).eq('code', couponCode);
