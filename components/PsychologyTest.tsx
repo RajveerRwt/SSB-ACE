@@ -5,6 +5,7 @@ import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, S
 import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
 import { TestType } from '../types';
 import CameraModal from './CameraModal';
+import SessionFeedback from './SessionFeedback';
 
 interface PsychologyProps {
   type: TestType;
@@ -691,6 +692,11 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 <h4 className="font-black text-blue-800 uppercase tracking-widest text-sm">Psychologist's Final Recommendation</h4>
                 <p className="text-lg md:text-2xl font-medium text-blue-900 italic max-w-3xl mx-auto leading-relaxed">"{feedback?.recommendations}"</p>
             </div>
+
+            {/* FEEDBACK INTEGRATION */}
+            {userId && (
+                <SessionFeedback testType={type} userId={userId} />
+            )}
 
             <button 
               onClick={() => window.location.reload()}

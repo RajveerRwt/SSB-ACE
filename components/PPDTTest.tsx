@@ -5,6 +5,7 @@ import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus }
 import { getPPDTScenarios, getUserSubscription, checkLimit } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
 import CameraModal from './CameraModal';
+import SessionFeedback from './SessionFeedback';
 
 enum PPDTStep {
   IDLE,
@@ -45,7 +46,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
   const [verifyingLimit, setVerifyingLimit] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
 
-// ... (Rest of component logic remains same until FINISHED state) ...
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const customStimulusInputRef = useRef<HTMLInputElement>(null);
@@ -53,6 +53,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isRecordingRef = useRef(false);
 
+  // ... (Audio Init, Buzzer, Start Logic - No changes needed here) ...
   const initAudio = () => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -325,6 +326,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
   // Render logic...
   const renderContent = () => {
     switch (step) {
+      // ... (Previous steps remain the same) ...
       case PPDTStep.IDLE:
         return (
           <div className="max-w-4xl mx-auto text-center py-20 md:py-28 space-y-12 animate-in fade-in zoom-in duration-500">
@@ -458,6 +460,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
          const isTimeUp = step === PPDTStep.UPLOAD_GRACE_PERIOD;
          return (
             <div className="max-w-7xl mx-auto space-y-6 md:space-y-10">
+                {/* ... (Existing Content for WRITING phase) ... */}
                 <div className="flex justify-between items-end border-b pb-4 md:pb-6 border-slate-100">
                 <div>
                     <h3 className="text-2xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter">Story Writing Phase</h3>
@@ -751,6 +754,11 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
                   </div>
                </div>
             </div>
+
+            {/* FEEDBACK INTEGRATION */}
+            {userId && (
+                <SessionFeedback testType="PPDT" userId={userId} />
+            )}
 
             <button 
               onClick={() => window.location.reload()}

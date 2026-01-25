@@ -176,6 +176,7 @@ export const deleteUserProfile = async (userId: string) => {
     await supabase.from('test_history').delete().eq('user_id', userId);
     await supabase.from('user_subscriptions').delete().eq('user_id', userId);
     await supabase.from('payment_requests').delete().eq('user_id', userId);
+    await supabase.from('user_feedback').delete().eq('user_id', userId); // Added feedback cleanup
     await supabase.from('aspirants').delete().eq('user_id', userId);
     // Note: Cannot delete from auth.users via client library directly without service role
 };
@@ -466,7 +467,8 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
     }
 };
 
-// ... (Rest of content management code remains same) ...
+// --- CONTENT MANAGEMENT ---
+
 // PPDT
 export const getPPDTScenarios = async () => {
   const { data } = await supabase.from('ppdt_scenarios').select('*');
@@ -657,4 +659,27 @@ export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING'
       type,
       is_active: true
   });
+};
+
+// --- USER FEEDBACK ---
+
+export const submitUserFeedback = async (userId: string, testType: string, rating: number, comments: string) => {
+  await supabase.from('user_feedback').insert({
+      user_id: userId,
+      test_type: testType,
+      rating: rating,
+      comments: comments
+  });
+};
+
+export const getAllFeedback = async () => {
+  const { data } = await supabase
+    .from('user_feedback')
+    .select('*, aspirants(full_name, email)')
+    .order('created_at', { ascending: false });
+  return data || [];
+};
+
+export const deleteFeedback = async (id: string) => {
+  await supabase.from('user_feedback').delete().eq('id', id);
 };

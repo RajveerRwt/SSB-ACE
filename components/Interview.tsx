@@ -4,6 +4,7 @@ import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, 
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
+import SessionFeedback from './SessionFeedback';
 
 /** 
  * SSB VIRTUAL INTERVIEW PROTOCOL (v5.3 - Variable Duration & CIQ)
@@ -547,7 +548,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId 
 
               <button 
                 onClick={() => startBoardSession(false)} 
-                className="px-12 md:px-16 py-5 md:py-7 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all hover:scale-105 active:scale-95"
+                className="px-12 md:px-16 py-5 md:py-7 bg-blue-600 hover:bg-blue-50 text-white rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all hover:scale-105 active:scale-95"
               >
                 Allow Cam/Mic & Enter
               </button>
@@ -905,6 +906,11 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId 
                  </div>
               </div>
               
+              {/* FEEDBACK INTEGRATION */}
+              {userId && (
+                  <SessionFeedback testType="Interview" userId={userId} />
+              )}
+
               <button onClick={() => window.location.reload()} className="w-full py-6 md:py-8 bg-slate-900 hover:bg-black text-white rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all">Archive Dossier & Exit</button>
            </div>
         </div>
