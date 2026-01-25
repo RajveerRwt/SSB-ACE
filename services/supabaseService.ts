@@ -61,10 +61,12 @@ export const syncUserProfile = async (user: any) => {
     
   if (error) console.error("Sync Profile Error:", error);
   
-  // Ensure subscription entry exists
+  // Ensure subscription entry exists using UPSERT to prevent race conditions or missing rows
+  // We only insert default if it DOES NOT exist (using onConflict ignore effectively via select check or safe insert)
+  // Actually, easiest way is to check existence first to avoid overwriting PRO status with FREE default
   const { data: sub } = await supabase
     .from('user_subscriptions')
-    .select('*')
+    .select('tier')
     .eq('user_id', user.id)
     .single();
     
@@ -282,10 +284,12 @@ export const approvePaymentRequest = async (id: string, userId: string, planType
   const { error: payError } = await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', id);
   if (payError) throw payError;
   
-  // 2. Update Subscription
-  let update: any = {};
+  // 2. Upsert Subscription (Update if exists, Insert if not)
+  let update: any = { user_id: userId };
+  
   if (planType === 'PRO_SUBSCRIPTION') {
       update = {
+          ...update,
           tier: 'PRO',
           usage: {
             interview_used: 0, interview_limit: 5,
@@ -294,18 +298,42 @@ export const approvePaymentRequest = async (id: string, userId: string, planType
             wat_used: 0, wat_limit: 10,
             srt_used: 0, srt_limit: 10,
             sdt_used: 0
-          }
+          },
+          extra_credits: { interview: 0 } // Initialize extras if new
       };
+      
+      // If we are upgrading an existing user, we might want to PRESERVE extra_credits.
+      // Fetch existing first
+      const { data: existing } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).single();
+      if (existing) {
+          update.extra_credits = existing.extra_credits || { interview: 0 };
+          // Reset usage but keep extras
+      }
+      
   } else if (planType === 'INTERVIEW_ADDON') {
       // Fetch existing first to add to it
-      const { data: current } = await supabase.from('user_subscriptions').select('extra_credits').eq('user_id', userId).single();
+      const { data: current } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).single();
+      
       const currentExtras = current?.extra_credits?.interview || 0;
+      const currentUsage = current?.usage || {
+            interview_used: 0, interview_limit: 0,
+            ppdt_used: 0, ppdt_limit: 3,
+            tat_used: 0, tat_limit: 1,
+            wat_used: 0, wat_limit: 1,
+            srt_used: 0, srt_limit: 1,
+            sdt_used: 0
+      };
+      const currentTier = current?.tier || 'FREE';
+
       update = {
+          ...update,
+          tier: currentTier,
+          usage: currentUsage,
           extra_credits: { interview: currentExtras + 1 }
       };
   } else if (planType === 'STANDARD_SUBSCRIPTION') {
-      // Standard logic
       update = {
+          ...update,
           tier: 'STANDARD',
           usage: {
             interview_used: 0, interview_limit: 2,
@@ -314,11 +342,13 @@ export const approvePaymentRequest = async (id: string, userId: string, planType
             wat_used: 0, wat_limit: 5,
             srt_used: 0, srt_limit: 5,
             sdt_used: 0
-          }
+          },
+          extra_credits: { interview: 0 }
       };
   }
   
-  const { error: subError } = await supabase.from('user_subscriptions').update(update).eq('user_id', userId);
+  // Use UPSERT to guarantee the record exists
+  const { error: subError } = await supabase.from('user_subscriptions').upsert(update);
   if (subError) throw subError;
 };
 
