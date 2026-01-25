@@ -203,24 +203,44 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
       if (payment) {
           console.log(`SSB: Auto-Repairing Subscription for ${userId} based on Payment ID: ${payment.id}`);
           
-          // Construct the correct PRO object
+          // CRITICAL FIX: Calculate ACTUAL usage from history since payment date
+          // This prevents resetting credits to 0 if the user has already taken tests
+          const paymentDate = payment.created_at;
+          
+          const getUsageCount = async (testType: string) => {
+              const { count } = await supabase
+                  .from('test_history')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('user_id', userId)
+                  .eq('test_type', testType)
+                  .gt('created_at', paymentDate); // Only count usage AFTER payment
+              return count || 0;
+          };
+
+          const [interviewUsed, ppdtUsed, tatUsed, watUsed, srtUsed] = await Promise.all([
+              getUsageCount('INTERVIEW'),
+              getUsageCount('PPDT'),
+              getUsageCount('TAT'),
+              getUsageCount('WAT'),
+              getUsageCount('SRT')
+          ]);
+
+          // Construct the correct PRO object with restored usage
           const repairedSub = {
               user_id: userId,
               tier: 'PRO',
-              usage: sub?.usage ? {
-                  ...sub.usage,
+              usage: {
+                  interview_used: interviewUsed,
                   interview_limit: 5,
+                  ppdt_used: ppdtUsed,
                   ppdt_limit: 30,
+                  tat_used: tatUsed,
                   tat_limit: 7,
+                  wat_used: watUsed,
                   wat_limit: 10,
-                  srt_limit: 10
-              } : {
-                  interview_used: 0, interview_limit: 5,
-                  ppdt_used: 0, ppdt_limit: 30,
-                  tat_used: 0, tat_limit: 7,
-                  wat_used: 0, wat_limit: 10,
-                  srt_used: 0, srt_limit: 10,
-                  sdt_used: 0
+                  srt_used: srtUsed,
+                  srt_limit: 10,
+                  sdt_used: 0 // SDT is usually unlimited or tracked simply
               },
               extra_credits: sub?.extra_credits || { interview: 0 }
           };
