@@ -132,15 +132,41 @@ export const saveTestAttempt = async (userId: string, testType: string, resultDa
 };
 
 export const getAllUsers = async () => {
-  const { data } = await supabase
+  // 1. Fetch Aspirants Profile Data
+  const { data: aspirants, error: aspError } = await supabase
     .from('aspirants')
-    .select('*, user_subscriptions(tier, usage)')
+    .select('*')
     .order('last_active', { ascending: false });
+
+  if (aspError) {
+    console.error("SSB Admin: Error fetching aspirants", aspError);
+    return [];
+  }
+
+  // 2. Fetch All Subscriptions separately to avoid JOIN issues
+  const { data: subs, error: subError } = await supabase
+    .from('user_subscriptions')
+    .select('*');
+
+  if (subError) {
+    console.error("SSB Admin: Error fetching subscriptions", subError);
+  }
+
+  // 3. Manual Merge
+  const mergedData = aspirants?.map((u: any) => {
+      // Find matching subscription by user_id
+      const sub = subs?.find((s: any) => s.user_id === u.user_id);
+      
+      return {
+          ...u,
+          subscription_data: sub || { 
+              tier: 'FREE', 
+              usage: { interview_used: 0, ppdt_used: 0, tat_used: 0 } 
+          } // Fallback if no sub found
+      };
+  });
     
-  return data?.map((u: any) => ({
-      ...u,
-      subscription_data: u.user_subscriptions?.[0]
-  })) || [];
+  return mergedData || [];
 };
 
 export const deleteUserProfile = async (userId: string) => {
@@ -253,7 +279,8 @@ export const getPendingPayments = async () => {
 
 export const approvePaymentRequest = async (id: string, userId: string, planType: string) => {
   // 1. Update Payment Status
-  await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', id);
+  const { error: payError } = await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', id);
+  if (payError) throw payError;
   
   // 2. Update Subscription
   let update: any = {};
@@ -291,7 +318,8 @@ export const approvePaymentRequest = async (id: string, userId: string, planType
       };
   }
   
-  await supabase.from('user_subscriptions').update(update).eq('user_id', userId);
+  const { error: subError } = await supabase.from('user_subscriptions').update(update).eq('user_id', userId);
+  if (subError) throw subError;
 };
 
 export const rejectPaymentRequest = async (id: string) => {
