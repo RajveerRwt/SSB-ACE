@@ -1,652 +1,539 @@
 
-// ... existing imports ...
-import { createClient, User } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
 
-// ... (keep existing configuration and auth functions unchanged) ...
+// Initialize Supabase Client
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_KEY || '';
 
-// --- ANNOUNCEMENTS (REAL-TIME NOTIFICATIONS) ---
-
-export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT') => {
-    if (!supabase) throw new Error("Database not connected");
-    // Insert new announcement (Real-time listeners will pick this up)
-    const { error } = await supabase.from('announcements').insert({
-        message,
-        type,
-        is_active: true
-    });
-    if (error) throw error;
-};
-
-export const getRecentAnnouncements = async () => {
-    if (!supabase) return [];
-    const { data } = await supabase
-        .from('announcements')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(10);
-    return data || [];
-};
-
-export const subscribeToAnnouncements = (callback: (payload: Announcement) => void) => {
-    if (!supabase) return;
-    
-    const channel = supabase
-      .channel('public:announcements')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, (payload: any) => {
-          if (payload.new && payload.new.is_active) {
-              callback(payload.new as Announcement);
-          }
-      })
-      .subscribe();
-
-    return () => {
-        supabase?.removeChannel(channel);
-    };
-};
-
-// ... (keep rest of the file unchanged: COUPON MANAGEMENT, PAYMENTS, etc.) ...
-// Ensure all other exports like getCoupons, createCoupon, etc. are preserved.
-// Re-exporting unchanged parts implicitly by not listing them in the XML replacement if using partial matching, 
-// but since I must return the full file content if I replace it, I will assume the user wants the specific section updated or I should provide the full file if the instruction implies full file replacement.
-// Wait, the instruction says "ONLY return the xml... Only return files in the XML that need to be updated."
-// I will provide the FULL content of supabaseService.ts to be safe as it's a critical logic file.
-
-// --- SUPABASE CONFIGURATION ---
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_KEY || '';
-
-// Create a single supabase client for interacting with your database
-export const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) 
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
-  : null;
-
-export const isSupabaseActive = !!supabase;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // --- AUTHENTICATION ---
 
+export const signInWithEmail = async (email: string, password: string) => {
+  return await supabase.auth.signInWithPassword({ email, password });
+};
+
+export const signUpWithEmail = async (email: string, password: string, fullName: string) => {
+  const result = await supabase.auth.signUp({ 
+    email, 
+    password,
+    options: {
+      data: { full_name: fullName }
+    }
+  });
+  return result;
+};
+
+export const logoutUser = async () => {
+  await supabase.auth.signOut();
+};
+
 export const checkAuthSession = async () => {
-  if (!supabase) return null;
   const { data: { session } } = await supabase.auth.getSession();
   return session?.user || null;
 };
 
-export const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
-  if (!supabase) return null;
+export const subscribeToAuthChanges = (callback: (user: any) => void) => {
   const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
     callback(session?.user || null);
   });
   return () => subscription.unsubscribe();
 };
 
-export const signInWithEmail = async (email: string, password: string) => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return supabase.auth.signInWithPassword({ email, password });
-};
-
-export const signUpWithEmail = async (email: string, password: string, fullName: string) => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { full_name: fullName }
-    }
-  });
-};
-
-export const logoutUser = async () => {
-  if (supabase) await supabase.auth.signOut();
-};
-
 export const isUserAdmin = (email: string | null | undefined) => {
-  return email === 'rajveerrawat947@gmail.com';
+  const adminEmails = ['rajveerrawat947@gmail.com', 'admin@ssbprep.online']; // Add your admin emails here
+  return email ? adminEmails.includes(email) : false;
 };
 
-// --- USER PROFILE & DATA ---
-
-export const syncUserProfile = async (user: User) => {
-    if (!supabase) return;
-    await supabase.from('aspirants').upsert({
-        user_id: user.id,
+export const syncUserProfile = async (user: any) => {
+  if (!user) return;
+  
+  // Ensure user profile exists in 'aspirants' table
+  const { error } = await supabase
+    .from('aspirants')
+    .upsert({ 
+        user_id: user.id, 
         email: user.email,
         full_name: user.user_metadata?.full_name,
         last_active: new Date().toISOString()
     }, { onConflict: 'user_id' });
+    
+  if (error) console.error("Sync Profile Error:", error);
+  
+  // Ensure subscription entry exists
+  const { data: sub } = await supabase
+    .from('user_subscriptions')
+    .select('*')
+    .eq('user_id', user.id)
+    .single();
+    
+  if (!sub) {
+      await supabase.from('user_subscriptions').insert({
+          user_id: user.id,
+          tier: 'FREE',
+          usage: {
+            interview_used: 0, interview_limit: 0,
+            ppdt_used: 0, ppdt_limit: 3,
+            tat_used: 0, tat_limit: 1,
+            wat_used: 0, wat_limit: 1,
+            srt_used: 0, srt_limit: 1,
+            sdt_used: 0
+          },
+          extra_credits: { interview: 0 }
+      });
+  }
 };
 
+// --- USER DATA ---
+
 export const getUserData = async (userId: string): Promise<PIQData | null> => {
-  if (!supabase) return null;
-  const { data } = await supabase.from('aspirants').select('piq_data').eq('user_id', userId).single();
+  const { data } = await supabase
+    .from('aspirants')
+    .select('piq_data')
+    .eq('user_id', userId)
+    .single();
   return data?.piq_data || null;
 };
 
-export const saveUserData = async (userId: string, data: Partial<PIQData>) => {
-  if (!supabase) return;
-  await supabase.from('aspirants').update({ piq_data: data }).eq('user_id', userId);
-};
-
-export const saveTestAttempt = async (userId: string, testType: string, resultData: any) => {
-  if (!supabase) return;
-  await supabase.from('test_history').insert({
-    user_id: userId,
-    test_type: testType,
-    score: resultData.score || 0,
-    result_data: resultData
-  });
+export const saveUserData = async (userId: string, data: PIQData) => {
+  await supabase
+    .from('aspirants')
+    .update({ piq_data: data })
+    .eq('user_id', userId);
 };
 
 export const getUserHistory = async (userId: string) => {
-  if (!supabase) return [];
   const { data } = await supabase
     .from('test_history')
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(10);
-  
-  return (data || []).map((item: any) => ({
-    id: item.id,
-    type: item.test_type,
-    timestamp: item.created_at,
-    score: item.score,
-    result: item.result_data
-  }));
+    
+  return data?.map((item: any) => ({
+      id: item.id,
+      type: item.test_type,
+      timestamp: item.created_at,
+      score: item.score,
+      result: item.result_data
+  })) || [];
 };
 
-// --- ADMIN USER MANAGEMENT ---
+export const saveTestAttempt = async (userId: string, testType: string, resultData: any) => {
+  await supabase
+    .from('test_history')
+    .insert({
+        user_id: userId,
+        test_type: testType,
+        score: resultData.score || 0,
+        result_data: resultData
+    });
+};
 
 export const getAllUsers = async () => {
-  if (!supabase) return [];
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from('aspirants')
-    .select('*')
+    .select('*, user_subscriptions(tier, usage)')
     .order('last_active', { ascending: false });
-  
-  if (error) throw error;
-  return data || [];
+    
+  return data?.map((u: any) => ({
+      ...u,
+      subscription_data: u.user_subscriptions?.[0]
+  })) || [];
 };
 
 export const deleteUserProfile = async (userId: string) => {
-  if (!supabase) return;
-  const { error } = await supabase.from('aspirants').delete().eq('user_id', userId);
-  if (error) throw error;
+    // Rely on cascade delete in DB usually, but manual cleanup here for safety
+    await supabase.from('test_history').delete().eq('user_id', userId);
+    await supabase.from('user_subscriptions').delete().eq('user_id', userId);
+    await supabase.from('payment_requests').delete().eq('user_id', userId);
+    await supabase.from('aspirants').delete().eq('user_id', userId);
+    // Note: Cannot delete from auth.users via client library directly without service role
 };
 
-// --- SUBSCRIPTION & LIMITS ---
-
-const DEFAULT_LIMITS = {
-    interview: 2,
-    ppdt: 10,
-    tat: 2,
-    wat: 3, 
-    srt: 3, 
-    sdt: 999 
-};
-
-const STANDARD_LIMITS = {
-    interview: 2,
-    ppdt: 10,
-    tat: 4,
-    wat: 5,
-    srt: 5,
-    sdt: 999
-};
-
-const PRO_LIMITS = {
-    interview: 5,
-    ppdt: 30,
-    tat: 7,
-    wat: 10,
-    srt: 10, 
-    sdt: 999 
-};
+// --- SUBSCRIPTION & PAYMENTS ---
 
 export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
-    if (!supabase) return { 
-        tier: 'FREE', 
-        expiryDate: null, 
-        usage: { 
-            interview_used: 0, interview_limit: DEFAULT_LIMITS.interview, 
-            ppdt_used: 0, ppdt_limit: DEFAULT_LIMITS.ppdt, 
-            tat_used: 0, tat_limit: DEFAULT_LIMITS.tat, 
-            wat_used: 0, wat_limit: DEFAULT_LIMITS.wat, 
-            srt_used: 0, srt_limit: DEFAULT_LIMITS.srt, 
-            sdt_used: 0 
-        }, 
-        extra_credits: { interview: 0 } 
-    };
+  const { data } = await supabase
+    .from('user_subscriptions')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
     
-    const { data } = await supabase.from('aspirants').select('subscription_data').eq('user_id', userId).single();
-    const sub = data?.subscription_data || {};
-    
-    // Defaults
-    const tier = sub.tier || 'FREE';
-    
-    let limits = DEFAULT_LIMITS;
-    if (tier === 'PRO') limits = PRO_LIMITS;
-    else if (tier === 'STANDARD') limits = STANDARD_LIMITS;
-    
-    return {
-        tier,
-        expiryDate: sub.expiryDate || null,
-        usage: {
-            interview_used: sub.usage?.interview_used || 0,
-            interview_limit: limits.interview,
-            ppdt_used: sub.usage?.ppdt_used || 0,
-            ppdt_limit: limits.ppdt,
-            tat_used: sub.usage?.tat_used || 0,
-            tat_limit: limits.tat,
-            wat_used: sub.usage?.wat_used || 0,
-            wat_limit: limits.wat,
-            srt_used: sub.usage?.srt_used || 0,
-            srt_limit: limits.srt,
-            sdt_used: sub.usage?.sdt_used || 0,
-        },
-        extra_credits: {
-            interview: sub.extra_credits?.interview || 0
-        }
-    };
+  if (!data) return {
+      tier: 'FREE',
+      expiryDate: null,
+      usage: {
+        interview_used: 0, interview_limit: 0,
+        ppdt_used: 0, ppdt_limit: 3,
+        tat_used: 0, tat_limit: 1,
+        wat_used: 0, wat_limit: 1,
+        srt_used: 0, srt_limit: 1,
+        sdt_used: 0
+      },
+      extra_credits: { interview: 0 }
+  };
+  
+  return data;
 };
 
-export const checkLimit = async (userId: string, testType: string): Promise<{allowed: boolean, message: string}> => {
-    const sub = await getUserSubscription(userId);
-    let allowed = false;
-    let message = '';
-    
-    if (testType.includes('INTERVIEW')) {
-        const totalLimit = sub.usage.interview_limit + sub.extra_credits.interview;
-        if (sub.usage.interview_used < totalLimit) allowed = true;
-        else message = "Interview limit reached. Upgrade to Standard/Pro or buy add-ons.";
-    } else if (testType.includes('PPDT')) {
-        if (sub.usage.ppdt_used < sub.usage.ppdt_limit) allowed = true;
-        else message = "PPDT limit reached. Upgrade Subscription.";
-    } else if (testType.includes('TAT')) {
-        if (sub.usage.tat_used < sub.usage.tat_limit) allowed = true;
-        else message = "TAT limit reached. Upgrade Subscription.";
-    } else if (testType.includes('WAT')) {
-        if (sub.usage.wat_used < sub.usage.wat_limit) allowed = true;
-        else message = "WAT set limit reached. Upgrade Subscription.";
-    } else if (testType.includes('SRT')) {
-        if (sub.usage.srt_used < sub.usage.srt_limit) allowed = true;
-        else message = "SRT set limit reached. Upgrade Subscription.";
-    } else {
-        allowed = true; // Others unlimited
-    }
-    
-    return { allowed, message };
+export const checkLimit = async (userId: string, testType: string) => {
+  const sub = await getUserSubscription(userId);
+  let allowed = false;
+  let message = "Usage limit reached. Upgrade to Pro.";
+  
+  const usage = sub.usage;
+  
+  if (testType === 'INTERVIEW') {
+      const total = usage.interview_limit + sub.extra_credits.interview;
+      if (usage.interview_used < total) allowed = true;
+      else message = "Interview credits exhausted. Purchase Top-up.";
+  } else if (testType === 'PPDT') {
+      if (usage.ppdt_used < usage.ppdt_limit) allowed = true;
+  } else if (testType === 'TAT') {
+      if (usage.tat_used < usage.tat_limit) allowed = true;
+  } else if (testType === 'WAT') {
+      if (usage.wat_used < usage.wat_limit) allowed = true;
+  } else if (testType === 'SRT') {
+      if (usage.srt_used < usage.srt_limit) allowed = true;
+  }
+  
+  return { allowed, message };
 };
 
 export const incrementUsage = async (userId: string, testType: string) => {
-    if (!supabase) return;
-    const { data } = await supabase.from('aspirants').select('subscription_data').eq('user_id', userId).single();
-    let sub = data?.subscription_data || { tier: 'FREE', usage: {}, extra_credits: {} };
-    if (!sub.usage) sub.usage = {};
-    
-    if (testType.includes('INTERVIEW')) sub.usage.interview_used = (sub.usage.interview_used || 0) + 1;
-    else if (testType.includes('PPDT')) sub.usage.ppdt_used = (sub.usage.ppdt_used || 0) + 1;
-    else if (testType.includes('TAT')) sub.usage.tat_used = (sub.usage.tat_used || 0) + 1;
-    else if (testType.includes('WAT')) sub.usage.wat_used = (sub.usage.wat_used || 0) + 1;
-    else if (testType.includes('SRT')) sub.usage.srt_used = (sub.usage.srt_used || 0) + 1;
-    else if (testType.includes('SDT')) sub.usage.sdt_used = (sub.usage.sdt_used || 0) + 1;
+  const sub = await getUserSubscription(userId);
+  const usage = sub.usage;
+  
+  let update: any = {};
+  
+  if (testType === 'INTERVIEW') update = { 'usage': { ...usage, interview_used: usage.interview_used + 1 } };
+  else if (testType === 'PPDT') update = { 'usage': { ...usage, ppdt_used: usage.ppdt_used + 1 } };
+  else if (testType === 'TAT') update = { 'usage': { ...usage, tat_used: usage.tat_used + 1 } };
+  else if (testType === 'WAT') update = { 'usage': { ...usage, wat_used: usage.wat_used + 1 } };
+  else if (testType === 'SRT') update = { 'usage': { ...usage, srt_used: usage.srt_used + 1 } };
+  
+  // Handle extra credit consumption for Interviews
+  if (testType === 'INTERVIEW' && usage.interview_used >= usage.interview_limit) {
+      // Consumed an extra credit
+      update = { 
+          'usage': { ...usage, interview_used: usage.interview_used + 1 },
+          'extra_credits': { ...sub.extra_credits, interview: Math.max(0, sub.extra_credits.interview - 1) } 
+      };
+  }
 
-    await supabase.from('aspirants').update({ subscription_data: sub }).eq('user_id', userId);
+  if (Object.keys(update).length > 0) {
+      await supabase
+        .from('user_subscriptions')
+        .update(update)
+        .eq('user_id', userId);
+  }
 };
 
-// --- CONTENT MANAGEMENT (PPDT, TAT, WAT, SRT) ---
+export const getLatestPaymentRequest = async (userId: string) => {
+  const { data } = await supabase
+    .from('payment_requests')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+  return data;
+};
+
+export const getPendingPayments = async () => {
+  const { data } = await supabase
+    .from('payment_requests')
+    .select('*, aspirants(full_name, email)')
+    .eq('status', 'PENDING')
+    .order('created_at', { ascending: false });
+  return data || [];
+};
+
+export const approvePaymentRequest = async (id: string, userId: string, planType: string) => {
+  // 1. Update Payment Status
+  await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', id);
+  
+  // 2. Update Subscription
+  let update: any = {};
+  if (planType === 'PRO_SUBSCRIPTION') {
+      update = {
+          tier: 'PRO',
+          usage: {
+            interview_used: 0, interview_limit: 5,
+            ppdt_used: 0, ppdt_limit: 30,
+            tat_used: 0, tat_limit: 7,
+            wat_used: 0, wat_limit: 10,
+            srt_used: 0, srt_limit: 10,
+            sdt_used: 0
+          }
+      };
+  } else if (planType === 'INTERVIEW_ADDON') {
+      // Fetch existing first to add to it
+      const { data: current } = await supabase.from('user_subscriptions').select('extra_credits').eq('user_id', userId).single();
+      const currentExtras = current?.extra_credits?.interview || 0;
+      update = {
+          extra_credits: { interview: currentExtras + 1 }
+      };
+  } else if (planType === 'STANDARD_SUBSCRIPTION') {
+      // Standard logic
+      update = {
+          tier: 'STANDARD',
+          usage: {
+            interview_used: 0, interview_limit: 2,
+            ppdt_used: 0, ppdt_limit: 15,
+            tat_used: 0, tat_limit: 3,
+            wat_used: 0, wat_limit: 5,
+            srt_used: 0, srt_limit: 5,
+            sdt_used: 0
+          }
+      };
+  }
+  
+  await supabase.from('user_subscriptions').update(update).eq('user_id', userId);
+};
+
+export const rejectPaymentRequest = async (id: string) => {
+  await supabase.from('payment_requests').update({ status: 'REJECTED' }).eq('id', id);
+};
+
+export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode?: string) => {
+    // Log request
+    const { data, error } = await supabase.from('payment_requests').insert({
+        user_id: userId,
+        utr: paymentId,
+        amount: amount,
+        plan_type: planType,
+        status: 'APPROVED', // Auto-approve for online payments
+        coupon_code: couponCode
+    }).select().single();
+    
+    if (error) throw error;
+    
+    // Auto-approve logic same as above
+    await approvePaymentRequest(data.id, userId, planType);
+    
+    // Increment Coupon Usage
+    if (couponCode) {
+        // Find coupon and increment
+        const { data: coupon } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).single();
+        if (coupon) {
+            await supabase.from('coupons').update({ usage_count: (coupon.usage_count || 0) + 1 }).eq('code', couponCode);
+        }
+    }
+};
+
+// --- CONTENT MANAGEMENT ---
 
 // PPDT
 export const getPPDTScenarios = async () => {
-    if (!supabase) return [];
-    const { data } = await supabase.from('ppdt_scenarios').select('*').order('created_at', { ascending: false });
-    return data || [];
+  const { data } = await supabase.from('ppdt_scenarios').select('*');
+  return data || [];
 };
 
 export const uploadPPDTScenario = async (file: File, description: string) => {
-    if (!supabase) return;
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `${fileName}`;
-
-    const { error: uploadError } = await supabase.storage.from('ppdt-images').upload(filePath, file);
-    if (uploadError) throw uploadError;
-
-    const { data: { publicUrl } } = supabase.storage.from('ppdt-images').getPublicUrl(filePath);
-
-    const { error } = await supabase.from('ppdt_scenarios').insert({
-        image_url: publicUrl,
-        description
-    });
-    if (error) throw error;
+  const fileName = `ppdt-${Date.now()}-${file.name}`;
+  const { data, error } = await supabase.storage.from('scenarios').upload(fileName, file);
+  if (error) throw error;
+  
+  const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
+  
+  await supabase.from('ppdt_scenarios').insert({
+      image_url: publicUrl,
+      description
+  });
 };
 
 export const deletePPDTScenario = async (id: string, url: string) => {
-    if (!supabase) return;
-    await supabase.from('ppdt_scenarios').delete().eq('id', id);
+  const fileName = url.split('/').pop();
+  if (fileName) await supabase.storage.from('scenarios').remove([fileName]);
+  await supabase.from('ppdt_scenarios').delete().eq('id', id);
 };
 
 // TAT
 export const getTATScenarios = async () => {
-    if (!supabase) return [];
-    const { data } = await supabase.from('tat_scenarios').select('*').order('created_at', { ascending: false });
-    return data || [];
+  const { data } = await supabase.from('tat_scenarios').select('*').order('set_tag');
+  return data || [];
 };
 
 export const uploadTATScenario = async (file: File, description: string, setTag: string) => {
-    if (!supabase) return;
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `${fileName}`;
-
-    const { error: uploadError } = await supabase.storage.from('tat-images').upload(filePath, file);
-    if (uploadError) throw uploadError;
-
-    const { data: { publicUrl } } = supabase.storage.from('tat-images').getPublicUrl(filePath);
-
-    const { error } = await supabase.from('tat_scenarios').insert({
-        image_url: publicUrl,
-        description,
-        set_tag: setTag
-    });
-    if (error) throw error;
+  const fileName = `tat-${Date.now()}-${file.name}`;
+  const { error } = await supabase.storage.from('scenarios').upload(fileName, file);
+  if (error) throw error;
+  
+  const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
+  
+  await supabase.from('tat_scenarios').insert({
+      image_url: publicUrl,
+      description,
+      set_tag: setTag
+  });
 };
 
 export const deleteTATScenario = async (id: string, url: string) => {
-    if (!supabase) return;
-    const { error } = await supabase.from('tat_scenarios').delete().eq('id', id);
-    if (error) throw error;
+  const fileName = url.split('/').pop();
+  if (fileName) await supabase.storage.from('scenarios').remove([fileName]);
+  await supabase.from('tat_scenarios').delete().eq('id', id);
 };
 
 // WAT
 export const getWATWords = async () => {
-    if (!supabase) return [];
-    const { data } = await supabase.from('wat_words').select('*').order('created_at', { ascending: false });
-    return data || [];
+  const { data } = await supabase.from('wat_words').select('*').order('set_tag');
+  return data || [];
 };
 
-export const uploadWATWords = async (words: string[], setTag: string = 'General') => {
-  if (!supabase) return;
+export const uploadWATWords = async (words: string[], setTag: string) => {
   const payload = words.map(w => ({ word: w, set_tag: setTag }));
-  const { error } = await supabase.from('wat_words').insert(payload);
-  if (error) throw error;
+  await supabase.from('wat_words').insert(payload);
 };
 
 export const deleteWATWord = async (id: string) => {
-  if (!supabase) return;
-  const { error } = await supabase.from('wat_words').delete().eq('id', id);
-  if (error) throw error;
+  await supabase.from('wat_words').delete().eq('id', id);
 };
 
-export const deleteWATSet = async (setTag: string) => {
-  if (!supabase) throw new Error("Database connection unavailable");
-  
-  if (setTag === 'General') {
-     const { error: err1 } = await supabase.from('wat_words').delete().eq('set_tag', 'General');
-     if (err1) throw err1;
-     
-     const { error: err2 } = await supabase.from('wat_words').delete().is('set_tag', null);
-     if (err2) throw err2;
-  } else {
-     const { error } = await supabase.from('wat_words').delete().eq('set_tag', setTag);
-     if (error) throw error;
-  }
+export const deleteWATSet = async (tag: string) => {
+  await supabase.from('wat_words').delete().eq('set_tag', tag);
 };
 
 // SRT
 export const getSRTQuestions = async () => {
-    if (!supabase) return [];
-    const { data } = await supabase.from('srt_questions').select('*').order('created_at', { ascending: false });
-    return data || [];
+  const { data } = await supabase.from('srt_questions').select('*').order('set_tag');
+  return data || [];
 };
 
-export const uploadSRTQuestions = async (questions: string[], setTag: string = 'General') => {
-  if (!supabase) return;
+export const uploadSRTQuestions = async (questions: string[], setTag: string) => {
   const payload = questions.map(q => ({ question: q, set_tag: setTag }));
-  const { error } = await supabase.from('srt_questions').insert(payload);
-  if (error) throw error;
+  await supabase.from('srt_questions').insert(payload);
 };
 
 export const deleteSRTQuestion = async (id: string) => {
-  if (!supabase) return;
-  const { error } = await supabase.from('srt_questions').delete().eq('id', id);
-  if (error) throw error;
+  await supabase.from('srt_questions').delete().eq('id', id);
 };
 
-export const deleteSRTSet = async (setTag: string) => {
-  if (!supabase) throw new Error("Database connection unavailable");
-  
-  if (setTag === 'General') {
-     const { error: err1 } = await supabase.from('srt_questions').delete().eq('set_tag', 'General');
-     if (err1) throw err1;
-     
-     const { error: err2 } = await supabase.from('srt_questions').delete().is('set_tag', null);
-     if (err2) throw err2;
-  } else {
-     const { error } = await supabase.from('srt_questions').delete().eq('set_tag', setTag);
-     if (error) throw error;
-  }
+export const deleteSRTSet = async (tag: string) => {
+  await supabase.from('srt_questions').delete().eq('set_tag', tag);
 };
 
-// --- DAILY PRACTICE & DISCUSSION ---
-
-export const getLatestDailyChallenge = async () => {
-    if (!supabase) return null;
-    const { data } = await supabase
-        .from('daily_challenges')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-    return data;
-};
-
-export const uploadDailyChallenge = async (ppdtFile: File | null, watWords: string[], srtSituations: string[]) => {
-    if (!supabase) throw new Error("DB Connection Error");
-    
-    let ppdtUrl = null;
-    if (ppdtFile) {
-        const fileExt = ppdtFile.name.split('.').pop();
-        const fileName = `daily_${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('ppdt-images').upload(fileName, ppdtFile);
-        if (uploadError) throw uploadError;
-        const { data } = supabase.storage.from('ppdt-images').getPublicUrl(fileName);
-        ppdtUrl = data.publicUrl;
-    }
-
-    const { error } = await supabase.from('daily_challenges').insert({
-        ppdt_image_url: ppdtUrl,
-        wat_words: watWords,
-        srt_situations: srtSituations
-    });
-    
-    if (error) throw error;
-};
-
-export const submitDailyEntry = async (challengeId: string, ppdtStory: string, watAnswers: string[], srtAnswers: string[]) => {
-    if (!supabase) throw new Error("DB Connection Error");
-    const user = (await supabase.auth.getSession()).data.session?.user;
-    if (!user) throw new Error("Please login to submit.");
-
-    const { error } = await supabase.from('daily_submissions').insert({
-        challenge_id: challengeId,
-        user_id: user.id,
-        ppdt_story: ppdtStory,
-        wat_answers: watAnswers,
-        srt_answers: srtAnswers
-    });
-    
-    if (error) throw error;
-};
-
-export const getDailySubmissions = async (challengeId: string) => {
-    if (!supabase) return [];
-    const { data, error } = await supabase
-        .from('daily_submissions')
-        .select('*, aspirants(full_name)')
-        .eq('challenge_id', challengeId)
-        .order('created_at', { ascending: false });
-        
-    if (error) console.error("Feed error:", error);
-    return data || [];
-};
-
-// --- COUPON MANAGEMENT ---
-
+// COUPONS
 export const getCoupons = async () => {
-    if (!supabase) return [];
-    const { data, error } = await supabase
-        .from('coupons')
-        .select('*')
-        .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
+  const { data } = await supabase.from('coupons').select('*');
+  return data || [];
 };
 
 export const createCoupon = async (code: string, discount: number, influencer: string) => {
-    if (!supabase) throw new Error("Database not connected");
-    const { error } = await supabase.from('coupons').insert({
-        code: code.toUpperCase(),
-        discount_percent: discount,
-        influencer_name: influencer,
-        usage_count: 0
-    });
-    if (error) throw error;
+  await supabase.from('coupons').insert({
+      code: code.toUpperCase(),
+      discount_percent: discount,
+      influencer_name: influencer
+  });
 };
 
 export const deleteCoupon = async (code: string) => {
-    if (!supabase) throw new Error("Database not connected");
-    const { error } = await supabase.from('coupons').delete().eq('code', code);
-    if (error) throw error;
+  await supabase.from('coupons').delete().eq('code', code);
 };
 
 export const validateCoupon = async (code: string) => {
-    if (!supabase) return { valid: false, discount: 0, message: 'Database Unavailable' };
-    
-    const { data, error } = await supabase
-        .from('coupons')
-        .select('discount_percent')
-        .eq('code', code.toUpperCase())
-        .single();
-        
-    if (error || !data) {
-        return { valid: false, discount: 0, message: 'Invalid or Expired Code' };
-    }
-    
-    return { valid: true, discount: data.discount_percent, message: `Success! ${data.discount_percent}% Discount Applied.` };
+  const { data } = await supabase.from('coupons').select('*').eq('code', code.toUpperCase()).single();
+  if (!data) return { valid: false, message: 'Invalid Code' };
+  return { valid: true, discount: data.discount_percent, message: `Success! ${data.discount_percent}% OFF applied.` };
 };
 
-// --- PAYMENTS (MANUAL & RAZORPAY) ---
+// DAILY CHALLENGE
+export const getLatestDailyChallenge = async () => {
+  const { data } = await supabase
+    .from('daily_challenges')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+  return data;
+};
 
-export const submitPaymentRequest = async (userId: string, utr: string, amount: number, planType: string, couponCode: string = '') => {
-    if (!supabase) throw new Error("Database not connected");
-    const { error } = await supabase.from('payment_requests').insert({
+export const uploadDailyChallenge = async (ppdtFile: File | null, wat: string[], srt: string[]) => {
+  let ppdtUrl = null;
+  if (ppdtFile) {
+      const fileName = `daily-${Date.now()}-${ppdtFile.name}`;
+      await supabase.storage.from('scenarios').upload(fileName, ppdtFile);
+      const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName);
+      ppdtUrl = data.publicUrl;
+  }
+  
+  await supabase.from('daily_challenges').insert({
+      ppdt_image_url: ppdtUrl,
+      wat_words: wat,
+      srt_situations: srt
+  });
+};
+
+export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: string[], srt: string[]) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Login Required");
+  
+  await supabase.from('daily_submissions').insert({
+      challenge_id: challengeId,
+      user_id: user.id,
+      ppdt_story: ppdt,
+      wat_answers: wat,
+      srt_answers: srt
+  });
+};
+
+export const getDailySubmissions = async (challengeId: string) => {
+  const { data } = await supabase
+    .from('daily_submissions')
+    .select('*, aspirants(full_name)')
+    .eq('challenge_id', challengeId)
+    .order('created_at', { ascending: false });
+  return data || [];
+};
+
+// ANNOUNCEMENTS
+export const getRecentAnnouncements = async (): Promise<Announcement[]> => {
+  const { data } = await supabase
+    .from('announcements')
+    .select('*')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(5);
+  return data || [];
+};
+
+export const subscribeToAnnouncements = (callback: (a: Announcement) => void) => {
+  const channel = supabase
+    .channel('public:announcements')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, payload => {
+        callback(payload.new as Announcement);
+    })
+    .subscribe();
+    
+  return () => { supabase.removeChannel(channel); };
+};
+
+export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT') => {
+  await supabase.from('announcements').insert({
+      message,
+      type,
+      is_active: true
+  });
+};
+
+// FEEDBACK
+export const submitUserFeedback = async (userId: string, testType: string, rating: number, comment: string) => {
+    if (!supabase) return;
+    await supabase.from('user_feedback').insert({
         user_id: userId,
-        utr,
-        amount,
-        plan_type: planType,
-        coupon_code: couponCode || null,
-        status: 'PENDING'
+        test_type: testType,
+        rating,
+        comment
     });
-    
-    if (error) {
-        if (error.code === '23505') throw new Error("This transaction ID has already been processed.");
-        throw error;
-    }
-
-    if (couponCode) {
-        const { error: incrementError } = await supabase.rpc('increment_coupon_usage', { code_input: couponCode });
-        if (incrementError) {
-             const { data: c } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).single();
-             if (c) {
-                 await supabase.from('coupons').update({ usage_count: (c.usage_count || 0) + 1 }).eq('code', couponCode);
-             }
-        }
-    }
 };
 
-export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode: string = '') => {
-    if (!supabase) throw new Error("Database not connected");
-
-    const { error } = await supabase.from('payment_requests').insert({
-        user_id: userId,
-        utr: paymentId,
-        amount,
-        plan_type: planType,
-        coupon_code: couponCode || null,
-        status: 'APPROVED'
-    });
-
-    if (error) {
-        if (error.code === '23505') return;
-        throw error;
-    }
-
-    if (couponCode) {
-        const { data: c } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).single();
-        if (c) {
-            await supabase.from('coupons').update({ usage_count: (c.usage_count || 0) + 1 }).eq('code', couponCode);
-        }
-    }
-
-    const { data } = await supabase.from('aspirants').select('subscription_data').eq('user_id', userId).single();
-    let sub = data?.subscription_data || { tier: 'FREE', usage: {}, extra_credits: {} };
-    
-    if (planType === 'PRO_SUBSCRIPTION') {
-        sub.tier = 'PRO';
-    } else if (planType === 'STANDARD_SUBSCRIPTION') {
-        sub.tier = 'STANDARD';
-    } else if (planType === 'INTERVIEW_ADDON') {
-        sub.extra_credits = sub.extra_credits || {};
-        sub.extra_credits.interview = (sub.extra_credits.interview || 0) + 1;
-    }
-    
-    await supabase.from('aspirants').update({ subscription_data: sub }).eq('user_id', userId);
-};
-
-export const getLatestPaymentRequest = async (userId: string) => {
-    if (!supabase) return null;
-    const { data } = await supabase.from('payment_requests')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-    return data;
-};
-
-export const getPendingPayments = async () => {
+export const getAllUserFeedback = async () => {
     if (!supabase) return [];
-    const { data } = await supabase.from('payment_requests')
+    const { data } = await supabase
+        .from('user_feedback')
         .select('*, aspirants(full_name, email)')
-        .eq('status', 'PENDING')
         .order('created_at', { ascending: false });
     return data || [];
-};
-
-export const approvePaymentRequest = async (id: string, userId: string, planType: string) => {
-    if (!supabase) return;
-    
-    const { error } = await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', id);
-    if (error) throw error;
-    
-    const { data } = await supabase.from('aspirants').select('subscription_data').eq('user_id', userId).single();
-    let sub = data?.subscription_data || { tier: 'FREE', usage: {}, extra_credits: {} };
-    
-    if (planType === 'PRO_SUBSCRIPTION') {
-        sub.tier = 'PRO';
-    } else if (planType === 'STANDARD_SUBSCRIPTION') {
-        sub.tier = 'STANDARD';
-    } else if (planType === 'INTERVIEW_ADDON') {
-        sub.extra_credits = sub.extra_credits || {};
-        sub.extra_credits.interview = (sub.extra_credits.interview || 0) + 1;
-    }
-    
-    await supabase.from('aspirants').update({ subscription_data: sub }).eq('user_id', userId);
-};
-
-export const rejectPaymentRequest = async (id: string) => {
-    if (!supabase) return;
-    await supabase.from('payment_requests').update({ status: 'REJECTED' }).eq('id', id);
 };

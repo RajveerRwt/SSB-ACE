@@ -5,6 +5,7 @@ import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus }
 import { getPPDTScenarios, getUserSubscription, checkLimit } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
 import CameraModal from './CameraModal';
+import SessionFeedback from './SessionFeedback';
 
 enum PPDTStep {
   IDLE,
@@ -44,7 +45,9 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
   const [showScoreHelp, setShowScoreHelp] = useState(false);
   const [verifyingLimit, setVerifyingLimit] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
+// ... (Rest of component logic remains same until FINISHED state) ...
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const customStimulusInputRef = useRef<HTMLInputElement>(null);
@@ -99,7 +102,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
     }
     
     setVerifyingLimit(true);
-    // Since App.tsx no longer blocks PPDT entry, we check limit here for standard mode
     const { allowed, message } = await checkLimit(userId, 'PPDT');
     setVerifyingLimit(false);
     
@@ -312,6 +314,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
         stimulusImage: stimulusBase64 
       });
       setFeedback(result);
+      setShowFeedback(true);
       
       // Pass isCustomAttempt flag to prevent usage increment in App.tsx
       if (onSave) onSave({ ...result, uploadedStoryImage: uploadedImageBase64, isCustomAttempt: !!customStimulus });
@@ -322,6 +325,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
     }
   };
 
+  // Render logic...
   const renderContent = () => {
     switch (step) {
       case PPDTStep.IDLE:
@@ -339,7 +343,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
             </div>
 
             <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto pt-8">
-                {/* Standard Mode Card */}
                 <button 
                     onClick={handleStandardStart}
                     disabled={verifyingLimit}
@@ -355,7 +358,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
                     <p className="text-xs text-slate-500 font-medium">Official database images. Full psychological evaluation. Consumes Plan Credits.</p>
                 </button>
 
-                {/* Custom Mode Card */}
                 <button 
                     onClick={() => customStimulusInputRef.current?.click()}
                     className="bg-blue-50 p-8 rounded-[2rem] border-2 border-blue-100 hover:border-blue-500 hover:shadow-2xl transition-all group relative overflow-hidden text-left"
@@ -753,12 +755,20 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
                </div>
             </div>
 
-            <button 
-              onClick={() => { setStep(PPDTStep.IDLE); setStory(''); setFeedback(null); setNarrationText(''); setUploadedImageBase64(null); setCustomStimulus(null); setShowScoreHelp(false); setOcrError(null); }}
-              className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
-            >
-              Report for Next Simulation
-            </button>
+            {showFeedback ? (
+                <SessionFeedback 
+                    userId={userId} 
+                    testType="PPDT" 
+                    onComplete={() => setShowFeedback(false)} 
+                />
+            ) : (
+                <button 
+                  onClick={() => setShowFeedback(true)}
+                  className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
+                >
+                  Report for Next Simulation
+                </button>
+            )}
           </div>
         );
     }
@@ -767,8 +777,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
   return (
     <div className={`min-h-[85vh] transition-all duration-500 ease-in-out ${showBuzzer ? 'bg-red-600/20' : 'bg-transparent'}`}>
        <div className="bg-white rounded-[2.5rem] md:rounded-[4.5rem] shadow-2xl border border-slate-100 p-6 md:p-16 min-h-[80vh] relative overflow-hidden ring-1 ring-slate-200/50">
-         
-         {/* Admin Skip Button */}
+         {/* ... (Admin skip button and buzzer overlay) ... */}
          {isAdmin && timeLeft > 0 && (
             <button 
                 onClick={() => setTimeLeft(0)}

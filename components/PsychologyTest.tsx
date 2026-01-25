@@ -5,6 +5,7 @@ import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, S
 import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
 import { TestType } from '../types';
 import CameraModal from './CameraModal';
+import SessionFeedback from './SessionFeedback';
 
 interface PsychologyProps {
   type: TestType;
@@ -63,11 +64,13 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
   const [feedback, setFeedback] = useState<any>(null);
   const [showScoreHelp, setShowScoreHelp] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   
   // Camera State
   const [showCamera, setShowCamera] = useState(false);
   const [activeCameraKey, setActiveCameraKey] = useState<string | number | null>(null); // Number for TAT index, String for SDT key
 
+  // ... (Refs and Helper Functions remain the same) ...
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -92,6 +95,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const startTest = async () => {
     setIsLoading(true);
     setFeedback(null);
+    setShowFeedback(false);
     
     // SDT Logic Flow
     if (type === TestType.SDT) {
@@ -115,7 +119,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       }
 
       if (type === TestType.TAT) {
-        // FETCH ONLY FROM DATABASE
+        // ... (TAT Setup Logic) ...
         const dbScenarios = await getTATScenarios();
         
         if (!dbScenarios || dbScenarios.length === 0) {
@@ -125,7 +129,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
            return;
         }
 
-        // Group by Set Tag
         const sets: Record<string, any[]> = dbScenarios.reduce((acc: any, img: any) => {
           const tag = img.set_tag || 'Default';
           if (!acc[tag]) acc[tag] = [];
@@ -133,8 +136,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           return acc;
         }, {});
 
-        // Sequential Selection logic
-        const setNames = Object.keys(sets).sort(); // Sort alphabetically for consistency
+        const setNames = Object.keys(sets).sort(); 
         const completeSets = setNames.filter(name => sets[name].length >= 11);
         
         let selectedSetName = '';
@@ -147,7 +149,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
         }
 
         setActiveSetName(selectedSetName);
-        const setImages = sets[selectedSetName].slice(0, 11); // Ensure we take first 11
+        const setImages = sets[selectedSetName].slice(0, 11); 
         const images: Record<string, string> = {};
 
         finalItems = setImages.map((s: any, i: number) => ({
@@ -164,6 +166,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
         finalItems.push({ id: 'tat-12-blank', content: 'BLANK SLIDE' });
 
       } else if (type === TestType.WAT) {
+        // ... (WAT Setup Logic) ...
         const dbWords = await getWATWords();
         let wordList: string[] = [];
         
@@ -189,14 +192,11 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
             
             setActiveSetName(selectedSetName);
             wordList = sets[selectedSetName];
-            // Only shuffle 'General' if explicitly needed, but for "sequence" request, maybe fixed is better? 
-            // Keeping shuffle ONLY if it's the large general pool to vary it slightly, otherwise respected sequence.
             if (selectedSetName === 'General' && wordList.length > 60) {
                wordList = wordList.sort(() => Math.random() - 0.5);
             }
         } else {
             wordList = [...STANDARD_WAT_SET];
-            // Keep fallback random to avoid repetition if DB fails
             wordList = wordList.sort(() => Math.random() - 0.5);
             setActiveSetName('Standard Fallback Set');
         }
@@ -208,6 +208,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
         
         setWatResponses(new Array(finalItems.length).fill(''));
       } else if (type === TestType.SRT) {
+        // ... (SRT Setup Logic) ...
         const dbQuestions = await getSRTQuestions();
         let srtList: string[] = [];
 
@@ -371,6 +372,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       try {
           const result = await evaluatePerformance(type, { sdtData, sdtImages });
           setFeedback(result);
+          setShowFeedback(true);
           if (onSave) onSave({ ...result, sdtData, sdtImages });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) {
@@ -385,6 +387,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           const payload = { testType: 'SRT', srtResponses: items.map((item, i) => ({ id: i + 1, situation: item.content, response: srtResponses[i] || "" })) };
           const result = await evaluatePerformance(type, payload);
           setFeedback(result);
+          setShowFeedback(true);
           if (onSave) onSave({ ...result, srtResponses });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { console.error("SRT Eval Error", err); setPhase(PsychologyPhase.COMPLETED); }
@@ -396,6 +399,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           const payload = { testType: 'WAT', watResponses: items.map((item, i) => ({ id: i + 1, word: item.content, response: watResponses[i] || "" })) };
           const result = await evaluatePerformance(type, payload);
           setFeedback(result);
+          setShowFeedback(true);
           if (onSave) onSave({ ...result, watResponses });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { console.error("WAT Eval Error", err); setPhase(PsychologyPhase.COMPLETED); }
@@ -425,6 +429,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       const validPairs = tatPairs.filter(p => p !== null);
       const result = await evaluatePerformance(type, { tatPairs: validPairs, testType: type, itemCount: items.length });
       setFeedback(result);
+      setShowFeedback(true);
       if (onSave) onSave({ ...result, tatImages: tatUploads });
       setPhase(PsychologyPhase.COMPLETED);
     } catch (err) { console.error("Evaluation error:", err); setPhase(PsychologyPhase.UPLOADING_STORIES); }
@@ -436,6 +441,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  // ... (Existing phases: IDLE, PREPARING_STIMULI remain unchanged) ...
   if (phase === PsychologyPhase.IDLE) {
     return (
       <div className="bg-white p-12 md:p-24 rounded-[3rem] md:rounded-[4rem] shadow-2xl border-4 border-slate-50 text-center max-w-4xl mx-auto ring-1 ring-slate-100 animate-in fade-in zoom-in duration-500">
@@ -471,13 +477,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     return <div className="flex flex-col items-center justify-center py-40 space-y-12"><Loader2 className="w-32 h-32 text-slate-900 animate-spin" /><div className="text-center"><p className="text-slate-900 font-black uppercase tracking-[0.5em] text-sm mb-4">Retrieving {activeSetName || 'Authorized'} Set</p><p className="text-slate-400 text-xs font-bold italic">Assembling board materials from secure database...</p></div></div>;
   }
 
+  // ... (Other phases VIEWING, WRITING, UPLOADING stay same) ...
   if (type === TestType.SDT && phase === PsychologyPhase.WRITING) {
       return (
         <div className="max-w-5xl mx-auto pb-20 animate-in fade-in duration-700">
-           <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md p-6 rounded-[2rem] shadow-xl border border-slate-100 flex items-center justify-between mb-8">
-              <div><h3 className="text-2xl font-black text-slate-900 uppercase">Self Description</h3><p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Be realistic. Project your true qualities.</p></div>
+           <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md p-6 rounded-[2rem] shadow-xl border border-slate-100 flex items-center justify-center mb-8">
               <div className={`px-6 py-3 rounded-2xl border-4 transition-all ${timeLeft < 60 ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 'bg-slate-900 border-slate-800 text-white'}`}><div className="flex items-center gap-3"><Timer size={20} /><span className="text-xl font-black font-mono">{formatTime(timeLeft)}</span></div></div>
            </div>
+           {/* SDT Form Content (same as previous) */}
            <div className="space-y-6">
               {[
                 { label: "1. What do your Parents think of you?", key: 'parents' },
@@ -516,6 +523,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   if (type === TestType.SRT && phase === PsychologyPhase.WRITING) {
       return (
         <div className="max-w-5xl mx-auto pb-20 animate-in fade-in duration-700">
+           {/* SRT UI same as previous */}
            <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md p-4 md:p-6 rounded-[2rem] shadow-xl border border-slate-100 flex items-center justify-between mb-8 transition-all">
               <div><h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight">Situation Reaction Test</h3><div className="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 mt-1"><span>Set: {activeSetName}</span><span>Attempted: {srtResponses.filter(r => r.trim()).length}/{items.length}</span></div></div>
               <div className="flex items-center gap-4"><div className={`px-5 py-2 md:px-6 md:py-3 rounded-2xl border-4 transition-all ${timeLeft < 300 ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 'bg-slate-900 border-slate-800 text-white'}`}><div className="flex items-center gap-3"><Timer size={20} /><span className="text-lg md:text-xl font-black font-mono">{formatTime(timeLeft)}</span></div></div><button onClick={() => { playBuzzer(300, 0.5); submitSRT(); }} className="hidden md:flex bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-all shadow-lg items-center gap-2"><CheckCircle size={16} /> Submit</button></div>
@@ -691,7 +699,20 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 <p className="text-lg md:text-2xl font-medium text-blue-900 italic max-w-3xl mx-auto leading-relaxed">"{feedback?.recommendations}"</p>
             </div>
 
-            <button onClick={() => window.location.reload()} className="w-full py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest hover:bg-black transition-all shadow-2xl">Return to Barracks</button>
+            {showFeedback ? (
+                <SessionFeedback 
+                    userId={userId} 
+                    testType={type} 
+                    onComplete={() => setShowFeedback(false)} 
+                />
+            ) : (
+                <button 
+                  onClick={() => setShowFeedback(true)}
+                  className="w-full py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest hover:bg-black transition-all shadow-2xl"
+                >
+                  Return to Barracks
+                </button>
+            )}
         </div>
     )
   }

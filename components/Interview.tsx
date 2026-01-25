@@ -4,6 +4,7 @@ import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, 
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
+import SessionFeedback from './SessionFeedback';
 
 /** 
  * SSB VIRTUAL INTERVIEW PROTOCOL (v5.3 - Variable Duration & CIQ)
@@ -76,9 +77,10 @@ interface InterviewProps {
   piqData?: PIQData;
   onSave?: (result: any) => void | Promise<void>;
   isAdmin?: boolean;
+  userId?: string;
 }
 
-const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
+const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId }) => {
   const [sessionMode, setSessionMode] = useState<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
   // Ref to track session mode synchronously across callbacks to prevent race conditions during termination
   const sessionModeRef = useRef<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
@@ -95,6 +97,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
   const [showScoreHelp, setShowScoreHelp] = useState(false);
   const [showEarlyExitWarning, setShowEarlyExitWarning] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   // Sync ref
   useEffect(() => {
@@ -182,6 +185,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
       sessionModeRef.current = 'SESSION';
       retryCountRef.current = 0;
       conversationHistoryRef.current = []; // Only clear history on fresh start
+      setShowFeedback(false);
       
       // VARIABLE DURATION LOGIC: Randomize between 30 mins (1800s) and 40 mins (2400s)
       const duration = Math.floor(Math.random() * (2400 - 1800 + 1)) + 1800;
@@ -492,6 +496,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
         testType: 'Interview' // Ensure service knows this is an Interview
       });
       setFinalAnalysis(results);
+      setShowFeedback(true);
       if (onSave) {
         // Await onSave to ensure data is written to DB/storage before UI allows exit
         await onSave(results);
@@ -903,7 +908,16 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
                     </div>
                  </div>
               </div>
-              <button onClick={() => window.location.reload()} className="w-full py-6 md:py-8 bg-slate-900 hover:bg-black text-white rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all">Archive Dossier & Exit</button>
+              
+              {showFeedback ? (
+                  <SessionFeedback 
+                      userId={userId} 
+                      testType="Personal Interview" 
+                      onComplete={() => setShowFeedback(false)} 
+                  />
+              ) : (
+                  <button onClick={() => window.location.reload()} className="w-full py-6 md:py-8 bg-slate-900 hover:bg-black text-white rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all">Archive Dossier & Exit</button>
+              )}
            </div>
         </div>
       )}
