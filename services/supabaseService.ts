@@ -62,8 +62,6 @@ export const syncUserProfile = async (user: any) => {
   if (error) console.error("Sync Profile Error:", error);
   
   // Ensure subscription entry exists using UPSERT to prevent race conditions or missing rows
-  // We only insert default if it DOES NOT exist (using onConflict ignore effectively via select check or safe insert)
-  // Actually, easiest way is to check existence first to avoid overwriting PRO status with FREE default
   const { data: sub } = await supabase
     .from('user_subscriptions')
     .select('tier')
@@ -183,13 +181,60 @@ export const deleteUserProfile = async (userId: string) => {
 // --- SUBSCRIPTION & PAYMENTS ---
 
 export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
-  const { data } = await supabase
+  // 1. Fetch Current Subscription
+  let { data: sub } = await supabase
     .from('user_subscriptions')
     .select('*')
     .eq('user_id', userId)
     .single();
+
+  // 2. SELF-HEALING: If subscription is missing or FREE, check for valid payments
+  if (!sub || sub.tier === 'FREE') {
+      const { data: payment } = await supabase
+          .from('payment_requests')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('status', 'APPROVED')
+          .eq('plan_type', 'PRO_SUBSCRIPTION')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+      if (payment) {
+          console.log(`SSB: Auto-Repairing Subscription for ${userId} based on Payment ID: ${payment.id}`);
+          
+          // Construct the correct PRO object
+          const repairedSub = {
+              user_id: userId,
+              tier: 'PRO',
+              usage: sub?.usage ? {
+                  ...sub.usage,
+                  interview_limit: 5,
+                  ppdt_limit: 30,
+                  tat_limit: 7,
+                  wat_limit: 10,
+                  srt_limit: 10
+              } : {
+                  interview_used: 0, interview_limit: 5,
+                  ppdt_used: 0, ppdt_limit: 30,
+                  tat_used: 0, tat_limit: 7,
+                  wat_used: 0, wat_limit: 10,
+                  srt_used: 0, srt_limit: 10,
+                  sdt_used: 0
+              },
+              extra_credits: sub?.extra_credits || { interview: 0 }
+          };
+
+          // Upsert to DB to fix permanently
+          await supabase.from('user_subscriptions').upsert(repairedSub);
+          
+          // Return the repaired object immediately so UI updates
+          // @ts-ignore
+          return repairedSub;
+      }
+  }
     
-  if (!data) return {
+  if (!sub) return {
       tier: 'FREE',
       expiryDate: null,
       usage: {
@@ -203,7 +248,7 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
       extra_credits: { interview: 0 }
   };
   
-  return data;
+  return sub;
 };
 
 export const checkLimit = async (userId: string, testType: string) => {
