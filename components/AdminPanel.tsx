@@ -268,7 +268,7 @@ SSBPREP.ONLINE
       return acc;
   }, {});
 
-  // Cleaned SQL with DELETE permissions for Admin and IDEMPOTENT logic
+  // Cleaned SQL with DROP POLICY statements to prevent conflicts
   const storageSQL = `
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
@@ -284,9 +284,17 @@ create table if not exists public.aspirants (
   last_streak_date timestamptz
 );
 alter table public.aspirants enable row level security;
+
+drop policy if exists "Users can view own profile" on public.aspirants;
 create policy "Users can view own profile" on public.aspirants for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can update own profile" on public.aspirants;
 create policy "Users can update own profile" on public.aspirants for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own profile" on public.aspirants;
 create policy "Users can insert own profile" on public.aspirants for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Everyone can read profiles for leaderboard" on public.aspirants;
 create policy "Everyone can read profiles for leaderboard" on public.aspirants for select using (true);
 
 -- 2. User Subscriptions
@@ -298,8 +306,14 @@ create table if not exists public.user_subscriptions (
   expiry_date timestamptz
 );
 alter table public.user_subscriptions enable row level security;
+
+drop policy if exists "Users can view own sub" on public.user_subscriptions;
 create policy "Users can view own sub" on public.user_subscriptions for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can update own sub" on public.user_subscriptions;
 create policy "Users can update own sub" on public.user_subscriptions for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own sub" on public.user_subscriptions;
 create policy "Users can insert own sub" on public.user_subscriptions for insert with check (auth.uid() = user_id);
 
 -- 3. Payment Requests
@@ -314,8 +328,14 @@ create table if not exists public.payment_requests (
   created_at timestamptz default now()
 );
 alter table public.payment_requests enable row level security;
+
+drop policy if exists "Users can view own payments" on public.payment_requests;
 create policy "Users can view own payments" on public.payment_requests for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert payments" on public.payment_requests;
 create policy "Users can insert payments" on public.payment_requests for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own payments" on public.payment_requests;
 create policy "Users can update own payments" on public.payment_requests for update using (auth.uid() = user_id);
 
 -- 4. Test History
@@ -328,7 +348,11 @@ create table if not exists public.test_history (
   created_at timestamptz default now()
 );
 alter table public.test_history enable row level security;
+
+drop policy if exists "Users can view own history" on public.test_history;
 create policy "Users can view own history" on public.test_history for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert history" on public.test_history;
 create policy "Users can insert history" on public.test_history for insert with check (auth.uid() = user_id);
 
 -- 5. Content Tables
@@ -338,6 +362,8 @@ create table if not exists public.ppdt_scenarios (
   description text
 );
 alter table public.ppdt_scenarios enable row level security;
+
+drop policy if exists "Public read ppdt" on public.ppdt_scenarios;
 create policy "Public read ppdt" on public.ppdt_scenarios for select using (true);
 
 create table if not exists public.tat_scenarios (
@@ -347,6 +373,8 @@ create table if not exists public.tat_scenarios (
   set_tag text
 );
 alter table public.tat_scenarios enable row level security;
+
+drop policy if exists "Public read tat" on public.tat_scenarios;
 create policy "Public read tat" on public.tat_scenarios for select using (true);
 
 create table if not exists public.wat_words (
@@ -355,6 +383,8 @@ create table if not exists public.wat_words (
   set_tag text
 );
 alter table public.wat_words enable row level security;
+
+drop policy if exists "Public read wat" on public.wat_words;
 create policy "Public read wat" on public.wat_words for select using (true);
 
 create table if not exists public.srt_questions (
@@ -363,6 +393,8 @@ create table if not exists public.srt_questions (
   set_tag text
 );
 alter table public.srt_questions enable row level security;
+
+drop policy if exists "Public read srt" on public.srt_questions;
 create policy "Public read srt" on public.srt_questions for select using (true);
 
 create table if not exists public.coupons (
@@ -373,6 +405,8 @@ create table if not exists public.coupons (
   created_at timestamptz default now()
 );
 alter table public.coupons enable row level security;
+
+drop policy if exists "Public read coupons" on public.coupons;
 create policy "Public read coupons" on public.coupons for select using (true);
 
 create table if not exists public.daily_challenges (
@@ -383,6 +417,8 @@ create table if not exists public.daily_challenges (
   created_at timestamptz default now()
 );
 alter table public.daily_challenges enable row level security;
+
+drop policy if exists "Public read daily" on public.daily_challenges;
 create policy "Public read daily" on public.daily_challenges for select using (true);
 
 create table if not exists public.daily_submissions (
@@ -396,8 +432,14 @@ create table if not exists public.daily_submissions (
   created_at timestamptz default now()
 );
 alter table public.daily_submissions enable row level security;
+
+drop policy if exists "Public read submissions" on public.daily_submissions;
 create policy "Public read submissions" on public.daily_submissions for select using (true);
+
+drop policy if exists "Insert submissions" on public.daily_submissions;
 create policy "Insert submissions" on public.daily_submissions for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Update submissions" on public.daily_submissions;
 create policy "Update submissions" on public.daily_submissions for update using (true);
 
 create table if not exists public.submission_likes (
@@ -408,8 +450,14 @@ create table if not exists public.submission_likes (
   unique(submission_id, user_id)
 );
 alter table public.submission_likes enable row level security;
+
+drop policy if exists "Public read likes" on public.submission_likes;
 create policy "Public read likes" on public.submission_likes for select using (true);
+
+drop policy if exists "Insert likes" on public.submission_likes;
 create policy "Insert likes" on public.submission_likes for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Delete likes" on public.submission_likes;
 create policy "Delete likes" on public.submission_likes for delete using (auth.uid() = user_id);
 
 create table if not exists public.announcements (
@@ -420,6 +468,8 @@ create table if not exists public.announcements (
   created_at timestamptz default now()
 );
 alter table public.announcements enable row level security;
+
+drop policy if exists "Public read announcements" on public.announcements;
 create policy "Public read announcements" on public.announcements for select using (true);
 
 create table if not exists public.user_feedback (
@@ -431,8 +481,14 @@ create table if not exists public.user_feedback (
   created_at timestamptz default now()
 );
 alter table public.user_feedback enable row level security;
+
+drop policy if exists "Users insert own feedback" on public.user_feedback;
 create policy "Users insert own feedback" on public.user_feedback for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Admins read feedback" on public.user_feedback;
 create policy "Admins read feedback" on public.user_feedback for select using (true);
+
+drop policy if exists "Admins delete feedback" on public.user_feedback;
 create policy "Admins delete feedback" on public.user_feedback for delete using (true);
 `;
 
@@ -515,9 +571,6 @@ create policy "Admins delete feedback" on public.user_feedback for delete using 
         </div>
       )}
 
-      {/* Rest of the Admin UI (Tabs, etc) */}
-      {/* ... (Existing Tabs Render Logic) ... */}
-      {/* Shortened for brevity, use existing file content logic */}
       <div className="flex flex-wrap justify-center md:justify-start gap-4">
          <button onClick={() => setActiveTab('PAYMENTS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PAYMENTS' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><IndianRupee size={16} /> Payments {payments.length > 0 && `(${payments.length})`}</button>
          <button onClick={() => setActiveTab('USERS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'USERS' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><User size={16} /> Cadets {users.length > 0 && `(${users.length})`}</button>
@@ -530,10 +583,7 @@ create policy "Admins delete feedback" on public.user_feedback for delete using 
          <button onClick={() => setActiveTab('WAT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'WAT' ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><FileText size={16} /> WAT Bank</button>
          <button onClick={() => setActiveTab('SRT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'SRT' ? 'bg-orange-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Zap size={16} /> SRT Sets</button>
       </div>
-      
-      {/* Existing Content Rendering Logic */}
-      {/* ... keeping the rendering logic for tabs largely the same ... */}
-      {/* Render based on activeTab (Copy existing implementations for PPDT, TAT, etc from provided file content) */}
+
       {activeTab === 'FEEDBACK' ? (
           <div className="space-y-6">
               {feedbackList.length === 0 ? (
@@ -616,140 +666,8 @@ create policy "Admins delete feedback" on public.user_feedback for delete using 
                   </div>
               </div>
           </div>
-      ) : activeTab === 'DAILY' ? (
-          <div className="max-w-2xl mx-auto space-y-6">
-              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
-                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6">Create Daily Dossier</h3>
-                  <div className="space-y-6">
-                      <div>
-                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">PPDT Image</label>
-                          <input type="file" ref={fileInputRef} className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" accept="image/*" />
-                      </div>
-                      <div>
-                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">5 WAT Words (Comma/Line separated)</label>
-                          <textarea 
-                              value={dailyWat}
-                              onChange={(e) => setDailyWat(e.target.value)}
-                              placeholder="Atom, Peace, War, Love, Hate"
-                              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-32 resize-none"
-                          />
-                      </div>
-                      <div>
-                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">5 SRT Situations (Line separated)</label>
-                          <textarea 
-                              value={dailySrt}
-                              onChange={(e) => setDailySrt(e.target.value)}
-                              placeholder="He was going for exam and..."
-                              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-32 resize-none"
-                          />
-                      </div>
-                      <button 
-                          onClick={handleUpload}
-                          disabled={isUploading}
-                          className="w-full py-5 bg-teal-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-teal-700 transition-all flex items-center justify-center gap-2 shadow-lg"
-                      >
-                          {isUploading ? <Loader2 className="animate-spin" /> : <PenTool size={16} />} Publish Challenge
-                      </button>
-                  </div>
-              </div>
-          </div>
-      ) : activeTab === 'COUPONS' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-1 space-y-6">
-                  <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl sticky top-24">
-                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6 flex items-center gap-2">
-                          <Plus className="text-pink-600" /> New Coupon
-                      </h3>
-                      <div className="space-y-4">
-                          {/* Coupon Inputs */}
-                          <div>
-                              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Influencer / Label</label>
-                              <input 
-                                  type="text" 
-                                  value={influencerName}
-                                  onChange={(e) => setInfluencerName(e.target.value)}
-                                  placeholder="e.g. Major Gaurav Arya"
-                                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
-                              />
-                          </div>
-                          <div>
-                              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Unique Code</label>
-                              <input 
-                                  type="text" 
-                                  value={couponCode}
-                                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                                  placeholder="e.g. GAURAV50"
-                                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase"
-                              />
-                          </div>
-                          <div>
-                              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Discount %</label>
-                              <input 
-                                  type="number" 
-                                  value={couponDiscount}
-                                  onChange={(e) => setCouponDiscount(e.target.value)}
-                                  placeholder="25"
-                                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
-                              />
-                          </div>
-                          <button 
-                              onClick={handleUpload}
-                              disabled={isUploading} 
-                              className="w-full py-5 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 transition-all active:scale-95 bg-pink-600 hover:bg-pink-700 shadow-lg"
-                          >
-                              {isUploading ? <Loader2 className="animate-spin" /> : <Tag size={18} />} 
-                              {isUploading ? 'Generating...' : 'Generate Coupon'}
-                          </button>
-                      </div>
-                  </div>
-              </div>
-              <div className="lg:col-span-2 space-y-6">
-                  {/* Coupon List */}
-                  {coupons.length === 0 ? (
-                      <div className="p-12 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-xl text-slate-400 font-bold uppercase text-xs tracking-widest">
-                          No active coupons. Create one to start tracking leads.
-                      </div>
-                  ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {coupons.map(coupon => (
-                              <div key={coupon.code} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-lg hover:shadow-xl transition-all relative group overflow-hidden">
-                                  <div className="absolute top-0 right-0 bg-slate-100 px-4 py-2 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                      {new Date(coupon.created_at).toLocaleDateString()}
-                                  </div>
-                                  <div className="space-y-4">
-                                      <div>
-                                          <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Code</p>
-                                          <h4 className="text-2xl font-black text-slate-900 tracking-wider">{coupon.code}</h4>
-                                      </div>
-                                      <div className="flex gap-4">
-                                          <div>
-                                              <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Discount</p>
-                                              <p className="text-lg font-bold text-pink-600 flex items-center gap-1"><Percent size={14} /> {coupon.discount_percent}%</p>
-                                          </div>
-                                          <div>
-                                              <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Leads Generated</p>
-                                              <p className="text-lg font-bold text-green-600 flex items-center gap-1"><TrendingUp size={14} /> {coupon.usage_count}</p>
-                                          </div>
-                                      </div>
-                                      <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
-                                          <p className="text-xs font-bold text-slate-600 truncate max-w-[150px]">{coupon.influencer_name}</p>
-                                          <button 
-                                              onClick={() => handleDelete(coupon.code)}
-                                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                          >
-                                              <Trash2 size={16} />
-                                          </button>
-                                      </div>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                  )}
-              </div>
-          </div>
       ) : activeTab === 'PAYMENTS' ? (
           <div className="space-y-6">
-              {/* Payment List */}
               {payments.length === 0 ? (
                   <div className="p-12 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-xl">
                       <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
@@ -793,6 +711,43 @@ create policy "Admins delete feedback" on public.user_feedback for delete using 
                       </div>
                   ))
               )}
+          </div>
+      ) : activeTab === 'DAILY' ? (
+          <div className="max-w-2xl mx-auto space-y-6">
+              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6">Create Daily Dossier</h3>
+                  <div className="space-y-6">
+                      <div>
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">PPDT Image</label>
+                          <input type="file" ref={fileInputRef} className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" accept="image/*" />
+                      </div>
+                      <div>
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">5 WAT Words (Comma/Line separated)</label>
+                          <textarea 
+                              value={dailyWat}
+                              onChange={(e) => setDailyWat(e.target.value)}
+                              placeholder="Atom, Peace, War, Love, Hate"
+                              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-32 resize-none"
+                          />
+                      </div>
+                      <div>
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">5 SRT Situations (Line separated)</label>
+                          <textarea 
+                              value={dailySrt}
+                              onChange={(e) => setDailySrt(e.target.value)}
+                              placeholder="He was going for exam and..."
+                              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-32 resize-none"
+                          />
+                      </div>
+                      <button 
+                          onClick={handleUpload}
+                          disabled={isUploading}
+                          className="w-full py-5 bg-teal-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-teal-700 transition-all flex items-center justify-center gap-2 shadow-lg"
+                      >
+                          {isUploading ? <Loader2 className="animate-spin" /> : <PenTool size={16} />} Publish Challenge
+                      </button>
+                  </div>
+              </div>
           </div>
       ) : activeTab === 'USERS' ? (
           <div className="space-y-6">
@@ -848,81 +803,350 @@ create policy "Admins delete feedback" on public.user_feedback for delete using 
                   )}
               </div>
           </div>
+      ) : activeTab === 'COUPONS' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-1 space-y-6">
+                  <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl sticky top-24">
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6 flex items-center gap-2">
+                          <Plus className="text-pink-600" /> New Coupon
+                      </h3>
+                      <div className="space-y-4">
+                          <div>
+                              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Influencer / Label</label>
+                              <input 
+                                  type="text" 
+                                  value={influencerName}
+                                  onChange={(e) => setInfluencerName(e.target.value)}
+                                  placeholder="e.g. Major Gaurav Arya"
+                                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
+                              />
+                          </div>
+                          <div>
+                              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Unique Code</label>
+                              <input 
+                                  type="text" 
+                                  value={couponCode}
+                                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                                  placeholder="e.g. GAURAV50"
+                                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase"
+                              />
+                          </div>
+                          <div>
+                              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Discount %</label>
+                              <input 
+                                  type="number" 
+                                  value={couponDiscount}
+                                  onChange={(e) => setCouponDiscount(e.target.value)}
+                                  placeholder="25"
+                                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
+                              />
+                          </div>
+                          <button 
+                              onClick={handleUpload}
+                              disabled={isUploading} 
+                              className="w-full py-5 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 transition-all active:scale-95 bg-pink-600 hover:bg-pink-700 shadow-lg"
+                          >
+                              {isUploading ? <Loader2 className="animate-spin" /> : <Tag size={18} />} 
+                              {isUploading ? 'Generating...' : 'Generate Coupon'}
+                          </button>
+                      </div>
+                  </div>
+              </div>
+              <div className="lg:col-span-2 space-y-6">
+                  {coupons.length === 0 ? (
+                      <div className="p-12 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-xl text-slate-400 font-bold uppercase text-xs tracking-widest">
+                          No active coupons. Create one to start tracking leads.
+                      </div>
+                  ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {coupons.map(coupon => (
+                              <div key={coupon.code} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-lg hover:shadow-xl transition-all relative group overflow-hidden">
+                                  <div className="absolute top-0 right-0 bg-slate-100 px-4 py-2 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                      {new Date(coupon.created_at).toLocaleDateString()}
+                                  </div>
+                                  <div className="space-y-4">
+                                      <div>
+                                          <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Code</p>
+                                          <h4 className="text-2xl font-black text-slate-900 tracking-wider">{coupon.code}</h4>
+                                      </div>
+                                      <div className="flex gap-4">
+                                          <div>
+                                              <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Discount</p>
+                                              <p className="text-lg font-bold text-pink-600 flex items-center gap-1"><Percent size={14} /> {coupon.discount_percent}%</p>
+                                          </div>
+                                          <div>
+                                              <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Leads Generated</p>
+                                              <p className="text-lg font-bold text-green-600 flex items-center gap-1"><TrendingUp size={14} /> {coupon.usage_count}</p>
+                                          </div>
+                                      </div>
+                                      <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
+                                          <p className="text-xs font-bold text-slate-600 truncate max-w-[150px]">{coupon.influencer_name}</p>
+                                          <button 
+                                              onClick={() => handleDelete(coupon.code)}
+                                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                          >
+                                              <Trash2 size={16} />
+                                          </button>
+                                      </div>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+              </div>
+          </div>
       ) : (
-        // Content Management
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Input Side */}
-            <div className="lg:col-span-1 space-y-6">
-                {/* ... Input Fields ... */}
-                {/* Simplified for brevity, reusing logic */}
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl sticky top-24">
-                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6 flex items-center gap-2">
-                    <Plus className="text-slate-900" /> Add Content
-                    </h3>
-                    <div className="space-y-4">
-                        {/* Conditional inputs for TAT, WAT, SRT, PPDT... same as before */}
-                        {activeTab === 'TAT' && (
-                            <div><label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Set Identifier</label><input type="text" value={setTag} onChange={(e) => setSetTag(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" /></div>
-                        )}
-                        {(activeTab === 'WAT' || activeTab === 'SRT') && (
-                            <div><label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Bulk Entry</label><textarea value={activeTab === 'WAT' ? watBulkInput : srtBulkInput} onChange={(e) => activeTab === 'WAT' ? setWatBulkInput(e.target.value) : setSrtBulkInput(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-40 resize-none" /></div>
-                        )}
-                        {(activeTab === 'PPDT' || activeTab === 'TAT') && (
-                            <div><label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Description</label><input type="text" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" /></div>
-                        )}
-                        
-                        <button onClick={() => { if (activeTab === 'WAT' || activeTab === 'SRT') handleUpload(); else fileInputRef.current?.click(); }} disabled={isUploading} className="w-full py-5 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 bg-slate-900 hover:bg-black">
-                            {isUploading ? <Loader2 className="animate-spin" /> : <Upload size={18} />} Upload
-                        </button>
-                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleUpload} />
-                    </div>
-                </div>
-            </div>
-            
-            {/* Display Side */}
-            <div className="lg:col-span-2 space-y-12">
-                {/* ... Display logic same as before ... */}
-                {(activeTab === 'WAT' || activeTab === 'SRT') ? (
-                    <div className="space-y-8">
-                        {Object.keys(groupedItems).map((tag) => (
-                            <div key={tag} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h4 className="font-black uppercase">{tag}</h4>
-                                    <button onClick={() => handleDeleteSet(tag)} className="text-red-500"><Trash2 size={14} /></button>
-                                </div>
-                                <div className="flex flex-wrap gap-3">
-                                    {groupedItems[tag].map((item:any) => (
-                                        <div key={item.id} className="px-4 py-2 bg-slate-50 rounded-xl flex items-center gap-2">
-                                            <span className="text-sm font-bold">{activeTab === 'WAT' ? item.word : item.question}</span>
-                                            <button onClick={() => handleDelete(item.id)}><Trash2 size={12} className="text-slate-300" /></button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-2 gap-6">
-                        {items.map((img:any) => (
-                            <div key={img.id} className="relative group rounded-2xl overflow-hidden shadow-lg">
-                                <img src={img.image_url} className="w-full h-40 object-cover" />
-                                <button onClick={() => handleDelete(img.id, img.image_url)} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded opacity-0 group-hover:opacity-100"><Trash2 size={16} /></button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+        // ... (Existing Content Management Code) ...
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* LEFT COLUMN: Input */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl sticky top-24">
+             <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6 flex items-center gap-2">
+               <Plus className="text-slate-900" /> Add Content
+             </h3>
+             <div className="space-y-4">
+               {activeTab === 'TAT' && (
+                 <div>
+                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Set Identifier</label>
+                   <input 
+                      type="text" 
+                      value={setTag}
+                      onChange={(e) => setSetTag(e.target.value)}
+                      placeholder="e.g. Set A"
+                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
+                   />
+                 </div>
+               )}
+
+               {activeTab === 'WAT' && (
+                 <div className="space-y-4">
+                   <div>
+                       <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Set Name / Tag</label>
+                       <input 
+                          type="text" 
+                          value={watSetTag}
+                          onChange={(e) => setWatSetTag(e.target.value)}
+                          placeholder="e.g. WAT Set 1"
+                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
+                       />
+                   </div>
+                   <div>
+                       <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Bulk Word Entry</label>
+                       <textarea 
+                          value={watBulkInput}
+                          onChange={(e) => setWatBulkInput(e.target.value)}
+                          placeholder="Enter words separated by commas or new lines."
+                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-40 resize-none"
+                       />
+                       <p className="text-[10px] text-slate-400 mt-2">Paste 60 words for a complete set.</p>
+                   </div>
+                 </div>
+               )}
+
+               {activeTab === 'SRT' && (
+                 <div className="space-y-4">
+                   <div>
+                       <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Set Name / Tag</label>
+                       <input 
+                          type="text" 
+                          value={srtSetTag}
+                          onChange={(e) => setSrtSetTag(e.target.value)}
+                          placeholder="e.g. SRT Set A"
+                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
+                       />
+                   </div>
+                   <div>
+                       <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Bulk SRT Entry</label>
+                       <textarea 
+                          value={srtBulkInput}
+                          onChange={(e) => setSrtBulkInput(e.target.value)}
+                          placeholder="One situation per line."
+                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-60 resize-none"
+                       />
+                       <p className="text-[10px] text-slate-400 mt-2">Paste 60 situations for a full test.</p>
+                   </div>
+                 </div>
+               )}
+
+               {(activeTab === 'PPDT' || activeTab === 'TAT') && (
+                 <div>
+                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Scene Context</label>
+                   <input 
+                      type="text" 
+                      value={newDescription}
+                      onChange={(e) => setNewDescription(e.target.value)}
+                      placeholder="Describe the action..."
+                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
+                   />
+                 </div>
+               )}
+
+               {(activeTab === 'PPDT' || activeTab === 'TAT') && (
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
+                     // File handler is manual in button
+                  }} />
+               )}
+
+               <button 
+                  onClick={() => {
+                    if (activeTab === 'WAT' || activeTab === 'SRT') handleUpload();
+                    else fileInputRef.current?.click();
+                  }} 
+                  disabled={isUploading} 
+                  className={`w-full py-5 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 transition-all active:scale-95 bg-slate-900 hover:bg-black`}
+               >
+                 {isUploading ? <Loader2 className="animate-spin" /> : <Upload size={18} />} 
+                 {isUploading ? 'Processing...' : (activeTab === 'WAT' || activeTab === 'SRT' ? 'Upload Content' : 'Select & Upload File')}
+               </button>
+               {/* Hidden file input handler - if file selected, trigger upload. (Simplification) */}
+               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleUpload} />
+             </div>
+          </div>
         </div>
+
+        {/* RIGHT COLUMN: Display */}
+        <div className="lg:col-span-2 space-y-12">
+           {(activeTab === 'WAT' || activeTab === 'SRT') ? (
+              <div className="space-y-8">
+                 {Object.keys(groupedItems).map((tag) => (
+                    <div key={tag} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
+                        <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                            <h4 className="font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
+                                {activeTab === 'WAT' ? <FileText size={18} className="text-green-600" /> : <Zap size={18} className="text-orange-600" />} 
+                                {tag} ({groupedItems[tag].length})
+                            </h4>
+                            <button 
+                                onClick={() => handleDeleteSet(tag)}
+                                className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-red-600 hover:text-white transition-all flex items-center gap-2"
+                            >
+                                <Trash2 size={14} /> Delete Set
+                            </button>
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                            {groupedItems[tag].map((item: any) => (
+                                <div key={item.id} className={`px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-3 group hover:border-slate-300 transition-all ${activeTab === 'SRT' ? 'w-full justify-between' : ''}`}>
+                                    <span className="font-bold text-slate-700 text-sm">{activeTab === 'WAT' ? item.word : item.question}</span>
+                                    <button onClick={() => handleDelete(item.id)} className="text-slate-300 hover:text-red-500 transition-colors shrink-0"><Trash2 size={12} /></button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                 ))}
+                 {items.length === 0 && (
+                      <div className="w-full text-center py-12 text-slate-400 font-medium italic">
+                         No custom {activeTab} content found. The system is using the built-in fallback set. Add content to override.
+                      </div>
+                 )}
+              </div>
+           ) : (
+             Object.keys(groupedItems).map((tag) => (
+               <div key={tag} className="space-y-4">
+                 <div className="flex items-center justify-between border-b pb-2">
+                   <h4 className="font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
+                      <Layers size={18} className="text-purple-600" /> {tag} 
+                      {activeTab === 'TAT' && <span className={`ml-2 px-2 py-0.5 rounded text-[10px] ${groupedItems[tag].length >= 11 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{groupedItems[tag].length}/11 Images</span>}
+                   </h4>
+                 </div>
+                 {groupedItems[tag].length === 0 ? (
+                   <div className="py-12 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-slate-400 font-bold text-xs uppercase tracking-widest">
+                      Empty Pool. Upload images to populate this set.
+                   </div>
+                 ) : (
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                     {groupedItems[tag].map((img: any) => (
+                       <div key={img.id} className="group relative bg-white rounded-[2rem] border border-slate-100 shadow-lg overflow-hidden hover:shadow-2xl transition-all">
+                          <div className="aspect-[4/3] overflow-hidden bg-slate-100">
+                             <img src={img.image_url} alt="Scenario" className="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-110" />
+                          </div>
+                          <div className="p-4 flex justify-between items-center bg-white">
+                             <p className="text-[10px] font-bold text-slate-600 truncate max-w-[150px] uppercase tracking-tighter">{img.description}</p>
+                             <button onClick={() => handleDelete(img.id, img.image_url)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                          </div>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+               </div>
+             ))
+           )}
+        </div>
+      </div>
       )}
       
-      {/* Modals */}
+      {/* USER DETAILS MODAL */}
+      {selectedUser && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl relative">
+                  <div className="sticky top-0 bg-white z-10 p-6 border-b border-slate-100 flex justify-between items-center">
+                      <h3 className="text-xl font-black text-slate-900 uppercase">Cadet Dossier</h3>
+                      <button onClick={() => setSelectedUser(null)} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full"><XCircle size={20} /></button>
+                  </div>
+                  <div className="p-8 space-y-8">
+                      {/* Identity */}
+                      <div className="flex items-center gap-6">
+                          <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-3xl font-black ${selectedUser.subscription_data?.tier === 'PRO' ? 'bg-blue-600 text-white' : 'bg-slate-900 text-yellow-400'}`}>
+                              {selectedUser.full_name?.substring(0, 1) || 'U'}
+                          </div>
+                          <div>
+                              <h2 className="text-2xl font-black text-slate-900">{selectedUser.full_name}</h2>
+                              <p className="text-sm font-bold text-slate-500">{selectedUser.email}</p>
+                              <div className="flex gap-2 mt-2">
+                                  <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedUser.subscription_data?.tier || 'FREE'}</span>
+                                  <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest">Active: {new Date(selectedUser.last_active).toLocaleDateString()}</span>
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* PIQ Snapshot */}
+                      <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                          <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest mb-4">PIQ Snapshot</h4>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div><span className="block text-[10px] text-slate-400 uppercase">Chest No</span><span className="font-bold">{selectedUser.piq_data?.chestNo || 'N/A'}</span></div>
+                              <div><span className="block text-[10px] text-slate-400 uppercase">Batch</span><span className="font-bold">{selectedUser.piq_data?.batchNo || 'N/A'}</span></div>
+                              <div><span className="block text-[10px] text-slate-400 uppercase">Board</span><span className="font-bold">{selectedUser.piq_data?.selectionBoard || 'N/A'}</span></div>
+                              <div><span className="block text-[10px] text-slate-400 uppercase">Attempts</span><span className="font-bold">{selectedUser.piq_data?.previousAttempts?.length || 0}</span></div>
+                          </div>
+                      </div>
+
+                      {/* Usage Stats */}
+                      <div className="space-y-4">
+                          <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest">Resource Usage</h4>
+                          <div className="grid grid-cols-3 gap-4">
+                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
+                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.interview_used || 0}</span>
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase">Interviews</span>
+                              </div>
+                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
+                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.ppdt_used || 0}</span>
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase">PPDT</span>
+                              </div>
+                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
+                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.tat_used || 0}</span>
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase">TAT</span>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+      
+      {/* CONFIRMATION MODAL OVERLAY */}
       {confirmAction && (
-        <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-           <div className="bg-white p-8 rounded-[2.5rem] max-w-sm w-full shadow-2xl space-y-6 text-center">
-              <h3 className="text-xl font-black text-slate-900 uppercase">Confirm?</h3>
+        <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+           <div className="bg-white p-8 rounded-[2.5rem] max-w-sm w-full shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-200">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${confirmAction.type === 'APPROVE' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                 {confirmAction.type === 'APPROVE' ? <CheckCircle size={32} /> : <XCircle size={32} />}
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900 uppercase">Confirm {confirmAction.type === 'APPROVE' ? 'Approval' : 'Rejection'}?</h3>
+                <p className="text-slate-500 text-sm mt-2 font-medium">Are you sure you want to proceed? This action cannot be undone.</p>
+              </div>
               <div className="flex gap-3">
-                 <button onClick={() => setConfirmAction(null)} className="flex-1 py-3 bg-slate-100 rounded-xl font-black uppercase text-xs">Cancel</button>
-                 <button onClick={executeConfirmAction} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-xs">Confirm</button>
+                 <button onClick={() => setConfirmAction(null)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-black uppercase text-xs tracking-widest transition-colors">Cancel</button>
+                 <button onClick={executeConfirmAction} className={`flex-1 py-3 text-white rounded-xl font-black uppercase text-xs tracking-widest transition-colors shadow-lg ${confirmAction.type === 'APPROVE' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>
+                    Yes, {confirmAction.type === 'APPROVE' ? 'Approve' : 'Reject'}
+                 </button>
               </div>
            </div>
         </div>
