@@ -222,7 +222,6 @@ export const deleteUserProfile = async (userId: string) => {
 };
 
 // --- SUBSCRIPTION & PAYMENTS (Kept Brief) ---
-// ... (Existing Functions: getUserSubscription, checkLimit, incrementUsage, getLatestPaymentRequest, getPendingPayments, activatePlanForUser, approvePaymentRequest, rejectPaymentRequest, processRazorpayTransaction) ...
 export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
   let { data: sub } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle();
   if (!sub) return { tier: 'FREE', expiryDate: null, usage: { interview_used: 0, interview_limit: 1, ppdt_used: 0, ppdt_limit: 10, tat_used: 0, tat_limit: 2, wat_used: 0, wat_limit: 3, srt_used: 0, srt_limit: 3, sdt_used: 0 }, extra_credits: { interview: 0 } };
@@ -267,7 +266,6 @@ export const incrementUsage = async (userId: string, testType: string) => {
 export const getLatestPaymentRequest = async (userId: string) => { const { data } = await supabase.from('payment_requests').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(); return data; };
 export const getPendingPayments = async () => { const { data } = await supabase.from('payment_requests').select('*, aspirants(full_name, email)').eq('status', 'PENDING').order('created_at', { ascending: false }); return data || []; };
 export const activatePlanForUser = async (userId: string, planType: string) => {
-  // Same logic as before
   let update: any = { user_id: userId };
   if (planType === 'PRO_SUBSCRIPTION') {
       update = { ...update, tier: 'PRO', usage: { interview_used: 0, interview_limit: 5, ppdt_used: 0, ppdt_limit: 30, tat_used: 0, tat_limit: 7, wat_used: 0, wat_limit: 10, srt_used: 0, srt_limit: 10, sdt_used: 0 }, extra_credits: { interview: 0 } };
@@ -291,7 +289,6 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
 };
 
 // --- CONTENT MANAGEMENT (PPDT, TAT, WAT, SRT) ---
-// (Same as before - keeping signatures for brevity as they haven't changed)
 export const getPPDTScenarios = async () => { const { data } = await supabase.from('ppdt_scenarios').select('*'); return data || []; };
 export const uploadPPDTScenario = async (file: File, description: string) => { const fileName = `ppdt-${Date.now()}-${file.name}`; await supabase.storage.from('scenarios').upload(fileName, file); const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName); await supabase.from('ppdt_scenarios').insert({ image_url: publicUrl, description }); };
 export const deletePPDTScenario = async (id: string, url: string) => { const fileName = url.split('/').pop(); if (fileName) await supabase.storage.from('scenarios').remove([fileName]); await supabase.from('ppdt_scenarios').delete().eq('id', id); };
@@ -326,16 +323,31 @@ export const getLatestDailyChallenge = async () => {
 export const uploadDailyChallenge = async (ppdtFile: File | null, wat: string[], srt: string[]) => {
   let ppdtUrl = null;
   if (ppdtFile) {
-      const fileName = `daily-${Date.now()}-${ppdtFile.name}`;
-      await supabase.storage.from('scenarios').upload(fileName, ppdtFile);
-      const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName);
+      // FIX: Sanitize filename to prevent upload errors with spaces or special chars
+      const fileExt = ppdtFile.name.split('.').pop();
+      const sanitizedName = `daily-${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage.from('scenarios').upload(sanitizedName, ppdtFile);
+      
+      if (uploadError) {
+          console.error("Storage upload error:", uploadError);
+          throw new Error("Image Upload Failed. Check storage bucket permissions.");
+      }
+
+      const { data } = supabase.storage.from('scenarios').getPublicUrl(sanitizedName);
       ppdtUrl = data.publicUrl;
   }
-  await supabase.from('daily_challenges').insert({
+  
+  const { error: insertError } = await supabase.from('daily_challenges').insert({
       ppdt_image_url: ppdtUrl,
       wat_words: wat,
       srt_situations: srt
   });
+  
+  if (insertError) {
+      console.error("DB Insert Error:", insertError);
+      throw insertError;
+  }
 };
 
 export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: string[], srt: string[]) => {
@@ -411,7 +423,7 @@ export const toggleLike = async (submissionId: string) => {
     }
 };
 
-// ANNOUNCEMENTS & FEEDBACK (Same as before)
+// ANNOUNCEMENTS & FEEDBACK
 export const getRecentAnnouncements = async (): Promise<Announcement[]> => { const { data } = await supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(5); return data || []; };
 export const subscribeToAnnouncements = (callback: (a: Announcement) => void) => { const channel = supabase.channel('public:announcements').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, payload => { callback(payload.new as Announcement); }).subscribe(); return () => { supabase.removeChannel(channel); }; };
 export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT') => { await supabase.from('announcements').insert({ message, type, is_active: true }); };
