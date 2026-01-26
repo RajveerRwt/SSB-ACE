@@ -382,10 +382,10 @@ export const getDailySubmissions = async (challengeId: string) => {
 
   if (error) {
       console.warn("Join failed, trying fallback fetch...", error.message);
-      // Attempt 2: Fetch raw (FK missing scenario)
+      // Attempt 2: Fetch raw only (FK missing scenario) - REMOVED submission_likes relation to ensure basic data loads
       const { data: rawData, error: rawError } = await supabase
         .from('daily_submissions')
-        .select(`*, submission_likes(user_id)`)
+        .select('*')
         .eq('challenge_id', challengeId)
         .order('likes_count', { ascending: false });
         
@@ -399,7 +399,7 @@ export const getDailySubmissions = async (challengeId: string) => {
   // Transform data
   return data?.map((sub: any) => ({
       ...sub,
-      // If aspirents is missing (fallback case), provide defaults
+      // If aspirants is missing (fallback case), provide defaults
       aspirants: sub.aspirants || { full_name: 'Cadet', streak_count: 0 },
       isLiked: user ? sub.submission_likes?.some((like: any) => like.user_id === user.id) : false
   })) || [];

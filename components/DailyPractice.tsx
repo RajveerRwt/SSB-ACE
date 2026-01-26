@@ -71,7 +71,7 @@ const DailyPractice: React.FC = () => {
       setPpdtStory('');
       setWatAnswers(['', '', '', '', '']);
       setSrtAnswers(['', '', '', '', '']);
-      alert("Submission Posted! Discussion Unlocked.");
+      alert("Submission Posted!");
     } catch (e) {
       console.error(e);
       alert("Failed to post. Please try again.");
@@ -103,7 +103,7 @@ const DailyPractice: React.FC = () => {
       // Assuming subs might be reordered, we need a stable way. Let's use simple logic: if likes > 5 -> Popular.
       
       if (sub.likes_count >= 5) badges.push({ icon: Star, color: 'text-yellow-400', label: 'Popular' });
-      if (sub.ppdt_story.length > 500) badges.push({ icon: PenTool, color: 'text-purple-400', label: 'Orator' });
+      if (sub.ppdt_story && sub.ppdt_story.length > 500) badges.push({ icon: PenTool, color: 'text-purple-400', label: 'Orator' });
       if (sub.aspirants?.streak_count > 3) badges.push({ icon: Flame, color: 'text-orange-500', label: 'Consistent' });
       
       // Top 3 Leaderboard Badges
@@ -249,33 +249,22 @@ const DailyPractice: React.FC = () => {
               className="px-12 py-4 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-black transition-all shadow-xl disabled:opacity-50"
           >
               {isSubmitting ? <Loader2 className="animate-spin" /> : hasSubmitted ? <CheckCircle size={16} /> : <Send size={16} />} 
-              {hasSubmitted ? 'Already Submitted' : 'Submit to Unlock Discussions'}
+              {hasSubmitted ? 'Already Submitted' : 'Submit Response'}
           </button>
       </div>
 
-      {/* DISCUSSION FEED (Blurred until submitted) */}
+      {/* DISCUSSION FEED */}
       <div className="space-y-8 relative">
           <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter text-center flex items-center justify-center gap-3">
               <MessageSquare className="text-blue-600" /> Community Board
           </h3>
-          
-          {/* ANTI-COPY BLUR OVERLAY */}
-          {!hasSubmitted && user && (
-              <div className="absolute inset-0 z-10 backdrop-blur-md bg-white/30 flex flex-col items-center justify-center rounded-[3rem] border border-white/50">
-                  <div className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-2xl text-center max-w-md transform translate-y-20">
-                      <Lock className="w-12 h-12 mx-auto mb-4 text-yellow-400" />
-                      <h4 className="text-xl font-black uppercase tracking-widest mb-2">Classified Intel</h4>
-                      <p className="text-sm font-medium text-slate-300">Submit your own dossier first to view peer responses. This ensures original thought.</p>
-                  </div>
-              </div>
-          )}
           
           {submissions.length === 0 ? (
               <div className="text-center p-12 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 text-slate-400 font-bold uppercase text-xs">
                   No submissions yet. Be the first to lead!
               </div>
           ) : (
-              <div className={`grid grid-cols-1 gap-6 ${!hasSubmitted ? 'blur-sm select-none pointer-events-none' : ''}`}>
+              <div className="grid grid-cols-1 gap-6">
                   {submissions.map((sub, idx) => (
                       <div key={sub.id} className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-md hover:shadow-xl transition-all relative overflow-hidden">
                           {/* Badges Bar */}
@@ -341,7 +330,6 @@ const DailyPractice: React.FC = () => {
                                   <span className="text-xs font-bold">{sub.likes_count || 0} Concur</span>
                               </button>
                               
-                              {/* Placeholder for future comments feature */}
                               <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-slate-400 hover:text-blue-600 transition-all text-xs font-bold uppercase tracking-widest">
                                   <MessageSquare size={16} /> Reply
                               </button>
