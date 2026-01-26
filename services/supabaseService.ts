@@ -369,8 +369,8 @@ export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: s
 export const getDailySubmissions = async (challengeId: string) => {
   const { data: { user } } = await supabase.auth.getUser();
   
-  // Fetch submissions with likes count and user profile info (including streak)
-  const { data, error } = await supabase
+  // Attempt 1: Fetch with Relations (Requires FK)
+  let { data, error } = await supabase
     .from('daily_submissions')
     .select(`
         *, 
@@ -378,18 +378,31 @@ export const getDailySubmissions = async (challengeId: string) => {
         submission_likes(user_id)
     `)
     .eq('challenge_id', challengeId)
-    .order('likes_count', { ascending: false }); // Leaderboard ordering
+    .order('likes_count', { ascending: false });
 
   if (error) {
-      console.error("Fetch submissions error", error);
-      return [];
+      console.warn("Join failed, trying fallback fetch...", error.message);
+      // Attempt 2: Fetch raw (FK missing scenario)
+      const { data: rawData, error: rawError } = await supabase
+        .from('daily_submissions')
+        .select(`*, submission_likes(user_id)`)
+        .eq('challenge_id', challengeId)
+        .order('likes_count', { ascending: false });
+        
+      if (rawError) {
+          console.error("Fetch submissions error", rawError);
+          return [];
+      }
+      data = rawData;
   }
 
-  // Transform data to include 'isLiked' by current user
-  return data.map((sub: any) => ({
+  // Transform data
+  return data?.map((sub: any) => ({
       ...sub,
-      isLiked: user ? sub.submission_likes.some((like: any) => like.user_id === user.id) : false
-  }));
+      // If aspirents is missing (fallback case), provide defaults
+      aspirants: sub.aspirants || { full_name: 'Cadet', streak_count: 0 },
+      isLiked: user ? sub.submission_likes?.some((like: any) => like.user_id === user.id) : false
+  })) || [];
 };
 
 export const toggleLike = async (submissionId: string) => {

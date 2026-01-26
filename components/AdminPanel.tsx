@@ -394,16 +394,28 @@ alter table public.daily_challenges enable row level security;
 drop policy if exists "Public read daily" on public.daily_challenges;
 create policy "Public read daily" on public.daily_challenges for select using (true);
 
+-- Fix Daily Submissions Relation
 create table if not exists public.daily_submissions (
   id uuid default uuid_generate_v4() primary key,
   challenge_id uuid references public.daily_challenges,
-  user_id uuid references auth.users,
+  user_id uuid references public.aspirants(user_id), -- Ensures Join Works
   ppdt_story text,
   wat_answers text[],
   srt_answers text[],
   likes_count integer default 0,
   created_at timestamptz default now()
 );
+-- If table exists, try to alter constraint (safe fallback)
+do $$
+begin
+  if exists (select 1 from information_schema.table_constraints where constraint_name = 'daily_submissions_user_id_fkey') then
+    alter table public.daily_submissions drop constraint daily_submissions_user_id_fkey;
+  end if;
+  alter table public.daily_submissions add constraint daily_submissions_user_id_fkey foreign key (user_id) references public.aspirants(user_id);
+exception when others then
+  null; -- Ignore if fails (e.g. data mismatch)
+end $$;
+
 alter table public.daily_submissions enable row level security;
 
 drop policy if exists "Public read submissions" on public.daily_submissions;
