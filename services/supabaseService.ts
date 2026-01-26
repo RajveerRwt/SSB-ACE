@@ -3,8 +3,18 @@ import { createClient } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
 
 // Initialize Supabase Client
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_KEY || '';
+// CRITICAL FIX: Ensure createClient receives valid non-empty strings to prevent "supabaseUrl is required" crash.
+const envUrl = process.env.REACT_APP_SUPABASE_URL;
+const envKey = process.env.REACT_APP_SUPABASE_KEY;
+
+if (!envUrl || !envKey) {
+    console.warn("Supabase credentials missing! App running in offline/demo mode.");
+}
+
+// Fallback to a placeholder URL that matches the expected format to prevent SDK initialization crash.
+// Real network requests will simply fail (404/Connection Refused) instead of crashing the JS thread.
+const supabaseUrl = envUrl && envUrl.startsWith('http') ? envUrl : 'https://placeholder-project.supabase.co';
+const supabaseAnonKey = envKey || 'placeholder-anon-key';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
