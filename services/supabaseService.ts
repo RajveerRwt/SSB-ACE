@@ -159,22 +159,12 @@ export const getAllUsers = async () => {
       // Find matching subscription by user_id
       const sub = subs?.find((s: any) => s.user_id === u.user_id);
       
-      const defaultSub = { 
-          tier: 'FREE', 
-          usage: { 
-            interview_used: 0, interview_limit: 1,
-            ppdt_used: 0, ppdt_limit: 10,
-            tat_used: 0, tat_limit: 2,
-            wat_used: 0, wat_limit: 3,
-            srt_used: 0, srt_limit: 3,
-            sdt_used: 0 
-          },
-          extra_credits: { interview: 0 }
-      };
-
       return {
           ...u,
-          subscription_data: sub || defaultSub
+          subscription_data: sub || { 
+              tier: 'FREE', 
+              usage: { interview_used: 0, ppdt_used: 0, tat_used: 0 } 
+          } // Fallback if no sub found
       };
   });
     
