@@ -388,7 +388,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
             
             <p className="text-xs text-slate-600 font-medium">
                 1. Copy the code below.<br/>
-                2. Go to Supabase > SQL Editor.<br/>
+                2. Go to Supabase {'>'} SQL Editor.<br/>
                 3. Paste and Run. This will fix missing columns and permission errors.
             </p>
 
