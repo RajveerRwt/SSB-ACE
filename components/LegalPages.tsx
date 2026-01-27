@@ -15,7 +15,7 @@ const LegalPages: React.FC<LegalPageProps> = ({ type, onBack }) => {
         return (
           <div className="space-y-6 text-slate-700 text-sm leading-relaxed">
             <h3 className="text-xl font-black uppercase text-slate-900">Terms & Conditions</h3>
-            <p className="italic text-xs text-slate-400">Last Updated: March 2024</p>
+            <p className="italic text-xs text-slate-400">Last Updated: January 2026</p>
             
             {/* OFFICIAL DISCLAIMER SECTION */}
             <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-xl mb-8">
