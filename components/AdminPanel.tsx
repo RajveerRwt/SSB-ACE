@@ -250,12 +250,12 @@ const AdminPanel: React.FC = () => {
       u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // UPDATED ROBUST SQL
+  // UPDATED ROBUST SQL V2.1
   const storageSQL = `
 -- EXTENSIONS
 create extension if not exists "uuid-ossp";
 
--- 1. DAILY CHALLENGES (Fixing Permissions)
+-- 1. DAILY CHALLENGES
 create table if not exists public.daily_challenges (
   id uuid default uuid_generate_v4() primary key,
   ppdt_image_url text,
@@ -266,7 +266,6 @@ create table if not exists public.daily_challenges (
 );
 alter table public.daily_challenges enable row level security;
 
--- Add interview_question column if missing (Safe run)
 do $$
 begin
   if not exists (select 1 from information_schema.columns where table_name='daily_challenges' and column_name='interview_question') then
@@ -274,12 +273,10 @@ begin
   end if;
 end $$;
 
--- Drop existing policies to avoid conflicts
 drop policy if exists "Public read daily" on public.daily_challenges;
-drop policy if exists "Enable insert for authenticated users only" on public.daily_challenges;
-drop policy if exists "Enable all access for all users" on public.daily_challenges;
+drop policy if exists "Auth insert daily" on public.daily_challenges;
+drop policy if exists "Auth update daily" on public.daily_challenges;
 
--- CREATE NEW POLICIES (Read for Everyone, Insert for Auth users)
 create policy "Public read daily" on public.daily_challenges for select using (true);
 create policy "Auth insert daily" on public.daily_challenges for insert with check (auth.role() = 'authenticated');
 create policy "Auth update daily" on public.daily_challenges for update using (auth.role() = 'authenticated');
@@ -298,7 +295,6 @@ create table if not exists public.daily_submissions (
 );
 alter table public.daily_submissions enable row level security;
 
--- Add missing columns safely
 do $$
 begin
   if not exists (select 1 from information_schema.columns where table_name='daily_submissions' and column_name='interview_answer') then
@@ -315,9 +311,27 @@ drop policy if exists "Update submissions" on public.daily_submissions;
 
 create policy "Public read submissions" on public.daily_submissions for select using (true);
 create policy "Insert submissions" on public.daily_submissions for insert with check (auth.uid() = user_id);
-create policy "Update submissions" on public.daily_submissions for update using (auth.uid() = user_id);
+create policy "Update submissions" on public.daily_submissions for update using (true); -- Allow likes update
 
--- 3. ASPIRANTS
+-- 3. SUBMISSION LIKES (New for Persistence)
+create table if not exists public.submission_likes (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users not null,
+  submission_id uuid references public.daily_submissions not null,
+  created_at timestamptz default now(),
+  unique(user_id, submission_id)
+);
+alter table public.submission_likes enable row level security;
+
+drop policy if exists "Public read likes" on public.submission_likes;
+drop policy if exists "Auth insert likes" on public.submission_likes;
+drop policy if exists "Auth delete likes" on public.submission_likes;
+
+create policy "Public read likes" on public.submission_likes for select using (true);
+create policy "Auth insert likes" on public.submission_likes for insert with check (auth.uid() = user_id);
+create policy "Auth delete likes" on public.submission_likes for delete using (auth.uid() = user_id);
+
+-- 4. ASPIRANTS
 create table if not exists public.aspirants (
   user_id uuid references auth.users not null primary key,
   email text,
@@ -333,11 +347,11 @@ drop policy if exists "Users can update own profile" on public.aspirants;
 drop policy if exists "Users can insert own profile" on public.aspirants;
 drop policy if exists "Public read aspirants" on public.aspirants;
 
-create policy "Users can view own profile" on public.aspirants for select using (true); -- Allow public read for leaderboards
+create policy "Users can view own profile" on public.aspirants for select using (true);
 create policy "Users can update own profile" on public.aspirants for update using (auth.uid() = user_id);
 create policy "Users can insert own profile" on public.aspirants for insert with check (auth.uid() = user_id);
 
--- 4. STORAGE (Buckets)
+-- 5. STORAGE (Buckets)
 insert into storage.buckets (id, name, public) values ('scenarios', 'scenarios', true) on conflict (id) do nothing;
 create policy "Public Access Scenarios" on storage.objects for select using ( bucket_id = 'scenarios' );
 create policy "Auth Upload Scenarios" on storage.objects for insert with check ( bucket_id = 'scenarios' and auth.role() = 'authenticated' );
@@ -379,7 +393,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-slate-900">
                     <Settings className="text-blue-600" size={24} />
-                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v2.0)</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v2.1)</h5>
                 </div>
                 {showSqlHelp && !errorMsg && (
                     <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
@@ -389,7 +403,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
             <p className="text-xs text-slate-600 font-medium">
                 1. Copy the code below.<br/>
                 2. Go to Supabase {'>'} SQL Editor.<br/>
-                3. Paste and Run. This will fix missing columns and permission errors.
+                3. Paste and Run. This will fix missing columns, permission errors, and enable persistent likes.
             </p>
 
             <div className="relative group">
@@ -703,18 +717,6 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
                       </div>
                   ))}
               </div>
-          </div>
-      ) : activeTab === 'BROADCAST' ? (
-          <div className="max-w-2xl mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">System Broadcast</h3>
-              <select value={broadcastType} onChange={(e: any) => setBroadcastType(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800">
-                  <option value="INFO">Information (Blue)</option>
-                  <option value="WARNING">Warning (Yellow)</option>
-                  <option value="SUCCESS">Success (Green)</option>
-                  <option value="URGENT">Urgent (Red)</option>
-              </select>
-              <textarea value={broadcastMsg} onChange={(e) => setBroadcastMsg(e.target.value)} placeholder="Notification Message..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 h-32 outline-none resize-none" />
-              <button onClick={handleUpload} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-700 shadow-lg flex items-center justify-center gap-2"><Radio size={16} /> Send Alert</button>
           </div>
       ) : activeTab === 'FEEDBACK' ? (
           <div className="space-y-4">
