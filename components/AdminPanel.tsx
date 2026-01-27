@@ -8,7 +8,8 @@ import {
   getSRTQuestions, uploadSRTQuestions, deleteSRTQuestion, deleteSRTSet,
   getPendingPayments, approvePaymentRequest, rejectPaymentRequest,
   getAllUsers, deleteUserProfile, getCoupons, createCoupon, deleteCoupon,
-  uploadDailyChallenge, sendAnnouncement, getAllFeedback, deleteFeedback
+  uploadDailyChallenge, sendAnnouncement, getAllFeedback, deleteFeedback,
+  getLatestDailyChallenge
 } from '../services/supabaseService';
 
 const AdminPanel: React.FC = () => {
@@ -17,6 +18,7 @@ const AdminPanel: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [coupons, setCoupons] = useState<any[]>([]);
   const [feedbackList, setFeedbackList] = useState<any[]>([]);
+  const [currentChallenge, setCurrentChallenge] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
@@ -84,7 +86,10 @@ const AdminPanel: React.FC = () => {
       } else if (activeTab === 'FEEDBACK') {
         const f = await getAllFeedback();
         setFeedbackList(f);
-      } else if (activeTab !== 'DAILY' && activeTab !== 'BROADCAST') {
+      } else if (activeTab === 'DAILY') {
+        const ch = await getLatestDailyChallenge();
+        setCurrentChallenge(ch);
+      } else if (activeTab !== 'BROADCAST') {
         let data;
         if (activeTab === 'PPDT') data = await getPPDTScenarios();
         else if (activeTab === 'TAT') data = await getTATScenarios();
@@ -127,6 +132,7 @@ const AdminPanel: React.FC = () => {
           setDailyInterview('');
           if (fileInputRef.current) fileInputRef.current.value = '';
           alert("Daily Challenge Published Successfully!");
+          fetchData(); // Refresh current challenge view
       } else if (activeTab === 'WAT') {
         const words = watBulkInput.split(/[\n,]+/).map(w => w.trim()).filter(w => w);
         if (words.length === 0) throw new Error("No words entered.");
@@ -244,8 +250,97 @@ const AdminPanel: React.FC = () => {
       u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // UPDATED ROBUST SQL
   const storageSQL = `
--- (SQL Script remains the same)
+-- EXTENSIONS
+create extension if not exists "uuid-ossp";
+
+-- 1. DAILY CHALLENGES (Fixing Permissions)
+create table if not exists public.daily_challenges (
+  id uuid default uuid_generate_v4() primary key,
+  ppdt_image_url text,
+  wat_words text[],
+  srt_situations text[],
+  interview_question text,
+  created_at timestamptz default now()
+);
+alter table public.daily_challenges enable row level security;
+
+-- Add interview_question column if missing (Safe run)
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name='daily_challenges' and column_name='interview_question') then
+    alter table public.daily_challenges add column interview_question text;
+  end if;
+end $$;
+
+-- Drop existing policies to avoid conflicts
+drop policy if exists "Public read daily" on public.daily_challenges;
+drop policy if exists "Enable insert for authenticated users only" on public.daily_challenges;
+drop policy if exists "Enable all access for all users" on public.daily_challenges;
+
+-- CREATE NEW POLICIES (Read for Everyone, Insert for Auth users)
+create policy "Public read daily" on public.daily_challenges for select using (true);
+create policy "Auth insert daily" on public.daily_challenges for insert with check (auth.role() = 'authenticated');
+create policy "Auth update daily" on public.daily_challenges for update using (auth.role() = 'authenticated');
+
+-- 2. DAILY SUBMISSIONS
+create table if not exists public.daily_submissions (
+  id uuid default uuid_generate_v4() primary key,
+  challenge_id uuid references public.daily_challenges,
+  user_id uuid references auth.users,
+  ppdt_story text,
+  wat_answers text[],
+  srt_answers text[],
+  interview_answer text,
+  created_at timestamptz default now(),
+  likes_count integer default 0
+);
+alter table public.daily_submissions enable row level security;
+
+-- Add missing columns safely
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name='daily_submissions' and column_name='interview_answer') then
+    alter table public.daily_submissions add column interview_answer text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='daily_submissions' and column_name='likes_count') then
+    alter table public.daily_submissions add column likes_count integer default 0;
+  end if;
+end $$;
+
+drop policy if exists "Public read submissions" on public.daily_submissions;
+drop policy if exists "Insert submissions" on public.daily_submissions;
+drop policy if exists "Update submissions" on public.daily_submissions;
+
+create policy "Public read submissions" on public.daily_submissions for select using (true);
+create policy "Insert submissions" on public.daily_submissions for insert with check (auth.uid() = user_id);
+create policy "Update submissions" on public.daily_submissions for update using (auth.uid() = user_id);
+
+-- 3. ASPIRANTS
+create table if not exists public.aspirants (
+  user_id uuid references auth.users not null primary key,
+  email text,
+  full_name text,
+  piq_data jsonb,
+  last_active timestamptz default now(),
+  streak_count integer default 0,
+  last_streak_date timestamptz
+);
+alter table public.aspirants enable row level security;
+drop policy if exists "Users can view own profile" on public.aspirants;
+drop policy if exists "Users can update own profile" on public.aspirants;
+drop policy if exists "Users can insert own profile" on public.aspirants;
+drop policy if exists "Public read aspirants" on public.aspirants;
+
+create policy "Users can view own profile" on public.aspirants for select using (true); -- Allow public read for leaderboards
+create policy "Users can update own profile" on public.aspirants for update using (auth.uid() = user_id);
+create policy "Users can insert own profile" on public.aspirants for insert with check (auth.uid() = user_id);
+
+-- 4. STORAGE (Buckets)
+insert into storage.buckets (id, name, public) values ('scenarios', 'scenarios', true) on conflict (id) do nothing;
+create policy "Public Access Scenarios" on storage.objects for select using ( bucket_id = 'scenarios' );
+create policy "Auth Upload Scenarios" on storage.objects for insert with check ( bucket_id = 'scenarios' and auth.role() = 'authenticated' );
 `;
 
   return (
@@ -279,7 +374,48 @@ const AdminPanel: React.FC = () => {
                 <button onClick={() => setErrorMsg(null)} className="text-xs font-black uppercase p-2 hover:bg-red-100 rounded-lg">Dismiss</button>
               </div>
           )}
-          {/* SQL Help Content Omitted */}
+          
+          <div className="bg-white p-8 rounded-[2rem] border border-slate-200 space-y-6">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 text-slate-900">
+                    <Settings className="text-blue-600" size={24} />
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v2.0)</h5>
+                </div>
+                {showSqlHelp && !errorMsg && (
+                    <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
+                )}
+            </div>
+            
+            <p className="text-xs text-slate-600 font-medium">
+                1. Copy the code below.<br/>
+                2. Go to Supabase > SQL Editor.<br/>
+                3. Paste and Run. This will fix missing columns and permission errors.
+            </p>
+
+            <div className="relative group">
+              <pre className="bg-slate-900 text-blue-300 p-6 rounded-2xl text-[10px] font-mono overflow-x-auto border-2 border-slate-800 leading-relaxed shadow-inner max-h-[300px]">
+                {storageSQL}
+              </pre>
+              <button 
+                onClick={() => copySQL(storageSQL)}
+                className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-xl text-white transition-all flex items-center gap-2 text-[10px] font-black uppercase backdrop-blur-md"
+              >
+                {copied ? <Check size={14} className="text-green-400" /> : <Clipboard size={14} />}
+                {copied ? 'Copied' : 'Copy SQL'}
+              </button>
+            </div>
+
+            <div className="flex gap-4">
+              <a 
+                href="https://supabase.com/dashboard/project/_/sql" 
+                target="_blank" 
+                rel="noreferrer"
+                className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-lg"
+              >
+                <Database size={14} /> Open SQL Editor <ExternalLink size={12} />
+              </a>
+            </div>
+          </div>
         </div>
       )}
 
@@ -363,6 +499,32 @@ const AdminPanel: React.FC = () => {
                           {isUploading ? <Loader2 className="animate-spin" /> : <PenTool size={16} />} Publish Challenge
                       </button>
                   </div>
+              </div>
+
+              {/* Status Indicator */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Current Active Challenge</h4>
+                  {currentChallenge ? (
+                      <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center shrink-0">
+                              <CheckCircle size={24} />
+                          </div>
+                          <div>
+                              <p className="font-bold text-slate-900 text-sm">Challenge Live</p>
+                              <p className="text-[10px] text-slate-400 uppercase tracking-widest">Posted: {new Date(currentChallenge.created_at).toLocaleString()}</p>
+                          </div>
+                      </div>
+                  ) : (
+                      <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center shrink-0">
+                              <XCircle size={24} />
+                          </div>
+                          <div>
+                              <p className="font-bold text-slate-900 text-sm">No Active Challenge</p>
+                              <p className="text-[10px] text-slate-400 uppercase tracking-widest">Upload a new one above.</p>
+                          </div>
+                      </div>
+                  )}
               </div>
           </div>
       ) : activeTab === 'PAYMENTS' ? (

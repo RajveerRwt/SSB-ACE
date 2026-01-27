@@ -122,6 +122,15 @@ export const getUserHistory = async (userId: string) => {
   })) || [];
 };
 
+export const getUserStreak = async (userId: string) => {
+  const { data } = await supabase
+    .from('aspirants')
+    .select('streak_count')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return data || { streak_count: 0 };
+};
+
 export const saveTestAttempt = async (userId: string, testType: string, resultData: any) => {
   await supabase
     .from('test_history')
@@ -620,7 +629,7 @@ export const uploadDailyChallenge = async (ppdtFile: File | null, wat: string, s
   });
 };
 
-export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: string[], srt: string[]) => {
+export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: string, srt: string, interview: string) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Login Required");
   
@@ -628,8 +637,9 @@ export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: s
       challenge_id: challengeId,
       user_id: user.id,
       ppdt_story: ppdt,
-      wat_answers: wat,
-      srt_answers: srt
+      wat_answers: [wat],
+      srt_answers: [srt],
+      interview_answer: interview
   });
 };
 
@@ -640,6 +650,13 @@ export const getDailySubmissions = async (challengeId: string) => {
     .eq('challenge_id', challengeId)
     .order('created_at', { ascending: false });
   return data || [];
+};
+
+export const toggleLike = async (submissionId: string) => {
+  const { data: sub } = await supabase.from('daily_submissions').select('likes_count').eq('id', submissionId).single();
+  if (sub) {
+      await supabase.from('daily_submissions').update({ likes_count: (sub.likes_count || 0) + 1 }).eq('id', submissionId);
+  }
 };
 
 // ANNOUNCEMENTS
