@@ -1,5 +1,5 @@
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, User } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
 
 // Initialize Supabase Client
@@ -10,11 +10,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // --- AUTHENTICATION ---
 
-export const signInWithEmail = async (email, password) => {
+export const signInWithEmail = async (email: string, password: string) => {
   return await supabase.auth.signInWithPassword({ email, password });
 };
 
-export const signUpWithEmail = async (email, password, fullName) => {
+export const signUpWithEmail = async (email: string, password: string, fullName: string) => {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -34,20 +34,20 @@ export const checkAuthSession = async () => {
   return session?.user || null;
 };
 
-export const subscribeToAuthChanges = (callback) => {
+export const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
   const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
     callback(session?.user || null);
   });
   return () => subscription.unsubscribe();
 };
 
-export const isUserAdmin = (email) => {
+export const isUserAdmin = (email: string | null | undefined) => {
   // Simple check for now, can be replaced with RLS or a table check
   const adminEmails = ['admin@ssbprep.online', 'contact.ssbprep@gmail.com']; 
   return adminEmails.includes(email || '');
 };
 
-export const syncUserProfile = async (user) => {
+export const syncUserProfile = async (user: User) => {
   if (!user) return;
   
   // Check if profile exists, if not create it
@@ -67,20 +67,20 @@ export const syncUserProfile = async (user) => {
 
 // --- USER DATA (PIQ) ---
 
-export const getUserData = async (userId) => {
+export const getUserData = async (userId: string) => {
   const { data, error } = await supabase.from('aspirants').select('piq_data').eq('user_id', userId).single();
   if (error) return null;
   return data?.piq_data;
 };
 
-export const saveUserData = async (userId, piqData) => {
+export const saveUserData = async (userId: string, piqData: PIQData) => {
   const { error } = await supabase.from('aspirants').update({ piq_data: piqData }).eq('user_id', userId);
   return error;
 };
 
 // --- TEST HISTORY & STREAKS ---
 
-export const getUserHistory = async (userId) => {
+export const getUserHistory = async (userId: string) => {
   const { data, error } = await supabase
     .from('test_history')
     .select('*')
@@ -90,7 +90,7 @@ export const getUserHistory = async (userId) => {
     
   if (error) return [];
   
-  return data.map(item => ({
+  return data.map((item: any) => ({
       type: item.test_type,
       score: item.score,
       timestamp: item.created_at,
@@ -98,7 +98,7 @@ export const getUserHistory = async (userId) => {
   }));
 };
 
-export const saveTestAttempt = async (userId, testType, result) => {
+export const saveTestAttempt = async (userId: string, testType: string, result: any) => {
   await supabase.from('test_history').insert({
     user_id: userId,
     test_type: testType,
@@ -107,7 +107,7 @@ export const saveTestAttempt = async (userId, testType, result) => {
   });
 };
 
-export const getUserStreak = async (userId) => {
+export const getUserStreak = async (userId: string) => {
     const { data } = await supabase.from('aspirants').select('streak_count').eq('user_id', userId).single();
     return data || { streak_count: 0 };
 };
@@ -120,13 +120,13 @@ export const getAllUsers = async () => {
     if (data) {
         for (let user of data) {
             const sub = await getUserSubscription(user.user_id);
-            user.subscription_data = sub;
+            (user as any).subscription_data = sub;
         }
     }
     return data || [];
 };
 
-export const deleteUserProfile = async (userId) => {
+export const deleteUserProfile = async (userId: string) => {
     await supabase.from('aspirants').delete().eq('user_id', userId);
 };
 
@@ -209,7 +209,7 @@ export const incrementUsage = async (userId: string, testType: string) => {
     if (column) {
        const { data } = await supabase.from('subscriptions').select(column).eq('user_id', userId).single();
        if (data) {
-           const current = data[column] || 0;
+           const current = (data as any)[column] || 0;
            await supabase.from('subscriptions').update({ [column]: current + 1 }).eq('user_id', userId);
        } else {
            // If subscription record doesn't exist, create a free one and increment
@@ -230,7 +230,7 @@ export const getPendingPayments = async () => {
     return data || [];
 };
 
-export const approvePaymentRequest = async (requestId, userId, planType) => {
+export const approvePaymentRequest = async (requestId: string, userId: string, planType: string) => {
     await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', requestId);
     
     if (planType === 'PRO_SUBSCRIPTION') {
@@ -251,11 +251,11 @@ export const approvePaymentRequest = async (requestId, userId, planType) => {
     }
 };
 
-export const rejectPaymentRequest = async (requestId) => {
+export const rejectPaymentRequest = async (requestId: string) => {
     await supabase.from('payment_requests').update({ status: 'REJECTED' }).eq('id', requestId);
 };
 
-export const processRazorpayTransaction = async (userId, paymentId, amount, planType, couponCode) => {
+export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode?: string) => {
     const { data, error } = await supabase.from('payment_requests').insert({
         user_id: userId,
         utr: paymentId,
@@ -284,7 +284,7 @@ export const getPPDTScenarios = async () => {
     return data || [];
 };
 
-export const uploadPPDTScenario = async (file, description) => {
+export const uploadPPDTScenario = async (file: File, description: string) => {
     const fileName = `ppdt-${Date.now()}-${file.name}`;
     await supabase.storage.from('scenarios').upload(fileName, file);
     const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
@@ -295,7 +295,7 @@ export const uploadPPDTScenario = async (file, description) => {
     });
 };
 
-export const deletePPDTScenario = async (id, url) => {
+export const deletePPDTScenario = async (id: string, url?: string) => {
     await supabase.from('ppdt_scenarios').delete().eq('id', id);
 };
 
@@ -305,7 +305,7 @@ export const getTATScenarios = async () => {
     return data || [];
 };
 
-export const uploadTATScenario = async (file, description, setTag) => {
+export const uploadTATScenario = async (file: File, description: string, setTag: string) => {
     const fileName = `tat-${Date.now()}-${file.name}`;
     await supabase.storage.from('scenarios').upload(fileName, file);
     const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
@@ -317,7 +317,7 @@ export const uploadTATScenario = async (file, description, setTag) => {
     });
 };
 
-export const deleteTATScenario = async (id, url) => {
+export const deleteTATScenario = async (id: string, url?: string) => {
     await supabase.from('tat_scenarios').delete().eq('id', id);
 };
 
@@ -327,16 +327,16 @@ export const getWATWords = async () => {
     return data || [];
 };
 
-export const uploadWATWords = async (words, setTag) => {
+export const uploadWATWords = async (words: string[], setTag: string) => {
     const rows = words.map(w => ({ word: w, set_tag: setTag }));
     await supabase.from('wat_words').insert(rows);
 };
 
-export const deleteWATWord = async (id) => {
+export const deleteWATWord = async (id: string) => {
     await supabase.from('wat_words').delete().eq('id', id);
 };
 
-export const deleteWATSet = async (tag) => {
+export const deleteWATSet = async (tag: string) => {
     await supabase.from('wat_words').delete().eq('set_tag', tag);
 };
 
@@ -346,16 +346,16 @@ export const getSRTQuestions = async () => {
     return data || [];
 };
 
-export const uploadSRTQuestions = async (questions, setTag) => {
+export const uploadSRTQuestions = async (questions: string[], setTag: string) => {
     const rows = questions.map(q => ({ question: q, set_tag: setTag }));
     await supabase.from('srt_questions').insert(rows);
 };
 
-export const deleteSRTQuestion = async (id) => {
+export const deleteSRTQuestion = async (id: string) => {
     await supabase.from('srt_questions').delete().eq('id', id);
 };
 
-export const deleteSRTSet = async (tag) => {
+export const deleteSRTSet = async (tag: string) => {
     await supabase.from('srt_questions').delete().eq('set_tag', tag);
 };
 
@@ -366,7 +366,7 @@ export const getCoupons = async () => {
     return data || [];
 };
 
-export const createCoupon = async (code, discount, influencer) => {
+export const createCoupon = async (code: string, discount: number, influencer: string) => {
     await supabase.from('coupons').insert({
         code,
         discount_percent: discount,
@@ -375,11 +375,11 @@ export const createCoupon = async (code, discount, influencer) => {
     });
 };
 
-export const deleteCoupon = async (code) => {
+export const deleteCoupon = async (code: string) => {
     await supabase.from('coupons').delete().eq('code', code);
 };
 
-export const validateCoupon = async (code) => {
+export const validateCoupon = async (code: string) => {
     const { data } = await supabase.from('coupons').select('*').eq('code', code).single();
     if (data) {
         return { valid: true, discount: data.discount_percent, message: `Coupon Applied! ${data.discount_percent}% OFF` };
@@ -389,22 +389,22 @@ export const validateCoupon = async (code) => {
 
 // --- ANNOUNCEMENTS ---
 
-export const getRecentAnnouncements = async () => {
+export const getRecentAnnouncements = async (): Promise<Announcement[]> => {
     const { data } = await supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(5);
     return data || [];
 };
 
-export const subscribeToAnnouncements = (callback) => {
+export const subscribeToAnnouncements = (callback: (a: Announcement) => void) => {
     const channel = supabase.channel('public:announcements')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, payload => {
-            callback(payload.new);
+            callback(payload.new as Announcement);
         })
         .subscribe();
         
-    return () => supabase.removeChannel(channel);
+    return () => { supabase.removeChannel(channel); };
 };
 
-export const sendAnnouncement = async (message, type) => {
+export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT') => {
     await supabase.from('announcements').insert({
         message,
         type,
@@ -414,7 +414,7 @@ export const sendAnnouncement = async (message, type) => {
 
 // --- FEEDBACK ---
 
-export const submitUserFeedback = async (userId, testType, rating, comments) => {
+export const submitUserFeedback = async (userId: string, testType: string, rating: number, comments: string) => {
     await supabase.from('feedback').insert({
         user_id: userId,
         test_type: testType,
@@ -428,7 +428,7 @@ export const getAllFeedback = async () => {
     return data || [];
 };
 
-export const deleteFeedback = async (id) => {
+export const deleteFeedback = async (id: string) => {
     await supabase.from('feedback').delete().eq('id', id);
 };
 
