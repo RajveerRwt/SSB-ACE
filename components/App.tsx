@@ -17,7 +17,7 @@ import CurrentAffairs from './CurrentAffairs';
 import DailyPractice from './DailyPractice';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle, Phone, UserPlus } from 'lucide-react';
+import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle, Phone, UserPlus, MessageCircle } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Dashboard Component
@@ -30,6 +30,7 @@ const Dashboard: React.FC<{
   onOpenPayment: () => void
 }> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user, onOpenPayment }) => {
   const [quoteIndex, setQuoteIndex] = useState(0);
+  const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
@@ -43,12 +44,28 @@ const Dashboard: React.FC<{
     { text: "I regret I have but one life to give for my country.", author: "Capt. Manoj Kumar Pandey, PVC" }
   ];
 
+  const testimonials = [
+    { text: "The 1:1 Virtual Interview experience was very realistic. The assessment report was detailed and actionable. A great platform for SSB preparation.", name: "Deepak Rai", role: "NDA Aspirant" },
+    { text: "AI-based Virtual IO surprisingly accurate hai. Pressure, questions aur feedback sab kuch real interview jaisa laga.", name: "Aditya", role: "CDS Aspirant" },
+    { text: "Never seen this level of personal interview practice before. Interview section is really great and feeling like IO is real and body language bhi dekhta h.", name: "Vikram Singh", role: "NCC/AFCAT Entry" },
+    { text: "This platform focuses on genuine improvement, not shortcuts. The detailed assessment really helps in developing officer-like qualities.", name: "aditi pandey", role: "NDA/TES Aspirant" },
+    { text: "The platform simulates real SSB pressure. Especially the Virtual IO interview — very close to the actual experience.", name: "vivek rawat", role: "graduate/cds/afcat Entry" },
+    { text: " as founder contact me for testing this app  and really One of the most structured and realistic SSB practice platforms I’ve used online.", name: "Ayush singh", role: " SSB recommended" }
+  ];
+
   useEffect(() => {
     const timer = setInterval(() => {
       setQuoteIndex(prev => (prev + 1) % quotes.length);
     }, 8000);
     return () => clearInterval(timer);
   }, [quotes.length]);
+
+  useEffect(() => {
+    const tTimer = setInterval(() => {
+      setTestimonialIndex(prev => (prev + 1) % testimonials.length);
+    }, 6000);
+    return () => clearInterval(tTimer);
+  }, [testimonials.length]);
 
   // Fetch History, Sub Stats, and Payment Status
   useEffect(() => {
@@ -378,6 +395,38 @@ const Dashboard: React.FC<{
                   <p>"I am a leader in the making. I do not fear the challenge; I welcome the trial."</p>
                   <p>"I shall be honest with my words, firm with my actions, and loyal to my team."</p>
                   <p>"Failure is but a lesson in persistence. My resolve is my shield, and my discipline is my weapon."</p>
+               </div>
+            </div>
+
+            {/* TESTIMONIAL SLIDER */}
+            <div className="bg-slate-900 p-8 md:p-10 rounded-[2rem] md:rounded-[3.5rem] text-white shadow-xl flex flex-col items-center text-center gap-6 group hover:scale-[1.02] transition-all relative overflow-hidden">
+               <div className="absolute top-0 right-0 p-4 opacity-5">
+                  <MessageCircle size={80} />
+               </div>
+               <div className="relative z-10 w-full space-y-6">
+                  <div className="flex items-center justify-center gap-3 text-yellow-400">
+                     <Star size={14} fill="currentColor" />
+                     <Star size={14} fill="currentColor" />
+                     <Star size={14} fill="currentColor" />
+                     <Star size={14} fill="currentColor" />
+                     <Star size={14} fill="currentColor" />
+                  </div>
+                  <div className="h-[180px] flex items-center justify-center">
+                     <div key={testimonialIndex} className="space-y-4 animate-in fade-in zoom-in duration-500">
+                        <p className="text-xs md:text-sm font-medium italic text-slate-300 leading-relaxed">
+                           "{testimonials[testimonialIndex].text}"
+                        </p>
+                        <div>
+                           <h4 className="font-black text-white uppercase text-xs tracking-widest">{testimonials[testimonialIndex].name}</h4>
+                           <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">{testimonials[testimonialIndex].role}</p>
+                        </div>
+                     </div>
+                  </div>
+                  <div className="flex justify-center gap-1.5">
+                     {testimonials.map((_, idx) => (
+                        <div key={idx} className={`h-1 rounded-full transition-all duration-300 ${idx === testimonialIndex ? 'w-6 bg-yellow-400' : 'w-2 bg-slate-700'}`} />
+                     ))}
+                  </div>
                </div>
             </div>
 
