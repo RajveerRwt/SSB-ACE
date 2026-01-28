@@ -72,7 +72,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     });
 
     // 2. Subscribe to real-time updates
-    const unsubscribe = subscribeToAnnouncements((newAnnouncement: Announcement) => {
+    const unsubscribe = subscribeToAnnouncements((newAnnouncement) => {
         // Add to history list immediately
         setNotifications(prev => [newAnnouncement, ...prev]);
         setUnreadCount(prev => prev + 1);

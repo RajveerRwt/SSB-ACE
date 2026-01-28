@@ -1,5 +1,5 @@
 
-import { createClient, User } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
 
 // Initialize Supabase Client
@@ -15,18 +15,18 @@ export const signInWithEmail = async (email: string, password: string) => {
 };
 
 export const signUpWithEmail = async (email: string, password: string, fullName: string) => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
+  const result = await supabase.auth.signUp({ 
+    email, 
     password,
     options: {
       data: { full_name: fullName }
     }
   });
-  return { data, error };
+  return result;
 };
 
 export const logoutUser = async () => {
-  return await supabase.auth.signOut();
+  await supabase.auth.signOut();
 };
 
 export const checkAuthSession = async () => {
@@ -34,7 +34,7 @@ export const checkAuthSession = async () => {
   return session?.user || null;
 };
 
-export const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
+export const subscribeToAuthChanges = (callback: (user: any) => void) => {
   const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
     callback(session?.user || null);
   });
@@ -42,398 +42,566 @@ export const subscribeToAuthChanges = (callback: (user: User | null) => void) =>
 };
 
 export const isUserAdmin = (email: string | null | undefined) => {
-  // Simple check for now, can be replaced with RLS or a table check
-  const adminEmails = ['admin@ssbprep.online', 'contact.ssbprep@gmail.com']; 
-  return adminEmails.includes(email || '');
+  const adminEmails = ['rajveerrawat947@gmail.com', 'admin@ssbprep.online']; // Add your admin emails here
+  return email ? adminEmails.includes(email) : false;
 };
 
-export const syncUserProfile = async (user: User) => {
+export const syncUserProfile = async (user: any) => {
   if (!user) return;
   
-  // Check if profile exists, if not create it
-  const { data } = await supabase.from('aspirants').select('user_id').eq('user_id', user.id).single();
+  // Ensure user profile exists in 'aspirants' table
+  const { error } = await supabase
+    .from('aspirants')
+    .upsert({ 
+        user_id: user.id, 
+        email: user.email,
+        full_name: user.user_metadata?.full_name,
+        last_active: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+    
+  if (error) console.error("Sync Profile Error:", error);
   
-  if (!data) {
-    await supabase.from('aspirants').insert({
-      user_id: user.id,
-      email: user.email,
-      full_name: user.user_metadata?.full_name || '',
-      last_active: new Date().toISOString()
-    });
-  } else {
-    await supabase.from('aspirants').update({ last_active: new Date().toISOString() }).eq('user_id', user.id);
+  // Ensure subscription entry exists using UPSERT to prevent race conditions or missing rows
+  const { data: sub } = await supabase
+    .from('user_subscriptions')
+    .select('tier')
+    .eq('user_id', user.id)
+    .maybeSingle(); // Use maybeSingle to avoid 406 error if not found
+    
+  if (!sub) {
+      // NEW USER DEFAULT LIMITS
+      const { error: subError } = await supabase.from('user_subscriptions').insert({
+          user_id: user.id,
+          tier: 'FREE',
+          usage: {
+            interview_used: 0, interview_limit: 1, // 1 Free Interview
+            ppdt_used: 0, ppdt_limit: 10,          // 10 Free PPDT
+            tat_used: 0, tat_limit: 2,             // 2 Free TAT Sets
+            wat_used: 0, wat_limit: 3,             // 3 Free WAT Sets
+            srt_used: 0, srt_limit: 3,             // 3 Free SRT Sets
+            sdt_used: 0
+          },
+          extra_credits: { interview: 0 }
+      });
+      if (subError) console.warn("Sub Init Error (Table might be missing):", subError);
   }
 };
 
-// --- USER DATA (PIQ) ---
+// --- USER DATA ---
 
-export const getUserData = async (userId: string) => {
-  const { data, error } = await supabase.from('aspirants').select('piq_data').eq('user_id', userId).single();
-  if (error) return null;
-  return data?.piq_data;
+export const getUserData = async (userId: string): Promise<PIQData | null> => {
+  const { data } = await supabase
+    .from('aspirants')
+    .select('piq_data')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return data?.piq_data || null;
 };
 
-export const saveUserData = async (userId: string, piqData: PIQData) => {
-  const { error } = await supabase.from('aspirants').update({ piq_data: piqData }).eq('user_id', userId);
-  return error;
+export const saveUserData = async (userId: string, data: PIQData) => {
+  await supabase
+    .from('aspirants')
+    .update({ piq_data: data })
+    .eq('user_id', userId);
 };
-
-// --- TEST HISTORY & STREAKS ---
 
 export const getUserHistory = async (userId: string) => {
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from('test_history')
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(10);
     
-  if (error) return [];
-  
-  return data.map((item: any) => ({
+  return data?.map((item: any) => ({
+      id: item.id,
       type: item.test_type,
-      score: item.score,
       timestamp: item.created_at,
+      score: item.score,
       result: item.result_data
-  }));
-};
-
-export const saveTestAttempt = async (userId: string, testType: string, result: any) => {
-  await supabase.from('test_history').insert({
-    user_id: userId,
-    test_type: testType,
-    score: result.score || 0,
-    result_data: result
-  });
+  })) || [];
 };
 
 export const getUserStreak = async (userId: string) => {
-    const { data } = await supabase.from('aspirants').select('streak_count').eq('user_id', userId).single();
-    return data || { streak_count: 0 };
+  const { data } = await supabase
+    .from('aspirants')
+    .select('streak_count')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return data || { streak_count: 0 };
 };
 
-// --- ADMIN: USERS ---
+export const saveTestAttempt = async (userId: string, testType: string, resultData: any) => {
+  await supabase
+    .from('test_history')
+    .insert({
+        user_id: userId,
+        test_type: testType,
+        score: resultData.score || 0,
+        result_data: resultData
+    });
+};
 
 export const getAllUsers = async () => {
-    const { data } = await supabase.from('aspirants').select('*');
-    // Fetch subscription data for each user
-    if (data) {
-        for (let user of data) {
-            const sub = await getUserSubscription(user.user_id);
-            (user as any).subscription_data = sub;
-        }
-    }
-    return data || [];
+  // 1. Fetch Aspirants Profile Data
+  const { data: aspirants, error: aspError } = await supabase
+    .from('aspirants')
+    .select('*')
+    .order('last_active', { ascending: false });
+
+  if (aspError) {
+    console.error("SSB Admin: Error fetching aspirants", aspError);
+    return [];
+  }
+
+  // 2. Fetch All Subscriptions separately to avoid JOIN issues
+  const { data: subs, error: subError } = await supabase
+    .from('user_subscriptions')
+    .select('*');
+
+  if (subError) {
+    console.error("SSB Admin: Error fetching subscriptions", subError);
+  }
+
+  // 3. Manual Merge
+  const mergedData = aspirants?.map((u: any) => {
+      // Find matching subscription by user_id
+      const sub = subs?.find((s: any) => s.user_id === u.user_id);
+      
+      const defaultSub = { 
+          tier: 'FREE', 
+          usage: { 
+            interview_used: 0, interview_limit: 1,
+            ppdt_used: 0, ppdt_limit: 10,
+            tat_used: 0, tat_limit: 2,
+            wat_used: 0, wat_limit: 3,
+            srt_used: 0, srt_limit: 3,
+            sdt_used: 0 
+          },
+          extra_credits: { interview: 0 }
+      };
+
+      return {
+          ...u,
+          subscription_data: sub || defaultSub
+      };
+  });
+    
+  return mergedData || [];
 };
 
 export const deleteUserProfile = async (userId: string) => {
+    // Rely on cascade delete in DB usually, but manual cleanup here for safety
+    await supabase.from('test_history').delete().eq('user_id', userId);
+    await supabase.from('user_subscriptions').delete().eq('user_id', userId);
+    await supabase.from('payment_requests').delete().eq('user_id', userId);
+    await supabase.from('user_feedback').delete().eq('user_id', userId); // Added feedback cleanup
     await supabase.from('aspirants').delete().eq('user_id', userId);
+    // Note: Cannot delete from auth.users via client library directly without service role
 };
 
-// --- SUBSCRIPTION & LIMITS ---
-
-const DEFAULT_SUBSCRIPTION: UserSubscription = {
-    tier: 'FREE',
-    expiryDate: null,
-    usage: {
-        interview_used: 0,
-        interview_limit: 1, // Free limit
-        ppdt_used: 0,
-        ppdt_limit: 5,
-        tat_used: 0,
-        tat_limit: 2,
-        wat_used: 0,
-        wat_limit: 2,
-        srt_used: 0,
-        srt_limit: 2,
-        sdt_used: 0
-    },
-    extra_credits: {
-        interview: 0
-    }
-};
+// --- SUBSCRIPTION & PAYMENTS ---
 
 export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
-    const { data } = await supabase.from('subscriptions').select('*').eq('user_id', userId).single();
+  // 1. Fetch Current Subscription
+  // USE maybeSingle() to return null instead of throwing 406 Error if row is missing
+  let { data: sub, error } = await supabase
+    .from('user_subscriptions')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) console.warn("Fetch Sub Error:", error.message);
+
+  // 2. SELF-HEALING (PRO): If subscription is missing or FREE, check for valid payments
+  if (!sub || sub.tier === 'FREE') {
+      const { data: payment } = await supabase
+          .from('payment_requests')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('status', 'APPROVED')
+          .eq('plan_type', 'PRO_SUBSCRIPTION')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(); // Use maybeSingle to suppress 406
+
+      if (payment) {
+          console.log(`SSB: Auto-Repairing Subscription for ${userId} based on Payment ID: ${payment.id}`);
+          
+          try {
+              const paymentDate = payment.created_at;
+              const getUsageCount = async (testType: string) => {
+                  const { count } = await supabase
+                      .from('test_history')
+                      .select('*', { count: 'exact', head: true })
+                      .eq('user_id', userId)
+                      .eq('test_type', testType)
+                      .gt('created_at', paymentDate);
+                  return count || 0;
+              };
+
+              const [interviewUsed, ppdtUsed, tatUsed, watUsed, srtUsed] = await Promise.all([
+                  getUsageCount('INTERVIEW'),
+                  getUsageCount('PPDT'),
+                  getUsageCount('TAT'),
+                  getUsageCount('WAT'),
+                  getUsageCount('SRT')
+              ]);
+
+              const repairedSub = {
+                  user_id: userId,
+                  tier: 'PRO',
+                  usage: {
+                      interview_used: interviewUsed,
+                      interview_limit: 5,
+                      ppdt_used: ppdtUsed,
+                      ppdt_limit: 30,
+                      tat_used: tatUsed,
+                      tat_limit: 7,
+                      wat_used: watUsed,
+                      wat_limit: 10,
+                      srt_used: srtUsed,
+                      srt_limit: 10,
+                      sdt_used: 0 
+                  },
+                  extra_credits: sub?.extra_credits || { interview: 0 }
+              };
+
+              // Use upsert and handle potential 404 if table missing
+              const { error: upsertError } = await supabase.from('user_subscriptions').upsert(repairedSub);
+              if (!upsertError) {
+                  // @ts-ignore
+                  return repairedSub;
+              } else {
+                  console.error("Self-healing failed:", upsertError);
+              }
+          } catch(e) {
+              console.error("Self-healing crashed", e);
+          }
+      }
+  }
+
+  // 3. MIGRATION FOR LEGACY FREE USERS
+  if (sub && sub.tier === 'FREE') {
+      const currentUsage = sub.usage;
+      if (currentUsage.interview_limit < 1 || currentUsage.ppdt_limit < 10) {
+          const newUsage = {
+              ...currentUsage,
+              interview_limit: Math.max(currentUsage.interview_limit, 1),
+              ppdt_limit: Math.max(currentUsage.ppdt_limit, 10),
+              tat_limit: Math.max(currentUsage.tat_limit, 2),
+              wat_limit: Math.max(currentUsage.wat_limit, 3),
+              srt_limit: Math.max(currentUsage.srt_limit, 3)
+          };
+          // Update DB
+          await supabase.from('user_subscriptions').update({ usage: newUsage }).eq('user_id', userId);
+          sub.usage = newUsage;
+      }
+  }
     
-    if (!data) return DEFAULT_SUBSCRIPTION;
-    
-    return {
-        tier: data.tier || 'FREE',
-        expiryDate: data.expiry_date,
-        usage: {
-            interview_used: data.interview_used || 0,
-            interview_limit: data.interview_limit || 1,
-            ppdt_used: data.ppdt_used || 0,
-            ppdt_limit: data.ppdt_limit || 5,
-            tat_used: data.tat_used || 0,
-            tat_limit: data.tat_limit || 2,
-            wat_used: data.wat_used || 0,
-            wat_limit: data.wat_limit || 2,
-            srt_used: data.srt_used || 0,
-            srt_limit: data.srt_limit || 2,
-            sdt_used: data.sdt_used || 0
-        },
-        extra_credits: {
-            interview: data.extra_interview_credits || 0
-        }
-    };
+  // Return Default Free Plan if nothing exists
+  if (!sub) return {
+      tier: 'FREE',
+      expiryDate: null,
+      usage: {
+        interview_used: 0, interview_limit: 1, // New Standard
+        ppdt_used: 0, ppdt_limit: 10,
+        tat_used: 0, tat_limit: 2,
+        wat_used: 0, wat_limit: 3,
+        srt_used: 0, srt_limit: 3,
+        sdt_used: 0
+      },
+      extra_credits: { interview: 0 }
+  };
+  
+  return sub;
 };
 
 export const checkLimit = async (userId: string, testType: string) => {
-    const sub = await getUserSubscription(userId);
-    let allowed = false;
-    let message = "Limit reached. Upgrade to Pro.";
-    
-    if (testType === 'INTERVIEW') {
-        if (sub.usage.interview_used < (sub.usage.interview_limit + sub.extra_credits.interview)) {
-            allowed = true;
-        }
-    } else if (testType === 'PPDT') {
-        if (sub.usage.ppdt_used < sub.usage.ppdt_limit) allowed = true;
-    } else if (testType === 'TAT') {
-        if (sub.usage.tat_used < sub.usage.tat_limit) allowed = true;
-    } else {
-        allowed = true; 
-    }
-    
-    return { allowed, message };
+  const sub = await getUserSubscription(userId);
+  let allowed = false;
+  let message = "Usage limit reached. Upgrade to Pro.";
+  
+  const usage = sub.usage;
+  
+  if (testType === 'INTERVIEW') {
+      const total = usage.interview_limit + sub.extra_credits.interview;
+      if (usage.interview_used < total) allowed = true;
+      else message = "Interview credits exhausted. Purchase Top-up.";
+  } else if (testType === 'PPDT') {
+      if (usage.ppdt_used < usage.ppdt_limit) allowed = true;
+  } else if (testType === 'TAT') {
+      if (usage.tat_used < usage.tat_limit) allowed = true;
+  } else if (testType === 'WAT') {
+      if (usage.wat_used < usage.wat_limit) allowed = true;
+  } else if (testType === 'SRT') {
+      if (usage.srt_used < usage.srt_limit) allowed = true;
+  }
+  
+  return { allowed, message };
 };
 
 export const incrementUsage = async (userId: string, testType: string) => {
-    let column = '';
-    if (testType === 'INTERVIEW') column = 'interview_used';
-    else if (testType === 'PPDT') column = 'ppdt_used';
-    else if (testType === 'TAT') column = 'tat_used';
-    
-    if (column) {
-       const { data } = await supabase.from('subscriptions').select(column).eq('user_id', userId).single();
-       if (data) {
-           const current = (data as any)[column] || 0;
-           await supabase.from('subscriptions').update({ [column]: current + 1 }).eq('user_id', userId);
-       } else {
-           // If subscription record doesn't exist, create a free one and increment
-           await supabase.from('subscriptions').insert({ user_id: userId, [column]: 1 });
-       }
-    }
+  const sub = await getUserSubscription(userId);
+  const usage = sub.usage;
+  
+  let update: any = {};
+  
+  if (testType === 'INTERVIEW') update = { 'usage': { ...usage, interview_used: usage.interview_used + 1 } };
+  else if (testType === 'PPDT') update = { 'usage': { ...usage, ppdt_used: usage.ppdt_used + 1 } };
+  else if (testType === 'TAT') update = { 'usage': { ...usage, tat_used: usage.tat_used + 1 } };
+  else if (testType === 'WAT') update = { 'usage': { ...usage, wat_used: usage.wat_used + 1 } };
+  else if (testType === 'SRT') update = { 'usage': { ...usage, srt_used: usage.srt_used + 1 } };
+  
+  // Handle extra credit consumption for Interviews
+  if (testType === 'INTERVIEW' && usage.interview_used >= usage.interview_limit) {
+      // Consumed an extra credit
+      update = { 
+          'usage': { ...usage, interview_used: usage.interview_used + 1 },
+          'extra_credits': { ...sub.extra_credits, interview: Math.max(0, sub.extra_credits.interview - 1) } 
+      };
+  }
+
+  if (Object.keys(update).length > 0) {
+      await supabase
+        .from('user_subscriptions')
+        .update(update)
+        .eq('user_id', userId);
+  }
 };
 
-// --- PAYMENTS ---
-
 export const getLatestPaymentRequest = async (userId: string) => {
-    const { data } = await supabase.from('payment_requests').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle();
-    return data;
+  // Use maybeSingle to prevent 406
+  const { data } = await supabase
+    .from('payment_requests')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data;
 };
 
 export const getPendingPayments = async () => {
-    const { data } = await supabase.from('payment_requests').select('*, aspirants(full_name, email)').eq('status', 'PENDING');
-    return data || [];
+  const { data } = await supabase
+    .from('payment_requests')
+    .select('*, aspirants(full_name, email)')
+    .eq('status', 'PENDING')
+    .order('created_at', { ascending: false });
+  return data || [];
 };
 
-export const approvePaymentRequest = async (requestId: string, userId: string, planType: string) => {
-    await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', requestId);
-    
-    if (planType === 'PRO_SUBSCRIPTION') {
-        const proDefaults = {
-            tier: 'PRO',
-            interview_limit: 5,
-            ppdt_limit: 30,
-            tat_limit: 7,
-            wat_limit: 10,
-            srt_limit: 10
-        };
-        const { error } = await supabase.from('subscriptions').upsert({ user_id: userId, ...proDefaults }, { onConflict: 'user_id' });
-        if(error) console.error("Sub upsert error", error);
-    } else if (planType === 'INTERVIEW_ADDON') {
-        const { data } = await supabase.from('subscriptions').select('extra_interview_credits').eq('user_id', userId).single();
-        const current = data?.extra_interview_credits || 0;
-        await supabase.from('subscriptions').update({ extra_interview_credits: current + 1 }).eq('user_id', userId);
-    }
+/**
+ * CORE HELPER: Activates the plan for a user.
+ */
+export const activatePlanForUser = async (userId: string, planType: string) => {
+  let update: any = { user_id: userId };
+  
+  // Default usage structure for fallback
+  const defaultUsage = {
+      interview_used: 0, interview_limit: 1,
+      ppdt_used: 0, ppdt_limit: 10,
+      tat_used: 0, tat_limit: 2,
+      wat_used: 0, wat_limit: 3,
+      srt_used: 0, srt_limit: 3,
+      sdt_used: 0
+  };
+
+  if (planType === 'PRO_SUBSCRIPTION') {
+      update = {
+          ...update,
+          tier: 'PRO',
+          usage: {
+            interview_used: 0, interview_limit: 5,
+            ppdt_used: 0, ppdt_limit: 30,
+            tat_used: 0, tat_limit: 7,
+            wat_used: 0, wat_limit: 10,
+            srt_used: 0, srt_limit: 10,
+            sdt_used: 0
+          },
+          extra_credits: { interview: 0 } // Initialize extras if new
+      };
+      
+      // Preserve existing extras if upgrading
+      const { data: existing } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle();
+      if (existing) {
+          update.extra_credits = existing.extra_credits || { interview: 0 };
+      }
+      
+  } else if (planType === 'INTERVIEW_ADDON') {
+      const { data: current } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle();
+      
+      const currentExtras = current?.extra_credits?.interview || 0;
+      const currentUsage = current?.usage || defaultUsage;
+      const currentTier = current?.tier || 'FREE';
+
+      update = {
+          ...update,
+          tier: currentTier,
+          usage: currentUsage,
+          extra_credits: { interview: currentExtras + 1 }
+      };
+  }
+  
+  // Use UPSERT
+  const { error: subError } = await supabase.from('user_subscriptions').upsert(update);
+  if (subError) throw subError;
 };
 
-export const rejectPaymentRequest = async (requestId: string) => {
-    await supabase.from('payment_requests').update({ status: 'REJECTED' }).eq('id', requestId);
+export const approvePaymentRequest = async (id: string, userId: string, planType: string) => {
+  const { error: payError } = await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', id);
+  if (payError) throw payError;
+  await activatePlanForUser(userId, planType);
+};
+
+export const rejectPaymentRequest = async (id: string) => {
+  await supabase.from('payment_requests').update({ status: 'REJECTED' }).eq('id', id);
 };
 
 export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode?: string) => {
+    // 1. Insert Payment Record
     const { data, error } = await supabase.from('payment_requests').insert({
         user_id: userId,
         utr: paymentId,
         amount: amount,
         plan_type: planType,
-        status: 'APPROVED'
+        status: 'APPROVED', 
+        coupon_code: couponCode
     }).select().single();
     
-    if (error) throw error;
+    if (error) {
+        console.error("Payment Record Insert Failed", error);
+        throw new Error("Could not record payment. Database Error.");
+    }
     
-    await approvePaymentRequest(data.id, userId, planType);
+    // 2. Activate Subscription
+    await activatePlanForUser(userId, planType);
     
+    // 3. Increment Coupon Usage
     if (couponCode) {
-        const { data: c } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).single();
-        if (c) {
-            await supabase.from('coupons').update({ usage_count: c.usage_count + 1 }).eq('code', couponCode);
+        const { data: coupon } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).maybeSingle();
+        if (coupon) {
+            await supabase.from('coupons').update({ usage_count: (coupon.usage_count || 0) + 1 }).eq('code', couponCode);
         }
     }
 };
 
-// --- SCENARIO MANAGEMENT ---
+// --- CONTENT MANAGEMENT ---
 
 // PPDT
 export const getPPDTScenarios = async () => {
-    const { data } = await supabase.from('ppdt_scenarios').select('*');
-    return data || [];
+  const { data } = await supabase.from('ppdt_scenarios').select('*');
+  return data || [];
 };
 
 export const uploadPPDTScenario = async (file: File, description: string) => {
-    const fileName = `ppdt-${Date.now()}-${file.name}`;
-    await supabase.storage.from('scenarios').upload(fileName, file);
-    const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
-    
-    await supabase.from('ppdt_scenarios').insert({
-        image_url: publicUrl,
-        description: description
-    });
+  const fileName = `ppdt-${Date.now()}-${file.name}`;
+  const { data, error } = await supabase.storage.from('scenarios').upload(fileName, file);
+  if (error) throw error;
+  
+  const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
+  
+  await supabase.from('ppdt_scenarios').insert({
+      image_url: publicUrl,
+      description
+  });
 };
 
-export const deletePPDTScenario = async (id: string, url?: string) => {
-    await supabase.from('ppdt_scenarios').delete().eq('id', id);
+export const deletePPDTScenario = async (id: string, url: string) => {
+  const fileName = url.split('/').pop();
+  if (fileName) await supabase.storage.from('scenarios').remove([fileName]);
+  await supabase.from('ppdt_scenarios').delete().eq('id', id);
 };
 
 // TAT
 export const getTATScenarios = async () => {
-    const { data } = await supabase.from('tat_scenarios').select('*');
-    return data || [];
+  const { data } = await supabase.from('tat_scenarios').select('*').order('set_tag');
+  return data || [];
 };
 
 export const uploadTATScenario = async (file: File, description: string, setTag: string) => {
-    const fileName = `tat-${Date.now()}-${file.name}`;
-    await supabase.storage.from('scenarios').upload(fileName, file);
-    const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
-    
-    await supabase.from('tat_scenarios').insert({
-        image_url: publicUrl,
-        description: description,
-        set_tag: setTag
-    });
+  const fileName = `tat-${Date.now()}-${file.name}`;
+  const { error } = await supabase.storage.from('scenarios').upload(fileName, file);
+  if (error) throw error;
+  
+  const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
+  
+  await supabase.from('tat_scenarios').insert({
+      image_url: publicUrl,
+      description,
+      set_tag: setTag
+  });
 };
 
-export const deleteTATScenario = async (id: string, url?: string) => {
-    await supabase.from('tat_scenarios').delete().eq('id', id);
+export const deleteTATScenario = async (id: string, url: string) => {
+  const fileName = url.split('/').pop();
+  if (fileName) await supabase.storage.from('scenarios').remove([fileName]);
+  await supabase.from('tat_scenarios').delete().eq('id', id);
 };
 
 // WAT
 export const getWATWords = async () => {
-    const { data } = await supabase.from('wat_words').select('*');
-    return data || [];
+  const { data } = await supabase.from('wat_words').select('*').order('set_tag');
+  return data || [];
 };
 
 export const uploadWATWords = async (words: string[], setTag: string) => {
-    const rows = words.map(w => ({ word: w, set_tag: setTag }));
-    await supabase.from('wat_words').insert(rows);
+  const payload = words.map(w => ({ word: w, set_tag: setTag }));
+  await supabase.from('wat_words').insert(payload);
 };
 
 export const deleteWATWord = async (id: string) => {
-    await supabase.from('wat_words').delete().eq('id', id);
+  await supabase.from('wat_words').delete().eq('id', id);
 };
 
 export const deleteWATSet = async (tag: string) => {
-    await supabase.from('wat_words').delete().eq('set_tag', tag);
+  await supabase.from('wat_words').delete().eq('set_tag', tag);
 };
 
 // SRT
 export const getSRTQuestions = async () => {
-    const { data } = await supabase.from('srt_questions').select('*');
-    return data || [];
+  const { data } = await supabase.from('srt_questions').select('*').order('set_tag');
+  return data || [];
 };
 
 export const uploadSRTQuestions = async (questions: string[], setTag: string) => {
-    const rows = questions.map(q => ({ question: q, set_tag: setTag }));
-    await supabase.from('srt_questions').insert(rows);
+  const payload = questions.map(q => ({ question: q, set_tag: setTag }));
+  await supabase.from('srt_questions').insert(payload);
 };
 
 export const deleteSRTQuestion = async (id: string) => {
-    await supabase.from('srt_questions').delete().eq('id', id);
+  await supabase.from('srt_questions').delete().eq('id', id);
 };
 
 export const deleteSRTSet = async (tag: string) => {
-    await supabase.from('srt_questions').delete().eq('set_tag', tag);
+  await supabase.from('srt_questions').delete().eq('set_tag', tag);
 };
 
-// --- COUPONS ---
-
+// COUPONS
 export const getCoupons = async () => {
-    const { data } = await supabase.from('coupons').select('*');
-    return data || [];
+  const { data } = await supabase.from('coupons').select('*');
+  return data || [];
 };
 
 export const createCoupon = async (code: string, discount: number, influencer: string) => {
-    await supabase.from('coupons').insert({
-        code,
-        discount_percent: discount,
-        influencer_name: influencer,
-        usage_count: 0
-    });
+  await supabase.from('coupons').insert({
+      code: code.toUpperCase(),
+      discount_percent: discount,
+      influencer_name: influencer
+  });
 };
 
 export const deleteCoupon = async (code: string) => {
-    await supabase.from('coupons').delete().eq('code', code);
+  await supabase.from('coupons').delete().eq('code', code);
 };
 
 export const validateCoupon = async (code: string) => {
-    const { data } = await supabase.from('coupons').select('*').eq('code', code).single();
-    if (data) {
-        return { valid: true, discount: data.discount_percent, message: `Coupon Applied! ${data.discount_percent}% OFF` };
-    }
-    return { valid: false, discount: 0, message: "Invalid Coupon Code" };
+  const { data } = await supabase.from('coupons').select('*').eq('code', code.toUpperCase()).maybeSingle();
+  if (!data) return { valid: false, message: 'Invalid Code' };
+  return { valid: true, discount: data.discount_percent, message: `Success! ${data.discount_percent}% OFF applied.` };
 };
 
-// --- ANNOUNCEMENTS ---
-
-export const getRecentAnnouncements = async (): Promise<Announcement[]> => {
-    const { data } = await supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(5);
-    return data || [];
-};
-
-export const subscribeToAnnouncements = (callback: (a: Announcement) => void) => {
-    const channel = supabase.channel('public:announcements')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, payload => {
-            callback(payload.new as Announcement);
-        })
-        .subscribe();
-        
-    return () => { supabase.removeChannel(channel); };
-};
-
-export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT') => {
-    await supabase.from('announcements').insert({
-        message,
-        type,
-        is_active: true
-    });
-};
-
-// --- FEEDBACK ---
-
-export const submitUserFeedback = async (userId: string, testType: string, rating: number, comments: string) => {
-    await supabase.from('feedback').insert({
-        user_id: userId,
-        test_type: testType,
-        rating,
-        comments
-    });
-};
-
-export const getAllFeedback = async () => {
-    const { data } = await supabase.from('feedback').select('*, aspirants(full_name)').order('created_at', { ascending: false });
-    return data || [];
-};
-
-export const deleteFeedback = async (id: string) => {
-    await supabase.from('feedback').delete().eq('id', id);
-};
-
-// --- DAILY CHALLENGE ---
-
+// DAILY CHALLENGE
 export const getLatestDailyChallenge = async () => {
   const { data } = await supabase
     .from('daily_challenges')
@@ -476,53 +644,70 @@ export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: s
 };
 
 export const getDailySubmissions = async (challengeId: string) => {
-  // 1. Fetch submissions with author info
-  const { data: submissions } = await supabase
+  const { data } = await supabase
     .from('daily_submissions')
-    .select('*, aspirants(full_name, streak_count)')
+    .select('*, aspirants(full_name)')
     .eq('challenge_id', challengeId)
     .order('created_at', { ascending: false });
-
-  // 2. Fetch current user's likes to determine isLiked status
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (user && submissions && submissions.length > 0) {
-      const { data: likes } = await supabase.from('submission_likes')
-        .select('submission_id')
-        .eq('user_id', user.id);
-        
-      const likedIds = new Set(likes?.map(l => l.submission_id));
-      
-      return submissions.map(s => ({
-          ...s,
-          isLiked: likedIds.has(s.id)
-      }));
-  }
-
-  return submissions || [];
+  return data || [];
 };
 
-export const toggleLike = async (submissionId: string, userId: string) => {
-  // 1. Check if the user already liked this submission
-  const { data: existing } = await supabase.from('submission_likes')
-    .select('id')
-    .eq('submission_id', submissionId)
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  // 2. Get current count to update UI accurately
+export const toggleLike = async (submissionId: string) => {
   const { data: sub } = await supabase.from('daily_submissions').select('likes_count').eq('id', submissionId).single();
-  const currentCount = sub?.likes_count || 0;
-
-  if (existing) {
-    // UNLIKE: Remove record and decrement count
-    await supabase.from('submission_likes').delete().eq('id', existing.id);
-    await supabase.from('daily_submissions').update({ likes_count: Math.max(0, currentCount - 1) }).eq('id', submissionId);
-    return false; // Result is "Not Liked"
-  } else {
-    // LIKE: Insert record and increment count
-    await supabase.from('submission_likes').insert({ submission_id: submissionId, user_id: userId });
-    await supabase.from('daily_submissions').update({ likes_count: currentCount + 1 }).eq('id', submissionId);
-    return true; // Result is "Liked"
+  if (sub) {
+      await supabase.from('daily_submissions').update({ likes_count: (sub.likes_count || 0) + 1 }).eq('id', submissionId);
   }
+};
+
+// ANNOUNCEMENTS
+export const getRecentAnnouncements = async (): Promise<Announcement[]> => {
+  const { data } = await supabase
+    .from('announcements')
+    .select('*')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(5);
+  return data || [];
+};
+
+export const subscribeToAnnouncements = (callback: (a: Announcement) => void) => {
+  const channel = supabase
+    .channel('public:announcements')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, payload => {
+        callback(payload.new as Announcement);
+    })
+    .subscribe();
+    
+  return () => { supabase.removeChannel(channel); };
+};
+
+export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT') => {
+  await supabase.from('announcements').insert({
+      message,
+      type,
+      is_active: true
+  });
+};
+
+// --- USER FEEDBACK ---
+
+export const submitUserFeedback = async (userId: string, testType: string, rating: number, comments: string) => {
+  await supabase.from('user_feedback').insert({
+      user_id: userId,
+      test_type: testType,
+      rating: rating,
+      comments: comments
+  });
+};
+
+export const getAllFeedback = async () => {
+  const { data } = await supabase
+    .from('user_feedback')
+    .select('*, aspirants(full_name, email)')
+    .order('created_at', { ascending: false });
+  return data || [];
+};
+
+export const deleteFeedback = async (id: string) => {
+  await supabase.from('user_feedback').delete().eq('id', id);
 };
