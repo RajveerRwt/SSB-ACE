@@ -42,9 +42,22 @@ export const subscribeToAuthChanges = (callback: (user: User | null) => void) =>
 };
 
 export const isUserAdmin = (email: string | null | undefined) => {
-  // Simple check for now, can be replaced with RLS or a table check
-  const adminEmails = ['admin@ssbprep.online', 'contact.ssbprep@gmail.com']; 
-  return adminEmails.includes(email || '');
+  if (!email) return false;
+  
+  // Normalized check
+  const lowerEmail = email.toLowerCase().trim();
+  
+  const adminEmails = [
+    'admin@ssbprep.online', 
+    'contact.ssbprep@gmail.com',
+    'rajveer.rwt@gmail.com', 
+    'cadet@ssbzone.com' 
+  ]; 
+  
+  // Allow manual override via LocalStorage for development (Run: localStorage.setItem('SSB_ADMIN', 'true') in console)
+  const localOverride = typeof window !== 'undefined' && localStorage.getItem('SSB_ADMIN') === 'true';
+  
+  return adminEmails.includes(lowerEmail) || localOverride;
 };
 
 export const syncUserProfile = async (user: User) => {
@@ -476,34 +489,30 @@ export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: s
 };
 
 export const getDailySubmissions = async (challengeId: string) => {
-  // 1. Get User
-  const { data: { user } } = await supabase.auth.getUser();
-
-  // 2. Fetch Submissions with author info
+  // 1. Fetch submissions with author info
   const { data: submissions } = await supabase
     .from('daily_submissions')
     .select('*, aspirants(full_name, streak_count)')
     .eq('challenge_id', challengeId)
     .order('created_at', { ascending: false });
 
-  if (!submissions) return [];
-
-  // 3. If user exists, check which submissions they liked
-  if (user) {
-      const { data: likes } = await supabase
-        .from('submission_likes')
+  // 2. Fetch current user's likes to determine isLiked status
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (user && submissions && submissions.length > 0) {
+      const { data: likes } = await supabase.from('submission_likes')
         .select('submission_id')
         .eq('user_id', user.id);
         
-      const likedIds = new Set(likes?.map((l: any) => l.submission_id));
+      const likedIds = new Set(likes?.map(l => l.submission_id));
       
-      return submissions.map((s: any) => ({
+      return submissions.map(s => ({
           ...s,
           isLiked: likedIds.has(s.id)
       }));
   }
 
-  return submissions;
+  return submissions || [];
 };
 
 export const toggleLike = async (submissionId: string, userId: string) => {
@@ -516,19 +525,17 @@ export const toggleLike = async (submissionId: string, userId: string) => {
 
   // 2. Get current count to update UI accurately
   const { data: sub } = await supabase.from('daily_submissions').select('likes_count').eq('id', submissionId).single();
-  let currentCount = sub?.likes_count || 0;
+  const currentCount = sub?.likes_count || 0;
 
   if (existing) {
     // UNLIKE: Remove record and decrement count
     await supabase.from('submission_likes').delete().eq('id', existing.id);
-    currentCount = Math.max(0, currentCount - 1);
-    await supabase.from('daily_submissions').update({ likes_count: currentCount }).eq('id', submissionId);
+    await supabase.from('daily_submissions').update({ likes_count: Math.max(0, currentCount - 1) }).eq('id', submissionId);
     return false; // Result is "Not Liked"
   } else {
     // LIKE: Insert record and increment count
     await supabase.from('submission_likes').insert({ submission_id: submissionId, user_id: userId });
-    currentCount = currentCount + 1;
-    await supabase.from('daily_submissions').update({ likes_count: currentCount }).eq('id', submissionId);
+    await supabase.from('daily_submissions').update({ likes_count: currentCount + 1 }).eq('id', submissionId);
     return true; // Result is "Liked"
   }
 };
