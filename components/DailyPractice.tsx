@@ -39,6 +39,7 @@ const DailyPractice: React.FC = () => {
       
       if (ch) {
         setChallenge(ch);
+        // This now checks likes internally using the active session
         const subs = await getDailySubmissions(ch.id);
         setSubmissions(subs);
         
@@ -91,17 +92,22 @@ const DailyPractice: React.FC = () => {
 
   const handleLike = async (subId: string) => {
       if (!user) return;
+      
+      // Optimistic UI update
       setSubmissions(prev => prev.map(s => {
           if (s.id === subId) {
+              const newLikedState = !s.isLiked;
               return {
                   ...s,
-                  isLiked: !s.isLiked,
-                  likes_count: s.isLiked ? s.likes_count - 1 : s.likes_count + 1
+                  isLiked: newLikedState,
+                  likes_count: newLikedState ? (s.likes_count || 0) + 1 : Math.max(0, (s.likes_count || 0) - 1)
               };
           }
           return s;
       }));
-      await toggleLike(subId);
+
+      // Call backend with userId
+      await toggleLike(subId, user.id);
   };
 
   const getBadges = (submissionIndex: number, sub: any) => {
@@ -109,6 +115,8 @@ const DailyPractice: React.FC = () => {
       if (sub.likes_count >= 5) badges.push({ icon: Star, color: 'text-yellow-400', label: 'Popular' });
       if (sub.ppdt_story && sub.ppdt_story.length > 500) badges.push({ icon: PenTool, color: 'text-purple-400', label: 'Orator' });
       if (sub.aspirants?.streak_count > 3) badges.push({ icon: Flame, color: 'text-orange-500', label: 'Consistent' });
+      
+      // Rank badges based on sort order (Top 3)
       if (submissionIndex === 0) badges.push({ icon: Trophy, color: 'text-yellow-500', label: 'Top Cadet' });
       if (submissionIndex === 1) badges.push({ icon: Medal, color: 'text-slate-400', label: 'Runner Up' });
       if (submissionIndex === 2) badges.push({ icon: Medal, color: 'text-orange-700', label: 'Bronze' });
@@ -132,6 +140,13 @@ const DailyPractice: React.FC = () => {
           )}
       </div>
   );
+
+  // Sort submissions for Leaderboard: Highest Likes First
+  // We create a copy to avoid mutating the original state order if we want feed to be chronological
+  // But usually feed is also sorted by popularity or newest. Let's keep feed chronological (Newest) but Leaderboard by Likes.
+  const leaderboardSubmissions = [...submissions]
+      .sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0))
+      .slice(0, 3);
 
   return (
     <div className="max-w-5xl mx-auto space-y-12 pb-20 animate-in fade-in duration-700">
@@ -157,10 +172,10 @@ const DailyPractice: React.FC = () => {
          <Flame className="absolute -bottom-10 -right-10 w-64 h-64 text-orange-500/10 rotate-12 pointer-events-none" />
       </div>
 
-      {/* LEADERBOARD (Top 3) */}
-      {submissions.length > 0 && (
+      {/* LEADERBOARD (Top 3 by Likes) */}
+      {leaderboardSubmissions.length > 0 && leaderboardSubmissions[0].likes_count > 0 && (
           <div className="grid grid-cols-3 gap-2 md:gap-4 max-w-3xl mx-auto">
-              {submissions.slice(0, 3).map((sub, i) => (
+              {leaderboardSubmissions.map((sub, i) => (
                   <div key={sub.id} className={`relative p-4 rounded-2xl border text-center flex flex-col items-center gap-2 ${i === 0 ? 'bg-yellow-50 border-yellow-400 order-2 scale-110 shadow-xl' : i === 1 ? 'bg-slate-50 border-slate-200 order-1' : 'bg-orange-50 border-orange-200 order-3'}`}>
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                           {i === 0 ? <Trophy size={24} className="text-yellow-500 fill-yellow-500" /> : <Medal size={20} className={i === 1 ? "text-slate-400" : "text-orange-700"} />}
