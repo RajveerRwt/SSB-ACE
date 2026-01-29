@@ -174,14 +174,23 @@ const Dashboard: React.FC<{
                  )}
                </div>
              ) : (
-               <div className="pt-4">
-                  <button 
-                    onClick={() => onStartTest(TestType.LOGIN)}
-                    className="w-full md:w-auto px-12 py-6 bg-yellow-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3"
-                  >
-                    <LogIn size={18} /> Join / Login to Start
-                  </button>
-                  <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Sign up to access AI Interview & Psychology Tests</p>
+               <div className="pt-6">
+                  <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                    <button 
+                        onClick={() => onStartTest(TestType.LOGIN)}
+                        className="flex-1 md:flex-none px-8 md:px-10 py-5 bg-white/5 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3 backdrop-blur-sm"
+                    >
+                        <LogIn size={18} /> Login
+                    </button>
+                    
+                    <button 
+                        onClick={() => onStartTest(TestType.REGISTER)}
+                        className="flex-1 md:flex-none px-8 md:px-10 py-5 bg-yellow-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3"
+                    >
+                        <UserPlus size={18} /> New User Registration
+                    </button>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 pl-1">Sign up to access AI Interview & Psychology Tests</p>
                </div>
              )}
 
@@ -268,13 +277,12 @@ const Dashboard: React.FC<{
                        <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-bold uppercase">Basic</span>
                     </div>
                     <ul className="space-y-4 text-xs font-bold text-slate-500">
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 1 Personal Interview(with VIRTUAL IO)</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 10 PPDT Scenarios with narration</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 1 AI Personal Interview</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 10 PPDT Scenarios</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 2 TAT Sets</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 3 SRT & 3 WAT Sets</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> Daily News & Practice</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> AI Guide (Major Veer)</li>
-                       <li className="flex items-center gap-3"><Star size={16} className="text-yellow-500"/> Detailed & Personalized Assessment</li>
                     </ul>
                  </div>
 
@@ -289,12 +297,10 @@ const Dashboard: React.FC<{
                        <span className="text-2xl font-black text-slate-900">₹199</span>
                     </div>
                     <ul className="space-y-4 text-xs font-bold text-slate-700">
-                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 5 Personal Interviews(with VIRTUAL IO)</li>
-                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 30 PPDT Scenarios with narration</li>
+                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 5 AI Personal Interviews</li>
+                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 30 PPDT Scenarios</li>
                        <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 7 TAT Sets</li>
                        <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 10 SRT & 10 WAT Sets</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> Daily News & Practice</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> AI Guide (Major Veer)</li>
                        <li className="flex items-center gap-3"><Star size={16} className="text-yellow-500"/> Detailed & Personalized Assessment</li>
                     </ul>
                     <button onClick={onOpenPayment} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-all shadow-lg mt-2 flex items-center justify-center gap-2 group">
