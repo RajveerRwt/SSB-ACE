@@ -17,7 +17,7 @@ import CurrentAffairs from './CurrentAffairs';
 import DailyPractice from './DailyPractice';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, MessageCircle, Percent, Tag, ArrowUpRight, X } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle, Phone, UserPlus, MessageCircle, Percent, Tag, ArrowUpRight, X } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Dashboard Component
@@ -30,7 +30,6 @@ const Dashboard: React.FC<{
   onOpenPayment: () => void
 }> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user, onOpenPayment }) => {
   const [quoteIndex, setQuoteIndex] = useState(0);
-  const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
@@ -44,15 +43,6 @@ const Dashboard: React.FC<{
     { text: "I regret I have but one life to give for my country.", author: "Capt. Manoj Kumar Pandey, PVC" }
   ];
 
-  const testimonials = [
-    { text: "The 1:1 Virtual Interview experience was very realistic. The assessment report was detailed and actionable. A great platform for SSB preparation.", name: "Deepak Rai", role: "NDA Aspirant" },
-    { text: "AI-based Virtual IO surprisingly accurate hai. Pressure, questions aur feedback sab kuch real interview jaisa laga.", name: "Aditya", role: "CDS Aspirant" },
-    { text: "Never seen this level of personal interview practice before. Interview section is really great and feeling like IO is real and body language bhi dekhta h.", name: "Vikram Singh", role: "NCC/AFCAT Entry" },
-    { text: "This platform focuses on genuine improvement, not shortcuts. The detailed assessment really helps in developing officer-like qualities.", name: "aditi pandey", role: "NDA/TES Aspirant" },
-    { text: "The platform simulates real SSB pressure. Especially the Virtual IO interview — very close to the actual experience.", name: "vivek rawat", role: "graduate/cds/afcat Entry" },
-    { text: " as founder contact me for testing this app  and really One of the most structured and realistic SSB practice platforms I’ve used online.", name: "Ayush singh", role: " SSB recommended" }
-  ];
-
   useEffect(() => {
     const timer = setInterval(() => {
       setQuoteIndex(prev => (prev + 1) % quotes.length);
@@ -60,25 +50,18 @@ const Dashboard: React.FC<{
     return () => clearInterval(timer);
   }, [quotes.length]);
 
-  useEffect(() => {
-    const tTimer = setInterval(() => {
-      setTestimonialIndex(prev => (prev + 1) % testimonials.length);
-    }, 6000);
-    return () => clearInterval(tTimer);
-  }, [testimonials.length]);
-
   // Fetch History, Sub Stats, and Payment Status
   useEffect(() => {
     if (isLoggedIn && user && !user.startsWith('demo')) {
       setLoadingHistory(true);
-      getUserHistory(user).then((data: any[]) => {
+      getUserHistory(user).then(data => {
         setHistory(data);
         setLoadingHistory(false);
       });
-      getUserSubscription(user).then((sub: UserSubscription) => setSubscription(sub));
+      getUserSubscription(user).then(sub => setSubscription(sub));
       
       const fetchStatus = () => {
-         getLatestPaymentRequest(user).then((status: any) => setPaymentStatus(status));
+         getLatestPaymentRequest(user).then(status => setPaymentStatus(status));
       };
       
       // Initial fetch
@@ -88,7 +71,7 @@ const Dashboard: React.FC<{
       const interval = setInterval(() => {
           fetchStatus();
           // Also refresh subscription to catch approval
-          getUserSubscription(user).then((sub: UserSubscription) => setSubscription(sub));
+          getUserSubscription(user).then(sub => setSubscription(sub));
       }, 30000); // Check every 30s
       
       return () => clearInterval(interval);
@@ -312,13 +295,12 @@ const Dashboard: React.FC<{
                        <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-bold uppercase">Basic</span>
                     </div>
                     <ul className="space-y-4 text-xs font-bold text-slate-500">
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 1 Personal Interview( with virtual IO)</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 10 PPDT Scenarios with narration</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 1 AI Personal Interview</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 10 PPDT Scenarios</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 2 TAT Sets</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 3 SRT & 3 WAT Sets</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> Daily News & Practice</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> AI Guide (Major Veer)</li>
-                       <li className="flex items-center gap-3"><Star size={16} className="text-yellow-500"/> Detailed & Personalized Assessment</li>
                     </ul>
                  </div>
 
@@ -333,12 +315,10 @@ const Dashboard: React.FC<{
                        <span className="text-2xl font-black text-slate-900">₹199</span>
                     </div>
                     <ul className="space-y-4 text-xs font-bold text-slate-700">
-                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 5 Personal Interviews (with virtual IO)</li>
+                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 5 AI Personal Interviews</li>
                        <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 30 PPDT Scenarios</li>
                        <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 7 TAT Sets</li>
                        <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 10 SRT & 10 WAT Sets</li>
-                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> Daily News & Practice</li>
-                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> AI Guide (Major Veer)</li>
                        <li className="flex items-center gap-3"><Star size={16} className="text-yellow-500"/> Detailed & Personalized Assessment</li>
                     </ul>
                     <button onClick={onOpenPayment} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-all shadow-lg mt-2 flex items-center justify-center gap-2 group">
@@ -391,82 +371,33 @@ const Dashboard: React.FC<{
                )}
              </div>
            )}
-           
-           {/* ROADMAP SECTION */}
-           <div className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[4rem] border border-slate-100 shadow-xl flex flex-col">
-             <div className="flex justify-between items-center mb-6 md:mb-10">
-                <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-4">
-                  <Zap className="text-blue-600" /> Strategic Roadmap
-                </h3>
-                <button onClick={() => onStartTest(TestType.STAGES)} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">View Full Plan</button>
-             </div>
-             <div className="space-y-4 md:space-y-5">
-                {[
-                  { id: TestType.PIQ, name: 'Personal Info Questionnaire', type: 'Phase 0: Admin', time: '15 mins', status: isLoggedIn ? (piqLoaded ? 'Completed' : 'Action Required') : 'Login Required' },
-                  { id: TestType.PPDT, name: 'PPDT Simulation', type: 'Stage 1: Screening', time: '10 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
-                  { id: TestType.SDT, name: 'Self Description Test', type: 'Stage 2: Psychology', time: '15 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
-                  { id: TestType.INTERVIEW, name: 'Stage 2: Personal Interview', type: 'IO Evaluation', time: '40 mins', status: isLoggedIn ? (piqLoaded ? 'Available' : 'Restricted') : 'Login Required' },
-                  { id: TestType.TAT, name: 'Stage 2: Psychology (TAT)', type: 'Mental Strength', time: '45 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
-                ].map((test, i) => (
-                  <div 
-                    key={i} 
-                    onClick={() => {
-                        if (!isLoggedIn) onStartTest(TestType.LOGIN);
-                        else if (test.id !== TestType.INTERVIEW || piqLoaded) onStartTest(test.id);
-                        else onStartTest(TestType.PIQ);
-                    }}
-                    className="flex items-center justify-between p-5 md:p-7 bg-slate-50 rounded-[2rem] md:rounded-[2.5rem] border-2 border-transparent hover:border-slate-900 hover:bg-white transition-all cursor-pointer group shadow-sm hover:shadow-2xl"
-                  >
-                    <div className="flex items-center gap-4 md:gap-6">
-                      <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all shrink-0 ${
-                        test.status === 'Completed' ? 'bg-green-100 text-green-600' : 
-                        (test.status === 'Restricted' || test.status === 'Login Required') ? 'bg-slate-200 text-slate-400' : 'bg-slate-900 text-white group-hover:rotate-6'
-                      }`}>
-                        {test.status === 'Completed' ? <CheckCircle size={20} /> : (test.status === 'Restricted' || test.status === 'Login Required') ? <Lock size={20} /> : <Zap size={20} />}
-                      </div>
-                      <div>
-                        <h5 className="font-black text-slate-900 uppercase text-xs tracking-widest truncate max-w-[150px] md:max-w-none">{test.name}</h5>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 tracking-widest">{test.type} • {test.time}</p>
-                      </div>
-                    </div>
-                    <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                ))}
-             </div>
-           </div>
          </div>
 
          <div className="lg:col-span-4 space-y-6 md:space-y-10">
-            {/* TESTIMONIAL SLIDER */}
-            <div className="bg-slate-900 p-8 md:p-10 rounded-[2rem] md:rounded-[3.5rem] text-white shadow-xl flex flex-col items-center text-center gap-6 group hover:scale-[1.02] transition-all relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-4 opacity-5">
-                  <MessageCircle size={80} />
+            {/* ASPIRANT'S CREED */}
+            <div className="bg-slate-950 p-8 md:p-12 rounded-[2rem] md:rounded-[4rem] text-white shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
+               <div className="absolute top-0 left-0 w-full h-1.5 bg-yellow-500" />
+               <Star className="text-yellow-400 w-12 h-12 md:w-16 md:h-16 mb-6 md:mb-8 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]" />
+               <h3 className="text-xl md:text-2xl font-black uppercase tracking-widest mb-4 md:mb-6">The Aspirant's Creed</h3>
+               <div className="space-y-4 md:space-y-6 text-xs md:text-sm font-medium italic text-slate-400 leading-relaxed">
+                  <p>"I am a leader in the making. I do not fear the challenge; I welcome the trial."</p>
+                  <p>"I shall be honest with my words, firm with my actions, and loyal to my team."</p>
+                  <p>"Failure is but a lesson in persistence. My resolve is my shield, and my discipline is my weapon."</p>
                </div>
-               <div className="relative z-10 w-full space-y-6">
-                  <div className="flex items-center justify-center gap-3 text-yellow-400">
-                     <Star size={14} fill="currentColor" />
-                     <Star size={14} fill="currentColor" />
-                     <Star size={14} fill="currentColor" />
-                     <Star size={14} fill="currentColor" />
-                     <Star size={14} fill="currentColor" />
-                  </div>
-                  <div className="h-[180px] flex items-center justify-center">
-                     <div key={testimonialIndex} className="space-y-4 animate-in fade-in zoom-in duration-500">
-                        <p className="text-xs md:text-sm font-medium italic text-slate-300 leading-relaxed">
-                           "{testimonials[testimonialIndex].text}"
-                        </p>
-                        <div>
-                           <h4 className="font-black text-white uppercase text-xs tracking-widest">{testimonials[testimonialIndex].name}</h4>
-                           <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">{testimonials[testimonialIndex].role}</p>
-                        </div>
-                     </div>
-                  </div>
-                  <div className="flex justify-center gap-1.5">
-                     {testimonials.map((_, idx) => (
-                        <div key={idx} className={`h-1 rounded-full transition-all duration-300 ${idx === testimonialIndex ? 'w-6 bg-yellow-400' : 'w-2 bg-slate-700'}`} />
-                     ))}
-                  </div>
+            </div>
+
+            {/* SSB NAVIGATOR */}
+            <div className="bg-blue-600 p-8 md:p-10 rounded-[2rem] md:rounded-[3.5rem] text-white shadow-xl flex flex-col items-center text-center gap-6 group hover:scale-[1.02] transition-all">
+               <div className="w-16 h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center border border-white/30 shadow-2xl">
+                 <Shield className="w-8 h-8 md:w-10 md:h-10 text-white" />
                </div>
+               <div>
+                 <h4 className="text-lg md:text-xl font-black uppercase tracking-widest mb-2">SSB Navigator</h4>
+                 <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                   Comprehensive 5-Day Stage Guide Active
+                 </p>
+               </div>
+               <button onClick={() => onStartTest(TestType.STAGES)} className="w-full py-4 bg-white text-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl">Briefing Room</button>
             </div>
          </div>
       </div>
