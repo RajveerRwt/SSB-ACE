@@ -186,7 +186,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
 
   return (
     <div className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
-       <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+       <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
           
           {/* Header */}
           <div className="bg-slate-950 p-6 text-center relative shrink-0">
@@ -208,39 +208,70 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
           <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
              
              {step === 'SELECT' && (
-               <div className="space-y-4">
-                  {/* Single PRO Plan - Price updated to 199 */}
-                  <div 
-                    onClick={() => initiatePayment(199, 'PRO_SUBSCRIPTION')}
-                    className="p-5 rounded-[2rem] border-2 border-slate-100 hover:border-yellow-400 cursor-pointer transition-all hover:bg-yellow-50/50 group relative overflow-hidden bg-white shadow-sm"
-                  >
-                    <div className="absolute top-0 right-0 bg-yellow-400 text-black px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-widest">Best Value</div>
-                    <div className="flex justify-between items-center mb-2">
-                       <h4 className="font-black text-slate-900 uppercase italic text-lg">Pro Cadet</h4>
-                       <span className="text-xl font-black text-slate-900">₹199</span>
-                    </div>
-                    <ul className="text-xs text-slate-600 space-y-2 font-medium">
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> 5 Personal Interviews (Virtual)</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> 30 PPDT Simulation Sets</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> 7 TAT Psychology Sets</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> 10 WAT & SRT Sets</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Detailed Performance Assessment</li>
-                       <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> AI Guide & SDT Access</li>
-                    </ul>
+               <div className="space-y-6">
+                  <div className="text-center space-y-2">
+                      <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Select Your Mission Pack</h4>
+                      <p className="text-slate-500 text-xs font-medium">Upgrade to unlock full assessment capabilities.</p>
                   </div>
 
-                  {/* Interview Top-up - Price updated to 19 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* FREE PLAN */}
+                      <div className="p-6 rounded-[2rem] border-2 border-slate-100 bg-slate-50 flex flex-col justify-between opacity-80 hover:opacity-100 transition-opacity">
+                          <div>
+                              <div className="flex justify-between items-start mb-4">
+                                  <h5 className="font-black text-slate-500 uppercase tracking-widest text-xs">Cadet</h5>
+                                  <span className="bg-slate-200 text-slate-600 px-2 py-1 rounded text-[9px] font-bold uppercase">Basic</span>
+                              </div>
+                              <div className="mb-6">
+                                  <span className="text-3xl font-black text-slate-400">Free</span>
+                              </div>
+                              <ul className="space-y-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                  <li className="flex gap-2"><CheckCircle size={14} /> 1 Interview Trial</li>
+                                  <li className="flex gap-2"><CheckCircle size={14} /> 10 PPDT Sets</li>
+                                  <li className="flex gap-2"><CheckCircle size={14} /> 2 TAT Sets</li>
+                                  <li className="flex gap-2"><CheckCircle size={14} /> Limited History</li>
+                              </ul>
+                          </div>
+                      </div>
+
+                      {/* PRO PLAN */}
+                      <div 
+                        onClick={() => initiatePayment(199, 'PRO_SUBSCRIPTION')}
+                        className="p-6 rounded-[2rem] border-4 border-yellow-400 bg-white relative overflow-hidden cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all group"
+                      >
+                          <div className="absolute top-0 right-0 bg-yellow-400 text-black px-4 py-1.5 rounded-bl-2xl text-[9px] font-black uppercase tracking-widest shadow-md">Recommended</div>
+                          <div>
+                              <div className="flex justify-between items-start mb-4">
+                                  <h5 className="font-black text-slate-900 uppercase tracking-widest text-xs">Officer</h5>
+                                  <span className="bg-blue-600 text-white px-2 py-1 rounded text-[9px] font-bold uppercase">Pro</span>
+                              </div>
+                              <div className="mb-6 flex items-baseline gap-2">
+                                  <span className="text-3xl font-black text-slate-900">₹199</span>
+                                  <span className="text-sm font-bold text-slate-400 line-through">₹399</span>
+                              </div>
+                              <ul className="space-y-3 text-[10px] font-bold text-slate-700 uppercase tracking-widest">
+                                  <li className="flex gap-2"><Zap size={14} className="text-blue-600 fill-blue-600" /> 5 AI Interviews</li>
+                                  <li className="flex gap-2"><Zap size={14} className="text-blue-600 fill-blue-600" /> 30 PPDT Sets</li>
+                                  <li className="flex gap-2"><Zap size={14} className="text-blue-600 fill-blue-600" /> 7 TAT Sets</li>
+                                  <li className="flex gap-2"><Zap size={14} className="text-blue-600 fill-blue-600" /> Advanced Analytics</li>
+                              </ul>
+                          </div>
+                          <button className="w-full mt-6 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest group-hover:bg-black transition-colors">Select Plan</button>
+                      </div>
+                  </div>
+
+                  {/* Interview Top-up */}
                   <div 
                     onClick={() => initiatePayment(19, 'INTERVIEW_ADDON')}
-                    className="p-5 rounded-[2rem] border-2 border-slate-100 hover:border-blue-400 cursor-pointer transition-all hover:bg-blue-50 group"
+                    className="p-4 rounded-[1.5rem] border-2 border-slate-100 hover:border-blue-300 cursor-pointer transition-all hover:bg-blue-50 flex items-center justify-between gap-4 group"
                   >
-                    <div className="flex justify-between items-center mb-2">
-                       <h4 className="font-black text-blue-900 uppercase italic text-lg">Interview Top-up</h4>
-                       <span className="text-xl font-black text-blue-900">₹19</span>
+                    <div>
+                       <h4 className="font-black text-slate-700 uppercase text-xs tracking-widest">Need more Interviews?</h4>
+                       <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Add 1 Extra Credit for ₹19</p>
                     </div>
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                       Add <span className="text-slate-900 font-bold">1 Extra AI Interview Credit</span> to your existing plan. Valid until used.
-                    </p>
+                    <div className="bg-white p-2 rounded-xl border border-slate-200 group-hover:border-blue-200 shadow-sm">
+                        <Smartphone size={20} className="text-slate-400 group-hover:text-blue-500" />
+                    </div>
                   </div>
                </div>
              )}

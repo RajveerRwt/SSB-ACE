@@ -17,7 +17,7 @@ import CurrentAffairs from './CurrentAffairs';
 import DailyPractice from './DailyPractice';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, MessageCircle } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, MessageCircle, Percent, Tag } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Dashboard Component
@@ -126,6 +126,42 @@ const Dashboard: React.FC<{
                </div>
             </div>
             <button onClick={onOpenPayment} className="px-4 py-2 bg-red-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest">Retry Payment</button>
+         </div>
+      )}
+
+      {/* DISCOUNT OFFER BANNER */}
+      {(!subscription || subscription.tier === 'FREE') && (
+         <div 
+            onClick={onOpenPayment}
+            className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-[2rem] p-6 text-white shadow-xl cursor-pointer hover:scale-[1.01] transition-transform relative overflow-hidden group border-4 border-white/10"
+         >
+            <div className="absolute -right-4 -top-4 opacity-10 rotate-12 group-hover:opacity-20 transition-opacity">
+                <Percent size={120} />
+            </div>
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+                <div className="flex items-center gap-5">
+                    <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md shadow-inner border border-white/20">
+                        <Tag size={28} className="text-yellow-400" />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                            <span className="bg-yellow-400 text-black px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm">Limited Time</span>
+                            <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">New Cadets</span>
+                        </div>
+                        <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight leading-none">Flat 50% OFF <span className="text-indigo-200">Pro Plan</span></h3>
+                        <p className="text-xs font-medium text-indigo-100 mt-1">Get 5 AI Interviews + Full Access for just <span className="text-white font-black text-sm">₹99</span> <span className="line-through opacity-60">₹199</span></p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4 bg-white/10 px-5 py-3 rounded-2xl border border-white/20 backdrop-blur-sm group-hover:bg-white/15 transition-all">
+                    <div className="text-center border-r border-white/20 pr-4">
+                        <p className="text-[8px] font-black uppercase tracking-[0.2em] text-indigo-200">Coupon Code</p>
+                        <p className="text-xl font-black text-yellow-400 tracking-widest font-mono">SSB50</p>
+                    </div>
+                    <button className="text-[10px] font-black uppercase tracking-widest bg-white text-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-50 transition-colors">
+                        Claim Now
+                    </button>
+                </div>
+            </div>
          </div>
       )}
 
