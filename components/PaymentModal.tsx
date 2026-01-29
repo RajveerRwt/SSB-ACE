@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock, Tag, CreditCard } from 'lucide-react';
+import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock, Tag, CreditCard, BookOpen } from 'lucide-react';
 import { processRazorpayTransaction, getLatestPaymentRequest, validateCoupon } from '../services/supabaseService';
 
 interface PaymentModalProps {
@@ -186,7 +186,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
 
   return (
     <div className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
-       <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+       <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
           
           {/* Header */}
           <div className="bg-slate-950 p-6 text-center relative shrink-0">
@@ -217,27 +217,32 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                   {/* PRO PLAN - Full Width */}
                   <div 
                     onClick={() => initiatePayment(199, 'PRO_SUBSCRIPTION')}
-                    className="p-6 rounded-[2rem] border-4 border-yellow-400 bg-white relative overflow-hidden cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all group"
+                    className="p-6 rounded-[2rem] border-4 border-yellow-400 bg-white relative overflow-hidden cursor-pointer hover:shadow-2xl hover:scale-[1.01] transition-all group"
                   >
                       <div className="absolute top-0 right-0 bg-yellow-400 text-black px-4 py-1.5 rounded-bl-2xl text-[9px] font-black uppercase tracking-widest shadow-md">Recommended</div>
-                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                          <div>
-                              <div className="flex items-center gap-3 mb-2">
+                      <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+                          <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-4">
                                   <h5 className="font-black text-slate-900 uppercase tracking-widest text-lg">Officer Plan</h5>
                                   <span className="bg-blue-600 text-white px-2 py-1 rounded text-[9px] font-bold uppercase">Pro</span>
                               </div>
-                              <ul className="space-y-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600" /> 5 AI Interviews + Detailed Feedback</li>
-                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600" /> 30 PPDT & 7 TAT Sets</li>
-                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600" /> Full Analytics & History</li>
+                              <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> 5 Personal Interviews (AI Virtual IO)</li>
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> 30 PPDT with Narration</li>
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> 7 TAT Sets</li>
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> 10 SRT & 10 WAT Sets</li>
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> SDT & SSB AI Guide</li>
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> Daily News / Current Affairs</li>
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> Daily Practice</li>
+                                  <li className="flex gap-2 items-center md:col-span-2 text-slate-800"><Star size={14} className="text-yellow-500 shrink-0" /> Detailed & Personalized Assessment</li>
                               </ul>
                           </div>
-                          <div className="text-right shrink-0">
+                          <div className="text-right shrink-0 flex flex-col justify-between items-end">
                               <div className="flex items-baseline gap-2 justify-end">
                                   <span className="text-sm font-bold text-slate-400 line-through">₹399</span>
                                   <span className="text-4xl font-black text-slate-900">₹199</span>
                               </div>
-                              <button className="mt-3 px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest group-hover:bg-black transition-colors w-full md:w-auto">
+                              <button className="mt-4 px-8 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest group-hover:bg-black transition-colors w-full">
                                   Select
                               </button>
                           </div>
