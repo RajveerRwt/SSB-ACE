@@ -17,7 +17,7 @@ import CurrentAffairs from './CurrentAffairs';
 import DailyPractice from './DailyPractice';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, MessageCircle } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Dashboard Component
@@ -371,6 +371,36 @@ const Dashboard: React.FC<{
                )}
              </div>
            )}
+           
+           {/* REPLACED STRATEGIC ROADMAP WITH HALL OF FAME */}
+           <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-xl">
+              <div className="flex items-center gap-3 mb-6">
+                 <div className="p-2 bg-yellow-100 rounded-lg text-yellow-600"><Trophy size={20} /></div>
+                 <div>
+                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Hall of Fame</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recommended Candidates</p>
+                 </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                 {[
+                    { name: 'Lt. Adarsh Kumar', rank: 'AIR 4 (NDA)', msg: "The AI interview was brutal but exactly like the real SSB. Helped me conquer my fear." },
+                    { name: 'Fg Offr. Sneha Gill', rank: 'AIR 12 (AFCAT)', msg: "PPDT practice here is the best. The AI gives instant feedback on story relevance." },
+                    { name: 'Capt. R. Shekhawat', rank: 'Recommended (TES)', msg: "Used the Pro plan for 1 month. The pattern familiarity gave me the edge." }
+                 ].map((t, i) => (
+                    <div key={i} className="p-5 bg-slate-50 rounded-3xl border border-slate-100 relative group hover:border-slate-200 transition-colors">
+                       <Quote className="absolute top-4 right-4 text-slate-200 group-hover:text-yellow-400 transition-colors" size={24} />
+                       <p className="text-xs font-medium text-slate-600 italic mb-4 leading-relaxed">"{t.msg}"</p>
+                       <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center text-xs font-black">{t.name[0]}</div>
+                          <div>
+                             <p className="text-xs font-black text-slate-900 uppercase">{t.name}</p>
+                             <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest flex items-center gap-1"><Medal size={10} /> {t.rank}</p>
+                          </div>
+                       </div>
+                    </div>
+                 ))}
+              </div>
+           </div>
          </div>
 
          <div className="lg:col-span-4 space-y-6 md:space-y-10">
