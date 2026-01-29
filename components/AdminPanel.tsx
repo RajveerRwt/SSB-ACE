@@ -250,12 +250,31 @@ const AdminPanel: React.FC = () => {
       u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // UPDATED ROBUST SQL (Includes Likes Logic)
+  // UPDATED ROBUST SQL (Includes Likes Logic & Join Integrity)
   const storageSQL = `
 -- EXTENSIONS
 create extension if not exists "uuid-ossp";
 
--- 1. DAILY CHALLENGES
+-- 1. ASPIRANTS (Ensure this exists first)
+create table if not exists public.aspirants (
+  user_id uuid references auth.users not null primary key,
+  email text,
+  full_name text,
+  piq_data jsonb,
+  last_active timestamptz default now(),
+  streak_count integer default 0,
+  last_streak_date timestamptz
+);
+alter table public.aspirants enable row level security;
+drop policy if exists "Users can view own profile" on public.aspirants;
+drop policy if exists "Users can update own profile" on public.aspirants;
+drop policy if exists "Users can insert own profile" on public.aspirants;
+
+create policy "Users can view all profiles" on public.aspirants for select using (true);
+create policy "Users can update own profile" on public.aspirants for update using (auth.uid() = user_id);
+create policy "Users can insert own profile" on public.aspirants for insert with check (auth.uid() = user_id);
+
+-- 2. DAILY CHALLENGES
 create table if not exists public.daily_challenges (
   id uuid default uuid_generate_v4() primary key,
   ppdt_image_url text,
@@ -270,11 +289,11 @@ drop policy if exists "Auth insert daily" on public.daily_challenges;
 create policy "Public read daily" on public.daily_challenges for select using (true);
 create policy "Auth insert daily" on public.daily_challenges for insert with check (auth.role() = 'authenticated');
 
--- 2. DAILY SUBMISSIONS (Fixing Likes Logic)
+-- 3. DAILY SUBMISSIONS (Explicit Join Relationship to Aspirants)
 create table if not exists public.daily_submissions (
   id uuid default uuid_generate_v4() primary key,
   challenge_id uuid references public.daily_challenges,
-  user_id uuid references auth.users,
+  user_id uuid references public.aspirants(user_id), -- Point explicitly to public.aspirants
   ppdt_story text,
   wat_answers text[],
   srt_answers text[],
@@ -292,10 +311,9 @@ drop policy if exists "Update submissions" on public.daily_submissions;
 -- Create more flexible policies
 create policy "Public read submissions" on public.daily_submissions for select using (true);
 create policy "Insert submissions" on public.daily_submissions for insert with check (auth.uid() = user_id);
--- Allow anyone to update the LIKES_COUNT specifically
 create policy "Allow atomic updates for likes" on public.daily_submissions for update using (true);
 
--- 3. ATOMIC FUNCTIONS FOR LIKES (Avoids manual overwrite & ownership issues)
+-- 4. ATOMIC FUNCTIONS FOR LIKES
 create or replace function increment_likes(submission_id uuid)
 returns void as $$
 begin
@@ -313,25 +331,6 @@ begin
   where id = submission_id;
 end;
 $$ language plpgsql security definer;
-
--- 4. ASPIRANTS
-create table if not exists public.aspirants (
-  user_id uuid references auth.users not null primary key,
-  email text,
-  full_name text,
-  piq_data jsonb,
-  last_active timestamptz default now(),
-  streak_count integer default 0,
-  last_streak_date timestamptz
-);
-alter table public.aspirants enable row level security;
-drop policy if exists "Users can view own profile" on public.aspirants;
-drop policy if exists "Users can update own profile" on public.aspirants;
-drop policy if exists "Users can insert own profile" on public.aspirants;
-
-create policy "Users can view own profile" on public.aspirants for select using (true);
-create policy "Users can update own profile" on public.aspirants for update using (auth.uid() = user_id);
-create policy "Users can insert own profile" on public.aspirants for insert with check (auth.uid() = user_id);
 
 -- 5. STORAGE (Buckets)
 insert into storage.buckets (id, name, public) values ('scenarios', 'scenarios', true) on conflict (id) do nothing;
@@ -375,7 +374,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-slate-900">
                     <Settings className="text-blue-600" size={24} />
-                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v2.1)</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v2.2)</h5>
                 </div>
                 {showSqlHelp && !errorMsg && (
                     <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
@@ -385,7 +384,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
             <p className="text-xs text-slate-600 font-medium">
                 1. Copy the code below.<br/>
                 2. Go to Supabase {'>'} SQL Editor.<br/>
-                3. Paste and Run. This enables atomic "Likes" (RPC) and fixes permission errors.
+                3. Paste and Run. This ensures "daily_submissions" correctly link to user names and profiles.
             </p>
 
             <div className="relative group">
