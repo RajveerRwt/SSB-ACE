@@ -17,7 +17,7 @@ import CurrentAffairs from './CurrentAffairs';
 import DailyPractice from './DailyPractice';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Dashboard Component
@@ -34,6 +34,7 @@ const Dashboard: React.FC<{
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
+  const [testimonialIndex, setTestimonialIndex] = useState(0);
   
   const quotes = [
     { text: "Either I will come back after hoisting the Tricolour, or I will come back wrapped in it, but I will be back for sure.", author: "Capt. Vikram Batra, PVC" },
@@ -43,12 +44,29 @@ const Dashboard: React.FC<{
     { text: "I regret I have but one life to give for my country.", author: "Capt. Manoj Kumar Pandey, PVC" }
   ];
 
+  const testimonials = [
+    { name: "Deepak Rai", role: "NDA Aspirant", text: "The 1:1 Virtual Interview experience was very realistic. The assessment report was detailed and actionable. A great platform for SSB preparation." },
+    { name: "Aditya", role: "CDS Aspirant", text: "AI-based Virtual IO surprisingly accurate hai. Pressure, questions aur feedback sab kuch real interview jaisa laga." },
+    { name: "Vikram Singh", role: "AFCAT Aspirant", text: "This platform focuses on genuine improvement, not shortcuts. The detailed assessment really helps in developing officer-like qualities." },
+    { name: "Riya Sharma", role: "TES Aspirant", text: "The platform simulates real SSB pressure. Especially the Virtual IO interview — very close to the actual experience." },
+    { name: "Karan Malhotra", role: "JAG Entry", text: "Never seen this level of personal interview practice before." },
+    { name: "Arjun Nair", role: "NCC Entry", text: "Interview section is really great and feeling like IO is real and body language bhi dekhta h." },
+    { name: "Sneha Patel", role: "SSC Tech", text: "One of the most structured and realistic SSB practice platforms I’ve used." }
+  ];
+
   useEffect(() => {
     const timer = setInterval(() => {
       setQuoteIndex(prev => (prev + 1) % quotes.length);
     }, 8000);
     return () => clearInterval(timer);
   }, [quotes.length]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+        setTestimonialIndex(prev => (prev + 1) % testimonials.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [testimonials.length]);
 
   // Fetch History, Sub Stats, and Payment Status
   useEffect(() => {
@@ -112,42 +130,6 @@ const Dashboard: React.FC<{
          </div>
       )}
 
-      {/* DISCOUNT OFFER BANNER - Only show if not PRO */}
-      {(!subscription || subscription.tier === 'FREE') && (
-         <div 
-            onClick={onOpenPayment}
-            className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-[2rem] p-6 text-white shadow-xl cursor-pointer hover:scale-[1.01] transition-transform relative overflow-hidden group border-4 border-white/10"
-         >
-            <div className="absolute -right-4 -top-4 opacity-10 rotate-12 group-hover:opacity-20 transition-opacity">
-                <Percent size={120} />
-            </div>
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
-                <div className="flex items-center gap-5">
-                    <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md shadow-inner border border-white/20">
-                        <Tag size={28} className="text-yellow-400" />
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-2 mb-1.5">
-                            <span className="bg-yellow-400 text-black px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm">Limited Time</span>
-                            <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">New Cadets</span>
-                        </div>
-                        <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight leading-none">Flat 50% OFF <span className="text-indigo-200">Pro Plan</span></h3>
-                        <p className="text-xs font-medium text-indigo-100 mt-1">Get 5 AI Interviews + Full Access for just <span className="text-white font-black text-sm">₹99</span> <span className="line-through opacity-60">₹199</span></p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4 bg-white/10 px-5 py-3 rounded-2xl border border-white/20 backdrop-blur-sm group-hover:bg-white/15 transition-all">
-                    <div className="text-center border-r border-white/20 pr-4">
-                        <p className="text-[8px] font-black uppercase tracking-[0.2em] text-indigo-200">Coupon Code</p>
-                        <p className="text-xl font-black text-yellow-400 tracking-widest font-mono">SSB50</p>
-                    </div>
-                    <button className="text-[10px] font-black uppercase tracking-widest bg-white text-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-50 transition-colors">
-                        Claim Now
-                    </button>
-                </div>
-            </div>
-         </div>
-      )}
-
       {/* HERO SECTION */}
       <div className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl border-b-8 border-yellow-500">
          <div className="relative z-10 grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
@@ -192,23 +174,14 @@ const Dashboard: React.FC<{
                  )}
                </div>
              ) : (
-               <div className="pt-6">
-                  <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                    <button 
-                        onClick={() => onStartTest(TestType.LOGIN)}
-                        className="flex-1 md:flex-none px-8 md:px-10 py-5 bg-white/5 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3 backdrop-blur-sm"
-                    >
-                        <LogIn size={18} /> Login
-                    </button>
-                    
-                    <button 
-                        onClick={() => onStartTest(TestType.REGISTER)}
-                        className="flex-1 md:flex-none px-8 md:px-10 py-5 bg-yellow-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3"
-                    >
-                        <UserPlus size={18} /> New User Registration
-                    </button>
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 pl-1">Sign up to access AI Interview & Psychology Tests</p>
+               <div className="pt-4">
+                  <button 
+                    onClick={() => onStartTest(TestType.LOGIN)}
+                    className="w-full md:w-auto px-12 py-6 bg-yellow-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3"
+                  >
+                    <LogIn size={18} /> Join / Login to Start
+                  </button>
+                  <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Sign up to access AI Interview & Psychology Tests</p>
                </div>
              )}
 
@@ -371,34 +344,45 @@ const Dashboard: React.FC<{
              </div>
            )}
            
-           {/* HALL OF FAME */}
-           <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-xl">
-              <div className="flex items-center gap-3 mb-6">
-                 <div className="p-2 bg-yellow-100 rounded-lg text-yellow-600"><Trophy size={20} /></div>
-                 <div>
-                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Hall of Fame</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recommended Candidates</p>
-                 </div>
-              </div>
-              <div className="grid md:grid-cols-3 gap-4">
-                 {[
-                    { name: 'Lt. Adarsh Kumar', rank: 'AIR 4 (NDA)', msg: "The AI interview was brutal but exactly like the real SSB. Helped me conquer my fear." },
-                    { name: 'Fg Offr. Sneha Gill', rank: 'AIR 12 (AFCAT)', msg: "PPDT practice here is the best. The AI gives instant feedback on story relevance." },
-                    { name: 'Capt. R. Shekhawat', rank: 'Recommended (TES)', msg: "Used the Pro plan for 1 month. The pattern familiarity gave me the edge." }
-                 ].map((t, i) => (
-                    <div key={i} className="p-5 bg-slate-50 rounded-3xl border border-slate-100 relative group hover:border-slate-200 transition-colors">
-                       <Quote className="absolute top-4 right-4 text-slate-200 group-hover:text-yellow-400 transition-colors" size={24} />
-                       <p className="text-xs font-medium text-slate-600 italic mb-4 leading-relaxed">"{t.msg}"</p>
-                       <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center text-xs font-black">{t.name[0]}</div>
-                          <div>
-                             <p className="text-xs font-black text-slate-900 uppercase">{t.name}</p>
-                             <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest flex items-center gap-1"><Medal size={10} /> {t.rank}</p>
-                          </div>
-                       </div>
+           {/* TESTIMONIALS SLIDER */}
+           <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-xl relative overflow-hidden">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-blue-100 rounded-lg text-blue-600"><MessageCircle size={20} /></div>
+                    <div>
+                        <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Cadet Feedback</h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Real Experiences</p>
                     </div>
-                 ))}
-              </div>
+                </div>
+                
+                <div className="relative min-h-[150px] flex items-center">
+                   {/* Use a key to trigger animation on change */}
+                   <div key={testimonialIndex} className="animate-in fade-in slide-in-from-right-4 duration-500 w-full">
+                       <Quote className="text-slate-200 w-12 h-12 absolute -top-2 -left-2 -z-10" />
+                       <p className="text-sm md:text-lg font-medium text-slate-700 italic leading-relaxed mb-6 pl-4 border-l-4 border-yellow-400">
+                           "{testimonials[testimonialIndex].text}"
+                       </p>
+                       <div className="flex items-center gap-3 pl-4">
+                           <div className="w-10 h-10 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-xs">
+                               {testimonials[testimonialIndex].name[0]}
+                           </div>
+                           <div>
+                               <p className="text-xs font-black text-slate-900 uppercase">{testimonials[testimonialIndex].name}</p>
+                               <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">{testimonials[testimonialIndex].role}</p>
+                           </div>
+                       </div>
+                   </div>
+                </div>
+
+                {/* Dots */}
+                <div className="flex justify-center gap-2 mt-4">
+                    {testimonials.map((_, i) => (
+                        <button 
+                            key={i} 
+                            onClick={() => setTestimonialIndex(i)}
+                            className={`w-2 h-2 rounded-full transition-all ${i === testimonialIndex ? 'bg-blue-600 w-6' : 'bg-slate-200'}`} 
+                        />
+                    ))}
+                </div>
            </div>
       </div>
 
