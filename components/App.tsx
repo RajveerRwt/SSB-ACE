@@ -17,7 +17,7 @@ import CurrentAffairs from './CurrentAffairs';
 import DailyPractice from './DailyPractice';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle, Phone, UserPlus, MessageCircle, Percent, Tag, ArrowUpRight, X } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, MessageCircle } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Dashboard Component
