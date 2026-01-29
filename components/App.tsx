@@ -1,24 +1,24 @@
 
 import React, { useState, useEffect } from 'react';
-import Layout from './components/Layout';
-import Login from './components/Login';
-import PPDTTest from './components/PPDTTest';
-import PsychologyTest from './components/PsychologyTest';
-import Interview from './components/Interview';
-import PIQForm from './components/PIQForm';
-import ContactForm from './components/ContactForm';
-import SSBStages from './components/SSBStages';
-import SSBBot from './components/SSBBot';
-import AdminPanel from './components/AdminPanel';
-import PaymentModal from './components/PaymentModal';
-import LegalPages from './components/LegalPages';
-import HowToUse from './components/HowToUse';
-import CurrentAffairs from './components/CurrentAffairs';
-import DailyPractice from './components/DailyPractice';
-import { TestType, PIQData, UserSubscription } from './types';
-import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from './services/supabaseService';
+import Layout from './Layout';
+import Login from './Login';
+import PPDTTest from './PPDTTest';
+import PsychologyTest from './PsychologyTest';
+import Interview from './Interview';
+import PIQForm from './PIQForm';
+import ContactForm from './ContactForm';
+import SSBStages from './SSBStages';
+import SSBBot from './SSBBot';
+import AdminPanel from './AdminPanel';
+import PaymentModal from './PaymentModal';
+import LegalPages from './LegalPages';
+import HowToUse from './HowToUse';
+import CurrentAffairs from './CurrentAffairs';
+import DailyPractice from './DailyPractice';
+import { TestType, PIQData, UserSubscription } from '../types';
+import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, MessageCircle, Percent, Tag, ArrowUpRight, X } from 'lucide-react';
-import { SSBLogo } from './components/Logo';
+import { SSBLogo } from './Logo';
 
 // Dashboard Component
 const Dashboard: React.FC<{ 
