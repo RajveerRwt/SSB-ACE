@@ -295,12 +295,13 @@ const Dashboard: React.FC<{
                        <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-bold uppercase">Basic</span>
                     </div>
                     <ul className="space-y-4 text-xs font-bold text-slate-500">
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 1 AI Personal Interview</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 10 PPDT Scenarios</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 1 Personal Interview( with Virtual IO)</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 10 PPDT  with Narration</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 2 TAT Sets</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 3 SRT & 3 WAT Sets</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> Daily News & Practice</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> AI Guide (Major Veer)</li>
+                       <li className="flex items-center gap-3"><Star size={16} className="text-yellow-500"/> Detailed & Personalized Assessment</li>
                     </ul>
                  </div>
 
@@ -319,6 +320,8 @@ const Dashboard: React.FC<{
                        <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 30 PPDT Scenarios</li>
                        <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 7 TAT Sets</li>
                        <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 10 SRT & 10 WAT Sets</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> Daily News & Practice</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> AI Guide (Major Veer)</li>
                        <li className="flex items-center gap-3"><Star size={16} className="text-yellow-500"/> Detailed & Personalized Assessment</li>
                     </ul>
                     <button onClick={onOpenPayment} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-all shadow-lg mt-2 flex items-center justify-center gap-2 group">
@@ -386,21 +389,7 @@ const Dashboard: React.FC<{
                </div>
             </div>
 
-            {/* SSB NAVIGATOR */}
-            <div className="bg-blue-600 p-8 md:p-10 rounded-[2rem] md:rounded-[3.5rem] text-white shadow-xl flex flex-col items-center text-center gap-6 group hover:scale-[1.02] transition-all">
-               <div className="w-16 h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center border border-white/30 shadow-2xl">
-                 <Shield className="w-8 h-8 md:w-10 md:h-10 text-white" />
-               </div>
-               <div>
-                 <h4 className="text-lg md:text-xl font-black uppercase tracking-widest mb-2">SSB Navigator</h4>
-                 <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                   Comprehensive 5-Day Stage Guide Active
-                 </p>
-               </div>
-               <button onClick={() => onStartTest(TestType.STAGES)} className="w-full py-4 bg-white text-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl">Briefing Room</button>
-            </div>
-         </div>
-      </div>
+            
 
       {/* SUPPORT & HELP SECTION */}
       <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-lg flex flex-col md:flex-row items-center justify-between gap-6 animate-in fade-in slide-in-from-bottom-8">
