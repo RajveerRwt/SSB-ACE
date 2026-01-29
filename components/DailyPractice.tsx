@@ -70,11 +70,11 @@ const DailyPractice: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await submitDailyEntry(challenge.id, ppdtStory, watAnswer, srtAnswer, interviewAnswer);
+      // Return the newly created row from Supabase
+      const newEntry = await submitDailyEntry(challenge.id, ppdtStory, watAnswer, srtAnswer, interviewAnswer);
       
-      // Refresh after submission
-      const subs = await getDailySubmissions(challenge.id);
-      setSubmissions(subs);
+      // OPTIMISTIC UPDATE: Add the new entry to local state immediately
+      setSubmissions(prev => [newEntry, ...prev]);
       setHasSubmitted(true);
       setUserStreak(prev => prev + 1);
       
@@ -82,10 +82,10 @@ const DailyPractice: React.FC = () => {
       setWatAnswer('');
       setSrtAnswer('');
       setInterviewAnswer('');
-      alert("Mission Accomplished! Your entry is now pinned at the top for you.");
-    } catch (e) {
+      alert("Mission Accomplished! Your entry is now visible on the board.");
+    } catch (e: any) {
       console.error(e);
-      alert("Failed to post. Please try again.");
+      alert(`Submission Failed: ${e.message || 'Unknown Error'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -113,7 +113,6 @@ const DailyPractice: React.FC = () => {
           return s;
       }));
 
-      // Trigger atomic update in DB
       await toggleLike(subId, willBeLiked);
   };
 
@@ -122,9 +121,7 @@ const DailyPractice: React.FC = () => {
       if (sub.likes_count >= 5) badges.push({ icon: Star, color: 'text-yellow-400', label: 'Popular' });
       if (sub.ppdt_story && sub.ppdt_story.length > 500) badges.push({ icon: PenTool, color: 'text-purple-400', label: 'Orator' });
       if (sub.aspirants?.streak_count > 3) badges.push({ icon: Flame, color: 'text-orange-500', label: 'Consistent' });
-      if (submissionIndex === 0) badges.push({ icon: Trophy, color: 'text-yellow-500', label: 'Top Cadet' });
-      if (submissionIndex === 1) badges.push({ icon: Medal, color: 'text-slate-400', label: 'Runner Up' });
-      if (submissionIndex === 2) badges.push({ icon: Medal, color: 'text-orange-700', label: 'Bronze' });
+      if (submissionIndex === 0 && sub.likes_count > 0) badges.push({ icon: Trophy, color: 'text-yellow-500', label: 'Top Cadet' });
       return badges;
   };
 
@@ -142,11 +139,6 @@ const DailyPractice: React.FC = () => {
           <button onClick={loadData} className="flex items-center gap-2 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold uppercase text-xs tracking-widest transition-all">
               <RefreshCw size={14} /> Refresh Check
           </button>
-          {errorMsg && (
-              <div className="flex items-center gap-2 text-red-500 bg-red-50 px-4 py-2 rounded-lg text-xs font-bold mt-4">
-                  <AlertTriangle size={14} /> {errorMsg}
-              </div>
-          )}
       </div>
   );
 
@@ -173,26 +165,6 @@ const DailyPractice: React.FC = () => {
          </div>
          <Flame className="absolute -bottom-10 -right-10 w-64 h-64 text-orange-500/10 rotate-12 pointer-events-none" />
       </div>
-
-      {/* LEADERBOARD (Top 3) */}
-      {submissions.length > 0 && (
-          <div className="grid grid-cols-3 gap-2 md:gap-4 max-w-3xl mx-auto">
-              {submissions.slice(0, 3).map((sub, i) => (
-                  <div key={sub.id} className={`relative p-4 rounded-2xl border text-center flex flex-col items-center gap-2 ${i === 0 ? 'bg-yellow-50 border-yellow-400 order-2 scale-110 shadow-xl' : i === 1 ? 'bg-slate-50 border-slate-200 order-1' : 'bg-orange-50 border-orange-200 order-3'}`}>
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                          {i === 0 ? <Trophy size={24} className="text-yellow-500 fill-yellow-500" /> : <Medal size={20} className={i === 1 ? "text-slate-400" : "text-orange-700"} />}
-                      </div>
-                      <div className="w-10 h-10 md:w-12 md:h-12 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-xs md:text-sm mt-2">
-                          {sub.aspirants?.full_name?.[0] || 'U'}
-                      </div>
-                      <p className="text-[10px] md:text-xs font-black uppercase tracking-widest truncate w-full">{sub.aspirants?.full_name?.split(' ')[0] || 'Cadet'}</p>
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500">
-                          <Heart size={10} className="text-red-500 fill-red-500" /> {sub.likes_count}
-                      </div>
-                  </div>
-              ))}
-          </div>
-      )}
 
       {/* CHALLENGE WORKSPACE */}
       {!hasSubmitted && (
@@ -298,7 +270,7 @@ const DailyPractice: React.FC = () => {
           ) : (
               <div className="grid grid-cols-1 gap-6">
                   
-                  {/* PINNED: MY SUBMISSION (Top Visibility) */}
+                  {/* PINNED: MY SUBMISSION */}
                   {mySubmission && (
                       <div className="bg-blue-50/30 p-6 md:p-8 rounded-[2.5rem] border-4 border-blue-100 shadow-xl relative overflow-hidden ring-4 ring-white animate-in zoom-in-95">
                           <div className="absolute top-0 right-0 p-4 bg-blue-600 text-white flex items-center gap-2 rounded-bl-3xl shadow-lg z-10">
@@ -349,7 +321,9 @@ const SubmissionCard = ({ sub, challenge, idx, onLike, getBadges, isMyEntry = fa
                         )}
                         {isMyEntry && <span className="text-[8px] bg-blue-100 text-blue-600 px-2 rounded font-black uppercase">You</span>}
                     </h4>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(sub.created_at).toLocaleTimeString()}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {sub.created_at ? new Date(sub.created_at).toLocaleTimeString() : 'Just Now'}
+                    </p>
                 </div>
             </div>
             

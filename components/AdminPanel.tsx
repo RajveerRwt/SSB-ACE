@@ -250,12 +250,12 @@ const AdminPanel: React.FC = () => {
       u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // UPDATED ROBUST SQL (Includes Likes Logic & Join Integrity)
+  // UPDATED ROBUST SQL (Includes Final Policies)
   const storageSQL = `
 -- EXTENSIONS
 create extension if not exists "uuid-ossp";
 
--- 1. ASPIRANTS (Ensure this exists first)
+-- 1. ASPIRANTS
 create table if not exists public.aspirants (
   user_id uuid references auth.users not null primary key,
   email text,
@@ -266,11 +266,8 @@ create table if not exists public.aspirants (
   last_streak_date timestamptz
 );
 alter table public.aspirants enable row level security;
-drop policy if exists "Users can view own profile" on public.aspirants;
-drop policy if exists "Users can update own profile" on public.aspirants;
-drop policy if exists "Users can insert own profile" on public.aspirants;
-
-create policy "Users can view all profiles" on public.aspirants for select using (true);
+drop policy if exists "Public select aspirants" on public.aspirants;
+create policy "Public select aspirants" on public.aspirants for select using (true);
 create policy "Users can update own profile" on public.aspirants for update using (auth.uid() = user_id);
 create policy "Users can insert own profile" on public.aspirants for insert with check (auth.uid() = user_id);
 
@@ -285,15 +282,14 @@ create table if not exists public.daily_challenges (
 );
 alter table public.daily_challenges enable row level security;
 drop policy if exists "Public read daily" on public.daily_challenges;
-drop policy if exists "Auth insert daily" on public.daily_challenges;
 create policy "Public read daily" on public.daily_challenges for select using (true);
 create policy "Auth insert daily" on public.daily_challenges for insert with check (auth.role() = 'authenticated');
 
--- 3. DAILY SUBMISSIONS (Explicit Join Relationship to Aspirants)
+-- 3. DAILY SUBMISSIONS
 create table if not exists public.daily_submissions (
   id uuid default uuid_generate_v4() primary key,
   challenge_id uuid references public.daily_challenges,
-  user_id uuid references public.aspirants(user_id), -- Point explicitly to public.aspirants
+  user_id uuid references public.aspirants(user_id),
   ppdt_story text,
   wat_answers text[],
   srt_answers text[],
@@ -302,13 +298,8 @@ create table if not exists public.daily_submissions (
   likes_count integer default 0
 );
 alter table public.daily_submissions enable row level security;
-
--- Drop old restricted policies
 drop policy if exists "Public read submissions" on public.daily_submissions;
 drop policy if exists "Insert submissions" on public.daily_submissions;
-drop policy if exists "Update submissions" on public.daily_submissions;
-
--- Create more flexible policies
 create policy "Public read submissions" on public.daily_submissions for select using (true);
 create policy "Insert submissions" on public.daily_submissions for insert with check (auth.uid() = user_id);
 create policy "Allow atomic updates for likes" on public.daily_submissions for update using (true);
@@ -374,7 +365,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-slate-900">
                     <Settings className="text-blue-600" size={24} />
-                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v2.2)</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v2.3)</h5>
                 </div>
                 {showSqlHelp && !errorMsg && (
                     <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
@@ -384,7 +375,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
             <p className="text-xs text-slate-600 font-medium">
                 1. Copy the code below.<br/>
                 2. Go to Supabase {'>'} SQL Editor.<br/>
-                3. Paste and Run. This ensures "daily_submissions" correctly link to user names and profiles.
+                3. Paste and Run. This fixes the visibility issue by allowing public profile lookups for the board.
             </p>
 
             <div className="relative group">
@@ -425,7 +416,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
          <button onClick={() => setActiveTab('PPDT')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${activeTab === 'PPDT' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}>PPDT</button>
          <button onClick={() => setActiveTab('TAT')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${activeTab === 'TAT' ? 'bg-purple-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}>TAT</button>
          <button onClick={() => setActiveTab('WAT')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${activeTab === 'WAT' ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}>WAT</button>
-         <button onClick={() => setActiveTab('SRT')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${activeTab === 'SRT' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}>SRT</button>
+         <button onClick={() => setActiveTab('SRT')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${activeTab === 'SRT' ? 'bg-orange-50 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}>SRT</button>
          
          <div className="w-full md:w-auto h-px md:h-8 bg-slate-200 md:mx-2 my-2 md:my-0"></div>
 
