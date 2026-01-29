@@ -216,7 +216,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
 
                   {/* PRO PLAN - Full Width */}
                   <div 
-                    onClick={() => initiatePayment(199, 'PRO_SUBSCRIPTION')}
+                    onClick={() => initiatePayment(299, 'PRO_SUBSCRIPTION')}
                     className="p-6 rounded-[2rem] border-4 border-yellow-400 bg-white relative overflow-hidden cursor-pointer hover:shadow-2xl hover:scale-[1.01] transition-all group"
                   >
                       <div className="absolute top-0 right-0 bg-yellow-400 text-black px-4 py-1.5 rounded-bl-2xl text-[9px] font-black uppercase tracking-widest shadow-md">Recommended</div>
@@ -239,8 +239,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                           </div>
                           <div className="text-right shrink-0 flex flex-col justify-between items-end">
                               <div className="flex items-baseline gap-2 justify-end">
-                                  <span className="text-sm font-bold text-slate-400 line-through">₹399</span>
-                                  <span className="text-4xl font-black text-slate-900">₹199</span>
+                                  <span className="text-sm font-bold text-slate-400 line-through">₹599</span>
+                                  <span className="text-4xl font-black text-slate-900">₹299</span>
                               </div>
                               <button className="mt-4 px-8 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest group-hover:bg-black transition-colors w-full">
                                   Select
@@ -251,7 +251,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
 
                   {/* Interview Top-up */}
                   <div 
-                    onClick={() => initiatePayment(19, 'INTERVIEW_ADDON')}
+                    onClick={() => initiatePayment(39, 'INTERVIEW_ADDON')}
                     className="p-4 rounded-[1.5rem] border-2 border-slate-100 hover:border-blue-300 cursor-pointer transition-all hover:bg-blue-50 flex items-center justify-between gap-4 group"
                   >
                     <div className="flex items-center gap-4">
@@ -264,7 +264,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                        </div>
                     </div>
                     <div className="text-right">
-                        <span className="text-xl font-black text-slate-900">₹19</span>
+                        <span className="text-xl font-black text-slate-900">₹39</span>
                     </div>
                   </div>
                </div>
