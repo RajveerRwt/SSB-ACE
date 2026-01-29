@@ -45,13 +45,13 @@ const Dashboard: React.FC<{
   ];
 
   const testimonials = [
-    { name: "Deepak Rai", role: "NDA Aspirant", text: "The 1:1 Virtual Interview experience was very realistic. The assessment report was detailed and actionable. A great platform for SSB preparation." },
-    { name: "Aditya", role: "CDS Aspirant", text: "AI-based Virtual IO surprisingly accurate hai. Pressure, questions aur feedback sab kuch real interview jaisa laga." },
-    { name: "Vikram Singh", role: "AFCAT Aspirant", text: "This platform focuses on genuine improvement, not shortcuts. The detailed assessment really helps in developing officer-like qualities." },
-    { name: "Riya Sharma", role: "TES Aspirant", text: "The platform simulates real SSB pressure. Especially the Virtual IO interview — very close to the actual experience." },
-    { name: "Karan Malhotra", role: "JAG Entry", text: "Never seen this level of personal interview practice before." },
-    { name: "Arjun Nair", role: "NCC Entry", text: "Interview section is really great and feeling like IO is real and body language bhi dekhta h." },
-    { name: "Sneha Patel", role: "SSC Tech", text: "One of the most structured and realistic SSB practice platforms I’ve used." }
+    { name: "Deepak Rai", role: "NDA/TES Aspirant", text: "The 1:1 Virtual Interview experience was very realistic. The assessment report was detailed and actionable. A great platform for SSB preparation." },
+    { name: "Aditya", role: "CDS/NCC Aspirant", text: "AI-based Virtual IO surprisingly accurate hai. Pressure, questions aur feedback sab kuch real interview jaisa laga." },
+    { name: "Vikram Singh Rawat", role: "AFCAT/CDS Aspirant", text: "This platform focuses on genuine improvement, not shortcuts. The detailed assessment really helps in developing officer-like qualities." },
+    { name: "Arti patel", role: "TES/NDA Aspirant", text: "The platform simulates real SSB pressure. Especially the Virtual IO interview — very close to the actual experience." },
+    { name: "shubham", role: "SSC tech/NCC Entry", text: "Never seen this level of personal interview practice before." },
+    { name: "Mohit", role: "NCC/AFCAT Entry", text: "Interview section is really great and feeling like IO is real and body language bhi dekhta h." },
+    { name: "Ayush", role: "SSB recommended", text: " as founder contact me for testing ,i can say it is One of the most structured and realistic SSB practice platforms I’ve used online." }
   ];
 
   useEffect(() => {
