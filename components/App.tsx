@@ -283,6 +283,7 @@ const Dashboard: React.FC<{
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-slate-300"/> 3 SRT & 3 WAT Sets</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> Daily News & Practice</li>
                        <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> AI Guide (Major Veer)</li>
+                       <li className="flex items-center gap-3"><Star size={16} className="text-yellow-500"/> Detailed & Personalized Assessment</li>
                     </ul>
                  </div>
 
