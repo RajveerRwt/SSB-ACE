@@ -90,18 +90,29 @@ const DailyPractice: React.FC = () => {
   };
 
   const handleLike = async (subId: string) => {
-      if (!user) return;
+      if (!user) {
+          alert("Login to concur with this response.");
+          return;
+      }
+      
+      const sub = submissions.find(s => s.id === subId);
+      if (!sub) return;
+      
+      const willBeLiked = !sub.isLiked;
+
       setSubmissions(prev => prev.map(s => {
           if (s.id === subId) {
               return {
                   ...s,
-                  isLiked: !s.isLiked,
-                  likes_count: s.isLiked ? s.likes_count - 1 : s.likes_count + 1
+                  isLiked: willBeLiked,
+                  likes_count: willBeLiked ? s.likes_count + 1 : Math.max(0, s.likes_count - 1)
               };
           }
           return s;
       }));
-      await toggleLike(subId);
+
+      // Trigger atomic update in DB
+      await toggleLike(subId, willBeLiked);
   };
 
   const getBadges = (submissionIndex: number, sub: any) => {
@@ -177,9 +188,8 @@ const DailyPractice: React.FC = () => {
           </div>
       )}
 
-      {/* CHALLENGE WORKSPACE - 4 BLOCKS */}
+      {/* CHALLENGE WORKSPACE */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* 1. PPDT */}
           <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg md:col-span-2 flex flex-col md:flex-row gap-6">
               <div className="w-full md:w-1/3 aspect-[4/3] bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 shrink-0">
                   {challenge.ppdt_image_url ? (
@@ -201,7 +211,6 @@ const DailyPractice: React.FC = () => {
               </div>
           </div>
 
-          {/* 2. WAT */}
           <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg">
               <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <FileText size={18} className="text-green-600" /> 2. Word Association
@@ -219,7 +228,6 @@ const DailyPractice: React.FC = () => {
               </div>
           </div>
 
-          {/* 3. SRT */}
           <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg">
               <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <Zap size={18} className="text-orange-600" /> 3. Situation Reaction
@@ -237,7 +245,6 @@ const DailyPractice: React.FC = () => {
               </div>
           </div>
 
-          {/* 4. Interview (New) */}
           <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg md:col-span-2">
               <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <Mic size={18} className="text-purple-600" /> 4. Interview Question

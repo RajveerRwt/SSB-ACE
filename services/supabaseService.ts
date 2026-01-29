@@ -646,17 +646,28 @@ export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: s
 export const getDailySubmissions = async (challengeId: string) => {
   const { data } = await supabase
     .from('daily_submissions')
-    .select('*, aspirants(full_name)')
+    .select('*, aspirants(full_name, streak_count)')
     .eq('challenge_id', challengeId)
-    .order('created_at', { ascending: false });
+    .order('likes_count', { ascending: false });
   return data || [];
 };
 
-export const toggleLike = async (submissionId: string) => {
-  const { data: sub } = await supabase.from('daily_submissions').select('likes_count').eq('id', submissionId).single();
-  if (sub) {
-      await supabase.from('daily_submissions').update({ likes_count: (sub.likes_count || 0) + 1 }).eq('id', submissionId);
-  }
+export const toggleLike = async (submissionId: string, isIncrement: boolean = true) => {
+    // We use RPC (Remote Procedure Call) to bypass row-ownership RLS 
+    // and perform atomic updates on the counter
+    const rpcName = isIncrement ? 'increment_likes' : 'decrement_likes';
+    const { error } = await supabase.rpc(rpcName, { submission_id: submissionId });
+    
+    if (error) {
+        console.error("RPC Like Error:", error);
+        // Fallback for older DB versions if RPC fails
+        const { data: sub } = await supabase.from('daily_submissions').select('likes_count').eq('id', submissionId).single();
+        if (sub) {
+            await supabase.from('daily_submissions').update({ 
+                likes_count: isIncrement ? (sub.likes_count || 0) + 1 : Math.max(0, (sub.likes_count || 0) - 1) 
+            }).eq('id', submissionId);
+        }
+    }
 };
 
 // ANNOUNCEMENTS
