@@ -312,6 +312,16 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                           </p>
                       )}
                   </div>
+                  {!discount && (
+                        <div className="flex justify-end mt-2">
+                            <button 
+                                onClick={() => { setCouponCode('REPUBLIC26'); }}
+                                className="text-[9px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest flex items-center gap-1 hover:underline"
+                            >
+                                <Star size={10} fill="currentColor" /> Use Code: REPUBLIC26
+                            </button>
+                        </div>
+                  )}
 
                   {error && (
                     <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-xl text-xs font-bold">

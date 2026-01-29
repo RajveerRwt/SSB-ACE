@@ -17,7 +17,7 @@ import CurrentAffairs from './CurrentAffairs';
 import DailyPractice from './DailyPractice';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Dashboard Component
@@ -35,6 +35,7 @@ const Dashboard: React.FC<{
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
+  const [showPromo, setShowPromo] = useState(true);
   
   const quotes = [
     { text: "Either I will come back after hoisting the Tricolour, or I will come back wrapped in it, but I will be back for sure.", author: "Capt. Vikram Batra, PVC" },
@@ -99,6 +100,54 @@ const Dashboard: React.FC<{
   return (
     <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-20">
       
+      {/* REPUBLIC DAY PROMO BANNER */}
+      {showPromo && (!subscription || subscription.tier === 'FREE') && (
+         <div className="relative animate-in slide-in-from-top duration-500">
+            {/* Background Glow */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 via-white to-green-500 rounded-2xl blur opacity-25"></div>
+            
+            <div className="relative bg-white rounded-2xl p-4 md:p-6 border border-slate-100 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden">
+               {/* Decorative background icons */}
+               <div className="absolute top-0 right-0 p-8 opacity-5 -rotate-12 pointer-events-none">
+                  <Crown size={120} />
+               </div>
+
+               <div className="flex items-center gap-5 z-10">
+                  <div className="w-16 h-16 bg-slate-900 text-white rounded-2xl flex flex-col items-center justify-center shrink-0 shadow-lg border border-slate-700">
+                     <span className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-0.5">Sale</span>
+                     <span className="text-2xl font-black leading-none">26%</span>
+                     <span className="text-[9px] font-black text-green-400 uppercase tracking-widest mt-0.5">OFF</span>
+                  </div>
+                  <div>
+                     <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter flex items-center gap-2">
+                        Republic Day Offer
+                        <span className="bg-red-100 text-red-600 text-[9px] px-2 py-0.5 rounded-full animate-pulse">Limited Time</span>
+                     </h4>
+                     <p className="text-xs font-bold text-slate-500 mt-1 max-w-md">
+                        Celebrate with a massive discount on the Officer Plan. <br className="hidden md:block"/>
+                        Use Code: <span className="font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 select-all cursor-pointer hover:bg-slate-200 transition-colors" title="Click to copy" onClick={(e) => { navigator.clipboard.writeText('REPUBLIC26'); (e.target as HTMLElement).innerText = 'COPIED!'; setTimeout(() => (e.target as HTMLElement).innerText = 'REPUBLIC26', 1500); }}>REPUBLIC26</span>
+                     </p>
+                  </div>
+               </div>
+
+               <div className="flex items-center gap-3 w-full md:w-auto z-10">
+                  <button 
+                     onClick={onOpenPayment}
+                     className="flex-1 md:flex-none px-8 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:shadow-orange-500/30 hover:scale-105 transition-all flex items-center justify-center gap-2"
+                  >
+                     <Zap size={14} /> Claim Offer
+                  </button>
+                  <button 
+                     onClick={() => setShowPromo(false)}
+                     className="p-3 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-xl transition-colors"
+                  >
+                     <X size={18} />
+                  </button>
+               </div>
+            </div>
+         </div>
+      )}
+
       {/* PAYMENT STATUS BANNER */}
       {paymentStatus && paymentStatus.status === 'PENDING' && (
          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top">
