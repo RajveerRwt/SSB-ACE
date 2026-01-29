@@ -250,12 +250,74 @@ const AdminPanel: React.FC = () => {
       u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // UPDATED ROBUST SQL (Includes Final Policies)
+  // UPDATED ROBUST SQL
   const storageSQL = `
 -- EXTENSIONS
 create extension if not exists "uuid-ossp";
 
--- 1. ASPIRANTS
+-- 1. DAILY CHALLENGES (Fixing Permissions)
+create table if not exists public.daily_challenges (
+  id uuid default uuid_generate_v4() primary key,
+  ppdt_image_url text,
+  wat_words text[],
+  srt_situations text[],
+  interview_question text,
+  created_at timestamptz default now()
+);
+alter table public.daily_challenges enable row level security;
+
+-- Add interview_question column if missing (Safe run)
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name='daily_challenges' and column_name='interview_question') then
+    alter table public.daily_challenges add column interview_question text;
+  end if;
+end $$;
+
+-- Drop existing policies to avoid conflicts
+drop policy if exists "Public read daily" on public.daily_challenges;
+drop policy if exists "Enable insert for authenticated users only" on public.daily_challenges;
+drop policy if exists "Enable all access for all users" on public.daily_challenges;
+
+-- CREATE NEW POLICIES (Read for Everyone, Insert for Auth users)
+create policy "Public read daily" on public.daily_challenges for select using (true);
+create policy "Auth insert daily" on public.daily_challenges for insert with check (auth.role() = 'authenticated');
+create policy "Auth update daily" on public.daily_challenges for update using (auth.role() = 'authenticated');
+
+-- 2. DAILY SUBMISSIONS
+create table if not exists public.daily_submissions (
+  id uuid default uuid_generate_v4() primary key,
+  challenge_id uuid references public.daily_challenges,
+  user_id uuid references auth.users,
+  ppdt_story text,
+  wat_answers text[],
+  srt_answers text[],
+  interview_answer text,
+  created_at timestamptz default now(),
+  likes_count integer default 0
+);
+alter table public.daily_submissions enable row level security;
+
+-- Add missing columns safely
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name='daily_submissions' and column_name='interview_answer') then
+    alter table public.daily_submissions add column interview_answer text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='daily_submissions' and column_name='likes_count') then
+    alter table public.daily_submissions add column likes_count integer default 0;
+  end if;
+end $$;
+
+drop policy if exists "Public read submissions" on public.daily_submissions;
+drop policy if exists "Insert submissions" on public.daily_submissions;
+drop policy if exists "Update submissions" on public.daily_submissions;
+
+create policy "Public read submissions" on public.daily_submissions for select using (true);
+create policy "Insert submissions" on public.daily_submissions for insert with check (auth.uid() = user_id);
+create policy "Update submissions" on public.daily_submissions for update using (auth.uid() = user_id);
+
+-- 3. ASPIRANTS
 create table if not exists public.aspirants (
   user_id uuid references auth.users not null primary key,
   email text,
@@ -266,64 +328,16 @@ create table if not exists public.aspirants (
   last_streak_date timestamptz
 );
 alter table public.aspirants enable row level security;
-drop policy if exists "Public select aspirants" on public.aspirants;
-create policy "Public select aspirants" on public.aspirants for select using (true);
+drop policy if exists "Users can view own profile" on public.aspirants;
+drop policy if exists "Users can update own profile" on public.aspirants;
+drop policy if exists "Users can insert own profile" on public.aspirants;
+drop policy if exists "Public read aspirants" on public.aspirants;
+
+create policy "Users can view own profile" on public.aspirants for select using (true); -- Allow public read for leaderboards
 create policy "Users can update own profile" on public.aspirants for update using (auth.uid() = user_id);
 create policy "Users can insert own profile" on public.aspirants for insert with check (auth.uid() = user_id);
 
--- 2. DAILY CHALLENGES
-create table if not exists public.daily_challenges (
-  id uuid default uuid_generate_v4() primary key,
-  ppdt_image_url text,
-  wat_words text[],
-  srt_situations text[],
-  interview_question text,
-  created_at timestamptz default now()
-);
-alter table public.daily_challenges enable row level security;
-drop policy if exists "Public read daily" on public.daily_challenges;
-create policy "Public read daily" on public.daily_challenges for select using (true);
-create policy "Auth insert daily" on public.daily_challenges for insert with check (auth.role() = 'authenticated');
-
--- 3. DAILY SUBMISSIONS
-create table if not exists public.daily_submissions (
-  id uuid default uuid_generate_v4() primary key,
-  challenge_id uuid references public.daily_challenges,
-  user_id uuid references public.aspirants(user_id),
-  ppdt_story text,
-  wat_answers text[],
-  srt_answers text[],
-  interview_answer text,
-  created_at timestamptz default now(),
-  likes_count integer default 0
-);
-alter table public.daily_submissions enable row level security;
-drop policy if exists "Public read submissions" on public.daily_submissions;
-drop policy if exists "Insert submissions" on public.daily_submissions;
-create policy "Public read submissions" on public.daily_submissions for select using (true);
-create policy "Insert submissions" on public.daily_submissions for insert with check (auth.uid() = user_id);
-create policy "Allow atomic updates for likes" on public.daily_submissions for update using (true);
-
--- 4. ATOMIC FUNCTIONS FOR LIKES
-create or replace function increment_likes(submission_id uuid)
-returns void as $$
-begin
-  update public.daily_submissions
-  set likes_count = likes_count + 1
-  where id = submission_id;
-end;
-$$ language plpgsql security definer;
-
-create or replace function decrement_likes(submission_id uuid)
-returns void as $$
-begin
-  update public.daily_submissions
-  set likes_count = greatest(0, likes_count - 1)
-  where id = submission_id;
-end;
-$$ language plpgsql security definer;
-
--- 5. STORAGE (Buckets)
+-- 4. STORAGE (Buckets)
 insert into storage.buckets (id, name, public) values ('scenarios', 'scenarios', true) on conflict (id) do nothing;
 create policy "Public Access Scenarios" on storage.objects for select using ( bucket_id = 'scenarios' );
 create policy "Auth Upload Scenarios" on storage.objects for insert with check ( bucket_id = 'scenarios' and auth.role() = 'authenticated' );
@@ -365,7 +379,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-slate-900">
                     <Settings className="text-blue-600" size={24} />
-                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v2.3)</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v2.0)</h5>
                 </div>
                 {showSqlHelp && !errorMsg && (
                     <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
@@ -375,7 +389,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
             <p className="text-xs text-slate-600 font-medium">
                 1. Copy the code below.<br/>
                 2. Go to Supabase {'>'} SQL Editor.<br/>
-                3. Paste and Run. This fixes the visibility issue by allowing public profile lookups for the board.
+                3. Paste and Run. This will fix missing columns and permission errors.
             </p>
 
             <div className="relative group">
@@ -405,7 +419,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
         </div>
       )}
 
-      {/* TABS */}
+      {/* TABS RESTORED */}
       <div className="flex flex-wrap justify-center md:justify-start gap-4">
          <button onClick={() => setActiveTab('PAYMENTS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PAYMENTS' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><IndianRupee size={16} /> Payments {payments.length > 0 && `(${payments.length})`}</button>
          <button onClick={() => setActiveTab('USERS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'USERS' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><User size={16} /> Cadets</button>
@@ -416,7 +430,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
          <button onClick={() => setActiveTab('PPDT')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${activeTab === 'PPDT' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}>PPDT</button>
          <button onClick={() => setActiveTab('TAT')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${activeTab === 'TAT' ? 'bg-purple-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}>TAT</button>
          <button onClick={() => setActiveTab('WAT')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${activeTab === 'WAT' ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}>WAT</button>
-         <button onClick={() => setActiveTab('SRT')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${activeTab === 'SRT' ? 'bg-orange-50 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}>SRT</button>
+         <button onClick={() => setActiveTab('SRT')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${activeTab === 'SRT' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}>SRT</button>
          
          <div className="w-full md:w-auto h-px md:h-8 bg-slate-200 md:mx-2 my-2 md:my-0"></div>
 
@@ -514,6 +528,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
               </div>
           </div>
       ) : activeTab === 'PAYMENTS' ? (
+          // ... (Existing Payments Code) ...
           <div className="space-y-6">
               {payments.length === 0 ? (
                   <div className="p-12 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-xl">
@@ -555,6 +570,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
               )}
           </div>
       ) : activeTab === 'USERS' ? (
+          // ... (Existing Users Code) ...
           <div className="space-y-6">
               <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-lg flex items-center gap-4 sticky top-24 z-10">
                   <Search className="text-slate-400 ml-2" size={20} />
@@ -720,7 +736,7 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
         <div className="text-center py-12 text-slate-400 font-bold">Select a valid tab or add content.</div>
       )}
       
-      {/* USER DETAILS MODAL and CONFIRMATION MODAL */}
+      {/* USER DETAILS MODAL and CONFIRMATION MODAL - Unchanged logic, just ensure they are rendered */}
       {selectedUser && (
           <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl relative">
