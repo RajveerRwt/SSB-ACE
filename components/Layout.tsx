@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { TestType, Announcement } from '../types';
+import { TestType, Announcement, UserSubscription } from '../types';
 import { SSBLogo } from './Logo';
 import { 
   LayoutDashboard, 
@@ -30,7 +30,8 @@ import {
   CheckCircle,
   AlertTriangle,
   Instagram,
-  Youtube
+  Youtube,
+  Crown
 } from 'lucide-react';
 import { getRecentAnnouncements, subscribeToAnnouncements } from '../services/supabaseService';
 
@@ -43,9 +44,10 @@ interface LayoutProps {
   user?: string;
   isLoggedIn: boolean;
   isAdmin?: boolean;
+  subscription?: UserSubscription | null;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLogout, onLogin, user, isLoggedIn, isAdmin }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLogout, onLogin, user, isLoggedIn, isAdmin, subscription }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   
@@ -252,7 +254,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
              {isLoggedIn ? (
                <div className="mb-4 px-2">
                  <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Logged in as</p>
-                 <p className="text-xs font-bold text-slate-300 truncate">{user}</p>
+                 <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-300 truncate">{user}</p>
+                    {subscription?.tier === 'PRO' && <span className="bg-yellow-400 text-black text-[8px] px-1.5 py-0.5 rounded font-black uppercase">PRO</span>}
+                 </div>
                  {isAdmin && <span className="text-[8px] bg-red-600 px-1.5 py-0.5 rounded text-white font-black uppercase tracking-widest mt-1 inline-block">Admin</span>}
                </div>
              ) : (
@@ -358,6 +363,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                 <span className={`w-1.5 h-1.5 rounded-full ${isLoggedIn ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`} />
                 {isLoggedIn ? 'Active' : 'Preview'}
               </span>
+              {subscription?.tier === 'PRO' && <span className="text-[9px] font-black text-yellow-500 uppercase tracking-widest mt-0.5 flex items-center gap-1"><Crown size={10} /> Pro Officer</span>}
             </div>
             
             {/* Notification Bell Dropdown */}

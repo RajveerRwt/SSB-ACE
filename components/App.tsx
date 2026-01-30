@@ -20,85 +20,19 @@ import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSe
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
-// SEO Helper function to update meta tags dynamically
-const updateMetadata = (type: TestType) => {
-  const metadataMap: Record<TestType, { title: string, desc: string }> = {
-    [TestType.DASHBOARD]: {
-        title: "SSBPREP.ONLINE | AI Virtual IO & Psychology Prep Dashboard",
-        desc: "Access PPDT simulations, AI personal interviews, and psychological tests for Indian Army, Navy, and Air Force selection."
-    },
-    [TestType.INTERVIEW]: {
-        title: "Virtual Interviewing Officer | 1:1 AI SSB Personal Interview",
-        desc: "Face Col. Arjun Singh, our AI Virtual IO. Real-time feedback on body language, CIQ responses, and defense current affairs."
-    },
-    [TestType.PPDT]: {
-        title: "PPDT Practice Online | SSB Picture Perception & Discussion Test",
-        desc: "Practice with hazy pictures, write stories, and get AI assessments for your PPDT Screening round."
-    },
-    [TestType.TAT]: {
-        title: "TAT Psychology Test | Thematic Apperception Test SSB Online",
-        desc: "Access 12 standardized TAT sets. Write stories on visual stimuli and get personality evaluation based on 15 OLQs."
-    },
-    [TestType.WAT]: {
-        title: "WAT Practice Online | Word Association Test for SSB Prep",
-        desc: "Spontaneous sentence writing for 60 WAT words. Get sample responses and quality assessment for your psychology dossier."
-    },
-    [TestType.SRT]: {
-        title: "SRT Test Online | Situation Reaction Test SSB Psychology",
-        desc: "Practice 60 situations in 30 minutes. Learn to project courage, responsibility, and speed of decision-making."
-    },
-    [TestType.SDT]: {
-        title: "Self Description Test (SDT) | SSB Psychology Prep Guide",
-        desc: "Write high-quality Self Descriptions from the perspective of parents, teachers, and friends with AI feedback."
-    },
-    [TestType.PIQ]: {
-        title: "PIQ Form Online | SSB Personal Information Questionnaire",
-        desc: "Fill your DIPR 107-A form digitially. AI analyzes your background for personalized interview preparation."
-    },
-    [TestType.CURRENT_AFFAIRS]: {
-        title: "Daily Defense News | Current Affairs for SSB Interview & GD",
-        desc: "Stay updated with the top 6 defense and geopolitical news curated specifically for SSB Lecturette and GD topics."
-    },
-    [TestType.STAGES]: {
-        title: "SSB 5-Day Procedure | Stage 1 & Stage 2 Roadmap Guide",
-        desc: "Comprehensive guide to the complete SSB selection process: Screening, Psychology, GTO, and Interview."
-    },
-    [TestType.DAILY_PRACTICE]: {
-        title: "Daily SSB Practice | New PPDT, WAT & SRT Challenges",
-        desc: "Join the community for daily tactical briefs. Practice one PPDT, WAT, and SRT scenario every 24 hours."
-    },
-    [TestType.AI_BOT]: {
-        title: "Major Veer AI Guide | SSB Procedure Doubt Solver",
-        desc: "Ask Major Veer anything about SSB selection, OIR, GTO tasks, and psychological testing protocols."
-    },
-    [TestType.LOGIN]: { title: "Login | SSBPREP.ONLINE", desc: "Access your personalized SSB preparation mission logs." },
-    [TestType.REGISTER]: { title: "Register | SSBPREP.ONLINE", desc: "Start your journey to becoming an officer in the Indian Armed Forces." },
-    [TestType.CONTACT]: { title: "Support Desk | Contact SSBPREP.ONLINE", desc: "Get help with technical issues, payments, or platform usage." },
-    [TestType.GUIDE]: { title: "How to Use SSBPREP | Platform SOP", desc: "Learn the protocols for using India's most advanced AI SSB preparation tool." },
-    [TestType.ADMIN]: { title: "Admin Command | SSBPREP", desc: "Internal management portal." },
-    [TestType.TERMS]: { title: "Terms of Service | SSBPREP", desc: "Legal terms for using the platform." },
-    [TestType.PRIVACY]: { title: "Privacy Policy | SSBPREP", desc: "How we protect aspirant data." },
-    [TestType.REFUND]: { title: "Refund Policy | SSBPREP", desc: "Policies regarding cancellations." }
-  };
-
-  const current = metadataMap[type] || metadataMap[TestType.DASHBOARD];
-  document.title = current.title;
-  const descTag = document.getElementById('seo-description');
-  if (descTag) descTag.setAttribute('content', current.desc);
-};
-
+// Dashboard Component
 const Dashboard: React.FC<{ 
   onStartTest: (t: TestType) => void, 
   piqLoaded: boolean,
   isLoggedIn: boolean,
   isLoading: boolean,
   user: string,
-  onOpenPayment: () => void
-}> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user, onOpenPayment }) => {
+  onOpenPayment: () => void,
+  subscription: UserSubscription | null
+}> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user, onOpenPayment, subscription }) => {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [showPromo, setShowPromo] = useState(true);
@@ -142,7 +76,6 @@ const Dashboard: React.FC<{
         setHistory(data);
         setLoadingHistory(false);
       });
-      getUserSubscription(user).then(sub => setSubscription(sub));
       
       const fetchStatus = () => {
          getLatestPaymentRequest(user).then(status => setPaymentStatus(status));
@@ -151,18 +84,30 @@ const Dashboard: React.FC<{
       fetchStatus();
       const interval = setInterval(() => {
           fetchStatus();
-          getUserSubscription(user).then(sub => setSubscription(sub));
       }, 30000);
       return () => clearInterval(interval);
     }
   }, [isLoggedIn, user]);
+
+  const getRemainingCredits = (type: string) => {
+      if (!subscription) return { remaining: 0, total: 0 };
+      const usage = subscription.usage;
+      const key = type.toLowerCase();
+      // @ts-ignore
+      const used = usage[`${key}_used`] || 0;
+      // @ts-ignore
+      const limit = usage[`${key}_limit`] || 0;
+      const extra = type === 'Interview' ? (subscription.extra_credits?.interview || 0) : 0;
+      const total = limit + extra;
+      return { remaining: Math.max(0, total - used), total };
+  };
 
   return (
     <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-20">
       
       {/* PROMO BANNER */}
       {showPromo && (!subscription || subscription.tier === 'FREE') && (
-         <section className="relative animate-in slide-in-from-top duration-500" aria-label="Special Offer">
+         <div className="relative animate-in slide-in-from-top duration-500">
             <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 via-white to-green-500 rounded-2xl blur opacity-25"></div>
             <div className="relative bg-white rounded-2xl p-4 md:p-6 border border-slate-100 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden">
                <div className="absolute top-0 right-0 p-8 opacity-5 -rotate-12 pointer-events-none">
@@ -184,23 +129,22 @@ const Dashboard: React.FC<{
                   <button onClick={() => setShowPromo(false)} className="p-3 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-xl transition-colors"><X size={18} /></button>
                </div>
             </div>
-         </section>
+         </div>
       )}
 
-      {/* HERO SECTION - Keyword Rich Headlines */}
-      <article className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl border-b-8 border-yellow-500">
+      {/* HERO SECTION */}
+      <div className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl border-b-8 border-yellow-500">
          <div className="relative z-10 grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
            <div className="space-y-6">
-             <header className="space-y-6">
-               <div className="flex items-center gap-3">
-                 <span className="px-3 py-1 bg-yellow-400 text-black text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg animate-bounce">SSB Prep Online</span>
-                 <span className="text-slate-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">AI Board Simulation 2026</span>
-               </div>
-               <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">India's Advanced AI <br/><span className="text-yellow-400 italic font-serif">SSB Trainer</span></h1>
-               <p className="text-slate-400 text-sm md:text-lg leading-relaxed font-medium italic opacity-80">
-                 "Face Col. Arjun Singh in a realistic virtual interview. Master PPDT, TAT, and SRT with instant AI psychometric feedback."
-               </p>
-             </header>
+             <div className="flex items-center gap-3">
+               <span className="px-3 py-1 bg-yellow-400 text-black text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg animate-bounce">Officer Potential</span>
+               {subscription?.tier === 'PRO' && <span className="px-3 py-1 bg-blue-600 text-white text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full flex items-center gap-2"><Crown size={12}/> Pro Cadet</span>}
+               <span className="text-slate-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">Board Simulation v4.0</span>
+             </div>
+             <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Do You Have It <br/><span className="text-yellow-400 italic font-serif">In You?</span></h1>
+             <p className="text-slate-400 text-sm md:text-lg leading-relaxed font-medium italic opacity-80">
+               "Victory favors the prepared. The SSB doesn't test your knowledge; it tests your personality, grit, and 15 Officer Like Qualities."
+             </p>
              
              <div className="flex flex-wrap gap-4 pt-4">
                {isLoggedIn ? (
@@ -221,14 +165,17 @@ const Dashboard: React.FC<{
 
              {isLoggedIn && subscription && (
                  <div className="mt-4 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-4"><Zap size={14} className="text-yellow-400" /> Plan Credits</p>
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-4"><Zap size={14} className="text-yellow-400" /> Plan Credits Remaining</p>
                     <div className="grid grid-cols-5 gap-2 md:gap-4">
-                        {['Interview', 'PPDT', 'TAT', 'WAT', 'SRT'].map((key) => (
-                            <div key={key} className="space-y-1 pr-2 border-r border-white/5 last:border-0">
-                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">{key}</p>
-                                <p className="text-xs md:text-sm font-black text-white">{subscription.usage[`${key.toLowerCase()}_used` as keyof typeof subscription.usage]}</p>
-                            </div>
-                        ))}
+                        {['Interview', 'PPDT', 'TAT', 'WAT', 'SRT'].map((key) => {
+                            const { remaining, total } = getRemainingCredits(key);
+                            return (
+                                <div key={key} className="space-y-1 pr-2 border-r border-white/5 last:border-0">
+                                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">{key}</p>
+                                    <p className="text-xs md:text-sm font-black text-white">{remaining} <span className="text-slate-600 text-[9px] font-bold">/ {total}</span></p>
+                                </div>
+                            );
+                        })}
                     </div>
                  </div>
              )}
@@ -244,7 +191,121 @@ const Dashboard: React.FC<{
            </div>
          </div>
          <ShieldCheck className="absolute top-1/2 -right-12 -translate-y-1/2 w-[20rem] md:w-[30rem] h-[20rem] md:h-[30rem] text-white/5 rotate-12 pointer-events-none" />
-      </article>
+      </div>
+
+      {/* ROADMAP & MISSION LOGS */}
+      <div className="grid lg:grid-cols-12 gap-6 md:gap-10">
+        <div className="lg:col-span-8 space-y-6 md:space-y-10">
+          
+          {/* MISSION LOGS SECTION */}
+          {isLoggedIn && (
+            <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-xl">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-4">
+                  <History className="text-purple-600" size={20} /> Mission Logs
+                </h3>
+                <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recent Activity</span>
+              </div>
+              
+              {loadingHistory ? (
+                <div className="flex items-center justify-center p-8"><Loader2 className="animate-spin text-slate-300" /></div>
+              ) : history.length === 0 ? (
+                <div className="text-center p-8 bg-slate-50 rounded-3xl text-slate-400 text-xs font-medium italic">
+                  "No mission records found. Complete a test to initialize log."
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {history.map((h, i) => (
+                    <div key={i} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors gap-3">
+                        <div className="flex items-center gap-4">
+                          <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-black text-[10px]">
+                            {h.type.substring(0,2)}
+                          </div>
+                          <div>
+                            <p className="text-xs font-black uppercase text-slate-800 tracking-wide">{h.type}</p>
+                            <p className="text-[9px] text-slate-400 font-bold">{new Date(h.timestamp).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <div className="text-right flex md:block w-full md:w-auto justify-between items-center">
+                          <p className="text-xs font-black text-slate-900">Score: {h.score}</p>
+                          <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Logged</p>
+                        </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[4rem] border border-slate-100 shadow-xl flex flex-col">
+            <div className="flex justify-between items-center mb-6 md:mb-10">
+               <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-4">
+                 <Flag className="text-blue-600" /> Strategic Roadmap
+               </h3>
+               <button onClick={() => onStartTest(TestType.STAGES)} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">View Full Plan</button>
+            </div>
+            <div className="space-y-4 md:space-y-5">
+               {[
+                 { id: TestType.PIQ, name: 'Personal Info Questionnaire', type: 'Phase 0: Admin', time: '15 mins', status: isLoggedIn ? (piqLoaded ? 'Completed' : 'Action Required') : 'Login Required' },
+                 { id: TestType.PPDT, name: 'PPDT Simulation', type: 'Stage 1: Screening', time: '10 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
+                 { id: TestType.SDT, name: 'Self Description Test', type: 'Stage 2: Psychology', time: '15 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
+                 { id: TestType.INTERVIEW, name: 'Stage 2: Personal Interview', type: 'IO Evaluation', time: '40 mins', status: isLoggedIn ? (piqLoaded ? 'Available' : 'Restricted') : 'Login Required' },
+                 { id: TestType.TAT, name: 'Stage 2: Psychology (TAT)', type: 'Mental Strength', time: '45 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
+               ].map((test, i) => (
+                 <div 
+                   key={i} 
+                   onClick={() => {
+                       if (!isLoggedIn) onStartTest(TestType.LOGIN);
+                       else if (test.id !== TestType.INTERVIEW || piqLoaded) onStartTest(test.id);
+                       else onStartTest(TestType.PIQ);
+                   }}
+                   className="flex items-center justify-between p-5 md:p-7 bg-slate-50 rounded-[2rem] md:rounded-[2.5rem] border-2 border-transparent hover:border-slate-900 hover:bg-white transition-all cursor-pointer group shadow-sm hover:shadow-2xl"
+                  >
+                   <div className="flex items-center gap-4 md:gap-6">
+                     <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all shrink-0 ${
+                       test.status === 'Completed' ? 'bg-green-100 text-green-600' : 
+                       (test.status === 'Restricted' || test.status === 'Login Required') ? 'bg-slate-200 text-slate-400' : 'bg-slate-900 text-white group-hover:rotate-6'
+                     }`}>
+                       {test.status === 'Completed' ? <CheckCircle size={20} /> : (test.status === 'Restricted' || test.status === 'Login Required') ? <Lock size={20} /> : <Zap size={20} />}
+                     </div>
+                     <div>
+                       <h5 className="font-black text-slate-900 uppercase text-xs tracking-widest truncate max-w-[150px] md:max-w-none">{test.name}</h5>
+                       <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 tracking-widest">{test.type} • {test.time}</p>
+                     </div>
+                   </div>
+                   <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+                 </div>
+               ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-4 space-y-6 md:space-y-10">
+           <div className="bg-slate-950 p-8 md:p-12 rounded-[2rem] md:rounded-[4rem] text-white shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-yellow-500" />
+              <Star className="text-yellow-400 w-12 h-12 md:w-16 md:h-16 mb-6 md:mb-8 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]" />
+              <h3 className="text-xl md:text-2xl font-black uppercase tracking-widest mb-4 md:mb-6">The Aspirant's Creed</h3>
+              <div className="space-y-4 md:space-y-6 text-xs md:text-sm font-medium italic text-slate-400 leading-relaxed">
+                 <p>"I am a leader in the making. I do not fear the challenge; I welcome the trial."</p>
+                 <p>"I shall be honest with my words, firm with my actions, and loyal to my team."</p>
+                 <p>"Failure is but a lesson in persistence. My resolve is my shield, and my discipline is my weapon."</p>
+              </div>
+           </div>
+
+           <div className="bg-blue-600 p-8 md:p-10 rounded-[2rem] md:rounded-[3.5rem] text-white shadow-xl flex flex-col items-center text-center gap-6 group hover:scale-[1.02] transition-all">
+              <div className="w-16 h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center border border-white/30 shadow-2xl">
+                <Shield className="w-8 h-8 md:w-10 md:h-10 text-white" />
+              </div>
+              <div>
+                <h4 className="text-lg md:text-xl font-black uppercase tracking-widest mb-2">SSB Navigator</h4>
+                <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                  Comprehensive 5-Day Stage Guide Active
+                </p>
+              </div>
+              <button onClick={() => onStartTest(TestType.STAGES)} className="w-full py-4 bg-white text-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl">Briefing Room</button>
+           </div>
+        </div>
+      </div>
 
       {/* PLAN COMPARISON */}
       {(!isLoggedIn || (subscription && subscription.tier === 'FREE')) && (
@@ -301,11 +362,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentOpen, setPaymentOpen] = useState(false);
   const [pendingPaymentIntent, setPendingPaymentIntent] = useState(false);
-
-  // SEO Update Trigger
-  useEffect(() => {
-    updateMetadata(activeTest);
-  }, [activeTest]);
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
 
   const isPIQComplete = (data: PIQData | null) => {
       return !!(data?.name && data?.chestNo);
@@ -318,19 +375,29 @@ const App: React.FC = () => {
         setUser(sessionUser.id);
         setUserEmail(sessionUser.email || '');
         syncUserProfile(sessionUser);
-        const data = await getUserData(sessionUser.id);
+        
+        // Fetch Data Parallel
+        const [data, sub] = await Promise.all([
+            getUserData(sessionUser.id),
+            getUserSubscription(sessionUser.id)
+        ]);
+        
         if (data) setPiqData(data);
+        if (sub) setSubscription(sub);
       }
       setIsLoading(false);
     };
     initAuth();
+    
+    // Refresh subscription periodically or on focus could be added here
     const unsubscribe = subscribeToAuthChanges((u: any) => {
       if (u) {
         setUser(u.id);
         setUserEmail(u.email || '');
         getUserData(u.id).then((d: PIQData | null) => d && setPiqData(d));
+        getUserSubscription(u.id).then((s) => setSubscription(s));
       } else {
-        setUser(null); setUserEmail(null); setPiqData(null);
+        setUser(null); setUserEmail(null); setPiqData(null); setSubscription(null);
       }
     });
     return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
@@ -339,6 +406,7 @@ const App: React.FC = () => {
   const handleLogin = (uid: string, email?: string) => {
     setUser(uid); setUserEmail(email || '');
     getUserData(uid).then((d: PIQData | null) => d && setPiqData(d));
+    getUserSubscription(uid).then((s) => setSubscription(s));
     setActiveTest(TestType.DASHBOARD);
     if (pendingPaymentIntent) { setPaymentOpen(true); setPendingPaymentIntent(false); }
   };
@@ -360,6 +428,8 @@ const App: React.FC = () => {
       if (!user) return;
       await saveTestAttempt(user, activeTest.toString(), result);
       if (!result.isCustomAttempt) await incrementUsage(user, activeTest.toString());
+      // Refresh sub after usage
+      getUserSubscription(user).then((s) => setSubscription(s));
   };
 
   const renderContent = () => {
@@ -383,14 +453,14 @@ const App: React.FC = () => {
       case TestType.GUIDE: return <HowToUse onNavigate={setActiveTest} />;
       case TestType.CURRENT_AFFAIRS: return <CurrentAffairs />;
       case TestType.DAILY_PRACTICE: return <DailyPractice />;
-      default: return <Dashboard onStartTest={navigateTo} piqLoaded={isPIQComplete(piqData)} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} />;
+      default: return <Dashboard onStartTest={navigateTo} piqLoaded={isPIQComplete(piqData)} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} />;
     }
   };
 
   return (
-    <Layout activeTest={activeTest} onNavigate={navigateTo} onLogout={async () => { await logoutUser(); setUser(null); setActiveTest(TestType.DASHBOARD); }} onLogin={() => setActiveTest(TestType.LOGIN)} user={userEmail || undefined} isLoggedIn={!!user} isAdmin={isUserAdmin(userEmail)}>
+    <Layout activeTest={activeTest} onNavigate={navigateTo} onLogout={async () => { await logoutUser(); setUser(null); setActiveTest(TestType.DASHBOARD); }} onLogin={() => setActiveTest(TestType.LOGIN)} user={userEmail || undefined} isLoggedIn={!!user} isAdmin={isUserAdmin(userEmail)} subscription={subscription}>
       {renderContent()}
-      {user && <PaymentModal userId={user} isOpen={isPaymentOpen} onClose={() => setPaymentOpen(false)} onSuccess={() => {}} />}
+      {user && <PaymentModal userId={user} isOpen={isPaymentOpen} onClose={() => setPaymentOpen(false)} onSuccess={() => { getUserSubscription(user).then(s => setSubscription(s)); }} />}
     </Layout>
   );
 };
