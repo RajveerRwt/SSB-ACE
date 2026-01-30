@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Layout from './Layout';
 import Login from './Login';
@@ -18,6 +19,73 @@ import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X } from 'lucide-react';
 import { SSBLogo } from './Logo';
+
+// SEO Helper function to update meta tags dynamically
+const updateMetadata = (type: TestType) => {
+  const metadataMap: Record<TestType, { title: string, desc: string }> = {
+    [TestType.DASHBOARD]: {
+        title: "SSBPREP.ONLINE | AI Virtual IO & Psychology Prep Dashboard",
+        desc: "Access PPDT simulations, AI personal interviews, and psychological tests for Indian Army, Navy, and Air Force selection."
+    },
+    [TestType.INTERVIEW]: {
+        title: "Virtual Interviewing Officer | 1:1 AI SSB Personal Interview",
+        desc: "Face Col. Arjun Singh, our AI Virtual IO. Real-time feedback on body language, CIQ responses, and defense current affairs."
+    },
+    [TestType.PPDT]: {
+        title: "PPDT Practice Online | SSB Picture Perception & Discussion Test",
+        desc: "Practice with hazy pictures, write stories, and get AI assessments for your PPDT Screening round."
+    },
+    [TestType.TAT]: {
+        title: "TAT Psychology Test | Thematic Apperception Test SSB Online",
+        desc: "Access 12 standardized TAT sets. Write stories on visual stimuli and get personality evaluation based on 15 OLQs."
+    },
+    [TestType.WAT]: {
+        title: "WAT Practice Online | Word Association Test for SSB Prep",
+        desc: "Spontaneous sentence writing for 60 WAT words. Get sample responses and quality assessment for your psychology dossier."
+    },
+    [TestType.SRT]: {
+        title: "SRT Test Online | Situation Reaction Test SSB Psychology",
+        desc: "Practice 60 situations in 30 minutes. Learn to project courage, responsibility, and speed of decision-making."
+    },
+    [TestType.SDT]: {
+        title: "Self Description Test (SDT) | SSB Psychology Prep Guide",
+        desc: "Write high-quality Self Descriptions from the perspective of parents, teachers, and friends with AI feedback."
+    },
+    [TestType.PIQ]: {
+        title: "PIQ Form Online | SSB Personal Information Questionnaire",
+        desc: "Fill your DIPR 107-A form digitially. AI analyzes your background for personalized interview preparation."
+    },
+    [TestType.CURRENT_AFFAIRS]: {
+        title: "Daily Defense News | Current Affairs for SSB Interview & GD",
+        desc: "Stay updated with the top 6 defense and geopolitical news curated specifically for SSB Lecturette and GD topics."
+    },
+    [TestType.STAGES]: {
+        title: "SSB 5-Day Procedure | Stage 1 & Stage 2 Roadmap Guide",
+        desc: "Comprehensive guide to the complete SSB selection process: Screening, Psychology, GTO, and Interview."
+    },
+    [TestType.DAILY_PRACTICE]: {
+        title: "Daily SSB Practice | New PPDT, WAT & SRT Challenges",
+        desc: "Join the community for daily tactical briefs. Practice one PPDT, WAT, and SRT scenario every 24 hours."
+    },
+    [TestType.AI_BOT]: {
+        title: "Major Veer AI Guide | SSB Procedure Doubt Solver",
+        desc: "Ask Major Veer anything about SSB selection, OIR, GTO tasks, and psychological testing protocols."
+    },
+    [TestType.LOGIN]: { title: "Login | SSBPREP.ONLINE", desc: "Access your personalized SSB preparation mission logs." },
+    [TestType.REGISTER]: { title: "Register | SSBPREP.ONLINE", desc: "Start your journey to becoming an officer in the Indian Armed Forces." },
+    [TestType.CONTACT]: { title: "Support Desk | Contact SSBPREP.ONLINE", desc: "Get help with technical issues, payments, or platform usage." },
+    [TestType.GUIDE]: { title: "How to Use SSBPREP | Platform SOP", desc: "Learn the protocols for using India's most advanced AI SSB preparation tool." },
+    [TestType.ADMIN]: { title: "Admin Command | SSBPREP", desc: "Internal management portal." },
+    [TestType.TERMS]: { title: "Terms of Service | SSBPREP", desc: "Legal terms for using the platform." },
+    [TestType.PRIVACY]: { title: "Privacy Policy | SSBPREP", desc: "How we protect aspirant data." },
+    [TestType.REFUND]: { title: "Refund Policy | SSBPREP", desc: "Policies regarding cancellations." }
+  };
+
+  const current = metadataMap[type] || metadataMap[TestType.DASHBOARD];
+  document.title = current.title;
+  const descTag = document.getElementById('seo-description');
+  if (descTag) descTag.setAttribute('content', current.desc);
+};
 
 const Dashboard: React.FC<{ 
   onStartTest: (t: TestType) => void, 
@@ -94,7 +162,7 @@ const Dashboard: React.FC<{
       
       {/* PROMO BANNER */}
       {showPromo && (!subscription || subscription.tier === 'FREE') && (
-         <div className="relative animate-in slide-in-from-top duration-500">
+         <section className="relative animate-in slide-in-from-top duration-500" aria-label="Special Offer">
             <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 via-white to-green-500 rounded-2xl blur opacity-25"></div>
             <div className="relative bg-white rounded-2xl p-4 md:p-6 border border-slate-100 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden">
                <div className="absolute top-0 right-0 p-8 opacity-5 -rotate-12 pointer-events-none">
@@ -116,21 +184,23 @@ const Dashboard: React.FC<{
                   <button onClick={() => setShowPromo(false)} className="p-3 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-xl transition-colors"><X size={18} /></button>
                </div>
             </div>
-         </div>
+         </section>
       )}
 
-      {/* HERO SECTION */}
-      <div className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl border-b-8 border-yellow-500">
+      {/* HERO SECTION - Keyword Rich Headlines */}
+      <article className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl border-b-8 border-yellow-500">
          <div className="relative z-10 grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
            <div className="space-y-6">
-             <div className="flex items-center gap-3">
-               <span className="px-3 py-1 bg-yellow-400 text-black text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg animate-bounce">Officer Potential</span>
-               <span className="text-slate-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">Board Simulation v4.0</span>
-             </div>
-             <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Do You Have It <br/><span className="text-yellow-400 italic font-serif">In You?</span></h1>
-             <p className="text-slate-400 text-sm md:text-lg leading-relaxed font-medium italic opacity-80">
-               "Victory favors the prepared. The SSB doesn't test your knowledge; it tests your personality, grit, and 15 Officer Like Qualities."
-             </p>
+             <header className="space-y-6">
+               <div className="flex items-center gap-3">
+                 <span className="px-3 py-1 bg-yellow-400 text-black text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg animate-bounce">SSB Prep Online</span>
+                 <span className="text-slate-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">AI Board Simulation 2026</span>
+               </div>
+               <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">India's Advanced AI <br/><span className="text-yellow-400 italic font-serif">SSB Trainer</span></h1>
+               <p className="text-slate-400 text-sm md:text-lg leading-relaxed font-medium italic opacity-80">
+                 "Face Col. Arjun Singh in a realistic virtual interview. Master PPDT, TAT, and SRT with instant AI psychometric feedback."
+               </p>
+             </header>
              
              <div className="flex flex-wrap gap-4 pt-4">
                {isLoggedIn ? (
@@ -174,11 +244,11 @@ const Dashboard: React.FC<{
            </div>
          </div>
          <ShieldCheck className="absolute top-1/2 -right-12 -translate-y-1/2 w-[20rem] md:w-[30rem] h-[20rem] md:h-[30rem] text-white/5 rotate-12 pointer-events-none" />
-      </div>
+      </article>
 
       {/* PLAN COMPARISON */}
       {(!isLoggedIn || (subscription && subscription.tier === 'FREE')) && (
-          <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden">
+          <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden" aria-label="Subscription Plans">
               <div className="p-6 md:p-8 bg-slate-50 border-b border-slate-100 text-center">
                  <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Choose Your SSB Prep Plan</h2>
               </div>
@@ -205,7 +275,7 @@ const Dashboard: React.FC<{
       )}
 
       {/* TESTIMONIALS */}
-      <section className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-xl">
+      <section className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-xl" aria-label="Candidate Testimonials">
           <h2 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-6 flex items-center gap-3"><MessageCircle size={20} /> Success Stories</h2>
           <div key={testimonialIndex} className="animate-in fade-in slide-in-from-right-4 duration-500">
               <p className="text-sm md:text-lg font-medium text-slate-700 italic leading-relaxed mb-6 border-l-4 border-yellow-400 pl-4">"{testimonials[testimonialIndex].text}"</p>
@@ -231,6 +301,11 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentOpen, setPaymentOpen] = useState(false);
   const [pendingPaymentIntent, setPendingPaymentIntent] = useState(false);
+
+  // SEO Update Trigger
+  useEffect(() => {
+    updateMetadata(activeTest);
+  }, [activeTest]);
 
   const isPIQComplete = (data: PIQData | null) => {
       return !!(data?.name && data?.chestNo);
