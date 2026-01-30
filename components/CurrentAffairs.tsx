@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Newspaper, Globe, Loader2, RefreshCw, Calendar, Tag, AlertTriangle, ExternalLink, Shield, Clock } from 'lucide-react';
 import { fetchDailyNews } from '../services/geminiService';
