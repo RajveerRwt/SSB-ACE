@@ -317,17 +317,25 @@ const Dashboard: React.FC<{
                  <div className="space-y-6">
                     <h3 className="font-black text-slate-700 uppercase tracking-widest text-lg">Free Cadet</h3>
                     <ul className="space-y-4 text-xs font-bold text-slate-500">
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> 1 Personal Interview</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> Daily News & Intelligence</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> AI Guide Assistance</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> 1 Personal Interview(with virtual IO)</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-blue-600"/> 10 PPDT with Narration</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-blue-600"/> 2 TAT Test</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-blue-600"/> 3 SRT & 3 WAT Tests</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> Daily News & Practice</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> AI Guide(major veer) </li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-blue-600"/> Detailed & Personalized Assessment</li>
                     </ul>
                  </div>
                  <div className="space-y-6 relative">
                     <h3 className="font-black text-blue-600 uppercase tracking-widest text-lg">Pro Officer (₹299)</h3>
                     <ul className="space-y-4 text-xs font-bold text-slate-700">
-                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 5 Full Virtual Interviews</li>
-                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 30 PPDT & 7 TAT Sets</li>
-                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 10 SRT & WAT Psychology Tests</li>
+                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 5 Personal Interview with Virtual IO</li>
+                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 30 PPDT with Narration</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-blue-600"/> 7 TAT Test</li>
+                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 10 SRT & 10 WAT Tests</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> Daily News & Practice</li>
+                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> AI Guide(major veer) </li>
+                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> Detailed & Personalized Assessment</li>
                     </ul>
                     <button onClick={onOpenPayment} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] shadow-lg">Upgrade to Pro</button>
                  </div>
@@ -337,7 +345,7 @@ const Dashboard: React.FC<{
 
       {/* TESTIMONIALS */}
       <section className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-xl" aria-label="Candidate Testimonials">
-          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-6 flex items-center gap-3"><MessageCircle size={20} /> Success Stories</h2>
+          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-6 flex items-center gap-3"><MessageCircle size={20} /> feedbacks</h2>
           <div key={testimonialIndex} className="animate-in fade-in slide-in-from-right-4 duration-500">
               <p className="text-sm md:text-lg font-medium text-slate-700 italic leading-relaxed mb-6 border-l-4 border-yellow-400 pl-4">"{testimonials[testimonialIndex].text}"</p>
               <div className="flex items-center gap-3">
