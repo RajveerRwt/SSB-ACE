@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Newspaper, Globe, Loader2, RefreshCw, Calendar, Tag, AlertTriangle, ExternalLink, Shield, Clock } from 'lucide-react';
 import { fetchDailyNews } from '../services/geminiService';
@@ -75,23 +74,23 @@ const CurrentAffairs: React.FC = () => {
               <button onClick={loadNews} className="px-8 py-3 bg-red-600 text-white rounded-xl font-black uppercase text-xs tracking-widest">Retry Connection</button>
           </div>
       ) : (
-          <section className="space-y-8" aria-label="Daily News Feed">
+          <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {news.map((item, idx) => (
-                      <article key={idx} className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-xl hover:shadow-2xl transition-all group flex flex-col justify-between h-full">
+                      <div key={idx} className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-xl hover:shadow-2xl transition-all group flex flex-col justify-between h-full">
                           <div className="space-y-4">
                               <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${item.tag.includes('Defense') ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{item.tag}</span>
                               <h3 className="text-lg font-black text-slate-900 leading-tight">{item.headline}</h3>
                               <p className="text-xs text-slate-600 font-medium leading-relaxed">{item.summary}</p>
                           </div>
-                          <footer className="mt-6 pt-6 border-t border-slate-50 bg-slate-50/50 -mx-6 -mb-6 p-6 rounded-b-[2rem]">
+                          <div className="mt-6 pt-6 border-t border-slate-50 bg-slate-50/50 -mx-6 -mb-6 p-6 rounded-b-[2rem]">
                               <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Lecturette & GD Relevance</p>
                               <p className="text-[10px] font-bold text-blue-900 italic">"{item.relevance}"</p>
-                          </footer>
-                      </article>
+                          </div>
+                      </div>
                   ))}
               </div>
-          </section>
+          </div>
       )}
     </div>
   );
