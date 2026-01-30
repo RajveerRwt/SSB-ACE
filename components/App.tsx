@@ -89,6 +89,19 @@ const Dashboard: React.FC<{
     }
   }, [isLoggedIn, user]);
 
+  const getRemainingCredits = (type: string) => {
+      if (!subscription) return { remaining: 0, total: 0 };
+      const usage = subscription.usage;
+      const key = type.toLowerCase();
+      // @ts-ignore
+      const used = usage[`${key}_used`] || 0;
+      // @ts-ignore
+      const limit = usage[`${key}_limit`] || 0;
+      const extra = type === 'Interview' ? (subscription.extra_credits?.interview || 0) : 0;
+      const total = limit + extra;
+      return { remaining: Math.max(0, total - used), total };
+  };
+
   return (
     <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-20">
       
@@ -152,20 +165,14 @@ const Dashboard: React.FC<{
 
              {isLoggedIn && subscription && (
                  <div className="mt-4 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-4"><Zap size={14} className="text-yellow-400" /> Plan Usage</p>
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-4"><Zap size={14} className="text-yellow-400" /> Plan Credits Remaining</p>
                     <div className="grid grid-cols-5 gap-2 md:gap-4">
                         {['Interview', 'PPDT', 'TAT', 'WAT', 'SRT'].map((key) => {
-                            const k = key.toLowerCase();
-                            // @ts-ignore
-                            const used = subscription.usage[`${k}_used`] || 0;
-                            // @ts-ignore
-                            const limit = subscription.usage[`${k}_limit`] || 0;
-                            const extra = key === 'Interview' ? (subscription.extra_credits?.interview || 0) : 0;
-                            const total = limit + extra;
+                            const { remaining, total } = getRemainingCredits(key);
                             return (
                                 <div key={key} className="space-y-1 pr-2 border-r border-white/5 last:border-0">
                                     <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">{key}</p>
-                                    <p className="text-xs md:text-sm font-black text-white">{used} <span className="text-slate-600 text-[9px] font-bold">/ {total}</span></p>
+                                    <p className="text-xs md:text-sm font-black text-white">{remaining} <span className="text-slate-600 text-[9px] font-bold">/ {total}</span></p>
                                 </div>
                             );
                         })}
