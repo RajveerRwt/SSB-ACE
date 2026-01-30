@@ -3,19 +3,26 @@ import { createClient } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
 
 // Initialize Supabase Client
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_KEY || '';
+// We use a fallback string to prevent createClient from throwing an error if env vars are missing
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://placeholder-url.supabase.co';
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_KEY || 'placeholder-key';
+
+if (!process.env.REACT_APP_SUPABASE_URL) {
+  console.warn("SSBPREP: Supabase URL is missing. Database features will be disabled.");
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // --- AUTHENTICATION ---
 
 export const signInWithEmail = async (email: string, password: string) => {
-  return await supabase.auth.signInWithPassword({ email, password });
+  // Fix: Cast supabase.auth to any to resolve property not found error on SupabaseAuthClient
+  return await (supabase.auth as any).signInWithPassword({ email, password });
 };
 
 export const signUpWithEmail = async (email: string, password: string, fullName: string) => {
-  const result = await supabase.auth.signUp({ 
+  // Fix: Cast supabase.auth to any to resolve property not found error on SupabaseAuthClient
+  const result = await (supabase.auth as any).signUp({ 
     email, 
     password,
     options: {
@@ -26,16 +33,19 @@ export const signUpWithEmail = async (email: string, password: string, fullName:
 };
 
 export const logoutUser = async () => {
-  await supabase.auth.signOut();
+  // Fix: Cast supabase.auth to any to resolve property not found error on SupabaseAuthClient
+  await (supabase.auth as any).signOut();
 };
 
 export const checkAuthSession = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  // Fix: Cast supabase.auth to any to resolve property not found error on SupabaseAuthClient
+  const { data: { session } } = await (supabase.auth as any).getSession();
   return session?.user || null;
 };
 
 export const subscribeToAuthChanges = (callback: (user: any) => void) => {
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+  // Fix: Cast supabase.auth to any to resolve property not found error on SupabaseAuthClient
+  const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: any, session: any) => {
     callback(session?.user || null);
   });
   return () => subscription.unsubscribe();
@@ -47,7 +57,7 @@ export const isUserAdmin = (email: string | null | undefined) => {
 };
 
 export const syncUserProfile = async (user: any) => {
-  if (!user) return;
+  if (!user || !process.env.REACT_APP_SUPABASE_URL) return;
   
   // Ensure user profile exists in 'aspirants' table
   const { error } = await supabase
@@ -66,7 +76,7 @@ export const syncUserProfile = async (user: any) => {
     .from('user_subscriptions')
     .select('tier')
     .eq('user_id', user.id)
-    .maybeSingle(); // Use maybeSingle to avoid 406 error if not found
+    .maybeSingle(); 
     
   if (!sub) {
       // NEW USER DEFAULT LIMITS
@@ -74,11 +84,11 @@ export const syncUserProfile = async (user: any) => {
           user_id: user.id,
           tier: 'FREE',
           usage: {
-            interview_used: 0, interview_limit: 1, // 1 Free Interview
-            ppdt_used: 0, ppdt_limit: 10,          // 10 Free PPDT
-            tat_used: 0, tat_limit: 2,             // 2 Free TAT Sets
-            wat_used: 0, wat_limit: 3,             // 3 Free WAT Sets
-            srt_used: 0, srt_limit: 3,             // 3 Free SRT Sets
+            interview_used: 0, interview_limit: 1, 
+            ppdt_used: 0, ppdt_limit: 10,          
+            tat_used: 0, tat_limit: 2,             
+            wat_used: 0, wat_limit: 3,             
+            srt_used: 0, srt_limit: 3,             
             sdt_used: 0
           },
           extra_credits: { interview: 0 }
@@ -90,6 +100,7 @@ export const syncUserProfile = async (user: any) => {
 // --- USER DATA ---
 
 export const getUserData = async (userId: string): Promise<PIQData | null> => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return null;
   const { data } = await supabase
     .from('aspirants')
     .select('piq_data')
@@ -99,6 +110,7 @@ export const getUserData = async (userId: string): Promise<PIQData | null> => {
 };
 
 export const saveUserData = async (userId: string, data: PIQData) => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return;
   await supabase
     .from('aspirants')
     .update({ piq_data: data })
@@ -106,6 +118,7 @@ export const saveUserData = async (userId: string, data: PIQData) => {
 };
 
 export const getUserHistory = async (userId: string) => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return [];
   const { data } = await supabase
     .from('test_history')
     .select('*')
@@ -123,6 +136,7 @@ export const getUserHistory = async (userId: string) => {
 };
 
 export const getUserStreak = async (userId: string) => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return { streak_count: 0 };
   const { data } = await supabase
     .from('aspirants')
     .select('streak_count')
@@ -132,6 +146,7 @@ export const getUserStreak = async (userId: string) => {
 };
 
 export const saveTestAttempt = async (userId: string, testType: string, resultData: any) => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return;
   await supabase
     .from('test_history')
     .insert({
@@ -143,7 +158,7 @@ export const saveTestAttempt = async (userId: string, testType: string, resultDa
 };
 
 export const getAllUsers = async () => {
-  // 1. Fetch Aspirants Profile Data
+  if (!process.env.REACT_APP_SUPABASE_URL) return [];
   const { data: aspirants, error: aspError } = await supabase
     .from('aspirants')
     .select('*')
@@ -154,7 +169,6 @@ export const getAllUsers = async () => {
     return [];
   }
 
-  // 2. Fetch All Subscriptions separately to avoid JOIN issues
   const { data: subs, error: subError } = await supabase
     .from('user_subscriptions')
     .select('*');
@@ -163,9 +177,7 @@ export const getAllUsers = async () => {
     console.error("SSB Admin: Error fetching subscriptions", subError);
   }
 
-  // 3. Manual Merge
   const mergedData = aspirants?.map((u: any) => {
-      // Find matching subscription by user_id
       const sub = subs?.find((s: any) => s.user_id === u.user_id);
       
       const defaultSub = { 
@@ -191,20 +203,33 @@ export const getAllUsers = async () => {
 };
 
 export const deleteUserProfile = async (userId: string) => {
-    // Rely on cascade delete in DB usually, but manual cleanup here for safety
+    if (!process.env.REACT_APP_SUPABASE_URL) return;
     await supabase.from('test_history').delete().eq('user_id', userId);
     await supabase.from('user_subscriptions').delete().eq('user_id', userId);
     await supabase.from('payment_requests').delete().eq('user_id', userId);
-    await supabase.from('user_feedback').delete().eq('user_id', userId); // Added feedback cleanup
+    await supabase.from('user_feedback').delete().eq('user_id', userId);
     await supabase.from('aspirants').delete().eq('user_id', userId);
-    // Note: Cannot delete from auth.users via client library directly without service role
 };
 
 // --- SUBSCRIPTION & PAYMENTS ---
 
 export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
-  // 1. Fetch Current Subscription
-  // USE maybeSingle() to return null instead of throwing 406 Error if row is missing
+  const defaultSub: UserSubscription = {
+      tier: 'FREE',
+      expiryDate: null,
+      usage: {
+        interview_used: 0, interview_limit: 1,
+        ppdt_used: 0, ppdt_limit: 10,
+        tat_used: 0, tat_limit: 2,
+        wat_used: 0, wat_limit: 3,
+        srt_used: 0, srt_limit: 3,
+        sdt_used: 0
+      },
+      extra_credits: { interview: 0 }
+  };
+
+  if (!process.env.REACT_APP_SUPABASE_URL) return defaultSub;
+
   let { data: sub, error } = await supabase
     .from('user_subscriptions')
     .select('*')
@@ -213,7 +238,6 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
 
   if (error) console.warn("Fetch Sub Error:", error.message);
 
-  // 2. SELF-HEALING (PRO): If subscription is missing or FREE, check for valid payments
   if (!sub || sub.tier === 'FREE') {
       const { data: payment } = await supabase
           .from('payment_requests')
@@ -223,11 +247,9 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
           .eq('plan_type', 'PRO_SUBSCRIPTION')
           .order('created_at', { ascending: false })
           .limit(1)
-          .maybeSingle(); // Use maybeSingle to suppress 406
+          .maybeSingle();
 
       if (payment) {
-          console.log(`SSB: Auto-Repairing Subscription for ${userId} based on Payment ID: ${payment.id}`);
-          
           try {
               const paymentDate = payment.created_at;
               const getUsageCount = async (testType: string) => {
@@ -267,21 +289,14 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
                   extra_credits: sub?.extra_credits || { interview: 0 }
               };
 
-              // Use upsert and handle potential 404 if table missing
               const { error: upsertError } = await supabase.from('user_subscriptions').upsert(repairedSub);
               if (!upsertError) {
-                  // @ts-ignore
-                  return repairedSub;
-              } else {
-                  console.error("Self-healing failed:", upsertError);
+                  return repairedSub as any;
               }
-          } catch(e) {
-              console.error("Self-healing crashed", e);
-          }
+          } catch(e) {}
       }
   }
 
-  // 3. MIGRATION FOR LEGACY FREE USERS
   if (sub && sub.tier === 'FREE') {
       const currentUsage = sub.usage;
       if (currentUsage.interview_limit < 1 || currentUsage.ppdt_limit < 10) {
@@ -293,28 +308,12 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
               wat_limit: Math.max(currentUsage.wat_limit, 3),
               srt_limit: Math.max(currentUsage.srt_limit, 3)
           };
-          // Update DB
           await supabase.from('user_subscriptions').update({ usage: newUsage }).eq('user_id', userId);
           sub.usage = newUsage;
       }
   }
     
-  // Return Default Free Plan if nothing exists
-  if (!sub) return {
-      tier: 'FREE',
-      expiryDate: null,
-      usage: {
-        interview_used: 0, interview_limit: 1, // New Standard
-        ppdt_used: 0, ppdt_limit: 10,
-        tat_used: 0, tat_limit: 2,
-        wat_used: 0, wat_limit: 3,
-        srt_used: 0, srt_limit: 3,
-        sdt_used: 0
-      },
-      extra_credits: { interview: 0 }
-  };
-  
-  return sub;
+  return sub || defaultSub;
 };
 
 export const checkLimit = async (userId: string, testType: string) => {
@@ -342,6 +341,7 @@ export const checkLimit = async (userId: string, testType: string) => {
 };
 
 export const incrementUsage = async (userId: string, testType: string) => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return;
   const sub = await getUserSubscription(userId);
   const usage = sub.usage;
   
@@ -353,9 +353,7 @@ export const incrementUsage = async (userId: string, testType: string) => {
   else if (testType === 'WAT') update = { 'usage': { ...usage, wat_used: usage.wat_used + 1 } };
   else if (testType === 'SRT') update = { 'usage': { ...usage, srt_used: usage.srt_used + 1 } };
   
-  // Handle extra credit consumption for Interviews
   if (testType === 'INTERVIEW' && usage.interview_used >= usage.interview_limit) {
-      // Consumed an extra credit
       update = { 
           'usage': { ...usage, interview_used: usage.interview_used + 1 },
           'extra_credits': { ...sub.extra_credits, interview: Math.max(0, sub.extra_credits.interview - 1) } 
@@ -371,7 +369,7 @@ export const incrementUsage = async (userId: string, testType: string) => {
 };
 
 export const getLatestPaymentRequest = async (userId: string) => {
-  // Use maybeSingle to prevent 406
+  if (!process.env.REACT_APP_SUPABASE_URL) return null;
   const { data } = await supabase
     .from('payment_requests')
     .select('*')
@@ -383,6 +381,7 @@ export const getLatestPaymentRequest = async (userId: string) => {
 };
 
 export const getPendingPayments = async () => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return [];
   const { data } = await supabase
     .from('payment_requests')
     .select('*, aspirants(full_name, email)')
@@ -391,13 +390,10 @@ export const getPendingPayments = async () => {
   return data || [];
 };
 
-/**
- * CORE HELPER: Activates the plan for a user.
- */
 export const activatePlanForUser = async (userId: string, planType: string) => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return;
   let update: any = { user_id: userId };
   
-  // Default usage structure for fallback
   const defaultUsage = {
       interview_used: 0, interview_limit: 1,
       ppdt_used: 0, ppdt_limit: 10,
@@ -419,10 +415,9 @@ export const activatePlanForUser = async (userId: string, planType: string) => {
             srt_used: 0, srt_limit: 10,
             sdt_used: 0
           },
-          extra_credits: { interview: 0 } // Initialize extras if new
+          extra_credits: { interview: 0 } 
       };
       
-      // Preserve existing extras if upgrading
       const { data: existing } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle();
       if (existing) {
           update.extra_credits = existing.extra_credits || { interview: 0 };
@@ -443,7 +438,6 @@ export const activatePlanForUser = async (userId: string, planType: string) => {
       };
   }
   
-  // Use UPSERT
   const { error: subError } = await supabase.from('user_subscriptions').upsert(update);
   if (subError) throw subError;
 };
@@ -459,7 +453,6 @@ export const rejectPaymentRequest = async (id: string) => {
 };
 
 export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode?: string) => {
-    // 1. Insert Payment Record
     const { data, error } = await supabase.from('payment_requests').insert({
         user_id: userId,
         utr: paymentId,
@@ -469,15 +462,8 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
         coupon_code: couponCode
     }).select().single();
     
-    if (error) {
-        console.error("Payment Record Insert Failed", error);
-        throw new Error("Could not record payment. Database Error.");
-    }
-    
-    // 2. Activate Subscription
+    if (error) throw new Error("Could not record payment.");
     await activatePlanForUser(userId, planType);
-    
-    // 3. Increment Coupon Usage
     if (couponCode) {
         const { data: coupon } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).maybeSingle();
         if (coupon) {
@@ -488,8 +474,8 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
 
 // --- CONTENT MANAGEMENT ---
 
-// PPDT
 export const getPPDTScenarios = async () => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return [];
   const { data } = await supabase.from('ppdt_scenarios').select('*');
   return data || [];
 };
@@ -498,13 +484,8 @@ export const uploadPPDTScenario = async (file: File, description: string) => {
   const fileName = `ppdt-${Date.now()}-${file.name}`;
   const { data, error } = await supabase.storage.from('scenarios').upload(fileName, file);
   if (error) throw error;
-  
   const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
-  
-  await supabase.from('ppdt_scenarios').insert({
-      image_url: publicUrl,
-      description
-  });
+  await supabase.from('ppdt_scenarios').insert({ image_url: publicUrl, description });
 };
 
 export const deletePPDTScenario = async (id: string, url: string) => {
@@ -513,8 +494,8 @@ export const deletePPDTScenario = async (id: string, url: string) => {
   await supabase.from('ppdt_scenarios').delete().eq('id', id);
 };
 
-// TAT
 export const getTATScenarios = async () => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return [];
   const { data } = await supabase.from('tat_scenarios').select('*').order('set_tag');
   return data || [];
 };
@@ -523,14 +504,8 @@ export const uploadTATScenario = async (file: File, description: string, setTag:
   const fileName = `tat-${Date.now()}-${file.name}`;
   const { error } = await supabase.storage.from('scenarios').upload(fileName, file);
   if (error) throw error;
-  
   const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
-  
-  await supabase.from('tat_scenarios').insert({
-      image_url: publicUrl,
-      description,
-      set_tag: setTag
-  });
+  await supabase.from('tat_scenarios').insert({ image_url: publicUrl, description, set_tag: setTag });
 };
 
 export const deleteTATScenario = async (id: string, url: string) => {
@@ -539,8 +514,8 @@ export const deleteTATScenario = async (id: string, url: string) => {
   await supabase.from('tat_scenarios').delete().eq('id', id);
 };
 
-// WAT
 export const getWATWords = async () => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return [];
   const { data } = await supabase.from('wat_words').select('*').order('set_tag');
   return data || [];
 };
@@ -558,8 +533,8 @@ export const deleteWATSet = async (tag: string) => {
   await supabase.from('wat_words').delete().eq('set_tag', tag);
 };
 
-// SRT
 export const getSRTQuestions = async () => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return [];
   const { data } = await supabase.from('srt_questions').select('*').order('set_tag');
   return data || [];
 };
@@ -577,18 +552,14 @@ export const deleteSRTSet = async (tag: string) => {
   await supabase.from('srt_questions').delete().eq('set_tag', tag);
 };
 
-// COUPONS
 export const getCoupons = async () => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return [];
   const { data } = await supabase.from('coupons').select('*');
   return data || [];
 };
 
 export const createCoupon = async (code: string, discount: number, influencer: string) => {
-  await supabase.from('coupons').insert({
-      code: code.toUpperCase(),
-      discount_percent: discount,
-      influencer_name: influencer
-  });
+  await supabase.from('coupons').insert({ code: code.toUpperCase(), discount_percent: discount, influencer_name: influencer });
 };
 
 export const deleteCoupon = async (code: string) => {
@@ -601,8 +572,8 @@ export const validateCoupon = async (code: string) => {
   return { valid: true, discount: data.discount_percent, message: `Success! ${data.discount_percent}% OFF applied.` };
 };
 
-// DAILY CHALLENGE
 export const getLatestDailyChallenge = async () => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return null;
   const { data } = await supabase
     .from('daily_challenges')
     .select('*')
@@ -620,30 +591,18 @@ export const uploadDailyChallenge = async (ppdtFile: File | null, wat: string, s
       const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName);
       ppdtUrl = data.publicUrl;
   }
-  
-  await supabase.from('daily_challenges').insert({
-      ppdt_image_url: ppdtUrl,
-      wat_words: [wat],
-      srt_situations: [srt],
-      interview_question: interview
-  });
+  await supabase.from('daily_challenges').insert({ ppdt_image_url: ppdtUrl, wat_words: [wat], srt_situations: [srt], interview_question: interview });
 };
 
 export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: string, srt: string, interview: string) => {
-  const { data: { user } } = await supabase.auth.getUser();
+  // Fix: Cast supabase.auth to any to resolve property not found error on SupabaseAuthClient
+  const { data: { user } } = await (supabase.auth as any).getUser();
   if (!user) throw new Error("Login Required");
-  
-  await supabase.from('daily_submissions').insert({
-      challenge_id: challengeId,
-      user_id: user.id,
-      ppdt_story: ppdt,
-      wat_answers: [wat],
-      srt_answers: [srt],
-      interview_answer: interview
-  });
+  await supabase.from('daily_submissions').insert({ challenge_id: challengeId, user_id: user.id, ppdt_story: ppdt, wat_answers: [wat], srt_answers: [srt], interview_answer: interview });
 };
 
 export const getDailySubmissions = async (challengeId: string) => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return [];
   const { data } = await supabase
     .from('daily_submissions')
     .select('*, aspirants(full_name)')
@@ -659,8 +618,8 @@ export const toggleLike = async (submissionId: string) => {
   }
 };
 
-// ANNOUNCEMENTS
 export const getRecentAnnouncements = async (): Promise<Announcement[]> => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return [];
   const { data } = await supabase
     .from('announcements')
     .select('*')
@@ -671,36 +630,26 @@ export const getRecentAnnouncements = async (): Promise<Announcement[]> => {
 };
 
 export const subscribeToAnnouncements = (callback: (a: Announcement) => void) => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return () => {};
   const channel = supabase
     .channel('public:announcements')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, payload => {
         callback(payload.new as Announcement);
     })
     .subscribe();
-    
   return () => { supabase.removeChannel(channel); };
 };
 
 export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT') => {
-  await supabase.from('announcements').insert({
-      message,
-      type,
-      is_active: true
-  });
+  await supabase.from('announcements').insert({ message, type, is_active: true });
 };
 
-// --- USER FEEDBACK ---
-
 export const submitUserFeedback = async (userId: string, testType: string, rating: number, comments: string) => {
-  await supabase.from('user_feedback').insert({
-      user_id: userId,
-      test_type: testType,
-      rating: rating,
-      comments: comments
-  });
+  await supabase.from('user_feedback').insert({ user_id: userId, test_type: testType, rating: rating, comments: comments });
 };
 
 export const getAllFeedback = async () => {
+  if (!process.env.REACT_APP_SUPABASE_URL) return [];
   const { data } = await supabase
     .from('user_feedback')
     .select('*, aspirants(full_name, email)')
