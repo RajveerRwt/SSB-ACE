@@ -189,6 +189,30 @@ export async function extractPIQFromImage(base64Data: string, mimeType: string) 
   }
 }
 
+export async function generateLecturette(topic: string) {
+  const ai = getGeminiClient();
+  const prompt = `Generate a structured 3-minute lecturette speech on the topic: "${topic}".
+  Structure it strictly as JSON:
+  {
+    "introduction": "Brief powerful opening (30s)",
+    "keyPoints": ["Point 1 (Social/Political)", "Point 2 (Economic/Military)", "Point 3 (Future/Global)"],
+    "conclusion": "Strong closing statement"
+  }
+  Keep it concise and suitable for an SSB interview.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: { parts: [{ text: prompt }] },
+      config: { responseMimeType: 'application/json' }
+    });
+    return safeJSONParse(response.text);
+  } catch (e) {
+    console.error("Lecturette Gen Failed", e);
+    return null;
+  }
+}
+
 /**
  * STRICT COST SAVING: No AI Image Generation.
  * Returns a static URL if the DB didn't provide one.
