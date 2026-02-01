@@ -306,7 +306,11 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     } else {
       const nextIdx = currentIndex + 1;
       if (nextIdx < items.length) {
-        playBuzzer(300, 0.1);
+        if (type === TestType.WAT) {
+            playBuzzer(500, 0.15); // Distinct sharp beep for WAT
+        } else {
+            playBuzzer(300, 0.1);
+        }
         setCurrentIndex(nextIdx);
         setupSlide(nextIdx, items);
       } else {
@@ -666,17 +670,63 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   if (phase === PsychologyPhase.COMPLETED) {
     return (
         <div className="max-w-6xl mx-auto space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-12">
+            
+            {/* Conditional Result Header */}
             <div className="bg-slate-900 text-white p-12 md:p-16 rounded-[3rem] shadow-2xl relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-10">
                 <div className="space-y-4 text-center md:text-left z-10">
                     <span className="bg-yellow-400 text-black px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest">Psychology Report</span>
                     <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter">{type} Verdict</h2>
-                    {feedback?.verdict && <p className="text-xl text-slate-300 font-medium italic">"{feedback.verdict}"</p>}
+                    {feedback?.verdict && type !== TestType.WAT && <p className="text-xl text-slate-300 font-medium italic">"{feedback.verdict}"</p>}
+                    {type === TestType.WAT && feedback?.generalFeedback && <p className="text-lg text-slate-300 font-medium italic">"{feedback.generalFeedback}"</p>}
                 </div>
-                <div className="bg-white/10 p-8 rounded-[3rem] border border-white/10 backdrop-blur-md text-center min-w-[200px] z-10">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Score</span>
-                    <span className="text-7xl font-black text-yellow-400">{feedback?.score || "N/A"}</span>
-                </div>
+                {type !== TestType.WAT ? (
+                    <div className="bg-white/10 p-8 rounded-[3rem] border border-white/10 backdrop-blur-md text-center min-w-[200px] z-10">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Score</span>
+                        <span className="text-7xl font-black text-yellow-400">{feedback?.score || "N/A"}</span>
+                    </div>
+                ) : (
+                    <div className="bg-white/10 p-8 rounded-[3rem] border border-white/10 backdrop-blur-md text-center min-w-[200px] z-10">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Attempted</span>
+                        <span className="text-6xl font-black text-white">{feedback?.attemptedCount || 0} <span className="text-2xl text-slate-400">/ 60</span></span>
+                    </div>
+                )}
             </div>
+
+            {/* WAT SPECIFIC ANALYSIS */}
+            {type === TestType.WAT && feedback?.detailedAnalysis && (
+                <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">
+                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                        <Activity size={24} className="text-purple-600" /> Word Association Analysis
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4">
+                        {feedback.detailedAnalysis.map((item: any, i: number) => (
+                            <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:bg-white hover:shadow-md transition-all flex flex-col md:flex-row gap-6">
+                                <div className="md:w-1/4 shrink-0 flex items-center gap-4">
+                                    <span className="text-2xl font-black text-slate-200">{(i + 1).toString().padStart(2, '0')}</span>
+                                    <p className="text-lg font-black text-slate-900 uppercase tracking-wide">{item.word}</p>
+                                </div>
+                                <div className="md:w-3/4 grid md:grid-cols-2 gap-6">
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between">
+                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Your Response</span>
+                                            <span className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">{item.assessment}</span>
+                                        </div>
+                                        <p className={`p-3 rounded-xl text-sm font-medium ${item.userResponse && item.userResponse !== "Not Attempted" ? 'bg-white border border-slate-200 text-slate-700' : 'bg-red-50 text-red-400 border border-red-100 italic'}`}>
+                                            {item.userResponse || "Not Attempted"}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <span className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Ideal Response</span>
+                                        <p className="p-3 bg-green-50 border border-green-100 rounded-xl text-sm font-medium text-slate-700">
+                                            {item.idealResponse}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* TAT: Observation & Analysis */}
             {type === TestType.TAT && feedback?.individualStories && (
@@ -718,8 +768,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 </div>
             )}
 
-            {/* WAT/SRT Detailed Comparison */}
-            {(type === TestType.WAT || type === TestType.SRT) && feedback?.detailedComparison && (
+            {/* SRT Detailed Comparison (Legacy for SRT only now) */}
+            {type === TestType.SRT && feedback?.detailedComparison && (
                 <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">
                     <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3"><Activity size={24} className="text-purple-600" /> Response Analysis</h3>
                     <div className="space-y-4">
@@ -750,30 +800,34 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 </div>
             )}
 
-            {/* General Feedback */}
-            <div className="grid md:grid-cols-2 gap-8">
-                <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
-                    <h4 className="font-black text-green-600 uppercase tracking-widest mb-6 flex items-center gap-3"><CheckCircle size={20}/> Strengths</h4>
-                    <ul className="space-y-3">
-                        {feedback?.strengths?.map((s: string, i: number) => (
-                            <li key={i} className="text-sm font-bold text-slate-700 flex gap-3"><span className="w-1.5 h-1.5 rounded-full bg-green-500 mt-2 shrink-0"/> {s}</li>
-                        ))}
-                    </ul>
+            {/* General Feedback - Show for all except WAT which has specific layout */}
+            {type !== TestType.WAT && (
+                <div className="grid md:grid-cols-2 gap-8">
+                    <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
+                        <h4 className="font-black text-green-600 uppercase tracking-widest mb-6 flex items-center gap-3"><CheckCircle size={20}/> Strengths</h4>
+                        <ul className="space-y-3">
+                            {feedback?.strengths?.map((s: string, i: number) => (
+                                <li key={i} className="text-sm font-bold text-slate-700 flex gap-3"><span className="w-1.5 h-1.5 rounded-full bg-green-500 mt-2 shrink-0"/> {s}</li>
+                            ))}
+                        </ul>
+                    </div>
+                    <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
+                        <h4 className="font-black text-red-500 uppercase tracking-widest mb-6 flex items-center gap-3"><AlertCircle size={20}/> Areas for Improvement</h4>
+                        <ul className="space-y-3">
+                            {feedback?.weaknesses?.map((w: string, i: number) => (
+                                <li key={i} className="text-sm font-bold text-slate-700 flex gap-3"><span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 shrink-0"/> {w}</li>
+                            ))}
+                        </ul>
+                    </div>
                 </div>
-                <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
-                    <h4 className="font-black text-red-500 uppercase tracking-widest mb-6 flex items-center gap-3"><AlertCircle size={20}/> Areas for Improvement</h4>
-                    <ul className="space-y-3">
-                        {feedback?.weaknesses?.map((w: string, i: number) => (
-                            <li key={i} className="text-sm font-bold text-slate-700 flex gap-3"><span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 shrink-0"/> {w}</li>
-                        ))}
-                    </ul>
-                </div>
-            </div>
+            )}
 
-            <div className="bg-blue-50 p-8 md:p-12 rounded-[3rem] border border-blue-100 text-center space-y-6">
-                <h4 className="font-black text-blue-800 uppercase tracking-widest text-sm">Psychologist's Final Recommendation</h4>
-                <p className="text-lg md:text-2xl font-medium text-blue-900 italic max-w-3xl mx-auto leading-relaxed">"{feedback?.recommendations}"</p>
-            </div>
+            {type !== TestType.WAT && (
+                <div className="bg-blue-50 p-8 md:p-12 rounded-[3rem] border border-blue-100 text-center space-y-6">
+                    <h4 className="font-black text-blue-800 uppercase tracking-widest text-sm">Psychologist's Final Recommendation</h4>
+                    <p className="text-lg md:text-2xl font-medium text-blue-900 italic max-w-3xl mx-auto leading-relaxed">"{feedback?.recommendations}"</p>
+                </div>
+            )}
 
             {/* FEEDBACK INTEGRATION */}
             {userId && (

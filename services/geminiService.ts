@@ -66,7 +66,11 @@ const generateFallbackEvaluation = (testType: string, textContent: string) => {
     })),
     // PPDT Specific
     observationAnalysis: "Could not verify observation accuracy in fallback mode.",
-    // WAT/SRT Specifics
+    // WAT Specifics (Fallback)
+    attemptedCount: 0,
+    generalFeedback: "Server unavailable. Review your responses manually.",
+    detailedAnalysis: [],
+    // WAT/SRT Specifics (Legacy)
     detailedComparison: [],
     perception: {
        heroAge: "N/A", heroSex: "N/A", heroMood: "N/A", mainTheme: "N/A"
@@ -436,7 +440,83 @@ export async function evaluatePerformance(testType: string, userData: any) {
         return safeJSONParse(response.text);
     } 
     
-    // 2. PPDT EVALUATION
+    // 2. WAT EVALUATION (Specific "No Score" request)
+    else if (testType === 'WAT') {
+        const { watResponses, watSheetImages } = userData;
+        // watResponses is array of {id, word, response}
+        
+        let parts: any[] = [];
+        let promptText = "";
+
+        if (watSheetImages && watSheetImages.length > 0) {
+             promptText = `
+             Analyze this Word Association Test (WAT).
+             
+             Context:
+             The candidate was shown 60 words sequentially. They wrote responses on the uploaded sheets.
+             The stimulus words in order (1-60) were:
+             ${watResponses.map((i: any) => `${i.id}. ${i.word}`).join(", ")}
+
+             Tasks:
+             1. Transcribe the handwritten responses corresponding to each word number (1-60).
+             2. If a response is missing or illegible, mark it as "Not Attempted".
+             3. Assess each response for Officer Like Qualities (OLQ). Keep assessment brief (3-5 words).
+             4. Provide an 'idealResponse' for EVERY word (including unattempted ones).
+             
+             Output Format: JSON
+             `;
+             parts.push({ text: promptText });
+             watSheetImages.forEach((img: string) => {
+                 parts.push({ inlineData: { data: img, mimeType: 'image/jpeg' } });
+             });
+        } else {
+             promptText = `
+             Analyze this Word Association Test (WAT).
+             
+             Input Data:
+             ${watResponses.map((i: any) => `Word ${i.id}: "${i.word}" -> User Response: "${i.response}"`).join("\n")}
+
+             Tasks:
+             1. Check each response. If empty, mark as "Not Attempted".
+             2. Assess each response for Officer Like Qualities (OLQ). Keep assessment brief (e.g., "Positive", "Shows Courage", "Negative", "Neutral").
+             3. Provide an 'idealResponse' for EVERY word.
+             
+             Output Format: JSON
+             `;
+             parts.push({ text: promptText });
+        }
+
+        const response = await ai.models.generateContent({
+            model: (watSheetImages && watSheetImages.length > 0) ? 'gemini-2.5-flash' : 'gemini-3-flash-preview', 
+            contents: { parts: parts },
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        attemptedCount: { type: Type.INTEGER, description: "Total number of words attempted by user" },
+                        generalFeedback: { type: Type.STRING, description: "Overall observation of personality based on responses." },
+                        detailedAnalysis: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    id: { type: Type.INTEGER },
+                                    word: { type: Type.STRING },
+                                    userResponse: { type: Type.STRING, description: "The transcribed or typed response." },
+                                    assessment: { type: Type.STRING, description: "Brief psychological remark." },
+                                    idealResponse: { type: Type.STRING, description: "A high-OLQ example sentence." }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        return safeJSONParse(response.text);
+    }
+
+    // 3. PPDT EVALUATION
     else if (testType.includes('PPDT')) {
         combinedTextForFallback = (userData.story || "") + " " + (userData.narration || "");
         const wordCount = combinedTextForFallback.split(/\s+/).length;
@@ -504,7 +584,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         return safeJSONParse(response.text);
     }
 
-    // 3. INTERVIEW EVALUATION
+    // 4. INTERVIEW EVALUATION
     else if (testType.includes('Interview')) {
         combinedTextForFallback = userData.transcript || "";
         const wordCount = combinedTextForFallback.split(/\s+/).length;
@@ -573,7 +653,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         return safeJSONParse(response.text);
     }
 
-    // 4. SDT EVALUATION
+    // 5. SDT EVALUATION
     else if (testType === 'SDT') {
         const { sdtData, sdtImages } = userData;
         const parts: any[] = [];
@@ -633,67 +713,21 @@ export async function evaluatePerformance(testType: string, userData: any) {
         return safeJSONParse(response.text);
     }
 
-    // 5. SRT & WAT EVALUATION (New)
-    else if (testType === 'SRT' || testType === 'WAT') {
-        const { srtResponses, watResponses, watSheetImages } = userData;
-        const isSRT = testType === 'SRT';
-        const items = isSRT ? srtResponses : watResponses;
+    // 6. SRT EVALUATION
+    else if (testType === 'SRT') {
+        const { srtResponses } = userData;
         
-        let parts: any[] = [];
-        let promptText = "";
+        const promptText = `Evaluate these SRT (Situation Reaction Test) responses for Officer Like Qualities (OLQ).
+        For EACH situation, provide a brief 'idealResponse' that shows courage, speed, and responsibility.
         
-        if (isSRT) {
-            promptText = `Evaluate these SRT (Situation Reaction Test) responses for Officer Like Qualities (OLQ).
-            For EACH situation, provide a brief 'idealResponse' that shows courage, speed, and responsibility.
-            
-            Input Data:
-            ${items.map((i: any) => `Q${i.id}: "${i.situation}" -> User Answer: "${i.response}"`).join("\n")}
-            
-            Return JSON with overall score and a detailed list.`;
-            parts.push({ text: promptText });
-        } else {
-            // WAT Logic
-            if (watSheetImages && watSheetImages.length > 0) {
-                 promptText = `Evaluate these handwritten WAT (Word Association Test) response sheets.
-                 The candidate was shown 60 words.
-                 
-                 Task:
-                 1. Transcribe the handwritten responses from the images serial-wise (1-60).
-                 2. For each response, evaluate Officer Like Qualities (OLQ).
-                 3. Provide an 'idealResponse' for the corresponding word.
-                 
-                 The stimulus words were (in order):
-                 ${items.map((i: any) => `${i.id}. ${i.word}`).join(", ")}
-                 
-                 STRICT GUIDELINES for Evaluation:
-                 1. POSITIVE & FACTUAL responses are preferred.
-                 2. AVOID Idioms, Preaching, or Negative thoughts.
-                 
-                 Return JSON with overall score and a detailed list.`;
-                 
-                 parts.push({ text: promptText });
-                 watSheetImages.forEach((img: string) => {
-                     parts.push({ inlineData: { data: img, mimeType: 'image/jpeg' } });
-                 });
-            } else {
-                 promptText = `Evaluate these WAT (Word Association Test) sentences.
-                 For EACH word, provide an 'idealResponse' based on these STRICT GUIDELINES:
-
-                 1. POSITIVE & FACTUAL: Use sentences reflecting values (e.g., "Helping is a virtue") or current awareness.
-                 2. AVOID Idioms/Phrases, Preaching, "I" statements, Negative thoughts.
-                 3. FORMAT: Keep it SHORT (6-10 words).
-
-                 Input Data:
-                 ${items.map((i: any) => `Word ${i.id}: "${i.word}" -> User Sentence: "${i.response}"`).join("\n")}
-
-                 Return JSON with overall score and a detailed list.`;
-                 parts.push({ text: promptText });
-            }
-        }
+        Input Data:
+        ${srtResponses.map((i: any) => `Q${i.id}: "${i.situation}" -> User Answer: "${i.response}"`).join("\n")}
+        
+        Return JSON with overall score and a detailed list.`;
 
         const response = await ai.models.generateContent({
-            model: (watSheetImages && watSheetImages.length > 0) ? 'gemini-2.5-flash' : 'gemini-3-flash-preview', 
-            contents: { parts: parts },
+            model: 'gemini-3-flash-preview', 
+            contents: { parts: [{ text: promptText }] },
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: {
