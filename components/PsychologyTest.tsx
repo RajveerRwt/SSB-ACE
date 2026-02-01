@@ -759,10 +759,10 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 <div className="space-y-4 text-center md:text-left z-10">
                     <span className="bg-yellow-400 text-black px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest">Psychology Report</span>
                     <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter">{type} Verdict</h2>
-                    {feedback?.verdict && type !== TestType.WAT && <p className="text-xl text-slate-300 font-medium italic">"{feedback.verdict}"</p>}
-                    {type === TestType.WAT && feedback?.generalFeedback && <p className="text-lg text-slate-300 font-medium italic">"{feedback.generalFeedback}"</p>}
+                    {feedback?.verdict && type !== TestType.WAT && type !== TestType.SRT && <p className="text-xl text-slate-300 font-medium italic">"{feedback.verdict}"</p>}
+                    {(type === TestType.WAT || type === TestType.SRT) && feedback?.generalFeedback && <p className="text-lg text-slate-300 font-medium italic">"{feedback.generalFeedback}"</p>}
                 </div>
-                {type !== TestType.WAT ? (
+                {type !== TestType.WAT && type !== TestType.SRT ? (
                     <div className="bg-white/10 p-8 rounded-[3rem] border border-white/10 backdrop-blur-md text-center min-w-[200px] z-10">
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Score</span>
                         <span className="text-7xl font-black text-yellow-400">{feedback?.score || "N/A"}</span>
@@ -775,18 +775,18 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 )}
             </div>
 
-            {/* WAT SPECIFIC ANALYSIS */}
-            {type === TestType.WAT && feedback?.detailedAnalysis && (
+            {/* WAT/SRT SPECIFIC ANALYSIS */}
+            {(type === TestType.WAT || type === TestType.SRT) && feedback?.detailedAnalysis && (
                 <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">
                     <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
-                        <Activity size={24} className="text-purple-600" /> Word Association Analysis
+                        <Activity size={24} className="text-purple-600" /> {type === TestType.WAT ? 'Word Association' : 'Situation Reaction'} Analysis
                     </h3>
                     <div className="grid grid-cols-1 gap-4">
                         {feedback.detailedAnalysis.map((item: any, i: number) => (
                             <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:bg-white hover:shadow-md transition-all flex flex-col md:flex-row gap-6">
                                 <div className="md:w-1/4 shrink-0 flex items-center gap-4">
                                     <span className="text-2xl font-black text-slate-200">{(i + 1).toString().padStart(2, '0')}</span>
-                                    <p className="text-lg font-black text-slate-900 uppercase tracking-wide">{item.word}</p>
+                                    <p className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-wide leading-tight">{item.word || item.situation}</p>
                                 </div>
                                 <div className="md:w-3/4 grid md:grid-cols-2 gap-6">
                                     <div className="space-y-1">
@@ -851,30 +851,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 </div>
             )}
 
-            {/* SRT Detailed Comparison (Legacy for SRT only now) */}
-            {type === TestType.SRT && feedback?.detailedComparison && (
-                <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">
-                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3"><Activity size={24} className="text-purple-600" /> Response Analysis</h3>
-                    <div className="space-y-4">
-                        {feedback.detailedComparison.map((item: any, i: number) => (
-                            <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:bg-white hover:shadow-md transition-all">
-                                <p className="text-sm font-black text-slate-800 mb-2">{item.stimulus}</p>
-                                <div className="grid md:grid-cols-2 gap-4 text-xs">
-                                    <div className="space-y-1">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Your Response</span>
-                                        <p className={`p-3 rounded-xl ${item.userResponse ? 'bg-white border border-slate-200' : 'bg-red-50 text-red-500 border border-red-100'}`}>{item.userResponse || "Skipped / No Response"}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest">Ideal Approach</span>
-                                        <p className="p-3 bg-green-50 border border-green-100 rounded-xl text-slate-700">{item.idealResponse}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
             {/* SDT Specifics */}
             {type === TestType.SDT && feedback?.consistencyAnalysis && (
                 <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl space-y-6">
@@ -883,8 +859,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 </div>
             )}
 
-            {/* General Feedback - Show for all except WAT which has specific layout */}
-            {type !== TestType.WAT && (
+            {/* General Feedback - Show for all except WAT/SRT which has specific layout */}
+            {type !== TestType.WAT && type !== TestType.SRT && (
                 <div className="grid md:grid-cols-2 gap-8">
                     <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
                         <h4 className="font-black text-green-600 uppercase tracking-widest mb-6 flex items-center gap-3"><CheckCircle size={20}/> Strengths</h4>
@@ -905,7 +881,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 </div>
             )}
 
-            {type !== TestType.WAT && (
+            {type !== TestType.WAT && type !== TestType.SRT && (
                 <div className="bg-blue-50 p-8 md:p-12 rounded-[3rem] border border-blue-100 text-center space-y-6">
                     <h4 className="font-black text-blue-800 uppercase tracking-widest text-sm">Psychologist's Final Recommendation</h4>
                     <p className="text-lg md:text-2xl font-medium text-blue-900 italic max-w-3xl mx-auto leading-relaxed">"{feedback?.recommendations}"</p>

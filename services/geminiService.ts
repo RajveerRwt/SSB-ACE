@@ -66,11 +66,11 @@ const generateFallbackEvaluation = (testType: string, textContent: string) => {
     })),
     // PPDT Specific
     observationAnalysis: "Could not verify observation accuracy in fallback mode.",
-    // WAT Specifics (Fallback)
+    // WAT/SRT Specifics (Fallback)
     attemptedCount: 0,
     generalFeedback: "Server unavailable. Review your responses manually.",
     detailedAnalysis: [],
-    // WAT/SRT Specifics (Legacy)
+    // Legacy support
     detailedComparison: [],
     perception: {
        heroAge: "N/A", heroSex: "N/A", heroMood: "N/A", mainTheme: "N/A"
@@ -732,7 +732,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
              The situations were (in order):
              ${srtResponses.map((i: any) => `${i.id}. ${i.situation}`).join("\n")}
              
-             Return JSON with overall score and a detailed list.`;
+             Return JSON.`;
              
              parts.push({ text: promptText });
              srtSheetImages.forEach((img: string) => {
@@ -745,7 +745,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
             Input Data:
             ${srtResponses.map((i: any) => `Q${i.id}: "${i.situation}" -> User Answer: "${i.response}"`).join("\n")}
             
-            Return JSON with overall score and a detailed list.`;
+            Return JSON.`;
             parts.push({ text: promptText });
         }
 
@@ -757,18 +757,18 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        score: { type: Type.NUMBER },
-                        recommendations: { type: Type.STRING },
-                        detailedComparison: {
+                        attemptedCount: { type: Type.INTEGER, description: "Total number of situations attempted by user" },
+                        generalFeedback: { type: Type.STRING, description: "Overall observation of personality based on responses." },
+                        detailedAnalysis: {
                             type: Type.ARRAY,
                             items: {
                                 type: Type.OBJECT,
                                 properties: {
                                     id: { type: Type.INTEGER },
-                                    stimulus: { type: Type.STRING },
-                                    userResponse: { type: Type.STRING },
-                                    idealResponse: { type: Type.STRING },
-                                    qualityProjected: { type: Type.STRING }
+                                    situation: { type: Type.STRING },
+                                    userResponse: { type: Type.STRING, description: "The transcribed or typed response." },
+                                    assessment: { type: Type.STRING, description: "Brief psychological remark." },
+                                    idealResponse: { type: Type.STRING, description: "A high-OLQ example reaction." }
                                 }
                             }
                         }
