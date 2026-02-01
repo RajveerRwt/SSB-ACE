@@ -638,6 +638,20 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
                </div>
             </div>
 
+            {/* Stimulus Image Preview - Added for user reference */}
+            {currentImageUrl && (
+                <div className="flex justify-center -mt-6 mb-8 relative z-20">
+                    <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-100 transform hover:scale-105 transition-transform duration-300">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center mb-2">Stimulus Reference</p>
+                        <img
+                            src={currentImageUrl}
+                            alt="PPDT Stimulus"
+                            className="h-40 md:h-56 w-auto object-contain rounded-xl bg-slate-50"
+                        />
+                    </div>
+                </div>
+            )}
+
             {/* SCORE EXPLANATION */}
             {showScoreHelp && (
                  <div className="bg-blue-50 border border-blue-100 p-6 md:p-8 rounded-[2rem] animate-in slide-in-from-top-4">
