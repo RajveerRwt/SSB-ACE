@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera } from 'lucide-react';
+import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, STANDARD_WAT_SET } from '../services/geminiService';
 import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
 import { TestType } from '../types';
@@ -20,6 +20,7 @@ enum PsychologyPhase {
   VIEWING, 
   WRITING,
   UPLOADING_STORIES, 
+  UPLOADING_WAT,
   EVALUATING,        
   COMPLETED
 }
@@ -43,6 +44,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
   // WAT States
   const [watResponses, setWatResponses] = useState<string[]>([]);
+  const [watSheetUploads, setWatSheetUploads] = useState<string[]>([]);
 
   // SDT States
   const [sdtData, setSdtData] = useState({
@@ -94,6 +96,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const startTest = async () => {
     setIsLoading(true);
     setFeedback(null);
+    setWatSheetUploads([]);
     
     // SDT Logic Flow
     if (type === TestType.SDT) {
@@ -272,7 +275,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const setupSlide = (index: number, currentItems: any[]) => {
     if (index >= currentItems.length) {
       if (type === TestType.TAT) setPhase(PsychologyPhase.UPLOADING_STORIES);
-      else if (type === TestType.WAT) submitWAT();
+      else if (type === TestType.WAT) setPhase(PsychologyPhase.UPLOADING_WAT);
       else setPhase(PsychologyPhase.COMPLETED);
       return;
     }
@@ -308,7 +311,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
         setupSlide(nextIdx, items);
       } else {
         if (type === TestType.TAT) setPhase(PsychologyPhase.UPLOADING_STORIES);
-        else if (type === TestType.WAT) submitWAT();
+        else if (type === TestType.WAT) setPhase(PsychologyPhase.UPLOADING_WAT);
         else setPhase(PsychologyPhase.COMPLETED);
       }
     }
@@ -365,6 +368,24 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       }
   };
 
+  const handleWatSheetUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files) {
+          const files = Array.from(e.target.files);
+          files.forEach(file => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                  const base64 = (reader.result as string).split(',')[1];
+                  setWatSheetUploads(prev => [...prev, base64]);
+              };
+              reader.readAsDataURL(file);
+          });
+      }
+  };
+
+  const removeWatSheet = (index: number) => {
+      setWatSheetUploads(prev => prev.filter((_, i) => i !== index));
+  };
+
   const submitSDT = async () => {
       setPhase(PsychologyPhase.EVALUATING);
       try {
@@ -392,10 +413,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const submitWAT = async () => {
       setPhase(PsychologyPhase.EVALUATING);
       try {
-          const payload = { testType: 'WAT', watResponses: items.map((item, i) => ({ id: i + 1, word: item.content, response: watResponses[i] || "" })) };
+          const payload = { 
+              testType: 'WAT', 
+              watResponses: items.map((item, i) => ({ id: i + 1, word: item.content, response: watResponses[i] || "" })),
+              watSheetImages: watSheetUploads
+          };
           const result = await evaluatePerformance(type, payload);
           setFeedback(result);
-          if (onSave) onSave({ ...result, watResponses });
+          if (onSave) onSave({ ...result, watResponses, watSheetImages: watSheetUploads });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { console.error("WAT Eval Error", err); setPhase(PsychologyPhase.COMPLETED); }
   };
@@ -547,6 +572,63 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
         {!isTAT && (<div className="bg-white rounded-[4rem] p-40 text-center shadow-2xl border-2 border-slate-50 min-h-[60vh] flex flex-col items-center justify-center relative"><h1 className={`${type === TestType.WAT ? 'text-[8rem] uppercase' : 'text-5xl italic'} font-black text-slate-900 tracking-tight`}>{type === TestType.WAT ? currentItem.content : `"${currentItem.content}"`}</h1>{type === TestType.WAT && (<input type="text" value={watResponses[currentIndex]} onChange={(e) => { const val = e.target.value; setWatResponses(prev => { const next = [...prev]; next[currentIndex] = val; return next; }); }} placeholder="Type spontaneous thought..." className="mt-12 w-full max-w-2xl bg-slate-50 p-6 text-xl md:text-2xl font-bold text-center border-b-4 border-slate-300 focus:border-slate-900 outline-none transition-all placeholder:text-slate-300" autoFocus />)}</div>)}
       </div>
     );
+  }
+
+  if (phase === PsychologyPhase.UPLOADING_WAT) {
+    return (
+        <div className="max-w-4xl mx-auto space-y-8 pb-20 animate-in fade-in">
+            {/* Header */}
+            <div className="text-center space-y-4">
+               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto text-green-600 mb-6">
+                   <CheckCircle size={32} />
+               </div>
+               <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">WAT Completed</h2>
+               <p className="text-slate-500 font-medium italic">"Submit your responses for evaluation. You can either use the typed inputs or upload your handwritten sheet."</p>
+            </div>
+            
+            {/* Upload Section */}
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3">
+                   <Upload className="text-blue-600" size={24}/> Handwritten WAT Response Upload (Optional)
+                </h3>
+                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-sm text-blue-900 font-medium mb-8 space-y-3">
+                    <p className="font-bold flex items-center gap-2 uppercase tracking-widest text-xs"><Info size={16}/> Instructions:</p>
+                    <ul className="list-disc pl-5 space-y-2 text-blue-800/80">
+                        <li>You may upload 1 or more photos of your handwritten WAT answer sheets.</li>
+                        <li>Ensure all 60 WAT responses are written serial-wise (1–60).</li>
+                        <li>Photos must be clear and readable for accurate AI transcription.</li>
+                    </ul>
+                </div>
+                
+                {/* Image Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    {watSheetUploads.map((img, idx) => (
+                        <div key={idx} className="relative rounded-2xl overflow-hidden aspect-[3/4] border-2 border-slate-100 shadow-sm group">
+                            <img src={`data:image/jpeg;base64,${img}`} className="w-full h-full object-cover" alt={`Sheet ${idx + 1}`} />
+                            <button onClick={() => removeWatSheet(idx)} className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110 shadow-lg">
+                                <Trash2 size={14} />
+                            </button>
+                            <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[9px] font-black px-2 py-1 rounded backdrop-blur-sm">Page {idx + 1}</div>
+                        </div>
+                    ))}
+                    <label className="flex flex-col items-center justify-center bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer hover:bg-slate-100 hover:border-slate-400 transition-all aspect-[3/4] group">
+                        <Camera size={32} className="text-slate-300 group-hover:text-slate-500 mb-2 transition-colors"/>
+                        <span className="text-[10px] font-black uppercase text-slate-400 group-hover:text-slate-600 tracking-widest">Add Photo</span>
+                        <input type="file" multiple accept="image/*" className="hidden" onChange={handleWatSheetUpload} />
+                    </label>
+                </div>
+            </div>
+            
+            <div className="flex justify-center pt-4">
+                <button 
+                    onClick={submitWAT} 
+                    className="px-16 py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl hover:scale-105 flex items-center gap-3"
+                >
+                    <Send size={16} /> Submit Dossier
+                </button>
+            </div>
+        </div>
+    )
   }
 
   if (phase === PsychologyPhase.UPLOADING_STORIES) {

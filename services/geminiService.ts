@@ -635,10 +635,11 @@ export async function evaluatePerformance(testType: string, userData: any) {
 
     // 5. SRT & WAT EVALUATION (New)
     else if (testType === 'SRT' || testType === 'WAT') {
-        const { srtResponses, watResponses } = userData;
+        const { srtResponses, watResponses, watSheetImages } = userData;
         const isSRT = testType === 'SRT';
         const items = isSRT ? srtResponses : watResponses;
         
+        let parts: any[] = [];
         let promptText = "";
         
         if (isSRT) {
@@ -649,32 +650,50 @@ export async function evaluatePerformance(testType: string, userData: any) {
             ${items.map((i: any) => `Q${i.id}: "${i.situation}" -> User Answer: "${i.response}"`).join("\n")}
             
             Return JSON with overall score and a detailed list.`;
+            parts.push({ text: promptText });
         } else {
-            promptText = `Evaluate these WAT (Word Association Test) sentences.
-            For EACH word, provide an 'idealResponse' based on these STRICT GUIDELINES:
+            // WAT Logic
+            if (watSheetImages && watSheetImages.length > 0) {
+                 promptText = `Evaluate these handwritten WAT (Word Association Test) response sheets.
+                 The candidate was shown 60 words.
+                 
+                 Task:
+                 1. Transcribe the handwritten responses from the images serial-wise (1-60).
+                 2. For each response, evaluate Officer Like Qualities (OLQ).
+                 3. Provide an 'idealResponse' for the corresponding word.
+                 
+                 The stimulus words were (in order):
+                 ${items.map((i: any) => `${i.id}. ${i.word}`).join(", ")}
+                 
+                 STRICT GUIDELINES for Evaluation:
+                 1. POSITIVE & FACTUAL responses are preferred.
+                 2. AVOID Idioms, Preaching, or Negative thoughts.
+                 
+                 Return JSON with overall score and a detailed list.`;
+                 
+                 parts.push({ text: promptText });
+                 watSheetImages.forEach((img: string) => {
+                     parts.push({ inlineData: { data: img, mimeType: 'image/jpeg' } });
+                 });
+            } else {
+                 promptText = `Evaluate these WAT (Word Association Test) sentences.
+                 For EACH word, provide an 'idealResponse' based on these STRICT GUIDELINES:
 
-            1. POSITIVE & FACTUAL: Use sentences reflecting values (e.g., "Helping is a virtue") or current awareness (e.g., "India promotes peace").
-            2. AVOID:
-               - Idioms/Phrases (Lack originality).
-               - Preaching (e.g., "One should not...").
-               - "I" statements (Reflects selfishness).
-               - Negative thoughts.
-            3. FORMAT: Keep it SHORT (6-10 words).
+                 1. POSITIVE & FACTUAL: Use sentences reflecting values (e.g., "Helping is a virtue") or current awareness.
+                 2. AVOID Idioms/Phrases, Preaching, "I" statements, Negative thoughts.
+                 3. FORMAT: Keep it SHORT (6-10 words).
 
-            EXAMPLES:
-            Word: HINT -> Response: A hint is sufficient to solve the puzzle.
-            Word: LIMIT -> Response: There is no limit to hard work.
-            Word: TEAM -> Response: Teamwork leads to success.
+                 Input Data:
+                 ${items.map((i: any) => `Word ${i.id}: "${i.word}" -> User Sentence: "${i.response}"`).join("\n")}
 
-            Input Data:
-            ${items.map((i: any) => `Word ${i.id}: "${i.word}" -> User Sentence: "${i.response}"`).join("\n")}
-
-            Return JSON with overall score and a detailed list.`;
+                 Return JSON with overall score and a detailed list.`;
+                 parts.push({ text: promptText });
+            }
         }
 
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview', // Updated
-            contents: { parts: [{ text: promptText }] },
+            model: (watSheetImages && watSheetImages.length > 0) ? 'gemini-2.5-flash' : 'gemini-3-flash-preview', 
+            contents: { parts: parts },
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: {
