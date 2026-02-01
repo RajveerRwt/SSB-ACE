@@ -715,19 +715,43 @@ export async function evaluatePerformance(testType: string, userData: any) {
 
     // 6. SRT EVALUATION
     else if (testType === 'SRT') {
-        const { srtResponses } = userData;
+        const { srtResponses, srtSheetImages } = userData;
         
-        const promptText = `Evaluate these SRT (Situation Reaction Test) responses for Officer Like Qualities (OLQ).
-        For EACH situation, provide a brief 'idealResponse' that shows courage, speed, and responsibility.
-        
-        Input Data:
-        ${srtResponses.map((i: any) => `Q${i.id}: "${i.situation}" -> User Answer: "${i.response}"`).join("\n")}
-        
-        Return JSON with overall score and a detailed list.`;
+        let parts: any[] = [];
+        let promptText = "";
+
+        if (srtSheetImages && srtSheetImages.length > 0) {
+             promptText = `Evaluate these handwritten SRT (Situation Reaction Test) response sheets.
+             
+             Task:
+             1. Transcribe the handwritten responses serial-wise (1-60).
+             2. If a response is missing or illegible, mark it as "Not Attempted".
+             3. Assess each response for Officer Like Qualities (OLQ).
+             4. Provide an 'idealResponse' for EVERY situation.
+             
+             The situations were (in order):
+             ${srtResponses.map((i: any) => `${i.id}. ${i.situation}`).join("\n")}
+             
+             Return JSON with overall score and a detailed list.`;
+             
+             parts.push({ text: promptText });
+             srtSheetImages.forEach((img: string) => {
+                 parts.push({ inlineData: { data: img, mimeType: 'image/jpeg' } });
+             });
+        } else {
+            promptText = `Evaluate these SRT (Situation Reaction Test) responses for Officer Like Qualities (OLQ).
+            For EACH situation, provide a brief 'idealResponse' that shows courage, speed, and responsibility.
+            
+            Input Data:
+            ${srtResponses.map((i: any) => `Q${i.id}: "${i.situation}" -> User Answer: "${i.response}"`).join("\n")}
+            
+            Return JSON with overall score and a detailed list.`;
+            parts.push({ text: promptText });
+        }
 
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview', 
-            contents: { parts: [{ text: promptText }] },
+            model: (srtSheetImages && srtSheetImages.length > 0) ? 'gemini-2.5-flash' : 'gemini-3-flash-preview', 
+            contents: { parts: parts },
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: {

@@ -21,6 +21,7 @@ enum PsychologyPhase {
   WRITING,
   UPLOADING_STORIES, 
   UPLOADING_WAT,
+  UPLOADING_SRT,
   EVALUATING,        
   COMPLETED
 }
@@ -41,6 +42,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   
   // SRT States
   const [srtResponses, setSrtResponses] = useState<string[]>([]);
+  const [srtSheetUploads, setSrtSheetUploads] = useState<string[]>([]);
 
   // WAT States
   const [watResponses, setWatResponses] = useState<string[]>([]);
@@ -97,6 +99,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     setIsLoading(true);
     setFeedback(null);
     setWatSheetUploads([]);
+    setSrtSheetUploads([]);
     
     // SDT Logic Flow
     if (type === TestType.SDT) {
@@ -297,7 +300,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
   const handleTimerEnd = () => {
     if (type === TestType.SDT) { playBuzzer(300, 1.0); submitSDT(); return; }
-    if (type === TestType.SRT) { playBuzzer(300, 1.0); submitSRT(); return; }
+    // Modified: SRT time end goes to Upload phase
+    if (type === TestType.SRT) { playBuzzer(300, 1.0); setPhase(PsychologyPhase.UPLOADING_SRT); return; }
 
     if (type === TestType.TAT && phase === PsychologyPhase.VIEWING) {
       playBuzzer(180, 0.4); 
@@ -390,6 +394,24 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       setWatSheetUploads(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleSrtSheetUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files) {
+          const files = Array.from(e.target.files);
+          files.forEach(file => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                  const base64 = (reader.result as string).split(',')[1];
+                  setSrtSheetUploads(prev => [...prev, base64]);
+              };
+              reader.readAsDataURL(file);
+          });
+      }
+  };
+
+  const removeSrtSheet = (index: number) => {
+      setSrtSheetUploads(prev => prev.filter((_, i) => i !== index));
+  };
+
   const submitSDT = async () => {
       setPhase(PsychologyPhase.EVALUATING);
       try {
@@ -406,10 +428,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const submitSRT = async () => {
       setPhase(PsychologyPhase.EVALUATING);
       try {
-          const payload = { testType: 'SRT', srtResponses: items.map((item, i) => ({ id: i + 1, situation: item.content, response: srtResponses[i] || "" })) };
+          const payload = { 
+              testType: 'SRT', 
+              srtResponses: items.map((item, i) => ({ id: i + 1, situation: item.content, response: srtResponses[i] || "" })),
+              srtSheetImages: srtSheetUploads 
+          };
           const result = await evaluatePerformance(type, payload);
           setFeedback(result);
-          if (onSave) onSave({ ...result, srtResponses });
+          if (onSave) onSave({ ...result, srtResponses, srtSheetImages: srtSheetUploads });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { console.error("SRT Eval Error", err); setPhase(PsychologyPhase.COMPLETED); }
   };
@@ -549,10 +575,10 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
            {/* SRT UI same as previous */}
            <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md p-4 md:p-6 rounded-[2rem] shadow-xl border border-slate-100 flex items-center justify-between mb-8 transition-all">
               <div><h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight">Situation Reaction Test</h3><div className="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 mt-1"><span>Set: {activeSetName}</span><span>Attempted: {srtResponses.filter(r => r.trim()).length}/{items.length}</span></div></div>
-              <div className="flex items-center gap-4"><div className={`px-5 py-2 md:px-6 md:py-3 rounded-2xl border-4 transition-all ${timeLeft < 300 ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 'bg-slate-900 border-slate-800 text-white'}`}><div className="flex items-center gap-3"><Timer size={20} /><span className="text-lg md:text-xl font-black font-mono">{formatTime(timeLeft)}</span></div></div><button onClick={() => { playBuzzer(300, 0.5); submitSRT(); }} className="hidden md:flex bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-all shadow-lg items-center gap-2"><CheckCircle size={16} /> Submit</button></div>
+              <div className="flex items-center gap-4"><div className={`px-5 py-2 md:px-6 md:py-3 rounded-2xl border-4 transition-all ${timeLeft < 300 ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 'bg-slate-900 border-slate-800 text-white'}`}><div className="flex items-center gap-3"><Timer size={20} /><span className="text-lg md:text-xl font-black font-mono">{formatTime(timeLeft)}</span></div></div><button onClick={() => { playBuzzer(300, 0.5); setPhase(PsychologyPhase.UPLOADING_SRT); }} className="hidden md:flex bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-all shadow-lg items-center gap-2"><CheckCircle size={16} /> Submit</button></div>
            </div>
            <div className="space-y-4">{items.map((item, idx) => (<div key={item.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow group relative"><div className="flex gap-4"><span className="text-slate-300 font-black text-2xl select-none">{(idx + 1).toString().padStart(2, '0')}</span><div className="flex-1 space-y-3"><p className="text-lg font-bold text-slate-800 leading-snug">{item.content}</p><input type="text" value={srtResponses[idx]} onChange={(e) => { const val = e.target.value; setSrtResponses(prev => { const next = [...prev]; next[idx] = val; return next; }); }} placeholder="Type your reaction..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium text-slate-700" /></div></div>{srtResponses[idx] && srtResponses[idx].trim() && (<div className="absolute top-6 right-6 text-green-500 animate-in fade-in zoom-in"><CheckCircle size={20} /></div>)}</div>))}</div>
-           <div className="fixed bottom-6 right-6 md:hidden z-30"><button onClick={() => { playBuzzer(300, 0.5); submitSRT(); }} className="bg-green-600 text-white p-4 rounded-full shadow-2xl hover:bg-green-700 transition-all"><CheckCircle size={24} /></button></div>
+           <div className="fixed bottom-6 right-6 md:hidden z-30"><button onClick={() => { playBuzzer(300, 0.5); setPhase(PsychologyPhase.UPLOADING_SRT); }} className="bg-green-600 text-white p-4 rounded-full shadow-2xl hover:bg-green-700 transition-all"><CheckCircle size={24} /></button></div>
            {isAdmin && (<button onClick={() => setTimeLeft(0)} className="fixed bottom-6 left-6 z-[100] bg-red-600 text-white pl-4 pr-6 py-3 rounded-full font-black text-[10px] uppercase shadow-2xl hover:bg-red-700 transition-all flex items-center gap-2 border-4 border-white animate-pulse hover:animate-none"><FastForward size={14} fill="currentColor" /> Admin Skip</button>)}
         </div>
       );
@@ -587,7 +613,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                    <CheckCircle size={32} />
                </div>
                <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">WAT Completed</h2>
-               <p className="text-slate-500 font-medium italic">"Submit your responses for evaluation. You can either use the typed inputs or upload your handwritten sheet."</p>
+               <p className="text-slate-500 font-medium italic">"Submit your responses. You may skip this upload if you have typed your answers."</p>
             </div>
             
             {/* Upload Section */}
@@ -598,9 +624,9 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-sm text-blue-900 font-medium mb-8 space-y-3">
                     <p className="font-bold flex items-center gap-2 uppercase tracking-widest text-xs"><Info size={16}/> Instructions:</p>
                     <ul className="list-disc pl-5 space-y-2 text-blue-800/80">
-                        <li>You may upload 1 or more photos of your handwritten WAT answer sheets.</li>
-                        <li>Ensure all 60 WAT responses are written serial-wise (1–60).</li>
-                        <li>Photos must be clear and readable for accurate AI transcription.</li>
+                        <li><strong>Option A (Digital):</strong> Submit the text you typed during the test.</li>
+                        <li><strong>Option B (Paper):</strong> Upload photos of your handwritten sheet. Ensure serial numbers (1-60) match.</li>
+                        <li>Photos must be clear for AI to transcribe.</li>
                     </ul>
                 </div>
                 
@@ -626,6 +652,63 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
             <div className="flex justify-center pt-4">
                 <button 
                     onClick={submitWAT} 
+                    className="px-16 py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl hover:scale-105 flex items-center gap-3"
+                >
+                    <Send size={16} /> Submit Dossier
+                </button>
+            </div>
+        </div>
+    )
+  }
+
+  if (phase === PsychologyPhase.UPLOADING_SRT) {
+    return (
+        <div className="max-w-4xl mx-auto space-y-8 pb-20 animate-in fade-in">
+            {/* Header */}
+            <div className="text-center space-y-4">
+               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto text-green-600 mb-6">
+                   <CheckCircle size={32} />
+               </div>
+               <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">SRT Completed</h2>
+               <p className="text-slate-500 font-medium italic">"Submit your responses. You may skip this upload if you have typed your answers."</p>
+            </div>
+            
+            {/* Upload Section */}
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3">
+                   <Upload className="text-blue-600" size={24}/> Handwritten SRT Response Upload (Optional)
+                </h3>
+                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-sm text-blue-900 font-medium mb-8 space-y-3">
+                    <p className="font-bold flex items-center gap-2 uppercase tracking-widest text-xs"><Info size={16}/> Instructions:</p>
+                    <ul className="list-disc pl-5 space-y-2 text-blue-800/80">
+                        <li><strong>Option A (Digital):</strong> Submit the text you typed during the test.</li>
+                        <li><strong>Option B (Paper):</strong> Upload photos of your handwritten answer sheet.</li>
+                        <li>Ensure responses are numbered serially to match the question set.</li>
+                    </ul>
+                </div>
+                
+                {/* Image Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    {srtSheetUploads.map((img, idx) => (
+                        <div key={idx} className="relative rounded-2xl overflow-hidden aspect-[3/4] border-2 border-slate-100 shadow-sm group">
+                            <img src={`data:image/jpeg;base64,${img}`} className="w-full h-full object-cover" alt={`Sheet ${idx + 1}`} />
+                            <button onClick={() => removeSrtSheet(idx)} className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110 shadow-lg">
+                                <Trash2 size={14} />
+                            </button>
+                            <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[9px] font-black px-2 py-1 rounded backdrop-blur-sm">Page {idx + 1}</div>
+                        </div>
+                    ))}
+                    <label className="flex flex-col items-center justify-center bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer hover:bg-slate-100 hover:border-slate-400 transition-all aspect-[3/4] group">
+                        <Camera size={32} className="text-slate-300 group-hover:text-slate-500 mb-2 transition-colors"/>
+                        <span className="text-[10px] font-black uppercase text-slate-400 group-hover:text-slate-600 tracking-widest">Add Photo</span>
+                        <input type="file" multiple accept="image/*" className="hidden" onChange={handleSrtSheetUpload} />
+                    </label>
+                </div>
+            </div>
+            
+            <div className="flex justify-center pt-4">
+                <button 
+                    onClick={submitSRT} 
                     className="px-16 py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl hover:scale-105 flex items-center gap-3"
                 >
                     <Send size={16} /> Submit Dossier
