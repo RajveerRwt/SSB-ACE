@@ -31,7 +31,8 @@ import {
   AlertTriangle,
   Instagram,
   Youtube,
-  Crown
+  Crown,
+  Library
 } from 'lucide-react';
 import { getRecentAnnouncements, subscribeToAnnouncements } from '../services/supabaseService';
 
@@ -131,9 +132,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
   // Updated Navigation Order
   const navItems = [
     { id: TestType.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
+    { id: TestType.RESOURCES, label: 'Free Resources', icon: Library }, // New Item
     { id: TestType.GUIDE, label: 'Platform Guide (SOP)', icon: BookOpenCheck },
     { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', icon: Globe },
-    { id: TestType.DAILY_PRACTICE, label: 'Daily Practice', icon: Clock }, // New Item
+    { id: TestType.DAILY_PRACTICE, label: 'Daily Practice', icon: Clock },
     { id: TestType.STAGES, label: 'SSB Journey', icon: Map },
     { id: TestType.AI_BOT, label: 'SSB AI Guide', icon: Bot },
     { id: TestType.PIQ, label: 'PIQ Form', icon: ClipboardList },
@@ -226,6 +228,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                 )}
                 {item.id === TestType.CURRENT_AFFAIRS && (
                     <span className="absolute right-4 bg-green-600 text-white text-[8px] px-1.5 py-0.5 rounded font-bold uppercase">LIVE</span>
+                )}
+                {item.id === TestType.RESOURCES && (
+                    <span className="absolute right-4 bg-yellow-400 text-black text-[8px] px-1.5 py-0.5 rounded font-bold uppercase">FREE</span>
                 )}
               </button>
             ))}
@@ -338,7 +343,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                || (activeTest === TestType.REFUND ? 'Refund Policy' : '')
                || (activeTest === TestType.GUIDE ? 'Platform Guide' : '')
                || (activeTest === TestType.CURRENT_AFFAIRS ? 'Intelligence Brief' : '')
-               || (activeTest === TestType.DAILY_PRACTICE ? 'Daily Challenge' : '')}
+               || (activeTest === TestType.DAILY_PRACTICE ? 'Daily Challenge' : '')
+               || (activeTest === TestType.RESOURCES ? 'SSB Knowledge Bank' : '')}
             </h2>
 
             {/* Back to Dashboard Button */}

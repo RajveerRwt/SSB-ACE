@@ -15,6 +15,7 @@ import LegalPages from './LegalPages';
 import HowToUse from './HowToUse';
 import CurrentAffairs from './CurrentAffairs';
 import DailyPractice from './DailyPractice';
+import ResourceCenter from './ResourceCenter';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X } from 'lucide-react';
@@ -461,6 +462,7 @@ const App: React.FC = () => {
       case TestType.GUIDE: return <HowToUse onNavigate={setActiveTest} />;
       case TestType.CURRENT_AFFAIRS: return <CurrentAffairs />;
       case TestType.DAILY_PRACTICE: return <DailyPractice />;
+      case TestType.RESOURCES: return <ResourceCenter />;
       default: return <Dashboard onStartTest={navigateTo} piqLoaded={isPIQComplete(piqData)} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} />;
     }
   };
