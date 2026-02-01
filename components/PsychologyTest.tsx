@@ -508,9 +508,9 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
              ) : type === TestType.SDT ? (
                <p>• Write 5 distinct paragraphs describing opinions of Parents, Teachers, Friends, Self, and Future Aims. Total time: 15 Minutes. Be realistic and honest.</p>
              ) : type === TestType.SRT ? (
-               <p>• 60 Situations (30 Minutes). Respond to each situation naturally. <br/>• <strong>Note:</strong> You can type responses OR upload a photo of your handwritten sheet at the end.</p>
+               <p>• 60 Situations (30 Minutes). Respond to each situation naturally. <br/>• <strong>Note:</strong> You can type responses in the boxes below OR write on paper and upload a photo at the end.</p>
              ) : (
-               <p>• 60 Words (15s each). Write the first thought that comes to mind. <br/>• <strong>Note:</strong> You can type responses OR upload a photo of your handwritten sheet at the end.</p>
+               <p>• 60 Words (15s each). Write the first thought that comes to mind. <br/>• <strong>Note:</strong> You can type responses in real-time OR write on paper and upload a photo at the end.</p>
              )}
            </div>
         </div>
