@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { BookOpen, FileText, ImageIcon, Globe, Zap, PenTool, Layout, CheckCircle, Search, Calendar, Tag, MessageSquare, Loader2, ArrowRight, Mic, Users, Timer, X, Play } from 'lucide-react';
+import { BookOpen, FileText, Globe, Zap, Layout, CheckCircle, Search, Calendar, Tag, MessageSquare, Loader2, ArrowRight, Mic, Users, Timer, X, Play, HelpCircle } from 'lucide-react';
 import { fetchDailyNews, generateLecturette } from '../services/geminiService';
 import { STANDARD_WAT_SET } from '../services/geminiService';
 
 const ResourceCenter: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'WAT' | 'TAT' | 'LECTURETTE' | 'GD' | 'BLOG'>('WAT');
+  const [activeTab, setActiveTab] = useState<'WAT' | 'LECTURETTE' | 'GD' | 'INTERVIEW' | 'BLOG'>('WAT');
   const [blogContent, setBlogContent] = useState<any[]>([]);
   const [blogLoading, setBlogLoading] = useState(false);
   
@@ -105,6 +105,45 @@ const ResourceCenter: React.FC = () => {
       { title: "India-China Relations", category: "International" },
   ];
 
+  const INTERVIEW_QUESTIONS = [
+      {
+          category: "CIQ 1 (Education & Family)",
+          questions: [
+              "Tell me about your academic performance starting from 10th class till now.",
+              "Who is your favorite teacher and why? Who did you not like?",
+              "Tell me about your family members and your relationship with them.",
+              "How do you spend time with your parents?"
+          ]
+      },
+      {
+          category: "CIQ 2 (Friends & Hobbies)",
+          questions: [
+              "Who are your best friends and why? What qualities do you like in them?",
+              "How do you spend your spare time?",
+              "What are your hobbies and interests?",
+              "Tell me about your daily routine."
+          ]
+      },
+      {
+          category: "Service Knowledge",
+          questions: [
+              "Why do you want to join the Defense Forces?",
+              "Which regiment/branch do you want to join and why?",
+              "What is the rank structure of the Army/Navy/Air Force?",
+              "Tell me about the recent modernization in Indian Armed Forces."
+          ]
+      },
+      {
+          category: "Self Awareness",
+          questions: [
+              "What are your strengths and weaknesses?",
+              "Tell me about a time you showed leadership.",
+              "What is your backup plan if you don't get selected?",
+              "What improvements have you made since your last attempt? (For Repeaters)"
+          ]
+      }
+  ];
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700 relative">
       
@@ -116,7 +155,7 @@ const ResourceCenter: React.FC = () => {
             </span>
             <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">Defense Aspirant <span className="text-yellow-400">Resource Library</span></h1>
             <p className="text-slate-400 max-w-2xl font-medium leading-relaxed text-sm md:text-base">
-               Free curated study material for SSB Interview preparation. Access WAT words, TAT samples, Lecturette topics, GD topics, and daily defense current affairs.
+               Free curated study material for SSB Interview preparation. Access WAT words, Lecturette topics, GD topics, Interview questions, and daily defense current affairs.
             </p>
          </div>
          <div className="absolute top-0 right-0 p-8 opacity-5">
@@ -128,9 +167,9 @@ const ResourceCenter: React.FC = () => {
       <div className="flex flex-wrap justify-center gap-4">
           {[
               { id: 'WAT', label: 'Top 50 WAT Words', icon: Zap },
-              { id: 'TAT', label: 'TAT Gallery', icon: ImageIcon },
               { id: 'LECTURETTE', label: 'Lecturette Topics', icon: Mic },
               { id: 'GD', label: 'GD Topics', icon: Users },
+              { id: 'INTERVIEW', label: 'Interview Questions', icon: MessageSquare },
               { id: 'BLOG', label: 'Daily Defense Blog', icon: Globe },
           ].map((tab) => (
               <button
@@ -172,42 +211,6 @@ const ResourceCenter: React.FC = () => {
                               <p className="text-xs text-slate-600 font-medium italic group-hover:text-blue-700 transition-colors">
                                   "{item.word === 'Atom' ? 'Atoms form the basis of matter.' : item.word === 'Love' ? 'Love for the country inspires sacrifice.' : item.response}"
                               </p>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-          )}
-
-          {/* TAT SECTION */}
-          {activeTab === 'TAT' && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
-                  <div className="text-center space-y-2 mb-8">
-                      <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Thematic Apperception Test (TAT) Samples</h3>
-                      <p className="text-slate-500 text-xs font-bold">Analyze these standard scenarios. Observe the background, mood, and potential action.</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {[
-                          { title: "The Accident Scene", img: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80&sat=-100&contrast=1.2", desc: "A group of people gathered around a fallen scooter.", approach: "Identify the injured. Immediate first aid. Traffic management. Evacuation to hospital." },
-                          { title: "Discussion in Office", img: "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=800&q=80&sat=-100&contrast=1.2", desc: "Three people discussing over a map/document.", approach: "Planning a project or operation. Clear distribution of tasks. Consensus building." },
-                          { title: "Solo Student", img: "https://images.unsplash.com/photo-1485178575877-1a13bf489dfe?auto=format&fit=crop&w=800&q=80&sat=-100&contrast=1.2", desc: "A young person sitting alone with books.", approach: "Preparation for competitive exams. Focus, dedication, and future ambition." }
-                      ].map((scenario, i) => (
-                          <div key={i} className="rounded-3xl overflow-hidden border border-slate-200 shadow-xl group">
-                              <div className="h-64 overflow-hidden relative">
-                                  <img src={scenario.img} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt={scenario.title} />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-6">
-                                      <h4 className="text-white font-black text-lg uppercase tracking-wide">{scenario.title}</h4>
-                                  </div>
-                              </div>
-                              <div className="p-6 bg-white space-y-4">
-                                  <div>
-                                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Observation</span>
-                                      <p className="text-sm font-medium text-slate-700">{scenario.desc}</p>
-                                  </div>
-                                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                                      <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest block mb-1 flex items-center gap-2"><CheckCircle size={12} /> Recommended Approach</span>
-                                      <p className="text-xs font-bold text-blue-900 leading-relaxed">{scenario.approach}</p>
-                                  </div>
-                              </div>
                           </div>
                       ))}
                   </div>
@@ -268,6 +271,41 @@ const ResourceCenter: React.FC = () => {
                               <div>
                                   <h5 className="font-bold text-slate-900 text-sm">{topic.title}</h5>
                                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{topic.category}</span>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          )}
+
+          {/* INTERVIEW QUESTIONS SECTION */}
+          {activeTab === 'INTERVIEW' && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+                  <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-100 pb-6">
+                      <div>
+                          <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">IO Interview Questions</h3>
+                          <p className="text-slate-500 text-xs font-bold mt-2">Standard questions asked by the Interviewing Officer.</p>
+                      </div>
+                      <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hidden md:block">
+                          Based on PIQ
+                      </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-6">
+                      {INTERVIEW_QUESTIONS.map((section, i) => (
+                          <div key={i} className="border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
+                              <div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center gap-3">
+                                  <div className="p-2 bg-white rounded-lg text-slate-700 shadow-sm">
+                                      <HelpCircle size={16} />
+                                  </div>
+                                  <h4 className="font-black text-slate-900 uppercase text-xs tracking-widest">{section.category}</h4>
+                              </div>
+                              <div className="p-4 bg-white space-y-3">
+                                  {section.questions.map((q, idx) => (
+                                      <div key={idx} className="flex gap-3 items-start">
+                                          <span className="text-slate-300 font-black text-xs mt-0.5">{idx + 1}.</span>
+                                          <p className="text-sm font-medium text-slate-700">{q}</p>
+                                      </div>
+                                  ))}
                               </div>
                           </div>
                       ))}
