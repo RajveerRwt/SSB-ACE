@@ -362,6 +362,27 @@ const Dashboard: React.FC<{
           </div>
       </section>
 
+      {/* TECHNICAL SUPPORT */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-6 bg-slate-100 border border-slate-200 rounded-[2rem] text-center md:text-left shadow-inner">
+          <div className="flex items-center gap-3">
+             <div className="p-3 bg-white rounded-xl text-red-500 shadow-sm">
+                <AlertCircle size={20} />
+             </div>
+             <div>
+                <p className="text-xs font-black text-slate-900 uppercase tracking-widest">Technical Support & Help</p>
+                <p className="text-[10px] text-slate-500 font-bold">Facing errors? Contact admin directly.</p>
+             </div>
+          </div>
+          <div className="flex flex-wrap justify-center gap-4 md:gap-6">
+             <a href="tel:+919131112322" className="flex items-center gap-2 text-xs font-black text-slate-700 hover:text-blue-600 transition-colors bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+                <Phone size={14} /> +91 9131112322
+             </a>
+             <a href="mailto:contact.ssbprep@gmail.com" className="flex items-center gap-2 text-xs font-black text-slate-700 hover:text-blue-600 transition-colors bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+                <MessageCircle size={14} /> contact.ssbprep@gmail.com
+             </a>
+          </div>
+      </div>
+
     </div>
   );
 };
