@@ -185,7 +185,24 @@ const Dashboard: React.FC<{
              )}
            </div>
            <div className="hidden lg:flex flex-col gap-6 relative justify-center h-full">
-              <div className="bg-white/5 backdrop-blur-3xl p-10 rounded-[3rem] border border-white/10 space-y-8 relative z-10 overflow-hidden">
+              {/* BRANDING HEADER - Added above quotes */}
+              <div className="w-full flex justify-end animate-in fade-in slide-in-from-right-8 duration-1000 delay-200">
+                  <div className="flex items-center gap-4">
+                      <div className="text-right">
+                          <h2 className="text-2xl font-black text-white uppercase tracking-tighter leading-none">
+                          SSB<span className="text-yellow-400">PREP</span>.ONLINE
+                          </h2>
+                          <p className="text-blue-200/60 text-[9px] font-black uppercase tracking-[0.3em] mt-1">
+                          Prepare. Lead. Succeed
+                          </p>
+                      </div>
+                      <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 shadow-2xl backdrop-blur-sm">
+                          <SSBLogo className="w-8 h-8" />
+                      </div>
+                  </div>
+              </div>
+
+              <div className="bg-white/5 backdrop-blur-3xl p-10 rounded-[3rem] border border-white/10 space-y-8 relative z-10 shadow-inner group overflow-hidden">
                 <Quote size={120} className="absolute top-0 right-0 p-4 opacity-5" />
                 <div className="space-y-4 animate-in fade-in duration-1000" key={quoteIndex}>
                   <p className="text-2xl font-black text-white italic uppercase tracking-tighter">"{quotes[quoteIndex].text}"</p>
@@ -351,7 +368,7 @@ const Dashboard: React.FC<{
       <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100">
           <div className="flex flex-col items-center text-center space-y-8">
               <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3">
-                  <MessageCircle className="text-blue-600" size={28} /> Success Stories
+                  <MessageCircle className="text-blue-600" size={28} /> Feedbacks
               </h2>
               
               <div key={testimonialIndex} className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl">
