@@ -2,24 +2,24 @@
 import React, { useState, useEffect } from 'react';
 import Layout from './Layout';
 import Login from './Login';
-import PPDTTest from './PPDTTest';
-import PsychologyTest from './PsychologyTest';
-import Interview from './Interview';
-import PIQForm from './PIQForm';
-import ContactForm from './ContactForm';
-import SSBStages from './SSBStages';
-import SSBBot from './SSBBot';
-import AdminPanel from './AdminPanel';
-import PaymentModal from './PaymentModal';
-import LegalPages from './LegalPages';
-import HowToUse from './HowToUse';
-import CurrentAffairs from './CurrentAffairs';
-import DailyPractice from './DailyPractice';
-import ResourceCenter from './ResourceCenter';
-import { TestType, PIQData, UserSubscription } from '../types';
-import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X } from 'lucide-react';
-import { SSBLogo } from './Logo';
+import PPDTTest from './components/PPDTTest';
+import PsychologyTest from './components/PsychologyTest';
+import Interview from './components/Interview';
+import PIQForm from './components/PIQForm';
+import ContactForm from './components/ContactForm';
+import SSBStages from './components/SSBStages';
+import SSBBot from './components/SSBBot';
+import AdminPanel from './components/AdminPanel';
+import PaymentModal from './components/PaymentModal';
+import LegalPages from './components/LegalPages';
+import HowToUse from './components/HowToUse';
+import CurrentAffairs from './components/CurrentAffairs';
+import DailyPractice from './components/DailyPractice';
+import ResourceCenter from './components/ResourceCenter';
+import { TestType, PIQData, UserSubscription } from './types';
+import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from './services/supabaseService';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail } from 'lucide-react';
+import { SSBLogo } from './components/Logo';
 
 // Dashboard Component
 const Dashboard: React.FC<{ 
@@ -347,39 +347,86 @@ const Dashboard: React.FC<{
           </section>
       )}
 
-      {/* TESTIMONIALS */}
-      <section className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-xl" aria-label="Candidate Testimonials">
-          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-6 flex items-center gap-3"><MessageCircle size={20} /> feedbacks</h2>
-          <div key={testimonialIndex} className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <p className="text-sm md:text-lg font-medium text-slate-700 italic leading-relaxed mb-6 border-l-4 border-yellow-400 pl-4">"{testimonials[testimonialIndex].text}"</p>
-              <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-xs">{testimonials[testimonialIndex].name[0]}</div>
-                  <div>
-                      <p className="text-xs font-black text-slate-900 uppercase">{testimonials[testimonialIndex].name}</p>
-                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">{testimonials[testimonialIndex].role}</p>
+      {/* REDESIGNED TESTIMONIALS (Field Reports) */}
+      <section className="bg-slate-900 rounded-[3rem] p-8 md:p-12 relative overflow-hidden shadow-2xl border-4 border-slate-800">
+          <div className="absolute top-0 right-0 p-12 opacity-5 text-white">
+              <Quote size={200} />
+          </div>
+          <div className="relative z-10 max-w-4xl mx-auto text-center space-y-10">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  <h2 className="text-xs font-black text-yellow-400 uppercase tracking-[0.3em]">Field Reports & Debriefs</h2>
+              </div>
+              
+              <div key={testimonialIndex} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  <h3 className="text-xl md:text-3xl font-medium text-white leading-relaxed italic font-serif">
+                      "{testimonials[testimonialIndex].text}"
+                  </h3>
+                  
+                  <div className="inline-flex items-center gap-4 bg-white/5 px-6 py-3 rounded-full border border-white/10 backdrop-blur-md">
+                      <div className="w-10 h-10 bg-gradient-to-tr from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-slate-900 font-black text-sm">
+                          {testimonials[testimonialIndex].name[0]}
+                      </div>
+                      <div className="text-left">
+                          <p className="text-white font-black text-xs uppercase tracking-wide">{testimonials[testimonialIndex].name}</p>
+                          <p className="text-[9px] text-blue-400 font-bold uppercase tracking-widest">{testimonials[testimonialIndex].role}</p>
+                      </div>
+                      <div className="h-8 w-px bg-white/10 mx-2" />
+                      <div className="text-green-400 flex gap-1">
+                          <Star size={12} fill="currentColor" />
+                          <Star size={12} fill="currentColor" />
+                          <Star size={12} fill="currentColor" />
+                          <Star size={12} fill="currentColor" />
+                          <Star size={12} fill="currentColor" />
+                      </div>
                   </div>
+              </div>
+
+              <div className="flex justify-center gap-2 mt-4">
+                  {testimonials.map((_, i) => (
+                      <div 
+                        key={i} 
+                        className={`h-1 rounded-full transition-all duration-300 ${i === testimonialIndex ? 'w-8 bg-yellow-400' : 'w-2 bg-slate-700'}`} 
+                      />
+                  ))}
               </div>
           </div>
       </section>
 
-      {/* TECHNICAL SUPPORT */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-6 bg-slate-100 border border-slate-200 rounded-[2rem] text-center md:text-left shadow-inner">
-          <div className="flex items-center gap-3">
-             <div className="p-3 bg-white rounded-xl text-red-500 shadow-sm">
-                <AlertCircle size={20} />
-             </div>
-             <div>
-                <p className="text-xs font-black text-slate-900 uppercase tracking-widest">Technical Support & Help</p>
-                <p className="text-[10px] text-slate-500 font-bold">Facing errors? Contact admin directly.</p>
-             </div>
+      {/* REDESIGNED TECHNICAL SUPPORT (Comms Link) */}
+      <div className="bg-gradient-to-r from-blue-900 to-slate-900 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 border-t-4 border-blue-500">
+          {/* Background Elements */}
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 mix-blend-overlay pointer-events-none"></div>
+          <Signal className="absolute -left-10 -bottom-10 w-64 h-64 text-blue-500/10 rotate-12 pointer-events-none" />
+
+          <div className="relative z-10 flex items-center gap-6">
+              <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10 shadow-inner">
+                  <Headset size={32} className="text-yellow-400" />
+              </div>
+              <div>
+                  <h4 className="text-2xl font-black uppercase tracking-tighter">Support Uplink</h4>
+                  <div className="flex items-center gap-2 mt-1">
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_#22c55e]" />
+                      <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Comms Channel: Active</p>
+                  </div>
+              </div>
           </div>
-          <div className="flex flex-wrap justify-center gap-4 md:gap-6">
-             <a href="tel:+919131112322" className="flex items-center gap-2 text-xs font-black text-slate-700 hover:text-blue-600 transition-colors bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
-                <Phone size={14} /> +91 9131112322
-             </a>
-             <a href="mailto:contact.ssbprep@gmail.com" className="flex items-center gap-2 text-xs font-black text-slate-700 hover:text-blue-600 transition-colors bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
-                <MessageCircle size={14} /> contact.ssbprep@gmail.com
-             </a>
+
+          <div className="relative z-10 flex flex-wrap justify-center gap-4">
+              <a 
+                href="tel:+919131112322" 
+                className="group flex items-center gap-3 px-6 py-4 bg-white text-slate-900 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-yellow-400 transition-all shadow-lg hover:shadow-yellow-400/20 hover:-translate-y-1"
+              >
+                  <Phone size={16} className="text-blue-600 group-hover:text-slate-900 transition-colors" />
+                  <span>Call Support</span>
+              </a>
+              <a 
+                href="mailto:contact.ssbprep@gmail.com" 
+                className="group flex items-center gap-3 px-6 py-4 bg-slate-800 text-white border border-slate-700 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-700 transition-all shadow-lg hover:-translate-y-1"
+              >
+                  <Mail size={16} className="text-slate-400 group-hover:text-white transition-colors" />
+                  <span>Email Report</span>
+              </a>
           </div>
       </div>
 
