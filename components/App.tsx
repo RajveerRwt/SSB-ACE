@@ -36,7 +36,6 @@ const Dashboard: React.FC<{
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
-  const [showPromo, setShowPromo] = useState(true);
   
   const quotes = [
     { text: "Either I will come back after hoisting the Tricolour, or I will come back wrapped in it, but I will be back for sure.", author: "Capt. Vikram Batra, PVC" },
@@ -106,30 +105,34 @@ const Dashboard: React.FC<{
   return (
     <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-20">
       
-      {/* PROMO BANNER */}
-      {showPromo && (!subscription || subscription.tier === 'FREE') && (
-         <div className="relative animate-in slide-in-from-top duration-500">
-            <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 via-white to-green-500 rounded-2xl blur opacity-25"></div>
-            <div className="relative bg-white rounded-2xl p-4 md:p-6 border border-slate-100 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden">
-               <div className="absolute top-0 right-0 p-8 opacity-5 -rotate-12 pointer-events-none">
-                  <Crown size={120} />
+      {/* PAYMENT STATUS BANNER */}
+      {paymentStatus && paymentStatus.status === 'PENDING' && (
+         <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top">
+            <div className="flex items-center gap-4">
+               <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600 animate-pulse">
+                  <Clock size={20} />
                </div>
-               <div className="flex items-center gap-5 z-10">
-                  <div className="w-16 h-16 bg-slate-900 text-white rounded-2xl flex flex-col items-center justify-center shrink-0 shadow-lg border border-slate-700">
-                     <span className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-0.5">Sale</span>
-                     <span className="text-2xl font-black leading-none">26%</span>
-                     <span className="text-[9px] font-black text-green-400 uppercase tracking-widest mt-0.5">OFF</span>
-                  </div>
-                  <div>
-                     <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter flex items-center gap-2">Republic Day Offer</h4>
-                     <p className="text-xs font-bold text-slate-500 mt-1 max-w-md">Use Code: <span className="font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">REPUBLIC26</span> for a massive discount on the Officer Plan.</p>
-                  </div>
-               </div>
-               <div className="flex items-center gap-3 w-full md:w-auto z-10">
-                  <button onClick={onOpenPayment} className="flex-1 md:flex-none px-8 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg">Claim Offer</button>
-                  <button onClick={() => setShowPromo(false)} className="p-3 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-xl transition-colors"><X size={18} /></button>
+               <div>
+                  <h4 className="font-black text-slate-900 uppercase text-xs tracking-widest">Verification In Progress</h4>
+                  <p className="text-xs text-slate-600 font-medium">Your payment of ₹{paymentStatus.amount} is being reviewed. Estimated time: 30-60 Mins.</p>
                </div>
             </div>
+            <div className="text-[10px] font-mono text-slate-400">UTR: {paymentStatus.utr}</div>
+         </div>
+      )}
+
+      {paymentStatus && paymentStatus.status === 'REJECTED' && (
+         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top">
+            <div className="flex items-center gap-4">
+               <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600">
+                  <AlertCircle size={20} />
+               </div>
+               <div>
+                  <h4 className="font-black text-red-900 uppercase text-xs tracking-widest">Payment Rejected</h4>
+                  <p className="text-xs text-red-700 font-medium">Admin could not verify UTR: {paymentStatus.utr}. Please check and try again.</p>
+               </div>
+            </div>
+            <button onClick={onOpenPayment} className="px-4 py-2 bg-red-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest">Retry Payment</button>
          </div>
       )}
 
