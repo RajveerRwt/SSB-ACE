@@ -592,7 +592,8 @@ export const createCoupon = async (code: string, discount: number, influencer: s
   await supabase.from('coupons').insert({
       code: code.toUpperCase(),
       discount_percent: discount,
-      influencer_name: influencer
+      influencer_name: influencer,
+      usage_count: 0 // Initialize explicitly
   });
 };
 
