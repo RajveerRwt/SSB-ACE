@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
@@ -244,6 +244,21 @@ const AdminPanel: React.FC = () => {
       acc[tag].push(item);
       return acc;
   }, {});
+
+  // Calculate User Stats
+  const userStats = {
+      total: users.length,
+      pro: users.filter(u => u.subscription_data?.tier === 'PRO').length,
+      free: users.filter(u => !u.subscription_data?.tier || u.subscription_data?.tier === 'FREE').length,
+      activeToday: users.filter(u => {
+          if (!u.last_active) return false;
+          const diff = Date.now() - new Date(u.last_active).getTime();
+          return diff < 86400000; // 24 hours
+      }).length,
+      interviewsUsed: users.reduce((acc, u) => acc + (u.subscription_data?.usage?.interview_used || 0), 0),
+      ppdtUsed: users.reduce((acc, u) => acc + (u.subscription_data?.usage?.ppdt_used || 0), 0),
+      tatUsed: users.reduce((acc, u) => acc + (u.subscription_data?.usage?.tat_used || 0), 0)
+  };
 
   const filteredUsers = users.filter(u => 
       u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -570,8 +585,65 @@ create policy "Auth Upload Scenarios" on storage.objects for insert with check (
               )}
           </div>
       ) : activeTab === 'USERS' ? (
-          // ... (Existing Users Code) ...
-          <div className="space-y-6">
+          <div className="space-y-8">
+              {/* ANALYTICS DASHBOARD */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 animate-in fade-in slide-in-from-top-4">
+                  <div className="bg-blue-600 rounded-[2rem] p-6 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden group">
+                      <div className="relative z-10">
+                          <div className="flex items-center gap-3 mb-2 opacity-80">
+                              <Users size={18} />
+                              <span className="text-[10px] font-black uppercase tracking-widest">Total Cadets</span>
+                          </div>
+                          <h4 className="text-4xl font-black tracking-tight">{userStats.total}</h4>
+                          <p className="text-[10px] font-bold mt-2 opacity-80 flex items-center gap-1">
+                              <Activity size={10} /> {userStats.activeToday} Active Today
+                          </p>
+                      </div>
+                      <Users className="absolute -bottom-4 -right-4 w-24 h-24 opacity-10 group-hover:scale-110 transition-transform" />
+                  </div>
+
+                  <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-xl relative overflow-hidden group">
+                      <div className="relative z-10">
+                          <div className="flex items-center gap-3 mb-2 text-yellow-600">
+                              <Crown size={18} />
+                              <span className="text-[10px] font-black uppercase tracking-widest">Pro Officers</span>
+                          </div>
+                          <h4 className="text-4xl font-black text-slate-900 tracking-tight">{userStats.pro}</h4>
+                          <div className="flex items-center gap-2 mt-2">
+                              <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded">{userStats.free} Free Users</span>
+                          </div>
+                      </div>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 w-16 h-16">
+                          <PieChart className="text-yellow-100 w-full h-full" />
+                      </div>
+                  </div>
+
+                  <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-xl relative overflow-hidden group">
+                      <div className="relative z-10">
+                          <div className="flex items-center gap-3 mb-2 text-purple-600">
+                              <Mic size={18} />
+                              <span className="text-[10px] font-black uppercase tracking-widest">Interviews</span>
+                          </div>
+                          <h4 className="text-4xl font-black text-slate-900 tracking-tight">{userStats.interviewsUsed}</h4>
+                          <p className="text-[10px] font-bold text-slate-400 mt-2">Total Conducted</p>
+                      </div>
+                      <BarChart3 className="absolute -bottom-4 -right-4 w-24 h-24 text-purple-50 group-hover:scale-110 transition-transform" />
+                  </div>
+
+                  <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-xl relative overflow-hidden group">
+                      <div className="relative z-10">
+                          <div className="flex items-center gap-3 mb-2 text-green-600">
+                              <ImageIcon size={18} />
+                              <span className="text-[10px] font-black uppercase tracking-widest">Psych Tests</span>
+                          </div>
+                          <h4 className="text-4xl font-black text-slate-900 tracking-tight">{userStats.ppdtUsed + userStats.tatUsed}</h4>
+                          <p className="text-[10px] font-bold text-slate-400 mt-2">PPDT & TAT Stories</p>
+                      </div>
+                      <FileText className="absolute -bottom-4 -right-4 w-24 h-24 text-green-50 group-hover:scale-110 transition-transform" />
+                  </div>
+              </div>
+
+              {/* USER SEARCH & LIST */}
               <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-lg flex items-center gap-4 sticky top-24 z-10">
                   <Search className="text-slate-400 ml-2" size={20} />
                   <input 
