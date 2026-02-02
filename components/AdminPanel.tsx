@@ -265,74 +265,29 @@ const AdminPanel: React.FC = () => {
       u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // UPDATED ROBUST SQL
+  // UPDATED ROBUST SQL v3.0
   const storageSQL = `
--- EXTENSIONS
-create extension if not exists "uuid-ossp";
-
--- 1. DAILY CHALLENGES (Fixing Permissions)
-create table if not exists public.daily_challenges (
-  id uuid default uuid_generate_v4() primary key,
-  ppdt_image_url text,
-  wat_words text[],
-  srt_situations text[],
-  interview_question text,
-  created_at timestamptz default now()
+-- 1. FORCE ACCESS TO USER SUBSCRIPTIONS (For Admin View)
+create table if not exists public.user_subscriptions (
+  user_id uuid references auth.users not null primary key,
+  tier text,
+  usage jsonb,
+  extra_credits jsonb,
+  expiry_date timestamptz
 );
-alter table public.daily_challenges enable row level security;
+alter table public.user_subscriptions enable row level security;
 
--- Add interview_question column if missing (Safe run)
-do $$
-begin
-  if not exists (select 1 from information_schema.columns where table_name='daily_challenges' and column_name='interview_question') then
-    alter table public.daily_challenges add column interview_question text;
-  end if;
-end $$;
+-- DROP OLD POLICIES TO PREVENT CONFLICT
+drop policy if exists "Enable read access for all users" on public.user_subscriptions;
+drop policy if exists "Enable update for users" on public.user_subscriptions;
+drop policy if exists "Enable insert for users" on public.user_subscriptions;
 
--- Drop existing policies to avoid conflicts
-drop policy if exists "Public read daily" on public.daily_challenges;
-drop policy if exists "Enable insert for authenticated users only" on public.daily_challenges;
-drop policy if exists "Enable all access for all users" on public.daily_challenges;
+-- CREATE PERMISSIVE POLICIES (Allows admin to fetch ALL)
+create policy "Enable read access for all users" on public.user_subscriptions for select using (true);
+create policy "Enable update for users" on public.user_subscriptions for update using (auth.uid() = user_id);
+create policy "Enable insert for users" on public.user_subscriptions for insert with check (auth.uid() = user_id);
 
--- CREATE NEW POLICIES (Read for Everyone, Insert for Auth users)
-create policy "Public read daily" on public.daily_challenges for select using (true);
-create policy "Auth insert daily" on public.daily_challenges for insert with check (auth.role() = 'authenticated');
-create policy "Auth update daily" on public.daily_challenges for update using (auth.role() = 'authenticated');
-
--- 2. DAILY SUBMISSIONS
-create table if not exists public.daily_submissions (
-  id uuid default uuid_generate_v4() primary key,
-  challenge_id uuid references public.daily_challenges,
-  user_id uuid references auth.users,
-  ppdt_story text,
-  wat_answers text[],
-  srt_answers text[],
-  interview_answer text,
-  created_at timestamptz default now(),
-  likes_count integer default 0
-);
-alter table public.daily_submissions enable row level security;
-
--- Add missing columns safely
-do $$
-begin
-  if not exists (select 1 from information_schema.columns where table_name='daily_submissions' and column_name='interview_answer') then
-    alter table public.daily_submissions add column interview_answer text;
-  end if;
-  if not exists (select 1 from information_schema.columns where table_name='daily_submissions' and column_name='likes_count') then
-    alter table public.daily_submissions add column likes_count integer default 0;
-  end if;
-end $$;
-
-drop policy if exists "Public read submissions" on public.daily_submissions;
-drop policy if exists "Insert submissions" on public.daily_submissions;
-drop policy if exists "Update submissions" on public.daily_submissions;
-
-create policy "Public read submissions" on public.daily_submissions for select using (true);
-create policy "Insert submissions" on public.daily_submissions for insert with check (auth.uid() = user_id);
-create policy "Update submissions" on public.daily_submissions for update using (auth.uid() = user_id);
-
--- 3. ASPIRANTS
+-- 2. FORCE ACCESS TO ASPIRANTS (For User List)
 create table if not exists public.aspirants (
   user_id uuid references auth.users not null primary key,
   email text,
@@ -348,28 +303,14 @@ drop policy if exists "Users can update own profile" on public.aspirants;
 drop policy if exists "Users can insert own profile" on public.aspirants;
 drop policy if exists "Public read aspirants" on public.aspirants;
 
-create policy "Users can view own profile" on public.aspirants for select using (true); -- Allow public read for leaderboards
+create policy "Public read aspirants" on public.aspirants for select using (true);
 create policy "Users can update own profile" on public.aspirants for update using (auth.uid() = user_id);
 create policy "Users can insert own profile" on public.aspirants for insert with check (auth.uid() = user_id);
 
--- 4. STORAGE (Buckets)
+-- 3. STORAGE & OTHER TABLES
 insert into storage.buckets (id, name, public) values ('scenarios', 'scenarios', true) on conflict (id) do nothing;
 create policy "Public Access Scenarios" on storage.objects for select using ( bucket_id = 'scenarios' );
 create policy "Auth Upload Scenarios" on storage.objects for insert with check ( bucket_id = 'scenarios' and auth.role() = 'authenticated' );
-
--- 5. SUBSCRIPTIONS (Fix RLS for Admin Visibility)
-create table if not exists public.user_subscriptions (
-  user_id uuid references auth.users not null primary key,
-  tier text,
-  usage jsonb,
-  extra_credits jsonb,
-  expiry_date timestamptz
-);
-alter table public.user_subscriptions enable row level security;
-drop policy if exists "Enable read access for all users" on public.user_subscriptions;
-create policy "Enable read access for all users" on public.user_subscriptions for select using (true);
-create policy "Enable update for users" on public.user_subscriptions for update using (auth.uid() = user_id);
-create policy "Enable insert for users" on public.user_subscriptions for insert with check (auth.uid() = user_id);
 `;
 
   return (
@@ -383,7 +324,7 @@ create policy "Enable insert for users" on public.user_subscriptions for insert 
         </div>
         <div className="flex gap-4">
             <button onClick={() => setShowSqlHelp(!showSqlHelp)} className="p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all text-white flex items-center gap-2" title="Database Setup Help">
-                <Database size={20} /> <span className="hidden md:inline font-bold text-xs uppercase tracking-widest">Fix Database</span>
+                <Database size={20} /> <span className="hidden md:inline font-bold text-xs uppercase tracking-widest">Fix Permissions</span>
             </button>
             <button onClick={fetchData} className="p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all text-white">
                 <RefreshCw size={20} className={isLoading ? "animate-spin" : ""} />
@@ -408,18 +349,18 @@ create policy "Enable insert for users" on public.user_subscriptions for insert 
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-slate-900">
                     <Settings className="text-blue-600" size={24} />
-                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v2.0)</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v3.0)</h5>
                 </div>
                 {showSqlHelp && !errorMsg && (
                     <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
                 )}
             </div>
             
-            <p className="text-xs text-slate-600 font-medium">
-                1. Copy the code below.<br/>
-                2. Go to Supabase {'>'} SQL Editor.<br/>
-                3. Paste and Run. This will fix missing columns and permission errors.
-            </p>
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-xl">
+                <p className="text-xs text-yellow-800 font-bold">
+                    <strong>Critical:</strong> If you see "0 Cadets" or "0 Pro Users", you MUST run this script in Supabase SQL Editor. It fixes the Read Permissions for the Admin.
+                </p>
+            </div>
 
             <div className="relative group">
               <pre className="bg-slate-900 text-blue-300 p-6 rounded-2xl text-[10px] font-mono overflow-x-auto border-2 border-slate-800 leading-relaxed shadow-inner max-h-[300px]">

@@ -170,10 +170,11 @@ export const saveTestAttempt = async (userId: string, testType: string, resultDa
 };
 
 export const getAllUsers = async () => {
-  // 1. Fetch Aspirants Profile Data - EXPLICITLY SELECT COLUMNS to avoid stale 'subscription_data' column in aspirants
+  // 1. Fetch Aspirants Profile Data
+  // Using select('*') to prevent "column not found" errors if schema drifts
   const { data: aspirants, error: aspError } = await supabase
     .from('aspirants')
-    .select('user_id, email, full_name, last_active, streak_count')
+    .select('*')
     .order('last_active', { ascending: false });
 
   if (aspError) {
@@ -208,6 +209,7 @@ export const getAllUsers = async () => {
           extra_credits: { interview: 0 }
       };
 
+      // Ensure we prioritize the live subscription table over any stale aspirant column
       return {
           ...u,
           subscription_data: sub || defaultSub
