@@ -347,37 +347,27 @@ const Dashboard: React.FC<{
           </section>
       )}
 
-      {/* REDESIGNED TESTIMONIALS (Field Reports) */}
-      <section className="bg-slate-900 rounded-[3rem] p-8 md:p-12 relative overflow-hidden shadow-2xl border-4 border-slate-800">
-          <div className="absolute top-0 right-0 p-12 opacity-5 text-white">
-              <Quote size={200} />
-          </div>
-          <div className="relative z-10 max-w-4xl mx-auto text-center space-y-10">
-              <div className="flex items-center justify-center gap-3 mb-4">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <h2 className="text-xs font-black text-yellow-400 uppercase tracking-[0.3em]">Field Reports & Debriefs</h2>
-              </div>
+      {/* SIMPLIFIED TESTIMONIALS (Clean White UI) */}
+      <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100">
+          <div className="flex flex-col items-center text-center space-y-8">
+              <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3">
+                  <MessageCircle className="text-blue-600" size={28} /> Success Stories
+              </h2>
               
-              <div key={testimonialIndex} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                  <h3 className="text-xl md:text-3xl font-medium text-white leading-relaxed italic font-serif">
+              <div key={testimonialIndex} className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl">
+                  <div className="mb-6 text-yellow-400 flex justify-center gap-1">
+                      {[1,2,3,4,5].map(i => <Star key={i} size={16} fill="currentColor" />)}
+                  </div>
+                  <p className="text-base md:text-xl font-medium text-slate-700 italic leading-relaxed">
                       "{testimonials[testimonialIndex].text}"
-                  </h3>
-                  
-                  <div className="inline-flex items-center gap-4 bg-white/5 px-6 py-3 rounded-full border border-white/10 backdrop-blur-md">
-                      <div className="w-10 h-10 bg-gradient-to-tr from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-slate-900 font-black text-sm">
+                  </p>
+                  <div className="mt-8 flex items-center justify-center gap-4">
+                      <div className="w-12 h-12 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center font-black text-lg">
                           {testimonials[testimonialIndex].name[0]}
                       </div>
                       <div className="text-left">
-                          <p className="text-white font-black text-xs uppercase tracking-wide">{testimonials[testimonialIndex].name}</p>
-                          <p className="text-[9px] text-blue-400 font-bold uppercase tracking-widest">{testimonials[testimonialIndex].role}</p>
-                      </div>
-                      <div className="h-8 w-px bg-white/10 mx-2" />
-                      <div className="text-green-400 flex gap-1">
-                          <Star size={12} fill="currentColor" />
-                          <Star size={12} fill="currentColor" />
-                          <Star size={12} fill="currentColor" />
-                          <Star size={12} fill="currentColor" />
-                          <Star size={12} fill="currentColor" />
+                          <p className="text-sm font-black text-slate-900 uppercase">{testimonials[testimonialIndex].name}</p>
+                          <p className="text-xs text-slate-500 font-medium">{testimonials[testimonialIndex].role}</p>
                       </div>
                   </div>
               </div>
@@ -386,46 +376,38 @@ const Dashboard: React.FC<{
                   {testimonials.map((_, i) => (
                       <div 
                         key={i} 
-                        className={`h-1 rounded-full transition-all duration-300 ${i === testimonialIndex ? 'w-8 bg-yellow-400' : 'w-2 bg-slate-700'}`} 
+                        className={`h-1.5 rounded-full transition-all duration-300 ${i === testimonialIndex ? 'w-8 bg-blue-600' : 'w-2 bg-slate-200'}`} 
                       />
                   ))}
               </div>
           </div>
       </section>
 
-      {/* REDESIGNED TECHNICAL SUPPORT (Comms Link) */}
-      <div className="bg-gradient-to-r from-blue-900 to-slate-900 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 border-t-4 border-blue-500">
-          {/* Background Elements */}
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 mix-blend-overlay pointer-events-none"></div>
-          <Signal className="absolute -left-10 -bottom-10 w-64 h-64 text-blue-500/10 rotate-12 pointer-events-none" />
-
-          <div className="relative z-10 flex items-center gap-6">
-              <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10 shadow-inner">
-                  <Headset size={32} className="text-yellow-400" />
-              </div>
-              <div>
-                  <h4 className="text-2xl font-black uppercase tracking-tighter">Support Uplink</h4>
-                  <div className="flex items-center gap-2 mt-1">
-                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_#22c55e]" />
-                      <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Comms Channel: Active</p>
-                  </div>
-              </div>
+      {/* SIMPLIFIED TECHNICAL SUPPORT (Clean UI) */}
+      <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left shadow-sm">
+          <div className="space-y-2">
+              <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight flex items-center gap-2 justify-center md:justify-start">
+                  <Headset className="text-blue-600" size={20} /> Need Help?
+              </h4>
+              <p className="text-xs font-medium text-slate-500 max-w-md">
+                  Facing technical issues or have questions about the platform? Reach out to our support team directly.
+              </p>
           </div>
 
-          <div className="relative z-10 flex flex-wrap justify-center gap-4">
+          <div className="flex flex-wrap justify-center gap-4">
               <a 
                 href="tel:+919131112322" 
-                className="group flex items-center gap-3 px-6 py-4 bg-white text-slate-900 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-yellow-400 transition-all shadow-lg hover:shadow-yellow-400/20 hover:-translate-y-1"
+                className="flex items-center gap-3 px-6 py-3 bg-white text-slate-700 rounded-xl border border-slate-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-md transition-all group"
               >
-                  <Phone size={16} className="text-blue-600 group-hover:text-slate-900 transition-colors" />
-                  <span>Call Ops</span>
+                  <Phone size={16} className="text-slate-400 group-hover:text-blue-500" />
+                  <span className="text-xs font-bold">+91 9131112322</span>
               </a>
               <a 
                 href="mailto:contact.ssbprep@gmail.com" 
-                className="group flex items-center gap-3 px-6 py-4 bg-slate-800 text-white border border-slate-700 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-700 transition-all shadow-lg hover:-translate-y-1"
+                className="flex items-center gap-3 px-6 py-3 bg-white text-slate-700 rounded-xl border border-slate-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-md transition-all group"
               >
-                  <Mail size={16} className="text-slate-400 group-hover:text-white transition-colors" />
-                  <span>Email Report</span>
+                  <Mail size={16} className="text-slate-400 group-hover:text-blue-500" />
+                  <span className="text-xs font-bold">Email Support</span>
               </a>
           </div>
       </div>
