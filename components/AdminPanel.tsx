@@ -669,6 +669,14 @@ end $$;
                                       <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">TAT</span>
                                       <span className="text-sm font-black text-slate-700">{u.subscription_data?.usage?.tat_used || 0}</span>
                                   </div>
+                                  <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-100">
+                                      <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">WAT</span>
+                                      <span className="text-sm font-black text-slate-700">{u.subscription_data?.usage?.wat_used || 0}</span>
+                                  </div>
+                                  <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-100">
+                                      <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">SRT</span>
+                                      <span className="text-sm font-black text-slate-700">{u.subscription_data?.usage?.srt_used || 0}</span>
+                                  </div>
                               </div>
                           </div>
                           <div className="flex gap-3 pt-4 border-t border-slate-50">
@@ -831,6 +839,14 @@ end $$;
                               <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
                                   <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.tat_used || 0}</span>
                                   <span className="text-[9px] font-bold text-slate-400 uppercase">TAT</span>
+                              </div>
+                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
+                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.wat_used || 0}</span>
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase">WAT</span>
+                              </div>
+                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
+                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.srt_used || 0}</span>
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase">SRT</span>
                               </div>
                           </div>
                       </div>
