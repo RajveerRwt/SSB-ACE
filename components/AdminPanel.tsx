@@ -356,6 +356,20 @@ create policy "Users can insert own profile" on public.aspirants for insert with
 insert into storage.buckets (id, name, public) values ('scenarios', 'scenarios', true) on conflict (id) do nothing;
 create policy "Public Access Scenarios" on storage.objects for select using ( bucket_id = 'scenarios' );
 create policy "Auth Upload Scenarios" on storage.objects for insert with check ( bucket_id = 'scenarios' and auth.role() = 'authenticated' );
+
+-- 5. SUBSCRIPTIONS (Fix RLS for Admin Visibility)
+create table if not exists public.user_subscriptions (
+  user_id uuid references auth.users not null primary key,
+  tier text,
+  usage jsonb,
+  extra_credits jsonb,
+  expiry_date timestamptz
+);
+alter table public.user_subscriptions enable row level security;
+drop policy if exists "Enable read access for all users" on public.user_subscriptions;
+create policy "Enable read access for all users" on public.user_subscriptions for select using (true);
+create policy "Enable update for users" on public.user_subscriptions for update using (auth.uid() = user_id);
+create policy "Enable insert for users" on public.user_subscriptions for insert with check (auth.uid() = user_id);
 `;
 
   return (

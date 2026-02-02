@@ -11,34 +11,66 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // --- AUTHENTICATION ---
 
 export const signInWithEmail = async (email: string, password: string) => {
-  return await supabase.auth.signInWithPassword({ email, password });
+  const auth = supabase.auth as any;
+  // Handle v2
+  if (auth.signInWithPassword) {
+    return await auth.signInWithPassword({ email, password });
+  }
+  // Handle v1
+  const { user, session, error } = await auth.signIn({ email, password });
+  return { data: { user, session }, error };
 };
 
 export const signUpWithEmail = async (email: string, password: string, fullName: string) => {
-  const result = await supabase.auth.signUp({ 
-    email, 
-    password,
-    options: {
-      data: { full_name: fullName }
-    }
-  });
+  const auth = supabase.auth as any;
+  // Attempt registration (hybrid support)
+  // v2: signUp({ email, password, options: { data: { full_name: fullName } } })
+  // v1: signUp({ email, password }, { data: { full_name: fullName } })
+  
+  // Since we suspect v1 types from errors, we default to a pattern that works or returns expected structure
+  let result;
+  if (auth.signInWithPassword) {
+      // v2
+      result = await auth.signUp({ 
+        email, 
+        password,
+        options: {
+          data: { full_name: fullName }
+        }
+      });
+  } else {
+      // v1
+      const { user, session, error } = await auth.signUp({ email, password }, { data: { full_name: fullName } });
+      result = { data: { user, session }, error };
+  }
   return result;
 };
 
 export const logoutUser = async () => {
-  await supabase.auth.signOut();
+  await (supabase.auth as any).signOut();
 };
 
 export const checkAuthSession = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const auth = supabase.auth as any;
+  if (auth.getSession) {
+    const { data: { session } } = await auth.getSession();
+    return session?.user || null;
+  }
+  // v1 fallback
+  const session = auth.session ? auth.session() : null;
   return session?.user || null;
 };
 
 export const subscribeToAuthChanges = (callback: (user: any) => void) => {
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+  const auth = supabase.auth as any;
+  const { data } = auth.onAuthStateChange((_event: any, session: any) => {
     callback(session?.user || null);
   });
-  return () => subscription.unsubscribe();
+  return () => {
+      // Handle v1 (data is subscription) and v2 (data.subscription is subscription)
+      if (data?.unsubscribe) data.unsubscribe();
+      if (data?.subscription?.unsubscribe) data.subscription.unsubscribe();
+  };
 };
 
 export const isUserAdmin = (email: string | null | undefined) => {
@@ -143,10 +175,10 @@ export const saveTestAttempt = async (userId: string, testType: string, resultDa
 };
 
 export const getAllUsers = async () => {
-  // 1. Fetch Aspirants Profile Data
+  // 1. Fetch Aspirants Profile Data - EXPLICITLY SELECT COLUMNS to avoid stale 'subscription_data'
   const { data: aspirants, error: aspError } = await supabase
     .from('aspirants')
-    .select('*')
+    .select('user_id, email, full_name, last_active, streak_count')
     .order('last_active', { ascending: false });
 
   if (aspError) {
@@ -165,7 +197,7 @@ export const getAllUsers = async () => {
 
   // 3. Manual Merge
   const mergedData = aspirants?.map((u: any) => {
-      // Find matching subscription by user_id
+      // Find matching subscription by user_id from the FRESH table
       const sub = subs?.find((s: any) => s.user_id === u.user_id);
       
       const defaultSub = { 
@@ -630,7 +662,9 @@ export const uploadDailyChallenge = async (ppdtFile: File | null, wat: string, s
 };
 
 export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: string, srt: string, interview: string) => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = supabase.auth as any;
+  const user = auth.user ? auth.user() : (await auth.getUser()).data.user;
+  
   if (!user) throw new Error("Login Required");
   
   await supabase.from('daily_submissions').insert({
