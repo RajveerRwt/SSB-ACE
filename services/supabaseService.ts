@@ -24,10 +24,6 @@ export const signInWithEmail = async (email: string, password: string) => {
 export const signUpWithEmail = async (email: string, password: string, fullName: string) => {
   const auth = supabase.auth as any;
   // Attempt registration (hybrid support)
-  // v2: signUp({ email, password, options: { data: { full_name: fullName } } })
-  // v1: signUp({ email, password }, { data: { full_name: fullName } })
-  
-  // Since we suspect v1 types from errors, we default to a pattern that works or returns expected structure
   let result;
   if (auth.signInWithPassword) {
       // v2
@@ -67,7 +63,6 @@ export const subscribeToAuthChanges = (callback: (user: any) => void) => {
     callback(session?.user || null);
   });
   return () => {
-      // Handle v1 (data is subscription) and v2 (data.subscription is subscription)
       if (data?.unsubscribe) data.unsubscribe();
       if (data?.subscription?.unsubscribe) data.subscription.unsubscribe();
   };
@@ -98,7 +93,7 @@ export const syncUserProfile = async (user: any) => {
     .from('user_subscriptions')
     .select('tier')
     .eq('user_id', user.id)
-    .maybeSingle(); // Use maybeSingle to avoid 406 error if not found
+    .maybeSingle(); 
     
   if (!sub) {
       // NEW USER DEFAULT LIMITS
@@ -106,11 +101,11 @@ export const syncUserProfile = async (user: any) => {
           user_id: user.id,
           tier: 'FREE',
           usage: {
-            interview_used: 0, interview_limit: 1, // 1 Free Interview
-            ppdt_used: 0, ppdt_limit: 10,          // 10 Free PPDT
-            tat_used: 0, tat_limit: 2,             // 2 Free TAT Sets
-            wat_used: 0, wat_limit: 3,             // 3 Free WAT Sets
-            srt_used: 0, srt_limit: 3,             // 3 Free SRT Sets
+            interview_used: 0, interview_limit: 1, 
+            ppdt_used: 0, ppdt_limit: 10,          
+            tat_used: 0, tat_limit: 2,             
+            wat_used: 0, wat_limit: 3,             
+            srt_used: 0, srt_limit: 3,             
             sdt_used: 0
           },
           extra_credits: { interview: 0 }
@@ -175,7 +170,7 @@ export const saveTestAttempt = async (userId: string, testType: string, resultDa
 };
 
 export const getAllUsers = async () => {
-  // 1. Fetch Aspirants Profile Data - EXPLICITLY SELECT COLUMNS to avoid stale 'subscription_data'
+  // 1. Fetch Aspirants Profile Data - EXPLICITLY SELECT COLUMNS to avoid stale 'subscription_data' column in aspirants
   const { data: aspirants, error: aspError } = await supabase
     .from('aspirants')
     .select('user_id, email, full_name, last_active, streak_count')
@@ -186,7 +181,7 @@ export const getAllUsers = async () => {
     return [];
   }
 
-  // 2. Fetch All Subscriptions separately to avoid JOIN issues
+  // 2. Fetch All Subscriptions separately to ensure FRESH data
   const { data: subs, error: subError } = await supabase
     .from('user_subscriptions')
     .select('*');
@@ -223,20 +218,16 @@ export const getAllUsers = async () => {
 };
 
 export const deleteUserProfile = async (userId: string) => {
-    // Rely on cascade delete in DB usually, but manual cleanup here for safety
     await supabase.from('test_history').delete().eq('user_id', userId);
     await supabase.from('user_subscriptions').delete().eq('user_id', userId);
     await supabase.from('payment_requests').delete().eq('user_id', userId);
-    await supabase.from('user_feedback').delete().eq('user_id', userId); // Added feedback cleanup
+    await supabase.from('user_feedback').delete().eq('user_id', userId); 
     await supabase.from('aspirants').delete().eq('user_id', userId);
-    // Note: Cannot delete from auth.users via client library directly without service role
 };
 
 // --- SUBSCRIPTION & PAYMENTS ---
 
 export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
-  // 1. Fetch Current Subscription
-  // USE maybeSingle() to return null instead of throwing 406 Error if row is missing
   let { data: sub, error } = await supabase
     .from('user_subscriptions')
     .select('*')
@@ -255,7 +246,7 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
           .eq('plan_type', 'PRO_SUBSCRIPTION')
           .order('created_at', { ascending: false })
           .limit(1)
-          .maybeSingle(); // Use maybeSingle to suppress 406
+          .maybeSingle(); 
 
       if (payment) {
           console.log(`SSB: Auto-Repairing Subscription for ${userId} based on Payment ID: ${payment.id}`);
@@ -299,7 +290,6 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
                   extra_credits: sub?.extra_credits || { interview: 0 }
               };
 
-              // Use upsert and handle potential 404 if table missing
               const { error: upsertError } = await supabase.from('user_subscriptions').upsert(repairedSub);
               if (!upsertError) {
                   // @ts-ignore
@@ -325,18 +315,16 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
               wat_limit: Math.max(currentUsage.wat_limit, 3),
               srt_limit: Math.max(currentUsage.srt_limit, 3)
           };
-          // Update DB
           await supabase.from('user_subscriptions').update({ usage: newUsage }).eq('user_id', userId);
           sub.usage = newUsage;
       }
   }
     
-  // Return Default Free Plan if nothing exists
   if (!sub) return {
       tier: 'FREE',
       expiryDate: null,
       usage: {
-        interview_used: 0, interview_limit: 1, // New Standard
+        interview_used: 0, interview_limit: 1, 
         ppdt_used: 0, ppdt_limit: 10,
         tat_used: 0, tat_limit: 2,
         wat_used: 0, wat_limit: 3,
@@ -385,9 +373,7 @@ export const incrementUsage = async (userId: string, testType: string) => {
   else if (testType === 'WAT') update = { 'usage': { ...usage, wat_used: usage.wat_used + 1 } };
   else if (testType === 'SRT') update = { 'usage': { ...usage, srt_used: usage.srt_used + 1 } };
   
-  // Handle extra credit consumption for Interviews
   if (testType === 'INTERVIEW' && usage.interview_used >= usage.interview_limit) {
-      // Consumed an extra credit
       update = { 
           'usage': { ...usage, interview_used: usage.interview_used + 1 },
           'extra_credits': { ...sub.extra_credits, interview: Math.max(0, sub.extra_credits.interview - 1) } 
@@ -403,7 +389,6 @@ export const incrementUsage = async (userId: string, testType: string) => {
 };
 
 export const getLatestPaymentRequest = async (userId: string) => {
-  // Use maybeSingle to prevent 406
   const { data } = await supabase
     .from('payment_requests')
     .select('*')
@@ -423,13 +408,9 @@ export const getPendingPayments = async () => {
   return data || [];
 };
 
-/**
- * CORE HELPER: Activates the plan for a user.
- */
 export const activatePlanForUser = async (userId: string, planType: string) => {
   let update: any = { user_id: userId };
   
-  // Default usage structure for fallback
   const defaultUsage = {
       interview_used: 0, interview_limit: 1,
       ppdt_used: 0, ppdt_limit: 10,
@@ -451,10 +432,9 @@ export const activatePlanForUser = async (userId: string, planType: string) => {
             srt_used: 0, srt_limit: 10,
             sdt_used: 0
           },
-          extra_credits: { interview: 0 } // Initialize extras if new
+          extra_credits: { interview: 0 } 
       };
       
-      // Preserve existing extras if upgrading
       const { data: existing } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle();
       if (existing) {
           update.extra_credits = existing.extra_credits || { interview: 0 };
@@ -475,7 +455,6 @@ export const activatePlanForUser = async (userId: string, planType: string) => {
       };
   }
   
-  // Use UPSERT
   const { error: subError } = await supabase.from('user_subscriptions').upsert(update);
   if (subError) throw subError;
 };
@@ -491,7 +470,6 @@ export const rejectPaymentRequest = async (id: string) => {
 };
 
 export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode?: string) => {
-    // 1. Insert Payment Record
     const { data, error } = await supabase.from('payment_requests').insert({
         user_id: userId,
         utr: paymentId,
@@ -506,10 +484,8 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
         throw new Error("Could not record payment. Database Error.");
     }
     
-    // 2. Activate Subscription
     await activatePlanForUser(userId, planType);
     
-    // 3. Increment Coupon Usage
     if (couponCode) {
         const { data: coupon } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).maybeSingle();
         if (coupon) {
@@ -520,7 +496,6 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
 
 // --- CONTENT MANAGEMENT ---
 
-// PPDT
 export const getPPDTScenarios = async () => {
   const { data } = await supabase.from('ppdt_scenarios').select('*');
   return data || [];
@@ -545,7 +520,6 @@ export const deletePPDTScenario = async (id: string, url: string) => {
   await supabase.from('ppdt_scenarios').delete().eq('id', id);
 };
 
-// TAT
 export const getTATScenarios = async () => {
   const { data } = await supabase.from('tat_scenarios').select('*').order('set_tag');
   return data || [];
@@ -571,7 +545,6 @@ export const deleteTATScenario = async (id: string, url: string) => {
   await supabase.from('tat_scenarios').delete().eq('id', id);
 };
 
-// WAT
 export const getWATWords = async () => {
   const { data } = await supabase.from('wat_words').select('*').order('set_tag');
   return data || [];
@@ -590,7 +563,6 @@ export const deleteWATSet = async (tag: string) => {
   await supabase.from('wat_words').delete().eq('set_tag', tag);
 };
 
-// SRT
 export const getSRTQuestions = async () => {
   const { data } = await supabase.from('srt_questions').select('*').order('set_tag');
   return data || [];
@@ -609,7 +581,6 @@ export const deleteSRTSet = async (tag: string) => {
   await supabase.from('srt_questions').delete().eq('set_tag', tag);
 };
 
-// COUPONS
 export const getCoupons = async () => {
   const { data } = await supabase.from('coupons').select('*');
   return data || [];
@@ -633,7 +604,6 @@ export const validateCoupon = async (code: string) => {
   return { valid: true, discount: data.discount_percent, message: `Success! ${data.discount_percent}% OFF applied.` };
 };
 
-// DAILY CHALLENGE
 export const getLatestDailyChallenge = async () => {
   const { data } = await supabase
     .from('daily_challenges')
@@ -693,7 +663,6 @@ export const toggleLike = async (submissionId: string) => {
   }
 };
 
-// ANNOUNCEMENTS
 export const getRecentAnnouncements = async (): Promise<Announcement[]> => {
   const { data } = await supabase
     .from('announcements')
@@ -722,8 +691,6 @@ export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING'
       is_active: true
   });
 };
-
-// --- USER FEEDBACK ---
 
 export const submitUserFeedback = async (userId: string, testType: string, rating: number, comments: string) => {
   await supabase.from('user_feedback').insert({
