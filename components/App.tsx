@@ -418,7 +418,7 @@ const Dashboard: React.FC<{
                 className="group flex items-center gap-3 px-6 py-4 bg-white text-slate-900 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-yellow-400 transition-all shadow-lg hover:shadow-yellow-400/20 hover:-translate-y-1"
               >
                   <Phone size={16} className="text-blue-600 group-hover:text-slate-900 transition-colors" />
-                  <span>Call Now</span>
+                  <span>Call Ops</span>
               </a>
               <a 
                 href="mailto:contact.ssbprep@gmail.com" 
