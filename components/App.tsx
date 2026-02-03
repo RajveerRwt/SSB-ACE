@@ -18,7 +18,7 @@ import DailyPractice from './DailyPractice';
 import ResourceCenter from './ResourceCenter';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Helper Component for Progress Ring
@@ -106,6 +106,9 @@ const Dashboard: React.FC<{
     { id: TestType.SRT, label: 'SRT', sub: 'Psychology', icon: Brain, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
     { id: TestType.SDT, label: 'SDT', sub: 'Self Desc.', icon: FileSignature, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
     { id: TestType.DAILY_PRACTICE, label: 'Daily Dose', sub: 'Practice', icon: Clock, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-100' },
+    { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', sub: 'Updates', icon: Globe, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100' },
+    { id: TestType.AI_BOT, label: 'AI Guide', sub: 'ChatBot', icon: Bot, color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-100' },
+    { id: TestType.RESOURCES, label: 'Free Resources', sub: 'Library', icon: Library, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
     { id: TestType.RESOURCES, label: 'Lecturette', sub: 'Topics', icon: BookOpen, color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-100' },
   ];
 
@@ -396,7 +399,11 @@ const Dashboard: React.FC<{
                         key={i}
                         onClick={() => {
                             // Define guest allowed tests for quick actions
-                            const guestAllowed = [TestType.INTERVIEW, TestType.PPDT, TestType.TAT, TestType.SDT, TestType.WAT, TestType.SRT, TestType.RESOURCES];
+                            const guestAllowed = [
+                                TestType.INTERVIEW, TestType.PPDT, TestType.TAT, TestType.SDT, 
+                                TestType.WAT, TestType.SRT, TestType.RESOURCES, 
+                                TestType.CURRENT_AFFAIRS, TestType.AI_BOT
+                            ];
                             
                             // Check for Lecturette specific action
                             const isLecturette = action.label === 'Lecturette' && action.id === TestType.RESOURCES;
@@ -501,7 +508,7 @@ const Dashboard: React.FC<{
       <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100">
           <div className="flex flex-col items-center text-center space-y-8">
               <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3">
-                  <MessageCircle className="text-blue-600" size={28} /> feedbacks
+                  <MessageCircle className="text-blue-600" size={28} /> Success Stories
               </h2>
               
               <div key={testimonialIndex} className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl">
