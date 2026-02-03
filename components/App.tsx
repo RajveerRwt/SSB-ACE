@@ -18,7 +18,7 @@ import DailyPractice from './DailyPractice';
 import ResourceCenter from './ResourceCenter';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Helper Component for Progress Ring
@@ -373,51 +373,6 @@ const Dashboard: React.FC<{
               <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-slate-50 rounded-full blur-3xl opacity-50 pointer-events-none" />
             </div>
           )}
-
-          <div className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[4rem] border border-slate-100 shadow-xl flex flex-col">
-            <div className="flex justify-between items-center mb-6 md:mb-10">
-               <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-4">
-                 <Flag className="text-blue-600" /> Strategic Roadmap
-               </h3>
-               <button onClick={() => onStartTest(TestType.STAGES)} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">View Full Plan</button>
-            </div>
-            <div className="space-y-4 md:space-y-5">
-               {[
-                 { id: TestType.PIQ, name: 'Personal Info Questionnaire', type: 'Phase 0: Admin', time: '15 mins', status: isLoggedIn ? (piqLoaded ? 'Completed' : 'Action Required') : 'Login Required' },
-                 { id: TestType.PPDT, name: 'PPDT Simulation', type: 'Stage 1: Screening', time: '10 mins', status: 'Available' },
-                 { id: TestType.SDT, name: 'Self Description Test', type: 'Stage 2: Psychology', time: '15 mins', status: 'Available' },
-                 { id: TestType.INTERVIEW, name: 'Stage 2: Personal Interview', type: 'IO Evaluation', time: '40 mins', status: isLoggedIn ? (piqLoaded ? 'Available' : 'Restricted') : 'Guest Trial Available' },
-                 { id: TestType.TAT, name: 'Stage 2: Psychology (TAT)', type: 'Mental Strength', time: '45 mins', status: 'Available' },
-               ].map((test, i) => (
-                 <div 
-                   key={i} 
-                   onClick={() => {
-                       if (!isLoggedIn && test.id === TestType.PIQ) { onStartTest(TestType.LOGIN); return; }
-                       if (!isLoggedIn && (test.id === TestType.INTERVIEW || test.id === TestType.PPDT || test.id === TestType.TAT || test.id === TestType.SDT)) { onStartTest(test.id); return; }
-                       
-                       if (!isLoggedIn) onStartTest(TestType.LOGIN);
-                       else if (test.id !== TestType.INTERVIEW || piqLoaded) onStartTest(test.id);
-                       else onStartTest(TestType.PIQ);
-                   }}
-                   className="flex items-center justify-between p-5 md:p-7 bg-slate-50 rounded-[2rem] md:rounded-[2.5rem] border-2 border-transparent hover:border-slate-900 hover:bg-white transition-all cursor-pointer group shadow-sm hover:shadow-2xl"
-                  >
-                   <div className="flex items-center gap-4 md:gap-6">
-                     <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all shrink-0 ${
-                       test.status === 'Completed' ? 'bg-green-100 text-green-600' : 
-                       (test.status === 'Restricted' || test.status === 'Login Required') ? 'bg-slate-200 text-slate-400' : 'bg-slate-900 text-white group-hover:rotate-6'
-                     }`}>
-                       {test.status === 'Completed' ? <CheckCircle size={20} /> : (test.status === 'Restricted' || test.status === 'Login Required') ? <Lock size={20} /> : <Zap size={20} />}
-                     </div>
-                     <div>
-                       <h5 className="font-black text-slate-900 uppercase text-xs tracking-widest truncate max-w-[150px] md:max-w-none">{test.name}</h5>
-                       <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 tracking-widest">{test.type} • {test.time}</p>
-                     </div>
-                   </div>
-                   <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
-                 </div>
-               ))}
-            </div>
-          </div>
         </div>
 
         <div className="lg:col-span-4 space-y-6 md:space-y-10">
