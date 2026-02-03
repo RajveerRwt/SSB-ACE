@@ -313,8 +313,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
             </div>
 
             <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mb-2">
-              <button onClick={() => handleNavClick(TestType.TERMS)} className="hover:text-white transition-colors">Terms</button>
-              <button onClick={() => handleNavClick(TestType.PRIVACY)} className="hover:text-white transition-colors">Privacy</button>
+              <a href="/terms.html" className="hover:text-white transition-colors">Terms</a>
+              <a href="/privacy.html" className="hover:text-white transition-colors">Privacy</a>
               <button onClick={() => handleNavClick(TestType.REFUND)} className="hover:text-white transition-colors">Refunds</button>
             </div>
             <p className="mb-2">© 2026 SSBPREP.ONLINE</p>
