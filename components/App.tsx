@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Layout from './Layout';
 import Login from './Login';
@@ -55,7 +56,7 @@ const ProgressRing: React.FC<{ score: number, color: string, label: string, icon
 
 // Dashboard Component
 const Dashboard: React.FC<{ 
-  onStartTest: (t: TestType) => void, 
+  onStartTest: (t: TestType, params?: any) => void, 
   piqLoaded: boolean,
   isLoggedIn: boolean,
   isLoading: boolean,
@@ -394,12 +395,29 @@ const Dashboard: React.FC<{
                     <button
                         key={i}
                         onClick={() => {
-                            if (!isLoggedIn && action.id === TestType.PIQ) { onStartTest(TestType.LOGIN); return; }
-                            if (!isLoggedIn && (action.id === TestType.INTERVIEW || action.id === TestType.PPDT || action.id === TestType.TAT || action.id === TestType.SDT)) { onStartTest(action.id); return; }
+                            // Define guest allowed tests for quick actions
+                            const guestAllowed = [TestType.INTERVIEW, TestType.PPDT, TestType.TAT, TestType.SDT, TestType.WAT, TestType.SRT, TestType.RESOURCES];
                             
-                            if (!isLoggedIn) onStartTest(TestType.LOGIN);
-                            else if (action.id !== TestType.INTERVIEW || piqLoaded) onStartTest(action.id);
-                            else onStartTest(TestType.PIQ);
+                            // Check for Lecturette specific action
+                            const isLecturette = action.label === 'Lecturette' && action.id === TestType.RESOURCES;
+                            
+                            if (!isLoggedIn) {
+                                if (action.id === TestType.PIQ) { onStartTest(TestType.LOGIN); return; }
+                                if (guestAllowed.includes(action.id)) {
+                                     onStartTest(action.id, isLecturette ? { tab: 'LECTURETTE' } : undefined); 
+                                     return; 
+                                }
+                                onStartTest(TestType.LOGIN);
+                                return;
+                            }
+                            
+                            // Logged in logic
+                            if (action.id === TestType.INTERVIEW && !piqLoaded) {
+                                onStartTest(TestType.PIQ);
+                                return;
+                            }
+                            
+                            onStartTest(action.id, isLecturette ? { tab: 'LECTURETTE' } : undefined);
                         }}
                         className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center gap-3 transition-all hover:-translate-y-1 hover:shadow-lg ${action.bg} ${action.border}`}
                     >
@@ -557,6 +575,7 @@ const App: React.FC = () => {
   const [isPaymentOpen, setPaymentOpen] = useState(false);
   const [pendingPaymentIntent, setPendingPaymentIntent] = useState(false);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
+  const [resourceTab, setResourceTab] = useState<'WAT' | 'LECTURETTE' | 'GD' | 'INTERVIEW' | 'BLOG'>('WAT');
 
   const isPIQComplete = (data: PIQData | null) => {
       return !!(data?.name && data?.chestNo);
@@ -605,9 +624,12 @@ const App: React.FC = () => {
     if (pendingPaymentIntent) { setPaymentOpen(true); setPendingPaymentIntent(false); }
   };
 
-  const navigateTo = async (test: TestType) => {
+  const navigateTo = async (test: TestType, params?: any) => {
      if ((test === TestType.LOGIN || test === TestType.REGISTER) && user) return; 
      
+     // Handle params
+     if (params?.tab) setResourceTab(params.tab);
+
      // Remove strict auth guard for trial tests
      const protectedRoutes = [TestType.PIQ, TestType.DAILY_PRACTICE];
      if (protectedRoutes.includes(test) && !user) { setActiveTest(TestType.LOGIN); return; }
@@ -652,7 +674,7 @@ const App: React.FC = () => {
       case TestType.GUIDE: return <HowToUse onNavigate={setActiveTest} />;
       case TestType.CURRENT_AFFAIRS: return <CurrentAffairs />;
       case TestType.DAILY_PRACTICE: return <DailyPractice />;
-      case TestType.RESOURCES: return <ResourceCenter />;
+      case TestType.RESOURCES: return <ResourceCenter initialTab={resourceTab} />;
       default: return <Dashboard onStartTest={navigateTo} piqLoaded={isPIQComplete(piqData)} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} />;
     }
   };

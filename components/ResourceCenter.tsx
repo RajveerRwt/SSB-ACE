@@ -4,8 +4,12 @@ import { BookOpen, FileText, Globe, Zap, Layout, CheckCircle, Search, Calendar, 
 import { fetchDailyNews, generateLecturette } from '../services/geminiService';
 import { STANDARD_WAT_SET } from '../services/geminiService';
 
-const ResourceCenter: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'WAT' | 'LECTURETTE' | 'GD' | 'INTERVIEW' | 'BLOG'>('WAT');
+interface ResourceCenterProps {
+  initialTab?: 'WAT' | 'LECTURETTE' | 'GD' | 'INTERVIEW' | 'BLOG';
+}
+
+const ResourceCenter: React.FC<ResourceCenterProps> = ({ initialTab = 'WAT' }) => {
+  const [activeTab, setActiveTab] = useState<'WAT' | 'LECTURETTE' | 'GD' | 'INTERVIEW' | 'BLOG'>(initialTab);
   const [blogContent, setBlogContent] = useState<any[]>([]);
   const [blogLoading, setBlogLoading] = useState(false);
   
@@ -15,6 +19,12 @@ const ResourceCenter: React.FC = () => {
   const [loadingLecturette, setLoadingLecturette] = useState(false);
   const [lecturetteTimer, setLecturetteTimer] = useState(180);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+
+  useEffect(() => {
+    if (initialTab) {
+        setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   useEffect(() => {
     if (activeTab === 'BLOG' && blogContent.length === 0) {
