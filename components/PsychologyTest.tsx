@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info } from 'lucide-react';
+import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info, LogIn } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, STANDARD_WAT_SET } from '../services/geminiService';
 import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
 import { TestType } from '../types';
@@ -12,6 +12,8 @@ interface PsychologyProps {
   onSave?: (result: any) => void;
   isAdmin?: boolean;
   userId?: string;
+  isGuest?: boolean;
+  onLoginRedirect?: () => void;
 }
 
 enum PsychologyPhase {
@@ -26,7 +28,7 @@ enum PsychologyPhase {
   COMPLETED
 }
 
-const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, userId }) => {
+const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
   const [items, setItems] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [phase, setPhase] = useState<PsychologyPhase>(PsychologyPhase.IDLE);
@@ -113,155 +115,170 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     
     try {
       let finalItems: any[] = [];
-      // Determine user usage count to pick sets sequentially
-      let usageCount = 0;
-      if (userId) {
-          const sub = await getUserSubscription(userId);
-          if (type === TestType.TAT) usageCount = sub.usage.tat_used;
-          else if (type === TestType.WAT) usageCount = sub.usage.wat_used;
-          else if (type === TestType.SRT) usageCount = sub.usage.srt_used;
-      }
+      
+      // --- GUEST MODE: FIXED SETS ---
+      if (isGuest) {
+          setActiveSetName('Guest Trial Set');
+          if (type === TestType.TAT) {
+              const fixedTAT = [
+                  "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80",
+                  "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=800&q=80",
+                  "https://images.unsplash.com/photo-1504194569302-3c4ba34c1422?auto=format&fit=crop&w=800&q=80",
+                  "https://images.unsplash.com/photo-1485178575877-1a13bf489dfe?auto=format&fit=crop&w=800&q=80",
+                  "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=800&q=80",
+                  "https://images.unsplash.com/photo-1628155930542-4131433dd6bf?auto=format&fit=crop&w=800&q=80",
+                  "https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?auto=format&fit=crop&w=800&q=80",
+                  "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=800&q=80",
+                  "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&q=80",
+                  "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80",
+                  "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80"
+              ];
+              finalItems = fixedTAT.map((url, i) => ({
+                  id: `tat-guest-${i}`,
+                  content: 'Guest Set Image',
+                  imageUrl: url
+              }));
+              const images: Record<string, string> = {};
+              finalItems.forEach((item) => { images[item.id] = item.imageUrl; });
+              setPregeneratedImages(images);
+              finalItems.push({ id: 'tat-12-blank', content: 'BLANK SLIDE' });
+          } else if (type === TestType.WAT) {
+              const fixedWAT = STANDARD_WAT_SET.slice(0, 60);
+              finalItems = fixedWAT.map((word, index) => ({ id: `wat-${index}`, content: word }));
+              setWatResponses(new Array(finalItems.length).fill(''));
+          } else if (type === TestType.SRT) {
+              const data = await generateTestContent(type);
+              const srtList = data.items.map((i: any) => i.content).slice(0, 60);
+              finalItems = srtList.map((q: any, index: any) => ({ id: `srt-${index}`, content: q }));
+              setSrtResponses(new Array(finalItems.length).fill(''));
+              setItems(finalItems);
+              setPhase(PsychologyPhase.WRITING);
+              setTimeLeft(1800);
+              setIsLoading(false);
+              return;
+          }
+      } else {
+          // --- LOGGED IN USER LOGIC ---
+          let usageCount = 0;
+          if (userId) {
+              const sub = await getUserSubscription(userId);
+              if (type === TestType.TAT) usageCount = sub.usage.tat_used;
+              else if (type === TestType.WAT) usageCount = sub.usage.wat_used;
+              else if (type === TestType.SRT) usageCount = sub.usage.srt_used;
+          }
 
-      if (type === TestType.TAT) {
-        // ... (TAT Setup Logic) ...
-        const dbScenarios = await getTATScenarios();
-        
-        if (!dbScenarios || dbScenarios.length === 0) {
-           alert("No TAT images found in database. Please upload images in Admin Panel first.");
-           setPhase(PsychologyPhase.IDLE);
-           setIsLoading(false);
-           return;
-        }
-
-        const sets: Record<string, any[]> = dbScenarios.reduce((acc: any, img: any) => {
-          const tag = img.set_tag || 'Default';
-          if (!acc[tag]) acc[tag] = [];
-          acc[tag].push(img);
-          return acc;
-        }, {});
-
-        const setNames = Object.keys(sets).sort(); 
-        const completeSets = setNames.filter(name => sets[name].length >= 11);
-        
-        let selectedSetName = '';
-        if (completeSets.length > 0) {
-            const index = usageCount % completeSets.length;
-            selectedSetName = completeSets[index];
-        } else {
-            const index = usageCount % setNames.length;
-            selectedSetName = setNames[index];
-        }
-
-        setActiveSetName(selectedSetName);
-        const setImages = sets[selectedSetName].slice(0, 11); 
-        const images: Record<string, string> = {};
-
-        finalItems = setImages.map((s: any, i: number) => ({
-          id: `tat-db-${i}`,
-          content: s.description || 'Picture Story',
-          imageUrl: s.image_url
-        }));
-
-        finalItems.forEach((item) => {
-           images[item.id] = item.imageUrl;
-        });
-
-        setPregeneratedImages(images);
-        finalItems.push({ id: 'tat-12-blank', content: 'BLANK SLIDE' });
-
-      } else if (type === TestType.WAT) {
-        // ... (WAT Setup Logic) ...
-        const dbWords = await getWATWords();
-        let wordList: string[] = [];
-        
-        if (dbWords && dbWords.length > 0) {
-            const sets: Record<string, string[]> = dbWords.reduce((acc: any, row: any) => {
-                const tag = row.set_tag || 'General';
-                if (!acc[tag]) acc[tag] = [];
-                acc[tag].push(row.word);
-                return acc;
+          if (type === TestType.TAT) {
+            // ... (Existing TAT Logic) ...
+            const dbScenarios = await getTATScenarios();
+            if (!dbScenarios || dbScenarios.length === 0) {
+               alert("No TAT images found in database.");
+               setPhase(PsychologyPhase.IDLE);
+               setIsLoading(false);
+               return;
+            }
+            const sets: Record<string, any[]> = dbScenarios.reduce((acc: any, img: any) => {
+              const tag = img.set_tag || 'Default';
+              if (!acc[tag]) acc[tag] = [];
+              acc[tag].push(img);
+              return acc;
             }, {});
-
-            const setNames = Object.keys(sets).sort();
-            const idealSets = setNames.filter(name => sets[name].length === 60);
-            
+            const setNames = Object.keys(sets).sort(); 
+            const completeSets = setNames.filter(name => sets[name].length >= 11);
             let selectedSetName = '';
-            if (idealSets.length > 0) {
-                const index = usageCount % idealSets.length;
-                selectedSetName = idealSets[index];
+            if (completeSets.length > 0) {
+                const index = usageCount % completeSets.length;
+                selectedSetName = completeSets[index];
             } else {
                 const index = usageCount % setNames.length;
                 selectedSetName = setNames[index];
             }
-            
             setActiveSetName(selectedSetName);
-            wordList = sets[selectedSetName];
-            if (selectedSetName === 'General' && wordList.length > 60) {
-               wordList = wordList.sort(() => Math.random() - 0.5);
+            const setImages = sets[selectedSetName].slice(0, 11); 
+            const images: Record<string, string> = {};
+            finalItems = setImages.map((s: any, i: number) => ({
+              id: `tat-db-${i}`,
+              content: s.description || 'Picture Story',
+              imageUrl: s.image_url
+            }));
+            finalItems.forEach((item) => { images[item.id] = item.imageUrl; });
+            setPregeneratedImages(images);
+            finalItems.push({ id: 'tat-12-blank', content: 'BLANK SLIDE' });
+
+          } else if (type === TestType.WAT) {
+            // ... (Existing WAT Logic) ...
+            const dbWords = await getWATWords();
+            let wordList: string[] = [];
+            if (dbWords && dbWords.length > 0) {
+                const sets: Record<string, string[]> = dbWords.reduce((acc: any, row: any) => {
+                    const tag = row.set_tag || 'General';
+                    if (!acc[tag]) acc[tag] = [];
+                    acc[tag].push(row.word);
+                    return acc;
+                }, {});
+                const setNames = Object.keys(sets).sort();
+                const idealSets = setNames.filter(name => sets[name].length === 60);
+                let selectedSetName = '';
+                if (idealSets.length > 0) {
+                    const index = usageCount % idealSets.length;
+                    selectedSetName = idealSets[index];
+                } else {
+                    const index = usageCount % setNames.length;
+                    selectedSetName = setNames[index];
+                }
+                setActiveSetName(selectedSetName);
+                wordList = sets[selectedSetName];
+                if (selectedSetName === 'General' && wordList.length > 60) {
+                   wordList = wordList.sort(() => Math.random() - 0.5);
+                }
+            } else {
+                wordList = [...STANDARD_WAT_SET];
+                wordList = wordList.sort(() => Math.random() - 0.5);
+                setActiveSetName('Standard Fallback Set');
             }
-        } else {
-            wordList = [...STANDARD_WAT_SET];
-            wordList = wordList.sort(() => Math.random() - 0.5);
-            setActiveSetName('Standard Fallback Set');
-        }
-
-        finalItems = wordList.slice(0, 60).map((word, index) => ({
-            id: `wat-${index}`,
-            content: word
-        }));
-        
-        setWatResponses(new Array(finalItems.length).fill(''));
-      } else if (type === TestType.SRT) {
-        // ... (SRT Setup Logic) ...
-        const dbQuestions = await getSRTQuestions();
-        let srtList: string[] = [];
-
-        if (dbQuestions && dbQuestions.length > 0) {
-            const sets: Record<string, string[]> = dbQuestions.reduce((acc: any, row: any) => {
-                const tag = row.set_tag || 'General';
-                if (!acc[tag]) acc[tag] = [];
-                acc[tag].push(row.question);
-                return acc;
-            }, {});
-
-            const setNames = Object.keys(sets).sort();
-            const index = usageCount % setNames.length;
-            const selectedSetName = setNames[index];
-            
-            setActiveSetName(selectedSetName);
-            srtList = sets[selectedSetName];
-            
-            if (selectedSetName === 'General' && srtList.length > 60) {
-                srtList = srtList.sort(() => Math.random() - 0.5);
+            finalItems = wordList.slice(0, 60).map((word, index) => ({ id: `wat-${index}`, content: word }));
+            setWatResponses(new Array(finalItems.length).fill(''));
+          } else if (type === TestType.SRT) {
+            // ... (Existing SRT Logic) ...
+            const dbQuestions = await getSRTQuestions();
+            let srtList: string[] = [];
+            if (dbQuestions && dbQuestions.length > 0) {
+                const sets: Record<string, string[]> = dbQuestions.reduce((acc: any, row: any) => {
+                    const tag = row.set_tag || 'General';
+                    if (!acc[tag]) acc[tag] = [];
+                    acc[tag].push(row.question);
+                    return acc;
+                }, {});
+                const setNames = Object.keys(sets).sort();
+                const index = usageCount % setNames.length;
+                const selectedSetName = setNames[index];
+                setActiveSetName(selectedSetName);
+                srtList = sets[selectedSetName];
+                if (selectedSetName === 'General' && srtList.length > 60) {
+                    srtList = srtList.sort(() => Math.random() - 0.5);
+                }
+            } else {
+                const data = await generateTestContent(type);
+                srtList = data.items.map((i: any) => i.content);
+                setActiveSetName('Standard Fallback Set');
             }
-        } else {
-            const data = await generateTestContent(type);
-            srtList = data.items.map((i: any) => i.content);
-            setActiveSetName('Standard Fallback Set');
-        }
-
-        if (srtList.length < 60) {
-             const originalLength = srtList.length;
-             let i = 0;
-             while (srtList.length < 60) {
-                 srtList.push(srtList[i % originalLength]);
-                 i++;
-             }
-        } else {
-            srtList = srtList.slice(0, 60);
-        }
-
-        finalItems = srtList.map((q, index) => ({
-            id: `srt-${index}`,
-            content: q
-        }));
-        
-        setSrtResponses(new Array(finalItems.length).fill(''));
-        setItems(finalItems);
-        setPhase(PsychologyPhase.WRITING);
-        setTimeLeft(1800);
-        setIsLoading(false);
-        return; 
+            if (srtList.length < 60) {
+                 const originalLength = srtList.length;
+                 let i = 0;
+                 while (srtList.length < 60) {
+                     srtList.push(srtList[i % originalLength]);
+                     i++;
+                 }
+            } else {
+                srtList = srtList.slice(0, 60);
+            }
+            finalItems = srtList.map((q, index) => ({ id: `srt-${index}`, content: q }));
+            setSrtResponses(new Array(finalItems.length).fill(''));
+            setItems(finalItems);
+            setPhase(PsychologyPhase.WRITING);
+            setTimeLeft(1800);
+            setIsLoading(false);
+            return; 
+          }
       }
       
       setItems(finalItems);
@@ -417,7 +434,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       try {
           const result = await evaluatePerformance(type, { sdtData, sdtImages });
           setFeedback(result);
-          if (onSave) onSave({ ...result, sdtData, sdtImages });
+          if (onSave && !isGuest) onSave({ ...result, sdtData, sdtImages });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) {
           console.error("SDT Eval Error", err);
@@ -435,7 +452,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           };
           const result = await evaluatePerformance(type, payload);
           setFeedback(result);
-          if (onSave) onSave({ ...result, srtResponses, srtSheetImages: srtSheetUploads });
+          if (onSave && !isGuest) onSave({ ...result, srtResponses, srtSheetImages: srtSheetUploads });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { console.error("SRT Eval Error", err); setPhase(PsychologyPhase.COMPLETED); }
   };
@@ -450,7 +467,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           };
           const result = await evaluatePerformance(type, payload);
           setFeedback(result);
-          if (onSave) onSave({ ...result, watResponses, watSheetImages: watSheetUploads });
+          if (onSave && !isGuest) onSave({ ...result, watResponses, watSheetImages: watSheetUploads });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { console.error("WAT Eval Error", err); setPhase(PsychologyPhase.COMPLETED); }
   };
@@ -479,7 +496,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       const validPairs = tatPairs.filter(p => p !== null);
       const result = await evaluatePerformance(type, { tatPairs: validPairs, testType: type, itemCount: items.length });
       setFeedback(result);
-      if (onSave) onSave({ ...result, tatImages: tatUploads });
+      if (onSave && !isGuest) onSave({ ...result, tatImages: tatUploads });
       setPhase(PsychologyPhase.COMPLETED);
     } catch (err) { console.error("Evaluation error:", err); setPhase(PsychologyPhase.UPLOADING_STORIES); }
   };
@@ -500,6 +517,11 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
         <h2 className="text-4xl md:text-5xl font-black mb-6 uppercase tracking-tighter text-slate-900">
            {type === TestType.SDT ? 'Self Description' : type === TestType.SRT ? 'Situation Reaction' : type} Test
         </h2>
+        {isGuest && (
+            <div className="mb-6 bg-blue-50 text-blue-700 px-4 py-2 rounded-full inline-block text-xs font-black uppercase tracking-widest">
+                Guest Trial Mode: Fixed Set
+            </div>
+        )}
         <div className="bg-slate-50 p-8 rounded-[2rem] mb-12 text-left border border-slate-200">
            <h4 className="font-black text-xs uppercase tracking-widest text-blue-600 mb-4 underline">Board Briefing:</h4>
            <div className="text-slate-600 font-medium text-sm md:text-lg leading-relaxed italic space-y-4">
@@ -893,12 +915,21 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 <SessionFeedback testType={type} userId={userId} />
             )}
 
-            <button 
-              onClick={() => window.location.reload()}
-              className="w-full py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest hover:bg-black transition-all shadow-2xl"
-            >
-              Return to Barracks
-            </button>
+            {isGuest ? (
+                <button 
+                  onClick={onLoginRedirect}
+                  className="w-full py-6 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest hover:bg-yellow-300 transition-all shadow-2xl flex items-center justify-center gap-3"
+                >
+                  <LogIn size={16} /> Sign Up to Unlock More
+                </button>
+            ) : (
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="w-full py-6 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest hover:bg-black transition-all shadow-2xl"
+                >
+                  Return to Barracks
+                </button>
+            )}
         </div>
     )
   }

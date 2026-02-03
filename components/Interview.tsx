@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward, HelpCircle, ChevronDown, ChevronUp, AlertTriangle, Play } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward, HelpCircle, ChevronDown, ChevronUp, AlertTriangle, Play, LogIn } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
@@ -9,6 +9,21 @@ import SessionFeedback from './SessionFeedback';
 /** 
  * SSB VIRTUAL INTERVIEW PROTOCOL (v5.3 - Variable Duration & CIQ)
  */
+
+const GUEST_PIQ: PIQData = {
+    selectionBoard: "Trial Board",
+    batchNo: "GUEST-001",
+    chestNo: "GUEST",
+    rollNo: "0000",
+    name: "Guest Candidate",
+    fatherName: "Guardian",
+    residence: { max: "Delhi", present: "Delhi", permanent: "Delhi" },
+    details: { religion: "Hindu", category: "General", motherTongue: "Hindi", dob: "01/01/2000", maritalStatus: "Single" },
+    family: [],
+    education: [],
+    activities: { ncc: "No", games: "Cricket", hobbies: "Reading", extraCurricular: "Debating", responsibilities: "School Prefect" },
+    previousAttempts: []
+};
 
 function decode(base64: string) {
   const binaryString = atob(base64);
@@ -78,9 +93,11 @@ interface InterviewProps {
   onSave?: (result: any) => void | Promise<void>;
   isAdmin?: boolean;
   userId?: string;
+  isGuest?: boolean;
+  onLoginRedirect?: () => void;
 }
 
-const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId }) => {
+const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
   const [sessionMode, setSessionMode] = useState<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
   // Ref to track session mode synchronously across callbacks to prevent race conditions during termination
   const sessionModeRef = useRef<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
@@ -97,6 +114,8 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId 
   const [showScoreHelp, setShowScoreHelp] = useState(false);
   const [showEarlyExitWarning, setShowEarlyExitWarning] = useState(false);
   const [imgError, setImgError] = useState(false);
+
+  const activePIQ = isGuest ? GUEST_PIQ : piqData;
 
   // Sync ref
   useEffect(() => {
@@ -185,8 +204,10 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId 
       retryCountRef.current = 0;
       conversationHistoryRef.current = []; // Only clear history on fresh start
       
-      // VARIABLE DURATION LOGIC: Randomize between 30 mins (1800s) and 40 mins (2400s)
-      const duration = Math.floor(Math.random() * (2400 - 1800 + 1)) + 1800;
+      // VARIABLE DURATION LOGIC:
+      // Guest: 5 Minutes (300s) fixed
+      // User: 30-40 Minutes
+      const duration = isGuest ? 300 : Math.floor(Math.random() * (2400 - 1800 + 1)) + 1800;
       setTimeLeft(duration);
       setTotalDuration(duration);
       timeLeftRef.current = duration;
@@ -242,7 +263,8 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId 
       // Dynamic System Instruction Generation
       const baseInstruction = `You are Col. Arjun Singh, President of 1 AFSB.
           CONTEXT: A rigorous, formal Personal Interview for the Indian Armed Forces.
-          PIQ DATA: ${JSON.stringify(piqData)}.
+          PIQ DATA: ${JSON.stringify(activePIQ)}.
+          ${isGuest ? "NOTE: This is a TRIAL GUEST USER. Keep the interview very short and focus on introducing the SSB format." : ""}
           
           *** PROTOCOL: AUDIO & VISUAL ***
           1. MODALITY: You can SEE and HEAR the candidate. 
@@ -458,7 +480,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId 
   const handleEndCallRequest = () => {
       const durationSeconds = totalDuration - timeLeft;
       // If interview is less than 10 minutes (600 seconds)
-      if (durationSeconds < 600) {
+      if (durationSeconds < 600 && !isGuest) {
           setShowEarlyExitWarning(true);
       } else {
           endSession();
@@ -488,13 +510,13 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId 
     try {
       const fullTranscript = conversationHistoryRef.current.join("\n");
       const results = await evaluatePerformance('Personal Interview Board (30 Min)', { 
-        piq: piqData, 
+        piq: activePIQ, 
         duration: totalDuration - timeLeft, 
         transcript: fullTranscript || "No verbal response captured.",
         testType: 'Interview' // Ensure service knows this is an Interview
       });
       setFinalAnalysis(results);
-      if (onSave) {
+      if (onSave && !isGuest) {
         // Await onSave to ensure data is written to DB/storage before UI allows exit
         await onSave(results);
       }
@@ -530,7 +552,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId 
               <h1 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter">IO <span className="text-blue-500">Interview</span></h1>
               <div className="flex justify-center gap-4">
                  <span className="px-3 md:px-4 py-1.5 bg-blue-500/20 text-blue-300 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-blue-500/30 flex items-center gap-2">
-                   <Clock size={12} /> 30-40 Minutes
+                   <Clock size={12} /> {isGuest ? '5 Minutes (Guest Trial)' : '30-40 Minutes'}
                  </span>
                  <span className="px-3 md:px-4 py-1.5 bg-green-500/20 text-green-300 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-green-500/30 flex items-center gap-2">
                    <Video size={12} /> Video Enabled
@@ -630,7 +652,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId 
                  )}
               </div>
            </div>
-           <p className="ml-4 md:ml-8 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 md:px-4 py-2 rounded-xl border border-slate-100">Chest No: {piqData?.chestNo}</p>
+           <p className="ml-4 md:ml-8 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 md:px-4 py-2 rounded-xl border border-slate-100">Chest No: {activePIQ?.chestNo || 'GUEST'}</p>
         </div>
       </div>
 
@@ -701,9 +723,9 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId 
               <div className="w-16 h-16 md:w-20 md:h-20 bg-blue-50 rounded-3xl flex items-center justify-center text-blue-600"><FileText size={24} className="md:w-8 md:h-8" /></div>
               <div className="space-y-2">
                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Candidate</p>
-                <h4 className="text-slate-900 font-black text-lg md:text-xl uppercase tracking-widest truncate max-w-[200px]">{piqData?.name}</h4>
+                <h4 className="text-slate-900 font-black text-lg md:text-xl uppercase tracking-widest truncate max-w-[200px]">{activePIQ?.name}</h4>
                 <div className="flex justify-center gap-2">
-                   <span className="px-3 py-1 bg-slate-100 rounded-full text-[9px] font-bold text-slate-500 uppercase">{piqData?.selectionBoard}</span>
+                   <span className="px-3 py-1 bg-slate-100 rounded-full text-[9px] font-bold text-slate-500 uppercase">{activePIQ?.selectionBoard}</span>
                 </div>
               </div>
            </div>
@@ -911,7 +933,13 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId 
                   <SessionFeedback testType="Interview" userId={userId} />
               )}
 
-              <button onClick={() => window.location.reload()} className="w-full py-6 md:py-8 bg-slate-900 hover:bg-black text-white rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all">Archive Dossier & Exit</button>
+              {isGuest ? (
+                  <button onClick={onLoginRedirect} className="w-full py-6 md:py-8 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all hover:bg-yellow-300 flex items-center justify-center gap-3">
+                      <LogIn size={16} /> Sign Up to Save & Continue
+                  </button>
+              ) : (
+                  <button onClick={() => window.location.reload()} className="w-full py-6 md:py-8 bg-slate-900 hover:bg-black text-white rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all">Archive Dossier & Exit</button>
+              )}
            </div>
         </div>
       )}

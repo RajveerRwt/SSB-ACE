@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star, Camera } from 'lucide-react';
+import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star, Camera, LogIn } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
 import { getPPDTScenarios, getUserSubscription, checkLimit } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
@@ -24,9 +24,11 @@ interface PPDTProps {
   onSave?: (result: any) => void;
   isAdmin?: boolean;
   userId?: string;
+  isGuest?: boolean;
+  onLoginRedirect?: () => void;
 }
 
-const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
+const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
   const [step, setStep] = useState<PPDTStep>(PPDTStep.IDLE);
   const [timeLeft, setTimeLeft] = useState(0);
   const [story, setStory] = useState('');
@@ -94,6 +96,12 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
   };
 
   const handleStandardStart = async () => {
+    if (isGuest) {
+        setCustomStimulus(null);
+        handleShowInstructions();
+        return;
+    }
+
     if (!userId) {
         setCustomStimulus(null);
         handleShowInstructions();
@@ -135,6 +143,15 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
     } else {
         setStep(PPDTStep.LOADING_IMAGE);
         try {
+          // GUEST MODE LOGIC: FIXED IMAGE
+          if (isGuest) {
+              setCurrentImageUrl("https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80"); // Meeting scene
+              setImageDescription("Guest Trial Image: Group Discussion Scene");
+              setStep(PPDTStep.IMAGE);
+              setTimeLeft(30);
+              return;
+          }
+
           const dbImages = await getPPDTScenarios();
           
           if (dbImages && dbImages.length > 0) {
@@ -315,7 +332,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
       setFeedback(result);
       
       // Pass isCustomAttempt flag to prevent usage increment in App.tsx
-      if (onSave) onSave({ ...result, uploadedStoryImage: uploadedImageBase64, isCustomAttempt: !!customStimulus });
+      if (onSave && !isGuest) onSave({ ...result, uploadedStoryImage: uploadedImageBase64, isCustomAttempt: !!customStimulus });
     } catch (e) {
       console.error(e);
     } finally {
@@ -354,7 +371,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
                         {verifyingLimit ? <Loader2 className="animate-spin" /> : <Target size={24} />}
                     </div>
                     <h4 className="text-xl font-black uppercase text-slate-900 mb-2 tracking-tight">Standard Board Assessment</h4>
-                    <p className="text-xs text-slate-500 font-medium">Official database images. Full psychological evaluation. Consumes Plan Credits.</p>
+                    <p className="text-xs text-slate-500 font-medium">{isGuest ? "Trial Mode: Fixed Image Set. Login to unlock randomized sets." : "Official database images. Full psychological evaluation."}</p>
                 </button>
 
                 <button 
@@ -390,6 +407,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
                <div className="flex justify-center gap-3">
                    <span className="text-slate-500 font-bold uppercase tracking-widest text-xs">Stage 1 Screening Procedure</span>
                    {customStimulus && <span className="text-blue-600 font-black uppercase tracking-widest text-xs bg-blue-50 px-2 rounded">Custom Mode</span>}
+                   {isGuest && <span className="text-orange-600 font-black uppercase tracking-widest text-xs bg-orange-50 px-2 rounded">Guest Trial</span>}
                </div>
              </div>
 
@@ -774,12 +792,21 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId }) => {
                 <SessionFeedback testType="PPDT" userId={userId} />
             )}
 
-            <button 
-              onClick={() => window.location.reload()}
-              className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
-            >
-              Report for Next Simulation
-            </button>
+            {isGuest ? (
+                <button 
+                  onClick={onLoginRedirect}
+                  className="w-full py-6 md:py-7 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest text-xs hover:bg-yellow-300 transition-all shadow-2xl flex items-center justify-center gap-3"
+                >
+                  <LogIn size={16} /> Sign Up to Unlock More
+                </button>
+            ) : (
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
+                >
+                  Report for Next Simulation
+                </button>
+            )}
           </div>
         );
     }

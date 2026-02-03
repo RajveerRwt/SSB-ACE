@@ -160,9 +160,13 @@ const Dashboard: React.FC<{
                    {isLoading ? 'Syncing...' : (piqLoaded ? 'Start AI Interview' : 'Unlock Interview (Fill PIQ)')}
                  </button>
                ) : (
-                 <div className="flex gap-4">
-                    <button onClick={() => onStartTest(TestType.LOGIN)} className="px-8 md:px-10 py-5 bg-white/5 text-white rounded-2xl font-black uppercase text-xs border border-white/10 hover:bg-white/10 transition-all">Login</button>
-                    <button onClick={() => onStartTest(TestType.REGISTER)} className="px-8 md:px-10 py-5 bg-yellow-400 text-black rounded-2xl font-black uppercase text-xs shadow-xl">Join for Free</button>
+                 <div className="flex flex-col md:flex-row gap-4 w-full">
+                    <button onClick={() => onStartTest(TestType.INTERVIEW)} className="px-8 md:px-10 py-5 bg-yellow-400 text-black rounded-2xl font-black uppercase text-xs shadow-xl flex items-center justify-center gap-3">
+                        <Zap size={16} /> Try 5-Min Interview (Guest)
+                    </button>
+                    <button onClick={() => onStartTest(TestType.LOGIN)} className="px-8 md:px-10 py-5 bg-white/5 text-white rounded-2xl font-black uppercase text-xs border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3">
+                        <LogIn size={16} /> Login
+                    </button>
                  </div>
                )}
              </div>
@@ -268,14 +272,17 @@ const Dashboard: React.FC<{
             <div className="space-y-4 md:space-y-5">
                {[
                  { id: TestType.PIQ, name: 'Personal Info Questionnaire', type: 'Phase 0: Admin', time: '15 mins', status: isLoggedIn ? (piqLoaded ? 'Completed' : 'Action Required') : 'Login Required' },
-                 { id: TestType.PPDT, name: 'PPDT Simulation', type: 'Stage 1: Screening', time: '10 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
-                 { id: TestType.SDT, name: 'Self Description Test', type: 'Stage 2: Psychology', time: '15 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
-                 { id: TestType.INTERVIEW, name: 'Stage 2: Personal Interview', type: 'IO Evaluation', time: '40 mins', status: isLoggedIn ? (piqLoaded ? 'Available' : 'Restricted') : 'Login Required' },
-                 { id: TestType.TAT, name: 'Stage 2: Psychology (TAT)', type: 'Mental Strength', time: '45 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
+                 { id: TestType.PPDT, name: 'PPDT Simulation', type: 'Stage 1: Screening', time: '10 mins', status: 'Available' },
+                 { id: TestType.SDT, name: 'Self Description Test', type: 'Stage 2: Psychology', time: '15 mins', status: 'Available' },
+                 { id: TestType.INTERVIEW, name: 'Stage 2: Personal Interview', type: 'IO Evaluation', time: '40 mins', status: isLoggedIn ? (piqLoaded ? 'Available' : 'Restricted') : 'Guest Trial Available' },
+                 { id: TestType.TAT, name: 'Stage 2: Psychology (TAT)', type: 'Mental Strength', time: '45 mins', status: 'Available' },
                ].map((test, i) => (
                  <div 
                    key={i} 
                    onClick={() => {
+                       if (!isLoggedIn && test.id === TestType.PIQ) { onStartTest(TestType.LOGIN); return; }
+                       if (!isLoggedIn && (test.id === TestType.INTERVIEW || test.id === TestType.PPDT || test.id === TestType.TAT || test.id === TestType.SDT)) { onStartTest(test.id); return; }
+                       
                        if (!isLoggedIn) onStartTest(TestType.LOGIN);
                        else if (test.id !== TestType.INTERVIEW || piqLoaded) onStartTest(test.id);
                        else onStartTest(TestType.PIQ);
@@ -368,7 +375,7 @@ const Dashboard: React.FC<{
       <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100">
           <div className="flex flex-col items-center text-center space-y-8">
               <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3">
-                  <MessageCircle className="text-blue-600" size={28} /> Feedbacks
+                  <MessageCircle className="text-blue-600" size={28} /> Success Stories
               </h2>
               
               <div key={testimonialIndex} className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl">
@@ -492,9 +499,14 @@ const App: React.FC = () => {
 
   const navigateTo = async (test: TestType) => {
      if ((test === TestType.LOGIN || test === TestType.REGISTER) && user) return; 
-     const protectedRoutes = [TestType.PIQ, TestType.PPDT, TestType.TAT, TestType.WAT, TestType.SRT, TestType.SDT, TestType.INTERVIEW, TestType.AI_BOT, TestType.DAILY_PRACTICE];
+     
+     // Remove strict auth guard for trial tests
+     const protectedRoutes = [TestType.PIQ, TestType.DAILY_PRACTICE];
      if (protectedRoutes.includes(test) && !user) { setActiveTest(TestType.LOGIN); return; }
-     if (test === TestType.INTERVIEW && !isPIQComplete(piqData)) { setActiveTest(TestType.PIQ); return; }
+     
+     // Allow guest access to interview but force PIQ check for logged in users
+     if (user && test === TestType.INTERVIEW && !isPIQComplete(piqData)) { setActiveTest(TestType.PIQ); return; }
+     
      if ((test === TestType.INTERVIEW || test === TestType.TAT) && user) {
         const { allowed, message } = await checkLimit(user, test);
         if (!allowed) { setPaymentOpen(true); return; }
@@ -516,12 +528,12 @@ const App: React.FC = () => {
       case TestType.LOGIN: return <Login initialIsSignUp={false} onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.REGISTER: return <Login initialIsSignUp={true} onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.PIQ: return <PIQForm onSave={async (data: PIQData) => { if(user) { await saveUserData(user, data); setPiqData(data); setActiveTest(TestType.DASHBOARD); }}} initialData={piqData || undefined} />;
-      case TestType.PPDT: return <PPDTTest onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} />;
-      case TestType.TAT: return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} />;
-      case TestType.WAT: return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} />;
-      case TestType.SRT: return <PsychologyTest type={TestType.SRT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} />;
-      case TestType.SDT: return <PsychologyTest type={TestType.SDT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} />;
-      case TestType.INTERVIEW: return <Interview piqData={piqData || undefined} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} />;
+      case TestType.PPDT: return <PPDTTest onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.TAT: return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.WAT: return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.SRT: return <PsychologyTest type={TestType.SRT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.SDT: return <PsychologyTest type={TestType.SDT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.INTERVIEW: return <Interview piqData={piqData || undefined} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.CONTACT: return <ContactForm piqData={piqData || undefined} />;
       case TestType.STAGES: return <SSBStages />;
       case TestType.AI_BOT: return <SSBBot />;
