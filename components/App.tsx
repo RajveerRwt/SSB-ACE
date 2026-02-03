@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from './Layout';
 import Login from './Login';
@@ -18,7 +17,7 @@ import DailyPractice from './DailyPractice';
 import ResourceCenter from './ResourceCenter';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Helper Component for Progress Ring
@@ -96,6 +95,17 @@ const Dashboard: React.FC<{
     { name: "Shubham", role: "SSC Tech/NCC Entry", text: "Never seen this level of personal interview practice before." },
     { name: "Mohit", role: "NCC/AFCAT Entry", text: "Interview section is really great and feeling like IO is real and body language bhi dekhta h." },
     { name: "Ayush", role: "SSB Recommended", text: "As founder contact me for testing, I can say it is One of the most structured and realistic SSB practice platforms I’ve used online." }
+  ];
+
+  const quickActions = [
+    { id: TestType.INTERVIEW, label: '1:1 Interview', sub: 'Virtual IO', icon: Mic, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100' },
+    { id: TestType.PPDT, label: 'PPDT', sub: 'Screening', icon: ImageIcon, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+    { id: TestType.TAT, label: 'TAT', sub: 'Psychology', icon: PenTool, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
+    { id: TestType.WAT, label: 'WAT', sub: 'Psychology', icon: Zap, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
+    { id: TestType.SRT, label: 'SRT', sub: 'Psychology', icon: Brain, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
+    { id: TestType.SDT, label: 'SDT', sub: 'Self Desc.', icon: FileSignature, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
+    { id: TestType.DAILY_PRACTICE, label: 'Daily Dose', sub: 'Practice', icon: Clock, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-100' },
+    { id: TestType.RESOURCES, label: 'Lecturette', sub: 'Topics', icon: BookOpen, color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-100' },
   ];
 
   useEffect(() => {
@@ -373,6 +383,37 @@ const Dashboard: React.FC<{
               <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-slate-50 rounded-full blur-3xl opacity-50 pointer-events-none" />
             </div>
           )}
+
+          {/* QUICK ACTION GRID (Mobile Friendly) */}
+          <div className="space-y-4">
+             <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter flex items-center gap-2">
+                 <Zap className="text-yellow-500" /> Quick Deployment
+             </h3>
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {quickActions.map((action, i) => (
+                    <button
+                        key={i}
+                        onClick={() => {
+                            if (!isLoggedIn && action.id === TestType.PIQ) { onStartTest(TestType.LOGIN); return; }
+                            if (!isLoggedIn && (action.id === TestType.INTERVIEW || action.id === TestType.PPDT || action.id === TestType.TAT || action.id === TestType.SDT)) { onStartTest(action.id); return; }
+                            
+                            if (!isLoggedIn) onStartTest(TestType.LOGIN);
+                            else if (action.id !== TestType.INTERVIEW || piqLoaded) onStartTest(action.id);
+                            else onStartTest(TestType.PIQ);
+                        }}
+                        className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center gap-3 transition-all hover:-translate-y-1 hover:shadow-lg ${action.bg} ${action.border}`}
+                    >
+                        <div className={`p-3 bg-white rounded-xl shadow-sm ${action.color}`}>
+                            <action.icon size={20} />
+                        </div>
+                        <div className="text-center">
+                            <span className="block text-xs font-black text-slate-900 uppercase tracking-tight leading-tight">{action.label}</span>
+                            <span className="block text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1">{action.sub}</span>
+                        </div>
+                    </button>
+                ))}
+             </div>
+          </div>
         </div>
 
         <div className="lg:col-span-4 space-y-6 md:space-y-10">
