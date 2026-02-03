@@ -18,8 +18,41 @@ import DailyPractice from './DailyPractice';
 import ResourceCenter from './ResourceCenter';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic } from 'lucide-react';
 import { SSBLogo } from './Logo';
+
+// Helper Component for Progress Ring
+const ProgressRing: React.FC<{ score: number, color: string, label: string, icon: any, subtext: string }> = ({ score, color, label, icon: Icon, subtext }) => {
+  const radius = 36;
+  const circumference = 2 * Math.PI * radius;
+  const normalizedScore = Math.min(Math.max(score, 0), 10);
+  const progress = (normalizedScore / 10) * circumference;
+  
+  return (
+    <div className="flex flex-col items-center gap-3 relative group">
+      <div className="relative w-24 h-24 md:w-28 md:h-28 flex items-center justify-center">
+        {/* Background Circle */}
+        <svg className="w-full h-full transform -rotate-90">
+          <circle cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100" />
+          <circle cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="8" fill="transparent" 
+            strokeDasharray={circumference} 
+            strokeDashoffset={circumference - progress} 
+            className={`${color} transition-all duration-1000 ease-out`} 
+            strokeLinecap="round"
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+           <Icon size={20} className={`${color} mb-1 opacity-80`} />
+           <span className="text-2xl font-black text-slate-800 leading-none">{normalizedScore.toFixed(1)}</span>
+        </div>
+      </div>
+      <div className="text-center">
+        <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</span>
+        <span className="block text-[9px] font-bold text-slate-400 mt-0.5">{subtext}</span>
+      </div>
+    </div>
+  )
+}
 
 // Dashboard Component
 const Dashboard: React.FC<{ 
@@ -36,6 +69,16 @@ const Dashboard: React.FC<{
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
+  const [showFullHistory, setShowFullHistory] = useState(false);
+  
+  // Calculated Stats
+  const [stats, setStats] = useState({
+      ppdtAvg: 0,
+      psychAvg: 0,
+      interviewAvg: 0,
+      totalTests: 0,
+      rank: 'Cadet'
+  });
   
   const quotes = [
     { text: "Either I will come back after hoisting the Tricolour, or I will come back wrapped in it, but I will be back for sure.", author: "Capt. Vikram Batra, PVC" },
@@ -74,6 +117,24 @@ const Dashboard: React.FC<{
       setLoadingHistory(true);
       getUserHistory(user).then(data => {
         setHistory(data);
+        
+        // Calculate Stats
+        const ppdtLogs = data.filter(h => h.type.includes('PPDT'));
+        const psychLogs = data.filter(h => ['TAT', 'WAT', 'SRT', 'SDT'].some(t => h.type.includes(t)));
+        const interviewLogs = data.filter(h => h.type.includes('INTERVIEW'));
+
+        const ppdtAvg = ppdtLogs.length ? ppdtLogs.reduce((a, b) => a + (Number(b.score) || 0), 0) / ppdtLogs.length : 0;
+        const psychAvg = psychLogs.length ? psychLogs.reduce((a, b) => a + (Number(b.score) || 0), 0) / psychLogs.length : 0;
+        const interviewAvg = interviewLogs.length ? interviewLogs.reduce((a, b) => a + (Number(b.score) || 0), 0) / interviewLogs.length : 0;
+        
+        const totalTests = data.length;
+        let rank = 'Cadet';
+        if (totalTests > 5) rank = 'Lieutenant';
+        if (totalTests > 15) rank = 'Captain';
+        if (totalTests > 30) rank = 'Major';
+        if (ppdtAvg > 8 && interviewAvg > 8) rank = 'Commando';
+
+        setStats({ ppdtAvg, psychAvg, interviewAvg, totalTests, rank });
         setLoadingHistory(false);
       });
       
@@ -218,47 +279,98 @@ const Dashboard: React.FC<{
          <ShieldCheck className="absolute top-1/2 -right-12 -translate-y-1/2 w-[20rem] md:w-[30rem] h-[20rem] md:h-[30rem] text-white/5 rotate-12 pointer-events-none" />
       </div>
 
-      {/* ROADMAP & MISSION LOGS */}
+      {/* SOLDIER PROFILE CARD & ROADMAP */}
       <div className="grid lg:grid-cols-12 gap-6 md:gap-10">
         <div className="lg:col-span-8 space-y-6 md:space-y-10">
           
-          {/* MISSION LOGS SECTION */}
+          {/* NEW SOLDIER PROFILE VISUALIZER */}
           {isLoggedIn && (
-            <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-xl">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-4">
-                  <History className="text-purple-600" size={20} /> Mission Logs
-                </h3>
-                <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recent Activity</span>
+            <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-xl overflow-hidden relative">
+              <div className="flex justify-between items-center mb-8 relative z-10">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                        <Trophy size={24} className="text-yellow-400" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tighter">Soldier Profile</h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                            Current Rank: <span className="text-blue-600">{stats.rank}</span>
+                        </p>
+                    </div>
+                </div>
+                <div className="text-right">
+                    <span className="block text-2xl font-black text-slate-900">{stats.totalTests}</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Missions Logged</span>
+                </div>
               </div>
               
-              {loadingHistory ? (
-                <div className="flex items-center justify-center p-8"><Loader2 className="animate-spin text-slate-300" /></div>
-              ) : history.length === 0 ? (
-                <div className="text-center p-8 bg-slate-50 rounded-3xl text-slate-400 text-xs font-medium italic">
-                  "No mission records found. Complete a test to initialize log."
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {history.map((h, i) => (
-                    <div key={i} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors gap-3">
-                        <div className="flex items-center gap-4">
-                          <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-black text-[10px]">
-                            {h.type.substring(0,2)}
-                          </div>
-                          <div>
-                            <p className="text-xs font-black uppercase text-slate-800 tracking-wide">{h.type}</p>
-                            <p className="text-[9px] text-slate-400 font-bold">{new Date(h.timestamp).toLocaleDateString()}</p>
-                          </div>
-                        </div>
-                        <div className="text-right flex md:block w-full md:w-auto justify-between items-center">
-                          <p className="text-xs font-black text-slate-900">Score: {h.score}</p>
-                          <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Logged</p>
-                        </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="grid grid-cols-3 gap-2 md:gap-8 mb-8 relative z-10">
+                  <ProgressRing 
+                    score={stats.ppdtAvg} 
+                    color="text-blue-500" 
+                    label="PPDT" 
+                    icon={Target}
+                    subtext="Screening Avg"
+                  />
+                  <ProgressRing 
+                    score={stats.psychAvg} 
+                    color="text-purple-500" 
+                    label="Psychology" 
+                    icon={Brain}
+                    subtext="TAT/WAT/SRT"
+                  />
+                  <ProgressRing 
+                    score={stats.interviewAvg} 
+                    color="text-yellow-500" 
+                    label="Interview" 
+                    icon={Mic}
+                    subtext="IO Score"
+                  />
+              </div>
+
+              {/* History Toggle */}
+              <div className="border-t border-slate-100 pt-4">
+                  <button 
+                    onClick={() => setShowFullHistory(!showFullHistory)}
+                    className="w-full flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                      {showFullHistory ? 'Hide Mission Logs' : 'View Detailed Mission Logs'}
+                      {showFullHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                  
+                  {showFullHistory && (
+                      <div className="mt-4 space-y-3 animate-in slide-in-from-top-4">
+                          {loadingHistory ? (
+                            <div className="flex items-center justify-center p-8"><Loader2 className="animate-spin text-slate-300" /></div>
+                          ) : history.length === 0 ? (
+                            <div className="text-center p-8 bg-slate-50 rounded-3xl text-slate-400 text-xs font-medium italic">
+                              "No mission records found. Start a test to populate data."
+                            </div>
+                          ) : (
+                            history.map((h, i) => (
+                                <div key={i} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors gap-3">
+                                    <div className="flex items-center gap-4">
+                                    <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-black text-[10px]">
+                                        {h.type.substring(0,2)}
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-black uppercase text-slate-800 tracking-wide">{h.type}</p>
+                                        <p className="text-[9px] text-slate-400 font-bold">{new Date(h.timestamp).toLocaleDateString()}</p>
+                                    </div>
+                                    </div>
+                                    <div className="text-right flex md:block w-full md:w-auto justify-between items-center">
+                                    <p className="text-xs font-black text-slate-900">Score: {h.score}</p>
+                                    <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Logged</p>
+                                    </div>
+                                </div>
+                            ))
+                          )}
+                      </div>
+                  )}
+              </div>
+              
+              {/* Decorative Background Element */}
+              <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-slate-50 rounded-full blur-3xl opacity-50 pointer-events-none" />
             </div>
           )}
 
