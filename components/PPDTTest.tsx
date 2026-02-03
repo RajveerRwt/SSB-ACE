@@ -143,46 +143,51 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
     } else {
         setStep(PPDTStep.LOADING_IMAGE);
         try {
-          // GUEST MODE LOGIC: FIXED IMAGE
-          if (isGuest) {
-              setCurrentImageUrl("https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80"); // Meeting scene
-              setImageDescription("Guest Trial Image: Group Discussion Scene");
-              setStep(PPDTStep.IMAGE);
-              setTimeLeft(30);
-              return;
-          }
-
+          // Fetch from Database for BOTH Guest and Logged In users
           const dbImages = await getPPDTScenarios();
           
           if (dbImages && dbImages.length > 0) {
             let selectedImage;
-            if (userId) {
+            
+            if (isGuest) {
+                // GUEST MODE: Always pick the first image from DB to ensure a fixed set
+                selectedImage = dbImages[0];
+            } else if (userId) {
+                // LOGGED IN: Rotate based on usage
                 const subscription = await getUserSubscription(userId);
                 const count = subscription.usage.ppdt_used;
                 const index = count % dbImages.length;
                 selectedImage = dbImages[index];
             } else {
+                // FALLBACK: Random
                 selectedImage = dbImages[Math.floor(Math.random() * dbImages.length)];
             }
 
             setCurrentImageUrl(selectedImage.image_url);
             setImageDescription(selectedImage.description || "Database Scenario");
           } else {
-            const scenarios = [
-              "A group of people discussing something near a damaged vehicle on a road.",
-              "A person helping another climb a steep ledge in a village.",
-              "People standing near a building with smoke coming out of windows."
-            ];
-            const selectedScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
-            setImageDescription(selectedScenario);
-            const aiImage = await generatePPDTStimulus(selectedScenario);
-            setCurrentImageUrl(aiImage);
+            // FALLBACK IF DB EMPTY (or Network Error)
+            // Use specific fixed image for guest if DB fails
+            if (isGuest) {
+                 setCurrentImageUrl("https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80");
+                 setImageDescription("Guest Trial Image: Group Discussion");
+            } else {
+                 const scenarios = [
+                  "A group of people discussing something near a damaged vehicle on a road.",
+                  "A person helping another climb a steep ledge in a village.",
+                  "People standing near a building with smoke coming out of windows."
+                ];
+                const selectedScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+                setImageDescription(selectedScenario);
+                const aiImage = await generatePPDTStimulus(selectedScenario);
+                setCurrentImageUrl(aiImage);
+            }
           }
 
           setStep(PPDTStep.IMAGE);
           setTimeLeft(30); 
         } catch (e) {
-          console.error("Image generation failed", e);
+          console.error("Image fetch failed", e);
           setStep(PPDTStep.IDLE);
         }
     }
