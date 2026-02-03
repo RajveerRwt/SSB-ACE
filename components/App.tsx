@@ -70,6 +70,7 @@ const Dashboard: React.FC<{
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [showFullHistory, setShowFullHistory] = useState(false);
+  const [showGuestInterviewWarning, setShowGuestInterviewWarning] = useState(false);
   
   // Calculated Stats
   const [stats, setStats] = useState({
@@ -416,6 +417,13 @@ const Dashboard: React.FC<{
                             
                             if (!isLoggedIn) {
                                 if (action.id === TestType.PIQ) { onStartTest(TestType.LOGIN); return; }
+                                
+                                // NEW: Guest 1:1 Interview Warning
+                                if (action.id === TestType.INTERVIEW) {
+                                    setShowGuestInterviewWarning(true);
+                                    return;
+                                }
+
                                 if (guestAllowed.includes(action.id)) {
                                      onStartTest(action.id, isLecturette ? { tab: 'LECTURETTE' } : undefined); 
                                      return; 
@@ -574,6 +582,46 @@ const Dashboard: React.FC<{
               </a>
           </div>
       </div>
+
+      {/* GUEST INTERVIEW WARNING MODAL */}
+      {showGuestInterviewWarning && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white p-8 rounded-[2.5rem] max-w-sm w-full shadow-2xl text-center space-y-6 animate-in zoom-in-95">
+                  <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto text-blue-600">
+                      <Mic size={32} />
+                  </div>
+                  <div>
+                      <h3 className="text-xl font-black text-slate-900 uppercase">Trial Interview Mode</h3>
+                      <p className="text-slate-500 text-xs font-medium mt-2 leading-relaxed">
+                          This is a <strong>5-minute demo</strong> session. The AI officer will not have access to your PIQ form.
+                      </p>
+                      <p className="text-slate-500 text-xs font-medium mt-2 leading-relaxed">
+                          For a complete 30-minute interview based on your specific background, please login.
+                      </p>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                      <button 
+                        onClick={() => onStartTest(TestType.LOGIN)} 
+                        className="w-full py-4 bg-yellow-400 text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-yellow-300 transition-colors shadow-lg"
+                      >
+                          Login for Full Experience
+                      </button>
+                      <button 
+                        onClick={() => { setShowGuestInterviewWarning(false); onStartTest(TestType.INTERVIEW); }} 
+                        className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors"
+                      >
+                          Continue as Guest
+                      </button>
+                  </div>
+                  <button 
+                    onClick={() => setShowGuestInterviewWarning(false)} 
+                    className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors p-2 bg-slate-50 rounded-full hover:bg-slate-100"
+                  >
+                      <X size={16} />
+                  </button>
+              </div>
+          </div>
+      )}
 
     </div>
   );
