@@ -21,6 +21,16 @@ export const signInWithEmail = async (email: string, password: string) => {
   return { data: { user, session }, error };
 };
 
+export const signInWithGoogle = async () => {
+  const auth = supabase.auth as any;
+  return await auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin,
+    },
+  });
+};
+
 export const signUpWithEmail = async (email: string, password: string, fullName: string) => {
   const auth = supabase.auth as any;
   // Attempt registration (hybrid support)
