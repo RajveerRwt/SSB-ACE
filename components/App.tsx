@@ -225,8 +225,8 @@ const Dashboard: React.FC<{
                "Victory favors the prepared. The SSB doesn't test your knowledge; it tests your personality, grit, and 15 Officer Like Qualities."
              </p>
              
-             <div className="flex flex-wrap gap-4 pt-4">
-               {isLoggedIn ? (
+             {isLoggedIn ? (
+               <div className="flex flex-wrap gap-4 pt-4">
                  <button 
                    onClick={() => piqLoaded ? onStartTest(TestType.INTERVIEW) : onStartTest(TestType.PIQ)}
                    className={`flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 font-black rounded-2xl transition-all shadow-xl hover:-translate-y-1 uppercase tracking-widest text-[10px] md:text-[11px] flex items-center justify-center gap-3 ${piqLoaded ? 'bg-yellow-400 text-black hover:bg-yellow-500 shadow-yellow-400/20' : 'bg-slate-800 text-slate-500 border border-white/5'}`}
@@ -234,17 +234,23 @@ const Dashboard: React.FC<{
                  >
                    {isLoading ? 'Syncing...' : (piqLoaded ? 'Start AI Interview' : 'Unlock Interview (Fill PIQ)')}
                  </button>
-               ) : (
-                 <div className="flex flex-col md:flex-row gap-4 w-full">
-                    <button onClick={() => onStartTest(TestType.INTERVIEW)} className="px-8 md:px-10 py-5 bg-yellow-400 text-black rounded-2xl font-black uppercase text-xs shadow-xl flex items-center justify-center gap-3">
-                        <Zap size={16} /> Try 5-Min Interview (Guest)
+               </div>
+             ) : (
+               <div className="pt-4 space-y-4">
+                  <div className="flex flex-col md:flex-row gap-4 w-full">
+                    <button onClick={() => onStartTest(TestType.REGISTER)} className="px-8 md:px-10 py-5 bg-yellow-400 text-black rounded-2xl font-black uppercase text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3">
+                        <UserPlus size={16} /> New User Sign Up
                     </button>
                     <button onClick={() => onStartTest(TestType.LOGIN)} className="px-8 md:px-10 py-5 bg-white/5 text-white rounded-2xl font-black uppercase text-xs border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3">
                         <LogIn size={16} /> Login
                     </button>
-                 </div>
-               )}
-             </div>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                     <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                     Experience platform in Guest Mode without login
+                  </p>
+               </div>
+             )}
 
              {isLoggedIn && subscription && (
                  <div className="mt-4 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
