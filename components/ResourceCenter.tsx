@@ -20,6 +20,7 @@ const ResourceCenter: React.FC<ResourceCenterProps> = ({ initialTab = 'WAT' }) =
   const [lecturetteTimer, setLecturetteTimer] = useState(180);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
+  // Sync activeTab if initialTab changes (e.g. navigation from dashboard)
   useEffect(() => {
     if (initialTab) {
         setActiveTab(initialTab);
