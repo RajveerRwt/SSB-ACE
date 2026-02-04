@@ -486,7 +486,7 @@ const Dashboard: React.FC<{
           
           <div className="flex flex-col items-center text-center space-y-8 relative z-10">
               <h2 className="text-xl md:text-3xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
-                  <MessageCircle className="text-yellow-400" size={28} /> Field Reports
+                  <MessageCircle className="text-yellow-400" size={28} /> Feedbacks
               </h2>
               
               <div key={testimonialIndex} className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl w-full">
@@ -534,13 +534,13 @@ const Dashboard: React.FC<{
           
           <div className="relative z-10 space-y-3">
               <span className="inline-block px-3 py-1 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-full text-[9px] font-black uppercase tracking-widest mb-2">
-                  Command Center Support
+                  Support Desk
               </span>
               <h4 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tighter leading-none">
-                  Need <span className="text-yellow-400">Assistance?</span>
+                  Need <span className="text-yellow-400">Help?</span>
               </h4>
               <p className="text-xs md:text-sm font-medium text-slate-400 max-w-md leading-relaxed">
-                  Facing technical issues with the AI Interview or Psychology tests? Reach out to our support team directly.
+                  Facing issues with login, payments, or the AI tests? Or have a general query? Reach out to our support team directly.
               </p>
           </div>
 
