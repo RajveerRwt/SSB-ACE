@@ -70,7 +70,6 @@ const Dashboard: React.FC<{
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [showFullHistory, setShowFullHistory] = useState(false);
-  const [showGuestInterviewWarning, setShowGuestInterviewWarning] = useState(false);
   
   // Calculated Stats
   const [stats, setStats] = useState({
@@ -417,13 +416,6 @@ const Dashboard: React.FC<{
                             
                             if (!isLoggedIn) {
                                 if (action.id === TestType.PIQ) { onStartTest(TestType.LOGIN); return; }
-                                
-                                // NEW: Guest 1:1 Interview Warning
-                                if (action.id === TestType.INTERVIEW) {
-                                    setShowGuestInterviewWarning(true);
-                                    return;
-                                }
-
                                 if (guestAllowed.includes(action.id)) {
                                      onStartTest(action.id, isLecturette ? { tab: 'LECTURETTE' } : undefined); 
                                      return; 
@@ -481,42 +473,6 @@ const Dashboard: React.FC<{
            </div>
         </div>
       </div>
-
-      {/* PLAN COMPARISON */}
-      {(!isLoggedIn || (subscription && subscription.tier === 'FREE')) && (
-          <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden" aria-label="Subscription Plans">
-              <div className="p-6 md:p-8 bg-slate-50 border-b border-slate-100 text-center">
-                 <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Choose Your SSB Prep Plan</h2>
-              </div>
-              <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-8 relative">
-                 <div className="space-y-6">
-                    <h3 className="font-black text-slate-700 uppercase tracking-widest text-lg">Free Cadet</h3>
-                    <ul className="space-y-4 text-xs font-bold text-slate-500">
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> 1 Personal Interview(with virtual IO)</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-blue-600"/> 10 PPDT with Narration</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-blue-600"/> 2 TAT Test</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-blue-600"/> 3 SRT & 3 WAT Tests</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> Daily News & Practice</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> AI Guide(major veer) </li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-blue-600"/> Detailed & Personalized Assessment</li>
-                    </ul>
-                 </div>
-                 <div className="space-y-6 relative">
-                    <h3 className="font-black text-blue-600 uppercase tracking-widest text-lg">Pro Officer (₹299)</h3>
-                    <ul className="space-y-4 text-xs font-bold text-slate-700">
-                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 5 Personal Interview with Virtual IO</li>
-                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 30 PPDT with Narration</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-blue-600"/> 7 TAT Test</li>
-                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> 10 SRT & 10 WAT Tests</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> Daily News & Practice</li>
-                       <li className="flex items-center gap-3"><CheckCircle size={16} className="text-green-500"/> AI Guide(major veer) </li>
-                       <li className="flex items-center gap-3"><Zap size={16} className="text-blue-600"/> Detailed & Personalized Assessment</li>
-                    </ul>
-                    <button onClick={onOpenPayment} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] shadow-lg">Upgrade to Pro</button>
-                 </div>
-              </div>
-          </section>
-      )}
 
       {/* SIMPLIFIED TESTIMONIALS (Clean White UI) */}
       <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100">
@@ -583,46 +539,6 @@ const Dashboard: React.FC<{
           </div>
       </div>
 
-      {/* GUEST INTERVIEW WARNING MODAL */}
-      {showGuestInterviewWarning && (
-          <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-              <div className="bg-white p-8 rounded-[2.5rem] max-w-sm w-full shadow-2xl text-center space-y-6 animate-in zoom-in-95">
-                  <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto text-blue-600">
-                      <Mic size={32} />
-                  </div>
-                  <div>
-                      <h3 className="text-xl font-black text-slate-900 uppercase">Trial Interview Mode</h3>
-                      <p className="text-slate-500 text-xs font-medium mt-2 leading-relaxed">
-                          This is a <strong>5-minute demo</strong> session. The AI officer will not have access to your PIQ form.
-                      </p>
-                      <p className="text-slate-500 text-xs font-medium mt-2 leading-relaxed">
-                          For a complete 30-minute interview based on your specific background, please login.
-                      </p>
-                  </div>
-                  <div className="flex flex-col gap-3">
-                      <button 
-                        onClick={() => onStartTest(TestType.LOGIN)} 
-                        className="w-full py-4 bg-yellow-400 text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-yellow-300 transition-colors shadow-lg"
-                      >
-                          Login for Full Experience
-                      </button>
-                      <button 
-                        onClick={() => { setShowGuestInterviewWarning(false); onStartTest(TestType.INTERVIEW); }} 
-                        className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors"
-                      >
-                          Continue as Guest
-                      </button>
-                  </div>
-                  <button 
-                    onClick={() => setShowGuestInterviewWarning(false)} 
-                    className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors p-2 bg-slate-50 rounded-full hover:bg-slate-100"
-                  >
-                      <X size={16} />
-                  </button>
-              </div>
-          </div>
-      )}
-
     </div>
   );
 };
@@ -637,6 +553,7 @@ const App: React.FC = () => {
   const [pendingPaymentIntent, setPendingPaymentIntent] = useState(false);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [resourceTab, setResourceTab] = useState<'WAT' | 'LECTURETTE' | 'GD' | 'INTERVIEW' | 'BLOG'>('WAT');
+  const [showGuestInterviewWarning, setShowGuestInterviewWarning] = useState(false);
 
   const isPIQComplete = (data: PIQData | null) => {
       return !!(data?.name && data?.chestNo);
@@ -695,6 +612,12 @@ const App: React.FC = () => {
      const protectedRoutes = [TestType.PIQ, TestType.DAILY_PRACTICE];
      if (protectedRoutes.includes(test) && !user) { setActiveTest(TestType.LOGIN); return; }
      
+     // Guest Warning for Interview
+     if (!user && test === TestType.INTERVIEW) {
+         setShowGuestInterviewWarning(true);
+         return;
+     }
+     
      // Allow guest access to interview but force PIQ check for logged in users
      if (user && test === TestType.INTERVIEW && !isPIQComplete(piqData)) { setActiveTest(TestType.PIQ); return; }
      
@@ -744,6 +667,46 @@ const App: React.FC = () => {
     <Layout activeTest={activeTest} onNavigate={navigateTo} onLogout={async () => { await logoutUser(); setUser(null); setActiveTest(TestType.DASHBOARD); }} onLogin={() => setActiveTest(TestType.LOGIN)} user={userEmail || undefined} isLoggedIn={!!user} isAdmin={isUserAdmin(userEmail)} subscription={subscription}>
       {renderContent()}
       {user && <PaymentModal userId={user} isOpen={isPaymentOpen} onClose={() => setPaymentOpen(false)} onSuccess={() => { getUserSubscription(user).then(s => setSubscription(s)); }} />}
+      
+      {/* GUEST INTERVIEW WARNING MODAL (GLOBAL) */}
+      {showGuestInterviewWarning && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white p-8 rounded-[2.5rem] max-w-sm w-full shadow-2xl text-center space-y-6 animate-in zoom-in-95">
+                  <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto text-blue-600">
+                      <Mic size={32} />
+                  </div>
+                  <div>
+                      <h3 className="text-xl font-black text-slate-900 uppercase">Trial Interview Mode</h3>
+                      <p className="text-slate-500 text-xs font-medium mt-2 leading-relaxed">
+                          This is a <strong>5-minute demo</strong> session. The AI officer will not have access to your PIQ form.
+                      </p>
+                      <p className="text-slate-500 text-xs font-medium mt-2 leading-relaxed">
+                          For a complete 30-minute interview based on your specific background, please login.
+                      </p>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                      <button 
+                        onClick={() => { setShowGuestInterviewWarning(false); navigateTo(TestType.LOGIN); }} 
+                        className="w-full py-4 bg-yellow-400 text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-yellow-300 transition-colors shadow-lg"
+                      >
+                          Login for Full Experience
+                      </button>
+                      <button 
+                        onClick={() => { setShowGuestInterviewWarning(false); setActiveTest(TestType.INTERVIEW); }} 
+                        className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors"
+                      >
+                          Continue as Guest
+                      </button>
+                  </div>
+                  <button 
+                    onClick={() => setShowGuestInterviewWarning(false)} 
+                    className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors p-2 bg-slate-50 rounded-full hover:bg-slate-100"
+                  >
+                      <X size={16} />
+                  </button>
+              </div>
+          </div>
+      )}
     </Layout>
   );
 };
