@@ -32,7 +32,8 @@ import {
   Instagram,
   Youtube,
   Crown,
-  Library
+  Library,
+  BookOpen
 } from 'lucide-react';
 import { getRecentAnnouncements, subscribeToAnnouncements } from '../services/supabaseService';
 
@@ -140,7 +141,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
   // Updated Navigation Order
   const navItems = [
     { id: TestType.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-    { id: TestType.RESOURCES, label: 'Free Resources', icon: Library }, // New Item
+    { id: TestType.RESOURCES, label: 'Free Resources', icon: Library }, 
+    { id: TestType.LECTURETTE, label: 'Lecturette', icon: BookOpen }, // New Item
     { id: TestType.GUIDE, label: 'Platform Guide (SOP)', icon: BookOpenCheck },
     { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', icon: Globe },
     { id: TestType.DAILY_PRACTICE, label: 'Daily Practice', icon: Clock },
@@ -352,7 +354,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                || (activeTest === TestType.GUIDE ? 'Platform Guide' : '')
                || (activeTest === TestType.CURRENT_AFFAIRS ? 'Intelligence Brief' : '')
                || (activeTest === TestType.DAILY_PRACTICE ? 'Daily Challenge' : '')
-               || (activeTest === TestType.RESOURCES ? 'SSB Knowledge Bank' : '')}
+               || (activeTest === TestType.RESOURCES ? 'SSB Knowledge Bank' : '')
+               || (activeTest === TestType.LECTURETTE ? 'Lecturette Simulator' : '')}
             </h2>
 
             {/* Back to Dashboard Button */}

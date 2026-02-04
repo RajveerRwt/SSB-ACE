@@ -16,6 +16,7 @@ import HowToUse from './HowToUse';
 import CurrentAffairs from './CurrentAffairs';
 import DailyPractice from './DailyPractice';
 import ResourceCenter from './ResourceCenter';
+import LecturetteTest from './LecturetteTest';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library } from 'lucide-react';
@@ -62,8 +63,9 @@ const Dashboard: React.FC<{
   isLoading: boolean,
   user: string,
   onOpenPayment: () => void,
-  subscription: UserSubscription | null
-}> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user, onOpenPayment, subscription }) => {
+  subscription: UserSubscription | null,
+  onShowGuestWarning: () => void
+}> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user, onOpenPayment, subscription, onShowGuestWarning }) => {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -109,7 +111,7 @@ const Dashboard: React.FC<{
     { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', sub: 'Updates', icon: Globe, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100' },
     { id: TestType.AI_BOT, label: 'AI Guide', sub: 'ChatBot', icon: Bot, color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-100' },
     { id: TestType.RESOURCES, label: 'Free Resources', sub: 'Library', icon: Library, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
-    { id: TestType.RESOURCES, label: 'Lecturette', sub: 'Topics', icon: BookOpen, color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-100' },
+    { id: TestType.LECTURETTE, label: 'Lecturette', sub: 'Topics', icon: BookOpen, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
   ];
 
   useEffect(() => {
@@ -408,16 +410,20 @@ const Dashboard: React.FC<{
                             const guestAllowed = [
                                 TestType.INTERVIEW, TestType.PPDT, TestType.TAT, TestType.SDT, 
                                 TestType.WAT, TestType.SRT, TestType.RESOURCES, 
-                                TestType.CURRENT_AFFAIRS, TestType.AI_BOT
+                                TestType.CURRENT_AFFAIRS, TestType.AI_BOT, TestType.LECTURETTE
                             ];
-                            
-                            // Check for Lecturette specific action
-                            const isLecturette = action.label === 'Lecturette' && action.id === TestType.RESOURCES;
                             
                             if (!isLoggedIn) {
                                 if (action.id === TestType.PIQ) { onStartTest(TestType.LOGIN); return; }
+                                
+                                // Guest Interview Warning
+                                if (action.id === TestType.INTERVIEW) {
+                                    onShowGuestWarning();
+                                    return;
+                                }
+
                                 if (guestAllowed.includes(action.id)) {
-                                     onStartTest(action.id, isLecturette ? { tab: 'LECTURETTE' } : undefined); 
+                                     onStartTest(action.id, undefined); 
                                      return; 
                                 }
                                 onStartTest(TestType.LOGIN);
@@ -430,7 +436,7 @@ const Dashboard: React.FC<{
                                 return;
                             }
                             
-                            onStartTest(action.id, isLecturette ? { tab: 'LECTURETTE' } : undefined);
+                            onStartTest(action.id, undefined);
                         }}
                         className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center gap-3 transition-all hover:-translate-y-1 hover:shadow-lg ${action.bg} ${action.border}`}
                     >
@@ -552,7 +558,7 @@ const App: React.FC = () => {
   const [isPaymentOpen, setPaymentOpen] = useState(false);
   const [pendingPaymentIntent, setPendingPaymentIntent] = useState(false);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
-  const [resourceTab, setResourceTab] = useState<'WAT' | 'LECTURETTE' | 'GD' | 'INTERVIEW' | 'BLOG'>('WAT');
+  const [resourceTab, setResourceTab] = useState<'WAT' | 'GD' | 'INTERVIEW' | 'BLOG'>('WAT');
   const [showGuestInterviewWarning, setShowGuestInterviewWarning] = useState(false);
 
   const isPIQComplete = (data: PIQData | null) => {
@@ -659,7 +665,17 @@ const App: React.FC = () => {
       case TestType.CURRENT_AFFAIRS: return <CurrentAffairs />;
       case TestType.DAILY_PRACTICE: return <DailyPractice />;
       case TestType.RESOURCES: return <ResourceCenter initialTab={resourceTab} />;
-      default: return <Dashboard onStartTest={navigateTo} piqLoaded={isPIQComplete(piqData)} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} />;
+      case TestType.LECTURETTE: return <LecturetteTest />;
+      default: return <Dashboard 
+            onStartTest={navigateTo} 
+            piqLoaded={isPIQComplete(piqData)} 
+            isLoggedIn={!!user} 
+            isLoading={isLoading} 
+            user={user || ''} 
+            onOpenPayment={() => setPaymentOpen(true)} 
+            subscription={subscription} 
+            onShowGuestWarning={() => setShowGuestInterviewWarning(true)}
+        />;
     }
   };
 
