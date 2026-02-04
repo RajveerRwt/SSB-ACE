@@ -138,23 +138,23 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
       setShowNotifications(!showNotifications);
   };
 
-  // Updated Navigation Order
+  // Updated Navigation Order based on user request
   const navItems = [
     { id: TestType.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-    { id: TestType.RESOURCES, label: 'Free Resources', icon: Library }, 
-    { id: TestType.LECTURETTE, label: 'Lecturette', icon: BookOpen }, // New Item
     { id: TestType.GUIDE, label: 'Platform Guide (SOP)', icon: BookOpenCheck },
-    { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', icon: Globe },
-    { id: TestType.DAILY_PRACTICE, label: 'Daily Practice', icon: Clock },
     { id: TestType.STAGES, label: 'SSB Journey', icon: Map },
-    { id: TestType.AI_BOT, label: 'SSB AI Guide', icon: Bot },
+    { id: TestType.DAILY_PRACTICE, label: 'Daily Practice', icon: Clock },
+    { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', icon: Globe },
+    { id: TestType.RESOURCES, label: 'Free Resources', icon: Library }, 
     { id: TestType.PIQ, label: 'PIQ Form', icon: ClipboardList },
-    { id: TestType.INTERVIEW, label: '1:1 Personal Interview (Virtual)', icon: Mic }, 
     { id: TestType.PPDT, label: 'PPDT Round', icon: ImageIcon },
     { id: TestType.TAT, label: 'TAT (Psychology)', icon: PenTool },
     { id: TestType.WAT, label: 'WAT (Psychology)', icon: HelpCircle },
     { id: TestType.SRT, label: 'SRT (Psychology)', icon: HelpCircle },
     { id: TestType.SDT, label: 'Self Description', icon: FileSignature },
+    { id: TestType.LECTURETTE, label: 'Lecturette', icon: BookOpen },
+    { id: TestType.INTERVIEW, label: '1:1 Personal Interview (Virtual)', icon: Mic }, 
+    { id: TestType.AI_BOT, label: 'SSB AI Guide', icon: Bot },
     { id: TestType.CONTACT, label: 'Support Desk', icon: MessageSquare },
   ];
 
