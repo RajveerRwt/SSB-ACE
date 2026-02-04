@@ -484,7 +484,7 @@ const Dashboard: React.FC<{
       <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100">
           <div className="flex flex-col items-center text-center space-y-8">
               <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3">
-                  <MessageCircle className="text-blue-600" size={28} /> Success Stories
+                  <MessageCircle className="text-blue-600" size={28} /> feedbacks
               </h2>
               
               <div key={testimonialIndex} className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl">

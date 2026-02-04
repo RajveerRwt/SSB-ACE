@@ -337,7 +337,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full relative overflow-hidden">
-        <header className="bg-white h-16 border-b flex items-center justify-between px-4 md:px-8 shrink-0 z-10 shadow-sm sticky top-0">
+        <header className="bg-white h-16 border-b flex items-center justify-between px-4 md:px-8 shrink-0 z-30 shadow-sm sticky top-0">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setSidebarOpen(!isSidebarOpen)}
