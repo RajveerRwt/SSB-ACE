@@ -61,6 +61,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top on navigation change
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [activeTest]);
 
   useEffect(() => {
     // 1. Fetch recent history on mount
@@ -457,7 +465,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
             </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
           {children}
         </div>
       </main>
