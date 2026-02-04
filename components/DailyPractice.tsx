@@ -63,8 +63,10 @@ const DailyPractice: React.FC = () => {
         alert("Please login to participate in daily discussion.");
         return;
     }
-    if (!ppdtStory.trim() || !watAnswer.trim() || !srtAnswer.trim() || !interviewAnswer.trim()) {
-        alert("Please complete all 4 sections before submitting.");
+    
+    // CHANGED: Allow partial submission. Only block if EVERYTHING is empty.
+    if (!ppdtStory.trim() && !watAnswer.trim() && !srtAnswer.trim() && !interviewAnswer.trim()) {
+        alert("Please complete at least one section (PPDT, WAT, SRT, or Interview) before submitting.");
         return;
     }
 
@@ -263,7 +265,7 @@ const DailyPractice: React.FC = () => {
               className="px-12 py-4 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-black transition-all shadow-xl disabled:opacity-50"
           >
               {isSubmitting ? <Loader2 className="animate-spin" /> : hasSubmitted ? <CheckCircle size={16} /> : <Send size={16} />} 
-              {hasSubmitted ? 'Already Submitted' : 'Submit All Responses'}
+              {hasSubmitted ? 'Already Submitted' : 'Submit Entry'}
           </button>
       </div>
 
@@ -309,32 +311,40 @@ const DailyPractice: React.FC = () => {
                           
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                               <div className="space-y-4">
-                                  <div className="space-y-2">
-                                      <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest block bg-blue-50 px-2 py-1 rounded w-fit">PPDT Story</span>
-                                      <p className="text-xs text-slate-600 leading-relaxed italic bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                          "{sub.ppdt_story || 'No story provided.'}"
-                                      </p>
-                                  </div>
-                                  <div className="space-y-2">
-                                      <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest block bg-purple-50 px-2 py-1 rounded w-fit">Interview Answer</span>
-                                      <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                          "{sub.interview_answer || 'No answer provided.'}"
-                                      </p>
-                                  </div>
+                                  {sub.ppdt_story && (
+                                    <div className="space-y-2">
+                                        <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest block bg-blue-50 px-2 py-1 rounded w-fit">PPDT Story</span>
+                                        <p className="text-xs text-slate-600 leading-relaxed italic bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                            "{sub.ppdt_story}"
+                                        </p>
+                                    </div>
+                                  )}
+                                  {sub.interview_answer && (
+                                    <div className="space-y-2">
+                                        <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest block bg-purple-50 px-2 py-1 rounded w-fit">Interview Answer</span>
+                                        <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                            "{sub.interview_answer}"
+                                        </p>
+                                    </div>
+                                  )}
                               </div>
                               <div className="space-y-4">
-                                  <div>
-                                      <span className="text-[9px] font-black text-green-600 uppercase tracking-widest block mb-2 bg-green-50 px-2 py-1 rounded w-fit">WAT: {challenge.wat_words?.[0]}</span>
-                                      <p className="text-xs text-slate-700 font-bold pl-4 border-l-2 border-green-100">
-                                          {sub.wat_answers?.[0]}
-                                      </p>
-                                  </div>
-                                  <div>
-                                      <span className="text-[9px] font-black text-orange-600 uppercase tracking-widest block mb-2 bg-orange-50 px-2 py-1 rounded w-fit">SRT Reaction</span>
-                                      <p className="text-xs text-slate-700 font-bold pl-4 border-l-2 border-orange-100">
-                                          {sub.srt_answers?.[0]}
-                                      </p>
-                                  </div>
+                                  {sub.wat_answers?.[0] && (
+                                    <div>
+                                        <span className="text-[9px] font-black text-green-600 uppercase tracking-widest block mb-2 bg-green-50 px-2 py-1 rounded w-fit">WAT: {challenge.wat_words?.[0]}</span>
+                                        <p className="text-xs text-slate-700 font-bold pl-4 border-l-2 border-green-100">
+                                            {sub.wat_answers[0]}
+                                        </p>
+                                    </div>
+                                  )}
+                                  {sub.srt_answers?.[0] && (
+                                    <div>
+                                        <span className="text-[9px] font-black text-orange-600 uppercase tracking-widest block mb-2 bg-orange-50 px-2 py-1 rounded w-fit">SRT Reaction</span>
+                                        <p className="text-xs text-slate-700 font-bold pl-4 border-l-2 border-orange-100">
+                                            {sub.srt_answers[0]}
+                                        </p>
+                                    </div>
+                                  )}
                               </div>
                           </div>
 
