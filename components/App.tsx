@@ -1,26 +1,26 @@
 
 import React, { useState, useEffect } from 'react';
 import Layout from './Layout';
-import Login from './Login';
-import PPDTTest from './PPDTTest';
-import PsychologyTest from './PsychologyTest';
-import Interview from './Interview';
-import PIQForm from './PIQForm';
-import ContactForm from './ContactForm';
-import SSBStages from './SSBStages';
-import SSBBot from './SSBBot';
-import AdminPanel from './AdminPanel';
-import PaymentModal from './PaymentModal';
-import LegalPages from './LegalPages';
-import HowToUse from './HowToUse';
-import CurrentAffairs from './CurrentAffairs';
-import DailyPractice from './DailyPractice';
-import ResourceCenter from './ResourceCenter';
-import LecturetteTest from './LecturetteTest';
+import Login from './components/Login';
+import PPDTTest from './components/PPDTTest';
+import PsychologyTest from './components/PsychologyTest';
+import Interview from './components/Interview';
+import PIQForm from './components/PIQForm';
+import ContactForm from './components/ContactForm';
+import SSBStages from './components/SSBStages';
+import SSBBot from './components/SSBBot';
+import AdminPanel from './components/AdminPanel';
+import PaymentModal from './components/PaymentModal';
+import LegalPages from './components/LegalPages';
+import HowToUse from './components/HowToUse';
+import CurrentAffairs from './components/CurrentAffairs';
+import DailyPractice from './components/DailyPractice';
+import ResourceCenter from './components/ResourceCenter';
+import LecturetteTest from './components/LecturetteTest';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library } from 'lucide-react';
-import { SSBLogo } from './Logo';
+import { SSBLogo } from './components/Logo';
 
 // Helper Component for Progress Ring
 const ProgressRing: React.FC<{ score: number, color: string, label: string, icon: any, subtext: string }> = ({ score, color, label, icon: Icon, subtext }) => {
@@ -480,27 +480,37 @@ const Dashboard: React.FC<{
         </div>
       </div>
 
-      {/* SIMPLIFIED TESTIMONIALS (Clean White UI) */}
-      <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100">
-          <div className="flex flex-col items-center text-center space-y-8">
-              <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3">
-                  <MessageCircle className="text-blue-600" size={28} /> feedbacks
+      {/* REDESIGNED TESTIMONIALS (Dark Military Theme) */}
+      <section className="bg-slate-900 p-8 md:p-12 rounded-[2.5rem] md:rounded-[3rem] shadow-2xl border-4 border-slate-800 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-30"></div>
+          
+          <div className="flex flex-col items-center text-center space-y-8 relative z-10">
+              <h2 className="text-xl md:text-3xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+                  <MessageCircle className="text-yellow-400" size={28} />Feedbacks
               </h2>
               
-              <div key={testimonialIndex} className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl">
-                  <div className="mb-6 text-yellow-400 flex justify-center gap-1">
-                      {[1,2,3,4,5].map(i => <Star key={i} size={16} fill="currentColor" />)}
-                  </div>
-                  <p className="text-base md:text-xl font-medium text-slate-700 italic leading-relaxed">
-                      "{testimonials[testimonialIndex].text}"
-                  </p>
-                  <div className="mt-8 flex items-center justify-center gap-4">
-                      <div className="w-12 h-12 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center font-black text-lg">
-                          {testimonials[testimonialIndex].name[0]}
-                      </div>
-                      <div className="text-left">
-                          <p className="text-sm font-black text-slate-900 uppercase">{testimonials[testimonialIndex].name}</p>
-                          <p className="text-xs text-slate-500 font-medium">{testimonials[testimonialIndex].role}</p>
+              <div key={testimonialIndex} className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl w-full">
+                  <div className="bg-white/5 backdrop-blur-md p-8 md:p-10 rounded-3xl border border-white/10 relative">
+                      <Quote className="absolute top-6 left-6 text-white/10 rotate-180" size={48} />
+                      
+                      <div className="space-y-6 relative z-10">
+                          <div className="flex justify-center gap-1">
+                              {[1,2,3,4,5].map(i => <Star key={i} size={14} className="fill-yellow-400 text-yellow-400" />)}
+                          </div>
+                          
+                          <p className="text-base md:text-xl font-medium text-slate-200 italic leading-relaxed">
+                              "{testimonials[testimonialIndex].text}"
+                          </p>
+                          
+                          <div className="pt-6 border-t border-white/10 flex items-center justify-center gap-4">
+                              <div className="w-12 h-12 bg-blue-600 text-white rounded-xl flex items-center justify-center font-black text-lg shadow-lg shadow-blue-600/20">
+                                  {testimonials[testimonialIndex].name[0]}
+                              </div>
+                              <div className="text-left">
+                                  <p className="text-sm font-black text-white uppercase tracking-wide">{testimonials[testimonialIndex].name}</p>
+                                  <p className="text-[10px] text-yellow-400 font-bold uppercase tracking-widest">{testimonials[testimonialIndex].role}</p>
+                              </div>
+                          </div>
                       </div>
                   </div>
               </div>
@@ -509,38 +519,55 @@ const Dashboard: React.FC<{
                   {testimonials.map((_, i) => (
                       <div 
                         key={i} 
-                        className={`h-1.5 rounded-full transition-all duration-300 ${i === testimonialIndex ? 'w-8 bg-blue-600' : 'w-2 bg-slate-200'}`} 
+                        className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${i === testimonialIndex ? 'w-8 bg-yellow-400' : 'w-2 bg-slate-700'}`}
+                        onClick={() => setTestimonialIndex(i)} 
                       />
                   ))}
               </div>
           </div>
       </section>
 
-      {/* SIMPLIFIED TECHNICAL SUPPORT (Clean UI) */}
-      <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left shadow-sm">
-          <div className="space-y-2">
-              <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight flex items-center gap-2 justify-center md:justify-start">
-                  <Headset className="text-blue-600" size={20} /> Need Help?
+      {/* REDESIGNED TECHNICAL SUPPORT (Dark Military Theme) */}
+      <div className="bg-gradient-to-br from-slate-900 to-blue-950 p-8 md:p-12 rounded-[2.5rem] md:rounded-[3rem] border-4 border-slate-800 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left shadow-2xl">
+          {/* Background Decor */}
+          <Headset className="absolute -right-6 -bottom-6 w-40 h-40 text-white/5 rotate-12 pointer-events-none" />
+          
+          <div className="relative z-10 space-y-3">
+              <span className="inline-block px-3 py-1 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-full text-[9px] font-black uppercase tracking-widest mb-2">
+                  Help Support
+              </span>
+              <h4 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tighter leading-none">
+                  Need <span className="text-yellow-400">Assistance?</span>
               </h4>
-              <p className="text-xs font-medium text-slate-500 max-w-md">
-                  Facing technical issues or have questions about the platform? Reach out to our support team directly.
+              <p className="text-xs md:text-sm font-medium text-slate-400 max-w-md leading-relaxed">
+                  Facing technical issues ?  feedback? other issues ?Reach out to our support team directly.
               </p>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-4">
+          <div className="relative z-10 flex flex-wrap justify-center gap-4">
               <a 
                 href="tel:+919131112322" 
-                className="flex items-center gap-3 px-6 py-3 bg-white text-slate-700 rounded-xl border border-slate-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-md transition-all group"
+                className="flex items-center gap-3 px-6 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl transition-all shadow-lg shadow-blue-900/50 group border border-blue-500"
               >
-                  <Phone size={16} className="text-slate-400 group-hover:text-blue-500" />
-                  <span className="text-xs font-bold">+91 9131112322</span>
+                  <div className="bg-white/20 p-1.5 rounded-lg group-hover:scale-110 transition-transform">
+                    <Phone size={16} fill="currentColor" />
+                  </div>
+                  <div className="text-left">
+                      <span className="block text-[8px] font-bold opacity-80 uppercase tracking-wider">Helpline</span>
+                      <span className="block text-xs font-black tracking-wide">+91 9131112322</span>
+                  </div>
               </a>
               <a 
                 href="mailto:contact.ssbprep@gmail.com" 
-                className="flex items-center gap-3 px-6 py-3 bg-white text-slate-700 rounded-xl border border-slate-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-md transition-all group"
+                className="flex items-center gap-3 px-6 py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl transition-all group backdrop-blur-sm"
               >
-                  <Mail size={16} className="text-slate-400 group-hover:text-blue-500" />
-                  <span className="text-xs font-bold">Email Support</span>
+                  <div className="bg-slate-800 p-1.5 rounded-lg group-hover:scale-110 transition-transform text-slate-300">
+                    <Mail size={16} />
+                  </div>
+                  <div className="text-left">
+                      <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider">Email Us</span>
+                      <span className="block text-xs font-black tracking-wide">Support Desk</span>
+                  </div>
               </a>
           </div>
       </div>
