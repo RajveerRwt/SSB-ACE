@@ -1,15 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { BookOpen, FileText, Globe, Zap, Layout, CheckCircle, Search, Calendar, Tag, MessageSquare, Loader2, ArrowRight, Mic, Users, Timer, X, Play, HelpCircle } from 'lucide-react';
+import { BookOpen, FileText, Globe, Zap, Layout, CheckCircle, Search, Calendar, Tag, MessageSquare, Loader2, ArrowRight, Mic, Users, Timer, X, Play, HelpCircle, Anchor, Shield, Plane, Award, Map, List, ChevronRight } from 'lucide-react';
 import { fetchDailyNews } from '../services/geminiService';
-import { STANDARD_WAT_SET } from '../services/geminiService';
 
 interface ResourceCenterProps {
-  initialTab?: 'WAT' | 'GD' | 'INTERVIEW' | 'BLOG';
+  initialTab?: 'GK' | 'GD' | 'INTERVIEW' | 'BLOG';
 }
 
-const ResourceCenter: React.FC<ResourceCenterProps> = ({ initialTab = 'WAT' }) => {
-  const [activeTab, setActiveTab] = useState<'WAT' | 'GD' | 'INTERVIEW' | 'BLOG'>(initialTab);
+const ResourceCenter: React.FC<ResourceCenterProps> = ({ initialTab = 'GK' }) => {
+  const [activeTab, setActiveTab] = useState<'GK' | 'GD' | 'INTERVIEW' | 'BLOG'>(initialTab);
+  const [gkCategory, setGkCategory] = useState<'SERVICES' | 'RANKS' | 'AWARDS' | 'COMMANDS'>('SERVICES');
   const [blogContent, setBlogContent] = useState<any[]>([]);
   const [blogLoading, setBlogLoading] = useState(false);
   
@@ -46,10 +46,113 @@ const ResourceCenter: React.FC<ResourceCenterProps> = ({ initialTab = 'WAT' }) =
     }
   };
 
-  const STATIC_WAT_DATA = STANDARD_WAT_SET.slice(0, 50).map((word, index) => ({
-      word,
-      response: `A meaningful sentence demonstrating OLQ for '${word}'. e.g., ${word} helps in overcoming obstacles.`
-  }));
+  const SERVICE_INFO = [
+      {
+          id: 'ARMY',
+          name: 'Indian Army',
+          icon: Shield,
+          color: 'text-green-700',
+          bg: 'bg-green-50',
+          border: 'border-green-200',
+          details: [
+              { label: 'Motto', value: 'Seva Paramo Dharma (Service Before Self)' },
+              { label: 'Army Day', value: '15 January' },
+              { label: 'Headquarters', value: 'New Delhi' },
+              { label: 'Chief', value: 'Chief of the Army Staff (COAS) - General' }
+          ]
+      },
+      {
+          id: 'NAVY',
+          name: 'Indian Navy',
+          icon: Anchor,
+          color: 'text-blue-800',
+          bg: 'bg-blue-50',
+          border: 'border-blue-200',
+          details: [
+              { label: 'Motto', value: 'Sham No Varunah (May the Lord of Water be auspicious unto us)' },
+              { label: 'Navy Day', value: '04 December' },
+              { label: 'Headquarters', value: 'New Delhi' },
+              { label: 'Chief', value: 'Chief of the Naval Staff (CNS) - Admiral' }
+          ]
+      },
+      {
+          id: 'AIRFORCE',
+          name: 'Indian Air Force',
+          icon: Plane,
+          color: 'text-sky-600',
+          bg: 'bg-sky-50',
+          border: 'border-sky-200',
+          details: [
+              { label: 'Motto', value: 'Nabhah Sparsham Diptam (Touch the sky with glory)' },
+              { label: 'Air Force Day', value: '08 October' },
+              { label: 'Headquarters', value: 'New Delhi' },
+              { label: 'Chief', value: 'Chief of the Air Staff (CAS) - Air Chief Marshal' }
+          ]
+      }
+  ];
+
+  const RANKS_DATA = [
+      { army: 'Lieutenant', navy: 'Sub Lieutenant', airforce: 'Flying Officer' },
+      { army: 'Captain', navy: 'Lieutenant', airforce: 'Flight Lieutenant' },
+      { army: 'Major', navy: 'Lt Commander', airforce: 'Squadron Leader' },
+      { army: 'Lt Colonel', navy: 'Commander', airforce: 'Wing Commander' },
+      { army: 'Colonel', navy: 'Captain', airforce: 'Group Captain' },
+      { army: 'Brigadier', navy: 'Commodore', airforce: 'Air Commodore' },
+      { army: 'Major General', navy: 'Rear Admiral', airforce: 'Air Vice Marshal' },
+      { army: 'Lt General', navy: 'Vice Admiral', airforce: 'Air Marshal' },
+      { army: 'General', navy: 'Admiral', airforce: 'Air Chief Marshal' },
+      { army: 'Field Marshal', navy: 'Admiral of the Fleet', airforce: 'Marshal of the IAF' },
+  ];
+
+  const COMMANDS_DATA = [
+      {
+          service: 'Indian Army',
+          commands: [
+              { name: 'Northern', loc: 'Udhampur' },
+              { name: 'Western', loc: 'Chandimandir' },
+              { name: 'Eastern', loc: 'Kolkata' },
+              { name: 'Southern', loc: 'Pune' },
+              { name: 'Central', loc: 'Lucknow' },
+              { name: 'South Western', loc: 'Jaipur' },
+              { name: 'Training (ARTRAC)', loc: 'Shimla' }
+          ]
+      },
+      {
+          service: 'Indian Navy',
+          commands: [
+              { name: 'Western Naval Command', loc: 'Mumbai' },
+              { name: 'Eastern Naval Command', loc: 'Visakhapatnam' },
+              { name: 'Southern Naval Command', loc: 'Kochi' }
+          ]
+      },
+      {
+          service: 'Indian Air Force',
+          commands: [
+              { name: 'Western', loc: 'New Delhi' },
+              { name: 'Eastern', loc: 'Shillong' },
+              { name: 'Central', loc: 'Prayagraj' },
+              { name: 'Southern', loc: 'Thiruvananthapuram' },
+              { name: 'South Western', loc: 'Gandhinagar' },
+              { name: 'Training', loc: 'Bengaluru' },
+              { name: 'Maintenance', loc: 'Nagpur' }
+          ]
+      }
+  ];
+
+  const AWARDS_DATA = [
+      {
+          type: "Wartime Gallantry",
+          awards: ["Param Vir Chakra (PVC)", "Maha Vir Chakra (MVC)", "Vir Chakra (VrC)"]
+      },
+      {
+          type: "Peacetime Gallantry",
+          awards: ["Ashoka Chakra (AC)", "Kirti Chakra (KC)", "Shaurya Chakra (SC)"]
+      },
+      {
+          type: "Distinguished Service",
+          awards: ["Param Vishisht Seva Medal (PVSM)", "Ati Vishisht Seva Medal (AVSM)", "Vishisht Seva Medal (VSM)"]
+      }
+  ];
 
   const GD_TOPICS = [
       { title: "Impact of Social Media on Youth", category: "Social" },
@@ -114,7 +217,7 @@ const ResourceCenter: React.FC<ResourceCenterProps> = ({ initialTab = 'WAT' }) =
             </span>
             <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">Defense Aspirant <span className="text-yellow-400">Resource Library</span></h1>
             <p className="text-slate-400 max-w-2xl font-medium leading-relaxed text-sm md:text-base">
-               Free curated study material for SSB Interview preparation. Access WAT words, GD topics, Interview questions, and daily defense current affairs.
+               Free curated study material for SSB Interview preparation. Access static GK, GD topics, Interview questions, and daily defense current affairs.
             </p>
          </div>
          <div className="absolute top-0 right-0 p-8 opacity-5">
@@ -125,7 +228,7 @@ const ResourceCenter: React.FC<ResourceCenterProps> = ({ initialTab = 'WAT' }) =
       {/* TABS */}
       <div className="flex flex-wrap justify-center gap-4">
           {[
-              { id: 'WAT', label: 'Top 50 WAT Words', icon: Zap },
+              { id: 'GK', label: 'Static Defence GK', icon: Shield },
               { id: 'GD', label: 'GD Topics', icon: Users },
               { id: 'INTERVIEW', label: 'Interview Questions', icon: MessageSquare },
               { id: 'BLOG', label: 'Daily Defense Blog', icon: Globe },
@@ -147,31 +250,118 @@ const ResourceCenter: React.FC<ResourceCenterProps> = ({ initialTab = 'WAT' }) =
       {/* CONTENT AREA */}
       <div className="bg-white rounded-[2.5rem] p-6 md:p-10 border border-slate-100 shadow-xl min-h-[500px]">
           
-          {/* WAT SECTION */}
-          {activeTab === 'WAT' && (
+          {/* STATIC GK SECTION */}
+          {activeTab === 'GK' && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
-                  <div className="flex justify-between items-end border-b border-slate-100 pb-6">
-                      <div>
-                          <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Word Association Test (WAT) Vault</h3>
-                          <p className="text-slate-500 text-xs font-bold mt-2">Practice these high-frequency words to build speed and positive responses.</p>
-                      </div>
-                      <div className="bg-yellow-50 text-yellow-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hidden md:block">
-                          Updated for 2026
-                      </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {STATIC_WAT_DATA.map((item, i) => (
-                          <div key={i} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all group">
-                              <div className="flex justify-between items-start mb-2">
-                                  <span className="text-lg font-black text-slate-900 uppercase">{item.word}</span>
-                                  <span className="text-[9px] font-bold text-slate-300">#{i+1}</span>
-                              </div>
-                              <p className="text-xs text-slate-600 font-medium italic group-hover:text-blue-700 transition-colors">
-                                  "{item.word === 'Atom' ? 'Atoms form the basis of matter.' : item.word === 'Love' ? 'Love for the country inspires sacrifice.' : item.response}"
-                              </p>
-                          </div>
+                  {/* GK Sub-Tabs */}
+                  <div className="flex flex-wrap gap-2 mb-8 border-b border-slate-100 pb-4">
+                      {[
+                          { id: 'SERVICES', label: 'Services Info', icon: Shield },
+                          { id: 'RANKS', label: 'Ranks', icon: List },
+                          { id: 'AWARDS', label: 'Honours', icon: Award },
+                          { id: 'COMMANDS', label: 'Commands', icon: Map },
+                      ].map(sub => (
+                          <button
+                              key={sub.id}
+                              onClick={() => setGkCategory(sub.id as any)}
+                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${
+                                  gkCategory === sub.id 
+                                  ? 'bg-blue-600 text-white shadow-lg' 
+                                  : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                              }`}
+                          >
+                              <sub.icon size={12} /> {sub.label}
+                          </button>
                       ))}
                   </div>
+
+                  {gkCategory === 'SERVICES' && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {SERVICE_INFO.map((service, i) => (
+                              <div key={i} className={`p-6 rounded-[2rem] border-2 ${service.bg} ${service.border} space-y-4`}>
+                                  <div className="flex items-center gap-3 mb-2">
+                                      <service.icon className={service.color} size={24} />
+                                      <h4 className={`text-lg font-black uppercase tracking-tight ${service.color}`}>{service.name}</h4>
+                                  </div>
+                                  <div className="space-y-3">
+                                      {service.details.map((d, idx) => (
+                                          <div key={idx}>
+                                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">{d.label}</span>
+                                              <p className="text-xs font-bold text-slate-800">{d.value}</p>
+                                          </div>
+                                      ))}
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+
+                  {gkCategory === 'RANKS' && (
+                      <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                          <table className="w-full text-left border-collapse">
+                              <thead className="bg-slate-900 text-white">
+                                  <tr>
+                                      <th className="p-4 text-xs font-black uppercase tracking-widest">Indian Army</th>
+                                      <th className="p-4 text-xs font-black uppercase tracking-widest">Indian Navy</th>
+                                      <th className="p-4 text-xs font-black uppercase tracking-widest">Indian Air Force</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="text-sm font-medium text-slate-700">
+                                  {RANKS_DATA.map((row, i) => (
+                                      <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                                          <td className="p-4 border-r border-slate-100">{row.army}</td>
+                                          <td className="p-4 border-r border-slate-100">{row.navy}</td>
+                                          <td className="p-4">{row.airforce}</td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      </div>
+                  )}
+
+                  {gkCategory === 'AWARDS' && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {AWARDS_DATA.map((cat, i) => (
+                              <div key={i} className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 relative overflow-hidden">
+                                  <Award className="absolute -right-4 -bottom-4 text-slate-200 w-24 h-24 rotate-12" />
+                                  <div className="relative z-10">
+                                      <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">{cat.type}</h4>
+                                      <ul className="space-y-3">
+                                          {cat.awards.map((award, idx) => (
+                                              <li key={idx} className="flex items-center gap-3">
+                                                  <div className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center text-[10px] font-black text-slate-900 shadow-sm">{idx + 1}</div>
+                                                  <span className="text-xs font-bold text-slate-700">{award}</span>
+                                              </li>
+                                          ))}
+                                      </ul>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+
+                  {gkCategory === 'COMMANDS' && (
+                      <div className="space-y-8">
+                          {COMMANDS_DATA.map((svc, i) => (
+                              <div key={i}>
+                                  <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-4 flex items-center gap-2">
+                                      {svc.service === 'Indian Army' && <Shield size={18} className="text-green-600" />}
+                                      {svc.service === 'Indian Navy' && <Anchor size={18} className="text-blue-600" />}
+                                      {svc.service === 'Indian Air Force' && <Plane size={18} className="text-sky-600" />}
+                                      {svc.service}
+                                  </h4>
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                      {svc.commands.map((cmd, idx) => (
+                                          <div key={idx} className="p-3 bg-white border border-slate-200 rounded-xl hover:border-slate-400 transition-colors shadow-sm">
+                                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{cmd.name}</p>
+                                              <p className="text-xs font-bold text-slate-800">{cmd.loc}</p>
+                                          </div>
+                                      ))}
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
               </div>
           )}
 

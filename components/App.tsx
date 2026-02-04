@@ -558,7 +558,8 @@ const App: React.FC = () => {
   const [isPaymentOpen, setPaymentOpen] = useState(false);
   const [pendingPaymentIntent, setPendingPaymentIntent] = useState(false);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
-  const [resourceTab, setResourceTab] = useState<'WAT' | 'GD' | 'INTERVIEW' | 'BLOG'>('WAT');
+  // Fixed state initialization type to match ResourceCenter props
+  const [resourceTab, setResourceTab] = useState<'GK' | 'GD' | 'INTERVIEW' | 'BLOG'>('GK');
   const [showGuestInterviewWarning, setShowGuestInterviewWarning] = useState(false);
 
   const isPIQComplete = (data: PIQData | null) => {
