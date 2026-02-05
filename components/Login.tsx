@@ -44,7 +44,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
           if (data.session) {
             onLogin(data.user.id, data.user.email);
           } else {
-            setSuccessMsg("Registration successful! Please check your email inbox to confirm your account before logging in.");
+            setSuccessMsg("Account Created Successfully! \n\n A verification link has been sent to your email address. Please open your inbox (check Spam/Junk folder too), click the confirmation link to activate your account, and then return here to log in.");
             setIsLoading(false);
           }
         }
@@ -52,7 +52,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
         const { data, error } = await signInWithEmail(email, password);
         if (error) {
           if (error.message.includes("Invalid login credentials")) {
-            throw new Error("Invalid credentials. If you just registered, please check your email for a confirmation link.");
+            throw new Error("Invalid credentials. If you just registered, please check your email for the confirmation link to activate your account.");
           }
           throw error;
         }
@@ -125,12 +125,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto text-green-600">
                  <ShieldCheck size={24} />
                </div>
-               <p className="text-green-800 font-bold text-sm">{successMsg}</p>
+               <p className="text-green-800 font-bold text-sm whitespace-pre-line leading-relaxed">{successMsg}</p>
                <button 
                   onClick={() => { setIsSignUp(false); setSuccessMsg(''); }}
-                  className="w-full py-4 bg-green-600 text-white rounded-xl font-black uppercase text-xs tracking-widest"
+                  className="w-full py-4 bg-green-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-green-700 transition-colors shadow-lg"
                >
-                 Back to Login
+                 Proceed to Login
                </button>
             </div>
           ) : (
