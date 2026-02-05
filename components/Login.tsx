@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ShieldCheck, Mail, Lock, Loader2, Shield, AlertCircle, User, UserPlus, LogIn, ArrowLeft, Phone } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, Loader2, Shield, AlertCircle, User, UserPlus, LogIn, ArrowLeft } from 'lucide-react';
 import { signInWithEmail, signUpWithEmail, signInWithGoogle } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
 
@@ -15,7 +15,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [mobile, setMobile] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -39,7 +38,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
 
     try {
       if (isSignUp) {
-        const { data, error } = await signUpWithEmail(email, password, fullName, mobile);
+        const { data, error } = await signUpWithEmail(email, password, fullName);
         if (error) throw error;
         if (data.user) {
           if (data.session) {
@@ -162,36 +161,20 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
 
               <form onSubmit={handleAuth} className="space-y-4 md:space-y-6">
                 {isSignUp && (
-                  <>
-                    <div className="space-y-2 animate-in slide-in-from-top-4 duration-300">
-                      <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-2">Full Name</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          placeholder="Cadet Name"
-                          className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 focus:border-slate-900 rounded-2xl font-bold text-slate-800 outline-none transition-all placeholder:text-slate-300"
-                          disabled={isLoading}
-                        />
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                      </div>
+                  <div className="space-y-2 animate-in slide-in-from-top-4 duration-300">
+                    <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-2">Full Name</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Cadet Name"
+                        className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 focus:border-slate-900 rounded-2xl font-bold text-slate-800 outline-none transition-all placeholder:text-slate-300"
+                        disabled={isLoading}
+                      />
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                     </div>
-                    <div className="space-y-2 animate-in slide-in-from-top-4 duration-300 delay-100">
-                      <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-2">Mobile Number</label>
-                      <div className="relative">
-                        <input
-                          type="tel"
-                          value={mobile}
-                          onChange={(e) => setMobile(e.target.value)}
-                          placeholder="+91 98765 43210"
-                          className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 focus:border-slate-900 rounded-2xl font-bold text-slate-800 outline-none transition-all placeholder:text-slate-300"
-                          disabled={isLoading}
-                        />
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                      </div>
-                    </div>
-                  </>
+                  </div>
                 )}
 
                 <div className="space-y-2">
