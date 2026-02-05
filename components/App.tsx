@@ -19,7 +19,7 @@ import ResourceCenter from './ResourceCenter';
 import LecturetteTest from './LecturetteTest';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Helper Component for Progress Ring
@@ -179,6 +179,11 @@ const Dashboard: React.FC<{
       return { remaining: Math.max(0, total - used), total };
   };
 
+  const scrollToQuickActions = () => {
+      const el = document.getElementById('quick-deployment');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
     <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-20">
       
@@ -222,9 +227,9 @@ const Dashboard: React.FC<{
                {subscription?.tier === 'PRO' && <span className="px-3 py-1 bg-blue-600 text-white text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full flex items-center gap-2"><Crown size={12}/> Pro Cadet</span>}
                <span className="text-slate-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">Board Simulation v4.0</span>
              </div>
-             <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Do You Have It <br/><span className="text-yellow-400 italic font-serif">In You?</span></h1>
-             <p className="text-slate-400 text-sm md:text-lg leading-relaxed font-medium italic opacity-80">
-               "Victory favors the prepared. The SSB doesn't test your knowledge; it tests your personality, grit, and 15 Officer Like Qualities."
+             <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Master Your SSB <br/><span className="text-yellow-400">Interview with AI</span></h1>
+             <p className="text-slate-300 text-sm md:text-lg leading-relaxed font-medium opacity-90 max-w-2xl">
+               Practice exactly like real SSB with full detailed and personalised assessment with advanced AI.
              </p>
              
              {isLoggedIn ? (
@@ -236,21 +241,30 @@ const Dashboard: React.FC<{
                  >
                    {isLoading ? 'Syncing...' : (piqLoaded ? 'Start AI Interview' : 'Unlock Interview (Fill PIQ)')}
                  </button>
+                 
+                 <button 
+                    onClick={() => onStartTest(TestType.DAILY_PRACTICE)}
+                    className="flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 bg-blue-600/20 text-blue-300 border border-blue-500/30 backdrop-blur-sm rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-[11px] hover:bg-blue-600/40 transition-all flex items-center justify-center gap-3"
+                 >
+                    <Clock size={16} /> Daily Challenge
+                 </button>
                </div>
              ) : (
                <div className="pt-4 space-y-4">
                   <div className="flex flex-col md:flex-row gap-4 w-full">
                     <button onClick={() => onStartTest(TestType.REGISTER)} className="px-8 md:px-10 py-5 bg-yellow-400 text-black rounded-2xl font-black uppercase text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3">
-                        <UserPlus size={16} /> New User Sign Up
+                        <UserPlus size={16} /> Sign Up Now
                     </button>
                     <button onClick={() => onStartTest(TestType.LOGIN)} className="px-8 md:px-10 py-5 bg-white/5 text-white rounded-2xl font-black uppercase text-xs border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3">
                         <LogIn size={16} /> Login
                     </button>
                   </div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                     <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                     Experience platform in Guest Mode without login
-                  </p>
+                  <button 
+                    onClick={scrollToQuickActions}
+                    className="w-full md:w-auto px-6 py-3 bg-white/5 border border-white/10 text-slate-300 rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2 group backdrop-blur-sm"
+                  >
+                     <span>Explore as Guest</span> <ArrowDown size={14} className="group-hover:translate-y-1 transition-transform" />
+                  </button>
                </div>
              )}
 
@@ -272,7 +286,7 @@ const Dashboard: React.FC<{
              )}
            </div>
            <div className="hidden lg:flex flex-col gap-6 relative justify-center h-full">
-              {/* BRANDING HEADER - Added above quotes */}
+              {/* BRANDING HEADER */}
               <div className="w-full flex justify-end animate-in fade-in slide-in-from-right-8 duration-1000 delay-200">
                   <div className="flex items-center gap-4">
                       <div className="text-right">
@@ -396,8 +410,8 @@ const Dashboard: React.FC<{
             </div>
           )}
 
-          {/* QUICK ACTION GRID (Mobile Friendly) */}
-          <div className="space-y-4">
+          {/* QUICK ACTION GRID */}
+          <div className="space-y-4" id="quick-deployment">
              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter flex items-center gap-2">
                  <Zap className="text-yellow-500" /> Quick Deployment
              </h3>
@@ -406,7 +420,6 @@ const Dashboard: React.FC<{
                     <button
                         key={i}
                         onClick={() => {
-                            // Define guest allowed tests for quick actions
                             const guestAllowed = [
                                 TestType.INTERVIEW, TestType.PPDT, TestType.TAT, TestType.SDT, 
                                 TestType.WAT, TestType.SRT, TestType.RESOURCES, 
@@ -417,7 +430,6 @@ const Dashboard: React.FC<{
                             if (!isLoggedIn) {
                                 if (action.id === TestType.PIQ) { onStartTest(TestType.LOGIN); return; }
                                 
-                                // Guest Interview Warning
                                 if (action.id === TestType.INTERVIEW) {
                                     onShowGuestWarning();
                                     return;
@@ -431,7 +443,6 @@ const Dashboard: React.FC<{
                                 return;
                             }
                             
-                            // Logged in logic
                             if (action.id === TestType.INTERVIEW && !piqLoaded) {
                                 onStartTest(TestType.PIQ);
                                 return;
@@ -582,17 +593,9 @@ const App: React.FC = () => {
   const [user, setUser] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [piqData, setPiqData] = useState<PIQData | null>(null);
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentOpen, setPaymentOpen] = useState(false);
-  const [pendingPaymentIntent, setPendingPaymentIntent] = useState(false);
-  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
-  // Fixed state initialization type to match ResourceCenter props
-  const [resourceTab, setResourceTab] = useState<'GK' | 'GD' | 'INTERVIEW' | 'BLOG'>('GK');
-  const [showGuestInterviewWarning, setShowGuestInterviewWarning] = useState(false);
-
-  const isPIQComplete = (data: PIQData | null) => {
-      return !!(data?.name && data?.chestNo);
-  };
 
   useEffect(() => {
     const initAuth = async () => {
@@ -601,156 +604,192 @@ const App: React.FC = () => {
         setUser(sessionUser.id);
         setUserEmail(sessionUser.email || '');
         syncUserProfile(sessionUser);
-        
-        // Fetch Data Parallel
-        const [data, sub] = await Promise.all([
-            getUserData(sessionUser.id),
-            getUserSubscription(sessionUser.id)
-        ]);
-        
+        const data = await getUserData(sessionUser.id);
         if (data) setPiqData(data);
-        if (sub) setSubscription(sub);
+        const sub = await getUserSubscription(sessionUser.id);
+        setSubscription(sub);
       }
       setIsLoading(false);
     };
-    initAuth();
     
-    // Refresh subscription periodically or on focus could be added here
-    const unsubscribe = subscribeToAuthChanges((u: any) => {
+    initAuth();
+
+    const unsubscribe = subscribeToAuthChanges((u) => {
       if (u) {
         setUser(u.id);
         setUserEmail(u.email || '');
-        getUserData(u.id).then((d: PIQData | null) => d && setPiqData(d));
-        getUserSubscription(u.id).then((s) => setSubscription(s));
+        getUserData(u.id).then(d => d && setPiqData(d));
+        getUserSubscription(u.id).then(sub => setSubscription(sub));
       } else {
-        setUser(null); setUserEmail(null); setPiqData(null); setSubscription(null);
+        setUser(null);
+        setUserEmail(null);
+        setPiqData(null);
+        setSubscription(null);
       }
     });
-    return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
+    
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
   }, []);
 
   const handleLogin = (uid: string, email?: string) => {
-    setUser(uid); setUserEmail(email || '');
-    getUserData(uid).then((d: PIQData | null) => d && setPiqData(d));
-    getUserSubscription(uid).then((s) => setSubscription(s));
+    setUser(uid);
+    setUserEmail(email || '');
     setActiveTest(TestType.DASHBOARD);
-    if (pendingPaymentIntent) { setPaymentOpen(true); setPendingPaymentIntent(false); }
+    getUserData(uid).then(d => d && setPiqData(d));
+    getUserSubscription(uid).then(sub => setSubscription(sub));
+  };
+
+  const handleLogoutAction = async () => {
+    await logoutUser();
+    setUser(null);
+    setUserEmail(null);
+    setPiqData(null);
+    setSubscription(null);
+    setActiveTest(TestType.DASHBOARD);
   };
 
   const navigateTo = async (test: TestType, params?: any) => {
-     if ((test === TestType.LOGIN || test === TestType.REGISTER) && user) return; 
+     if (test === TestType.LOGIN && user) return; // Already logged in
      
-     // Handle params
-     if (params?.tab) setResourceTab(params.tab);
-
-     // Remove strict auth guard for trial tests
-     const protectedRoutes = [TestType.PIQ];
-     if (protectedRoutes.includes(test) && !user) { setActiveTest(TestType.LOGIN); return; }
-     
-     // Guest Warning for Interview
-     if (!user && test === TestType.INTERVIEW) {
-         setShowGuestInterviewWarning(true);
-         return;
-     }
-     
-     // Allow guest access to interview but force PIQ check for logged in users
-     if (user && test === TestType.INTERVIEW && !isPIQComplete(piqData)) { setActiveTest(TestType.PIQ); return; }
-     
-     if ((test === TestType.INTERVIEW || test === TestType.TAT) && user) {
+     if ((test === TestType.INTERVIEW || test === TestType.PPDT || test === TestType.TAT) && user) {
         const { allowed, message } = await checkLimit(user, test);
-        if (!allowed) { setPaymentOpen(true); return; }
+        if (!allowed) {
+            alert(message);
+            setPaymentOpen(true);
+            return;
+        }
      }
-     if (test === TestType.ADMIN && !isUserAdmin(userEmail)) return;
+     
+     // Admin check
+     if (test === TestType.ADMIN && !isUserAdmin(userEmail)) {
+        alert("Access Denied.");
+        return;
+     }
+
      setActiveTest(test);
   };
   
   const handleTestComplete = async (result: any) => {
       if (!user) return;
-      await saveTestAttempt(user, activeTest.toString(), result);
-      if (!result.isCustomAttempt) await incrementUsage(user, activeTest.toString());
-      // Refresh sub after usage
-      getUserSubscription(user).then((s) => setSubscription(s));
+      
+      // Save Attempt
+      let typeStr = activeTest.toString();
+      await saveTestAttempt(user, typeStr, result);
+      
+      // Increment Usage (Limits)
+      await incrementUsage(user, typeStr);
+      
+      // Refresh subscription to reflect new usage
+      const sub = await getUserSubscription(user);
+      setSubscription(sub);
+  };
+
+  const handleShowGuestWarning = () => {
+      if (window.confirm("This feature is restricted to registered candidates. Please login or create a free account to access the Virtual Interview Simulator.")) {
+          setActiveTest(TestType.LOGIN);
+      }
   };
 
   const renderContent = () => {
     switch (activeTest) {
-      case TestType.LOGIN: return <Login initialIsSignUp={false} onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
-      case TestType.REGISTER: return <Login initialIsSignUp={true} onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
-      case TestType.PIQ: return <PIQForm onSave={async (data: PIQData) => { if(user) { await saveUserData(user, data); setPiqData(data); setActiveTest(TestType.DASHBOARD); }}} initialData={piqData || undefined} />;
-      case TestType.PPDT: return <PPDTTest onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.TAT: return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.WAT: return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.SRT: return <PsychologyTest type={TestType.SRT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.SDT: return <PsychologyTest type={TestType.SDT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.INTERVIEW: return <Interview piqData={piqData || undefined} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.CONTACT: return <ContactForm piqData={piqData || undefined} />;
-      case TestType.STAGES: return <SSBStages />;
-      case TestType.AI_BOT: return <SSBBot />;
-      case TestType.ADMIN: return isUserAdmin(userEmail) ? <AdminPanel /> : null;
-      case TestType.TERMS:
-      case TestType.PRIVACY:
-      case TestType.REFUND: return <LegalPages type={activeTest} onBack={() => setActiveTest(TestType.DASHBOARD)} />;
-      case TestType.GUIDE: return <HowToUse onNavigate={setActiveTest} />;
-      case TestType.CURRENT_AFFAIRS: return <CurrentAffairs />;
-      case TestType.DAILY_PRACTICE: return <DailyPractice onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.RESOURCES: return <ResourceCenter initialTab={resourceTab} />;
-      case TestType.LECTURETTE: return <LecturetteTest />;
-      default: return <Dashboard 
+      case TestType.LOGIN:
+        return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
+      case TestType.REGISTER:
+        return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} initialIsSignUp={true} />;
+      case TestType.PIQ:
+        return <PIQForm onSave={async (data) => { 
+            if(user) {
+                await saveUserData(user, data); 
+                setPiqData(data); 
+                alert("PIQ Saved"); 
+                setActiveTest(TestType.DASHBOARD);
+            } else {
+                alert("Please login to save PIQ.");
+                setActiveTest(TestType.LOGIN);
+            }
+        }} initialData={piqData || undefined} />;
+      case TestType.PPDT:
+        return <PPDTTest onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.TAT:
+        return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.WAT:
+        return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.SRT:
+        return <PsychologyTest type={TestType.SRT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.SDT:
+        return <PsychologyTest type={TestType.SDT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.INTERVIEW:
+        return <Interview piqData={piqData || undefined} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.CONTACT:
+        return <ContactForm piqData={piqData || undefined} />;
+      case TestType.STAGES:
+        return <SSBStages />;
+      case TestType.AI_BOT:
+        return <SSBBot />;
+      case TestType.ADMIN:
+        return isUserAdmin(userEmail) ? <AdminPanel /> : <Dashboard 
             onStartTest={navigateTo} 
-            piqLoaded={isPIQComplete(piqData)} 
+            piqLoaded={!!piqData} 
             isLoggedIn={!!user} 
             isLoading={isLoading} 
-            user={user || ''} 
-            onOpenPayment={() => setPaymentOpen(true)} 
-            subscription={subscription} 
-            onShowGuestWarning={() => setShowGuestInterviewWarning(true)}
+            user={userEmail || ''}
+            onOpenPayment={() => setPaymentOpen(true)}
+            subscription={subscription}
+            onShowGuestWarning={handleShowGuestWarning}
+        />;
+      case TestType.TERMS:
+      case TestType.PRIVACY:
+      case TestType.REFUND:
+        return <LegalPages type={activeTest} onBack={() => setActiveTest(TestType.DASHBOARD)} />;
+      case TestType.HOW_TO_USE: // Assuming TestType.HOW_TO_USE might be added later, or mapped to GUIDE
+      case TestType.GUIDE:
+        return <HowToUse onNavigate={navigateTo} />;
+      case TestType.CURRENT_AFFAIRS:
+        return <CurrentAffairs />;
+      case TestType.DAILY_PRACTICE:
+        return <DailyPractice onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.RESOURCES:
+        return <ResourceCenter />;
+      case TestType.LECTURETTE:
+        return <LecturetteTest />;
+      default:
+        return <Dashboard 
+            onStartTest={navigateTo} 
+            piqLoaded={!!piqData} 
+            isLoggedIn={!!user} 
+            isLoading={isLoading} 
+            user={userEmail || ''}
+            onOpenPayment={() => setPaymentOpen(true)}
+            subscription={subscription}
+            onShowGuestWarning={handleShowGuestWarning}
         />;
     }
   };
 
   return (
-    <Layout activeTest={activeTest} onNavigate={navigateTo} onLogout={async () => { await logoutUser(); setUser(null); setActiveTest(TestType.DASHBOARD); }} onLogin={() => setActiveTest(TestType.LOGIN)} user={userEmail || undefined} isLoggedIn={!!user} isAdmin={isUserAdmin(userEmail)} subscription={subscription}>
+    <Layout 
+      activeTest={activeTest} 
+      onNavigate={navigateTo} 
+      onLogout={handleLogoutAction}
+      onLogin={() => setActiveTest(TestType.LOGIN)}
+      user={userEmail || undefined}
+      isLoggedIn={!!user}
+      isAdmin={isUserAdmin(userEmail)}
+      subscription={subscription}
+    >
       {renderContent()}
-      {user && <PaymentModal userId={user} isOpen={isPaymentOpen} onClose={() => setPaymentOpen(false)} onSuccess={() => { getUserSubscription(user).then(s => setSubscription(s)); }} />}
-      
-      {/* GUEST INTERVIEW WARNING MODAL (GLOBAL) */}
-      {showGuestInterviewWarning && (
-          <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-              <div className="bg-white p-8 rounded-[2.5rem] max-w-sm w-full shadow-2xl text-center space-y-6 animate-in zoom-in-95">
-                  <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto text-blue-600">
-                      <Mic size={32} />
-                  </div>
-                  <div>
-                      <h3 className="text-xl font-black text-slate-900 uppercase">Trial Interview Mode</h3>
-                      <p className="text-slate-500 text-xs font-medium mt-2 leading-relaxed">
-                          This is a <strong>5-minute demo</strong> session. The AI officer will not have access to your PIQ form.
-                      </p>
-                      <p className="text-slate-500 text-xs font-medium mt-2 leading-relaxed">
-                          For a complete 30-minute interview based on your specific background, please login.
-                      </p>
-                  </div>
-                  <div className="flex flex-col gap-3">
-                      <button 
-                        onClick={() => { setShowGuestInterviewWarning(false); navigateTo(TestType.LOGIN); }} 
-                        className="w-full py-4 bg-yellow-400 text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-yellow-300 transition-colors shadow-lg"
-                      >
-                          Login for Full Experience
-                      </button>
-                      <button 
-                        onClick={() => { setShowGuestInterviewWarning(false); setActiveTest(TestType.INTERVIEW); }} 
-                        className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors"
-                      >
-                          Continue as Guest
-                      </button>
-                  </div>
-                  <button 
-                    onClick={() => setShowGuestInterviewWarning(false)} 
-                    className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors p-2 bg-slate-50 rounded-full hover:bg-slate-100"
-                  >
-                      <X size={16} />
-                  </button>
-              </div>
-          </div>
+      {user && (
+        <PaymentModal 
+            userId={user} 
+            isOpen={isPaymentOpen} 
+            onClose={() => setPaymentOpen(false)} 
+            onSuccess={() => {
+                // Refresh subscription immediately after payment success
+                getUserSubscription(user).then(sub => setSubscription(sub));
+            }}
+        />
       )}
     </Layout>
   );
