@@ -410,7 +410,8 @@ const Dashboard: React.FC<{
                             const guestAllowed = [
                                 TestType.INTERVIEW, TestType.PPDT, TestType.TAT, TestType.SDT, 
                                 TestType.WAT, TestType.SRT, TestType.RESOURCES, 
-                                TestType.CURRENT_AFFAIRS, TestType.AI_BOT, TestType.LECTURETTE
+                                TestType.CURRENT_AFFAIRS, TestType.AI_BOT, TestType.LECTURETTE,
+                                TestType.DAILY_PRACTICE
                             ];
                             
                             if (!isLoggedIn) {
@@ -643,7 +644,7 @@ const App: React.FC = () => {
      if (params?.tab) setResourceTab(params.tab);
 
      // Remove strict auth guard for trial tests
-     const protectedRoutes = [TestType.PIQ, TestType.DAILY_PRACTICE];
+     const protectedRoutes = [TestType.PIQ];
      if (protectedRoutes.includes(test) && !user) { setActiveTest(TestType.LOGIN); return; }
      
      // Guest Warning for Interview
@@ -691,7 +692,7 @@ const App: React.FC = () => {
       case TestType.REFUND: return <LegalPages type={activeTest} onBack={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.GUIDE: return <HowToUse onNavigate={setActiveTest} />;
       case TestType.CURRENT_AFFAIRS: return <CurrentAffairs />;
-      case TestType.DAILY_PRACTICE: return <DailyPractice />;
+      case TestType.DAILY_PRACTICE: return <DailyPractice onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.RESOURCES: return <ResourceCenter initialTab={resourceTab} />;
       case TestType.LECTURETTE: return <LecturetteTest />;
       default: return <Dashboard 

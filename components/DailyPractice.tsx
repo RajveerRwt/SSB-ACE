@@ -3,7 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { Loader2, Send, MessageSquare, Clock, User, ImageIcon, FileText, Zap, PenTool, Flame, Trophy, Lock, Heart, Award, Medal, Star, CheckCircle, Mic, RefreshCw, AlertTriangle } from 'lucide-react';
 import { getLatestDailyChallenge, submitDailyEntry, getDailySubmissions, checkAuthSession, toggleLike, getUserStreak } from '../services/supabaseService';
 
-const DailyPractice: React.FC = () => {
+interface DailyPracticeProps {
+    onLoginRedirect?: () => void;
+}
+
+const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   const [challenge, setChallenge] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,8 +63,10 @@ const DailyPractice: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!challenge) return;
+    
     if (!user) {
-        alert("Please login to participate in daily discussion.");
+        if (onLoginRedirect) onLoginRedirect();
+        else alert("Please login to submit your entry.");
         return;
     }
     
@@ -259,14 +265,23 @@ const DailyPractice: React.FC = () => {
       </div>
 
       <div className="flex justify-center">
-          <button 
-              onClick={handleSubmit}
-              disabled={isSubmitting || hasSubmitted}
-              className="px-12 py-4 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-black transition-all shadow-xl disabled:opacity-50"
-          >
-              {isSubmitting ? <Loader2 className="animate-spin" /> : hasSubmitted ? <CheckCircle size={16} /> : <Send size={16} />} 
-              {hasSubmitted ? 'Already Submitted' : 'Submit Entry'}
-          </button>
+          {!user ? (
+              <button 
+                  onClick={onLoginRedirect}
+                  className="px-12 py-4 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-yellow-300 transition-all shadow-xl hover:-translate-y-1"
+              >
+                  <User size={16} /> Login to Submit
+              </button>
+          ) : (
+              <button 
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || hasSubmitted}
+                  className="px-12 py-4 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-black transition-all shadow-xl disabled:opacity-50"
+              >
+                  {isSubmitting ? <Loader2 className="animate-spin" /> : hasSubmitted ? <CheckCircle size={16} /> : <Send size={16} />} 
+                  {hasSubmitted ? 'Already Submitted' : 'Submit Entry'}
+              </button>
+          )}
       </div>
 
       {/* DISCUSSION FEED */}
