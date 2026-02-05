@@ -31,7 +31,7 @@ export const signInWithGoogle = async () => {
   });
 };
 
-export const signUpWithEmail = async (email: string, password: string, fullName: string) => {
+export const signUpWithEmail = async (email: string, password: string, fullName: string, mobile: string) => {
   const auth = supabase.auth as any;
   // Attempt registration (hybrid support)
   let result;
@@ -41,12 +41,15 @@ export const signUpWithEmail = async (email: string, password: string, fullName:
         email, 
         password,
         options: {
-          data: { full_name: fullName }
+          data: { 
+            full_name: fullName,
+            mobile_number: mobile 
+          }
         }
       });
   } else {
       // v1
-      const { user, session, error } = await auth.signUp({ email, password }, { data: { full_name: fullName } });
+      const { user, session, error } = await auth.signUp({ email, password }, { data: { full_name: fullName, mobile_number: mobile } });
       result = { data: { user, session }, error };
   }
   return result;
