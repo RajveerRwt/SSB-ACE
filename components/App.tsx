@@ -734,7 +734,7 @@ const App: React.FC = () => {
             piqLoaded={!!piqData} 
             isLoggedIn={!!user} 
             isLoading={isLoading} 
-            user={userEmail || ''}
+            user={user || ''}
             onOpenPayment={() => setPaymentOpen(true)}
             subscription={subscription}
             onShowGuestWarning={handleShowGuestWarning}
@@ -759,7 +759,7 @@ const App: React.FC = () => {
             piqLoaded={!!piqData} 
             isLoggedIn={!!user} 
             isLoading={isLoading} 
-            user={userEmail || ''}
+            user={user || ''}
             onOpenPayment={() => setPaymentOpen(true)}
             subscription={subscription}
             onShowGuestWarning={handleShowGuestWarning}
