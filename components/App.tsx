@@ -743,7 +743,6 @@ const App: React.FC = () => {
       case TestType.PRIVACY:
       case TestType.REFUND:
         return <LegalPages type={activeTest} onBack={() => setActiveTest(TestType.DASHBOARD)} />;
-      case TestType.HOW_TO_USE: // Assuming TestType.HOW_TO_USE might be added later, or mapped to GUIDE
       case TestType.GUIDE:
         return <HowToUse onNavigate={navigateTo} />;
       case TestType.CURRENT_AFFAIRS:
