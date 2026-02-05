@@ -17,6 +17,7 @@ import CurrentAffairs from './CurrentAffairs';
 import DailyPractice from './DailyPractice';
 import ResourceCenter from './ResourceCenter';
 import LecturetteTest from './LecturetteTest';
+import Footer from './Footer';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown } from 'lucide-react';
@@ -185,7 +186,7 @@ const Dashboard: React.FC<{
   };
 
   return (
-    <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-20">
+    <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-0">
       
       {/* PAYMENT STATUS BANNER */}
       {paymentStatus && paymentStatus.status === 'PENDING' && (
@@ -583,6 +584,8 @@ const Dashboard: React.FC<{
               </a>
           </div>
       </div>
+
+      <Footer onNavigate={onStartTest} />
 
     </div>
   );

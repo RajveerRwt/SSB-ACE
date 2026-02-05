@@ -298,40 +298,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                </button>
              )}
           </div>
-
-          <div className="p-4 text-[10px] text-slate-500 uppercase tracking-widest text-center shrink-0 border-t border-white/5 bg-black/40">
-            {/* Social Links */}
-            <div className="flex justify-center gap-3 mb-4">
-               <a 
-                 href="https://www.instagram.com/ssbprep.online?utm_source=qr&igsh=ZjdvdGdwZGo5OXBl" 
-                 target="_blank" 
-                 rel="noreferrer"
-                 className="p-2 bg-white/5 hover:bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-600 hover:text-white rounded-xl transition-all text-slate-400 group"
-                 title="Instagram"
-               >
-                 <Instagram size={18} />
-               </a>
-               <a 
-                 href="https://youtube.com/@ssbprep.online?si=616euo_H_rJ4wwFo" 
-                 target="_blank" 
-                 rel="noreferrer" 
-                 className="p-2 bg-white/5 hover:bg-red-600 hover:text-white rounded-xl transition-all text-slate-400"
-                 title="YouTube"
-               >
-                 <Youtube size={18} />
-               </a>
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mb-2">
-              <a href="/terms.html" className="hover:text-white transition-colors">Terms</a>
-              <a href="/privacy.html" className="hover:text-white transition-colors">Privacy</a>
-              <button onClick={() => handleNavClick(TestType.REFUND)} className="hover:text-white transition-colors">Refunds</button>
-            </div>
-            <p className="mb-2">© 2026 SSBPREP.ONLINE</p>
-            <p className="text-[8px] opacity-50 leading-relaxed normal-case border-t border-white/5 pt-2">
-                Not affiliated with Indian Army/Govt. "Major Veer" & "Col. Arjun Singh" are fictional AI personas for simulation only.
-            </p>
-          </div>
         </div>
       </aside>
 
