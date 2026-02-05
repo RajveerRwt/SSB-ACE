@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock, Tag, CreditCard, BookOpen } from 'lucide-react';
+import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock, Tag, CreditCard, BookOpen, ChevronRight } from 'lucide-react';
 import { processRazorpayTransaction, getLatestPaymentRequest, validateCoupon } from '../services/supabaseService';
 
 interface PaymentModalProps {
@@ -214,6 +214,28 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                       <p className="text-slate-500 text-xs font-medium">Select a plan to boost your SSB preparation.</p>
                   </div>
 
+                  {/* Interview Top-up - Moved to Top */}
+                  <div 
+                    onClick={() => initiatePayment(39, 'INTERVIEW_ADDON')}
+                    className="p-4 rounded-[1.5rem] border-2 border-blue-100 bg-blue-50/30 hover:border-blue-300 cursor-pointer transition-all hover:bg-blue-100/50 flex items-center justify-between gap-4 group"
+                  >
+                    <div className="flex items-center gap-4">
+                       <div className="bg-blue-600 text-white p-3 rounded-xl shadow-lg shadow-blue-500/20">
+                          <Smartphone size={20} />
+                       </div>
+                       <div>
+                           <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest">Interview Top-up</h4>
+                           <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Add 1 Extra Interview Credit</p>
+                       </div>
+                    </div>
+                    <div className="text-right flex items-center gap-3">
+                        <span className="text-xl font-black text-slate-900">₹39</span>
+                        <div className="bg-white p-1.5 rounded-full border border-slate-100 shadow-sm group-hover:scale-110 transition-transform">
+                            <ChevronRight size={14} className="text-slate-400" />
+                        </div>
+                    </div>
+                  </div>
+
                   {/* PRO PLAN - Full Width */}
                   <div 
                     onClick={() => initiatePayment(299, 'PRO_SUBSCRIPTION')}
@@ -237,35 +259,16 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                                   <li className="flex gap-2 items-center md:col-span-2 text-slate-800"><Star size={14} className="text-yellow-500 shrink-0" /> Detailed & Personalized Assessment</li>
                               </ul>
                           </div>
-                          <div className="text-right shrink-0 flex flex-col justify-between items-end">
+                          <div className="text-right shrink-0 flex flex-col justify-between items-end w-full md:w-auto mt-4 md:mt-0">
                               <div className="flex items-baseline gap-2 justify-end">
                                   <span className="text-sm font-bold text-slate-400 line-through">₹599</span>
                                   <span className="text-4xl font-black text-slate-900">₹299</span>
                               </div>
                               <button className="mt-4 px-8 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest group-hover:bg-black transition-colors w-full">
-                                  Select
+                                  Select Plan
                               </button>
                           </div>
                       </div>
-                  </div>
-
-                  {/* Interview Top-up */}
-                  <div 
-                    onClick={() => initiatePayment(39, 'INTERVIEW_ADDON')}
-                    className="p-4 rounded-[1.5rem] border-2 border-slate-100 hover:border-blue-300 cursor-pointer transition-all hover:bg-blue-50 flex items-center justify-between gap-4 group"
-                  >
-                    <div className="flex items-center gap-4">
-                       <div className="bg-blue-100 text-blue-600 p-3 rounded-xl">
-                          <Smartphone size={20} />
-                       </div>
-                       <div>
-                           <h4 className="font-black text-slate-700 uppercase text-xs tracking-widest">Interview Top-up</h4>
-                           <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Add 1 Extra Interview Credit</p>
-                       </div>
-                    </div>
-                    <div className="text-right">
-                        <span className="text-xl font-black text-slate-900">₹39</span>
-                    </div>
                   </div>
                </div>
              )}
