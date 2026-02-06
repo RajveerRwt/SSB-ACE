@@ -18,6 +18,7 @@ import DailyPractice from './DailyPractice';
 import ResourceCenter from './ResourceCenter';
 import LecturetteTest from './LecturetteTest';
 import Footer from './Footer';
+import WelcomeModal from './WelcomeModal';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from '../services/supabaseService';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown } from 'lucide-react';
@@ -599,18 +600,13 @@ const App: React.FC = () => {
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentOpen, setPaymentOpen] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
     const initAuth = async () => {
       const sessionUser = await checkAuthSession();
       if (sessionUser) {
-        setUser(sessionUser.id);
-        setUserEmail(sessionUser.email || '');
-        syncUserProfile(sessionUser);
-        const data = await getUserData(sessionUser.id);
-        if (data) setPiqData(data);
-        const sub = await getUserSubscription(sessionUser.id);
-        setSubscription(sub);
+        handleUserAuthenticated(sessionUser);
       }
       setIsLoading(false);
     };
@@ -619,10 +615,7 @@ const App: React.FC = () => {
 
     const unsubscribe = subscribeToAuthChanges((u) => {
       if (u) {
-        setUser(u.id);
-        setUserEmail(u.email || '');
-        getUserData(u.id).then(d => d && setPiqData(d));
-        getUserSubscription(u.id).then(sub => setSubscription(sub));
+        handleUserAuthenticated(u);
       } else {
         setUser(null);
         setUserEmail(null);
@@ -636,12 +629,42 @@ const App: React.FC = () => {
     };
   }, []);
 
+  const handleUserAuthenticated = async (u: any) => {
+      setUser(u.id);
+      setUserEmail(u.email || '');
+      
+      // Load user specific data
+      getUserData(u.id).then(d => d && setPiqData(d));
+      getUserSubscription(u.id).then(sub => setSubscription(sub));
+      
+      // Check for first-time welcome
+      const hasSeenWelcome = localStorage.getItem(`ssb_welcome_seen_${u.id}`);
+      if (!hasSeenWelcome) {
+          setShowWelcome(true);
+      }
+  };
+
+  const handleWelcomeClose = () => {
+      if (user) {
+          localStorage.setItem(`ssb_welcome_seen_${user}`, 'true');
+      }
+      setShowWelcome(false);
+  };
+
   const handleLogin = (uid: string, email?: string) => {
+    // This is called from Login component, but auth state change listener usually handles it too.
+    // We update state here for immediate UI feedback.
     setUser(uid);
     setUserEmail(email || '');
     setActiveTest(TestType.DASHBOARD);
+    
     getUserData(uid).then(d => d && setPiqData(d));
     getUserSubscription(uid).then(sub => setSubscription(sub));
+    
+    const hasSeenWelcome = localStorage.getItem(`ssb_welcome_seen_${uid}`);
+    if (!hasSeenWelcome) {
+        setShowWelcome(true);
+    }
   };
 
   const handleLogoutAction = async () => {
@@ -783,15 +806,21 @@ const App: React.FC = () => {
     >
       {renderContent()}
       {user && (
-        <PaymentModal 
-            userId={user} 
-            isOpen={isPaymentOpen} 
-            onClose={() => setPaymentOpen(false)} 
-            onSuccess={() => {
-                // Refresh subscription immediately after payment success
-                getUserSubscription(user).then(sub => setSubscription(sub));
-            }}
-        />
+        <>
+            <PaymentModal 
+                userId={user} 
+                isOpen={isPaymentOpen} 
+                onClose={() => setPaymentOpen(false)} 
+                onSuccess={() => {
+                    // Refresh subscription immediately after payment success
+                    getUserSubscription(user).then(sub => setSubscription(sub));
+                }}
+            />
+            <WelcomeModal 
+                isOpen={showWelcome} 
+                onClose={handleWelcomeClose} 
+            />
+        </>
       )}
     </Layout>
   );
