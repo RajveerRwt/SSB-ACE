@@ -155,16 +155,66 @@ const ResourceCenter: React.FC<ResourceCenterProps> = ({ initialTab = 'GK' }) =>
   ];
 
   const GD_TOPICS = [
-      { title: "Impact of Social Media on Youth", category: "Social" },
-      { title: "Agnipath Scheme: Pros & Cons", category: "Defense" },
-      { title: "India's Role in Global Geopolitics", category: "International" },
-      { title: "Electric Vehicles: Future of Transport", category: "Technology" },
-      { title: "Women Empowerment in India", category: "Social" },
-      { title: "Artificial Intelligence: Boon or Bane", category: "Tech" },
-      { title: "One Nation One Election", category: "Political" },
-      { title: "Uniform Civil Code", category: "Legal" },
-      { title: "Privatization of PSUs", category: "Economy" },
-      { title: "India-China Relations", category: "International" },
+      {
+          title: "Challenges to Development",
+          description: "India faces a lot of challenges in its progress towards becoming a prosperous and secure nation. In your opinion, what is the biggest challenge for our development?",
+          category: "National",
+          leads: ["Caste and Religious Differences", "Rampant Corruption", "Population Explosion"]
+      },
+      {
+          title: "Benefits of Space Exploration",
+          description: "India has been in the forefront of space exploration in the recent times. In your opinion, what will be most significant benefit of space exploration?",
+          category: "Sci-Tech",
+          leads: ["Foreign Relations", "Military Applications", "Economic Growth"]
+      },
+      {
+          title: "Rising Unemployment",
+          description: "Unemployment is one of the major problems faced by the youth of our country. In your opinion, what is the main reason for increasing unemployment?",
+          category: "Economy",
+          leads: ["Increasing Privatisation", "Poor Education Policies", "Technological Advancements"]
+      },
+      {
+          title: "Ukraine-Russia War Gains",
+          description: "Although wars are not good, the war between Ukraine and Russia may prove to be beneficial for some countries. In your opinion, which country stands to gain the most due to this conflict?",
+          category: "International",
+          leads: ["China", "India", "USA"]
+      },
+      {
+          title: "Impact of Social Media",
+          description: "Social Media usage has been rapidly increasing over the last few years. In your opinion, what is the most adverse effect due to increasing social media?",
+          category: "Social",
+          leads: ["National Security", "Cyber Crimes", "Social Problems"]
+      },
+      {
+          title: "MNCs in India",
+          description: "Multinational companies have shown a lot of interest in India over the last few years. In your opinion, what is the main reason for their interest in our country?",
+          category: "Economy",
+          leads: ["Geographical Location", "Human Resources", "Transparent Democracy"]
+      },
+      {
+          title: "Urban Hygiene Issues",
+          description: "The unhygienic living conditions in our cities causes many health issues to its residents. In your opinion, what is the main reason for such conditions?",
+          category: "Social",
+          leads: ["Lack of Civic Sense", "Inefficient Administration", "Population Explosion"]
+      },
+      {
+          title: "Water Scarcity",
+          description: "Water bodies are reducing at a rapid pace leading to water scarcity in our cities. In your opinion, what is the main reason for this problem?",
+          category: "Environment",
+          leads: ["Rapid Industrialisation", "Population Explosion", "Rampant Corruption"]
+      },
+      {
+          title: "Economic Sector Incentives",
+          description: "For balanced growth a few sectors of our economy need more attention as compared to others. In your opinion, which sector requires additional incentives?",
+          category: "Economy",
+          leads: ["Agriculture Sector", "Tourism Sector", "Manufacturing Sector"]
+      },
+      {
+          title: "Study Abroad Trends",
+          description: "A lot of students from our country travel abroad for their higher education. In your opinion, why do some students prefer higher education from foreign countries?",
+          category: "Education",
+          leads: ["Better Opportunities", "Quality of Education", "To Migrate Abroad"]
+      }
   ];
 
   const INTERVIEW_QUESTIONS = [
@@ -369,18 +419,36 @@ const ResourceCenter: React.FC<ResourceCenterProps> = ({ initialTab = 'GK' }) =>
           {activeTab === 'GD' && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                   <div className="text-center space-y-2 mb-8">
-                      <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Trending GD Topics</h3>
-                      <p className="text-slate-500 text-xs font-bold">Group Discussion topics frequently appearing in SSB.</p>
+                      <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Trending GD Topics (2025-26)</h3>
+                      <p className="text-slate-500 text-xs font-bold">Standard Group Discussion topics with leads as per SSB procedure.</p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {GD_TOPICS.map((topic, i) => (
-                          <div key={i} className="flex items-center gap-4 p-5 bg-white border border-slate-200 rounded-2xl hover:border-slate-400 transition-all shadow-sm">
-                              <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 font-black text-sm shrink-0">
-                                  <Users size={20} />
+                          <div key={i} className="flex flex-col gap-4 p-6 bg-white border border-slate-200 rounded-[2rem] hover:border-slate-400 transition-all shadow-sm hover:shadow-lg h-full">
+                              <div className="flex justify-between items-start gap-4">
+                                  <div className="flex items-center gap-3">
+                                      <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 font-black text-sm shrink-0">
+                                          {i + 1}
+                                      </div>
+                                      <h5 className="font-bold text-slate-900 text-sm leading-tight">{topic.title}</h5>
+                                  </div>
+                                  <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest shrink-0">{topic.category}</span>
                               </div>
-                              <div>
-                                  <h5 className="font-bold text-slate-900 text-sm">{topic.title}</h5>
-                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{topic.category}</span>
+                              
+                              <p className="text-sm font-medium text-slate-700 leading-relaxed italic bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                  "{topic.description}"
+                              </p>
+
+                              <div className="mt-auto pt-4 border-t border-slate-100">
+                                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-3">Discuss the main reason / Impact:</p>
+                                  <div className="space-y-2">
+                                      {topic.leads.map((lead, idx) => (
+                                          <div key={idx} className="flex items-center gap-3">
+                                              <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">{idx + 1}</div>
+                                              <span className="text-xs font-bold text-slate-800">{lead}</span>
+                                          </div>
+                                      ))}
+                                  </div>
                               </div>
                           </div>
                       ))}
