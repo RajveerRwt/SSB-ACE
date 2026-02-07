@@ -180,6 +180,7 @@ export const getUserHistory = async (userId: string) => {
       type: item.test_type,
       timestamp: item.created_at,
       score: item.score,
+      status: item.status || 'COMPLETED', // Added status support
       result: item.result_data
   })) || [];
 };
@@ -193,15 +194,57 @@ export const getUserStreak = async (userId: string) => {
   return data || { streak_count: 0 };
 };
 
-export const saveTestAttempt = async (userId: string, testType: string, resultData: any) => {
-  await supabase
+// MODIFIED: Support for status (PENDING/COMPLETED) and return the ID
+export const saveTestAttempt = async (userId: string, testType: string, resultData: any, status: string = 'COMPLETED') => {
+  const { data, error } = await supabase
     .from('test_history')
     .insert({
         user_id: userId,
         test_type: testType,
         score: resultData.score || 0,
-        result_data: resultData
-    });
+        result_data: resultData,
+        status: status
+    })
+    .select('id')
+    .single();
+    
+  if (error) console.error("Save Attempt Error:", error);
+  return data?.id;
+};
+
+// NEW: Update test result after async processing
+export const updateTestResult = async (testId: string, resultData: any, status: string = 'COMPLETED') => {
+    const { error } = await supabase
+        .from('test_history')
+        .update({
+            score: resultData.score || 0,
+            result_data: resultData,
+            status: status
+        })
+        .eq('id', testId);
+    
+    if (error) console.error("Update Result Error:", error);
+};
+
+// NEW: Subscribe to specific test result updates
+export const subscribeToTestResult = (testId: string, callback: (payload: any) => void) => {
+    const channel = supabase
+        .channel(`test_result_${testId}`)
+        .on(
+            'postgres_changes',
+            {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'test_history',
+                filter: `id=eq.${testId}`
+            },
+            (payload) => {
+                callback(payload.new);
+            }
+        )
+        .subscribe();
+        
+    return () => { supabase.removeChannel(channel); };
 };
 
 export const getAllUsers = async () => {
