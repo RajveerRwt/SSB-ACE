@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star, Camera, LogIn, Mic, ArrowRight } from 'lucide-react';
+import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star, Camera, LogIn } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
-import { getPPDTScenarios, getUserSubscription, checkLimit, saveTestAttempt, updateTestResult, subscribeToTestResult } from '../services/supabaseService';
+import { getPPDTScenarios, getUserSubscription, checkLimit } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
 import CameraModal from './CameraModal';
 import SessionFeedback from './SessionFeedback';
@@ -17,7 +17,6 @@ enum PPDTStep {
   UPLOAD_GRACE_PERIOD,
   STORY_SUBMITTED,
   NARRATION,
-  PROCESSING,
   FINISHED
 }
 
@@ -48,9 +47,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
   const [showScoreHelp, setShowScoreHelp] = useState(false);
   const [verifyingLimit, setVerifyingLimit] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  
-  // Async processing state
-  const [testId, setTestId] = useState<string | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +55,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isRecordingRef = useRef(false);
 
+  // ... (Audio Init, Buzzer, Start Logic - No changes needed here) ...
   const initAudio = () => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -137,10 +134,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
 
   const startTestSequence = async () => {
     initAudio();
-    setFeedback(null);
-    setNarrationText('');
-    setStory('');
-    setUploadedImageBase64(null);
     
     if (customStimulus) {
         setCurrentImageUrl(customStimulus);
@@ -206,7 +199,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
 
     if (timeLeft > 0 && (isTimedPhase || isNarrationTimed)) {
       timerRef.current = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-    } else if (timeLeft === 0 && !isTranscribing && step !== PPDTStep.IDLE && step !== PPDTStep.FINISHED && step !== PPDTStep.STORY_SUBMITTED && step !== PPDTStep.LOADING_IMAGE && step !== PPDTStep.INSTRUCTIONS && step !== PPDTStep.UPLOAD_GRACE_PERIOD && step !== PPDTStep.PROCESSING) {
+    } else if (timeLeft === 0 && !isTranscribing && step !== PPDTStep.IDLE && step !== PPDTStep.FINISHED && step !== PPDTStep.STORY_SUBMITTED && step !== PPDTStep.LOADING_IMAGE && step !== PPDTStep.INSTRUCTIONS && step !== PPDTStep.UPLOAD_GRACE_PERIOD) {
       if (step === PPDTStep.IMAGE) {
         triggerBuzzer();
         setStep(PPDTStep.CHARACTER_MARKING);
@@ -282,7 +275,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
     isRecordingRef.current = false;
     setIsRecording(false);
     if (recognitionRef.current) recognitionRef.current.stop();
-    // Auto submit or wait for user? Let's wait for user to click submit in narration phase
+    finishTest();
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -313,94 +306,49 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
     setIsTranscribing(false);
   };
 
-  // ASYNC SUBMISSION LOGIC
-  const submitForProcessing = async () => {
-    setStep(PPDTStep.PROCESSING);
-    
-    // Prepare Data
-    let stimulusBase64 = null;
-    if (currentImageUrl) {
-        if (currentImageUrl.startsWith('data:')) {
-            stimulusBase64 = currentImageUrl.split(',')[1];
-        } else {
-            try {
-                const response = await fetch(currentImageUrl);
-                const blob = await response.blob();
-                stimulusBase64 = await new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-                    reader.readAsDataURL(blob);
-                });
-            } catch (err) { console.warn("Failed to fetch stimulus:", err); }
-        }
-    }
+  const finishTest = async () => {
+    setStep(PPDTStep.FINISHED);
+    setIsLoading(true);
+    try {
+      let stimulusBase64 = null;
+      if (currentImageUrl) {
+          if (currentImageUrl.startsWith('data:')) {
+              stimulusBase64 = currentImageUrl.split(',')[1];
+          } else {
+              try {
+                  const response = await fetch(currentImageUrl);
+                  const blob = await response.blob();
+                  stimulusBase64 = await new Promise<string>((resolve) => {
+                      const reader = new FileReader();
+                      reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+                      reader.readAsDataURL(blob);
+                  });
+              } catch (err) { console.warn("Failed to fetch stimulus:", err); }
+          }
+      }
 
-    const payload = { 
+      const result = await evaluatePerformance('PPDT Screening Board (Stage-1)', { 
         story, 
         narration: narrationText,
         visualStimulusProvided: imageDescription,
         uploadedStoryImage: uploadedImageBase64,
         stimulusImage: stimulusBase64 
-    };
-
-    // 1. Save Initial Attempt (PENDING)
-    let savedId = null;
-    if (userId && !isGuest) {
-        try {
-            savedId = await saveTestAttempt(userId, 'PPDT Screening Board (Stage-1)', payload, 'PENDING');
-            if (savedId) setTestId(savedId);
-        } catch(e) {
-            console.error("DB Save Failed", e);
-        }
+      });
+      setFeedback(result);
+      
+      // Pass isCustomAttempt flag to prevent usage increment in App.tsx
+      if (onSave && !isGuest) onSave({ ...result, uploadedStoryImage: uploadedImageBase64, isCustomAttempt: !!customStimulus });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
     }
-
-    // 2. Trigger Async Processing (Fire and Forget from UI perspective)
-    processAsyncEvaluation(payload, savedId);
   };
-
-  const processAsyncEvaluation = async (payload: any, savedTestId: string | null) => {
-      try {
-          const result = await evaluatePerformance('PPDT Screening Board (Stage-1)', payload);
-          setFeedback(result);
-          
-          if (savedTestId) {
-              await updateTestResult(savedTestId, result, 'COMPLETED');
-          }
-          
-          // Notify Parent Component (App.tsx)
-          if (onSave && !isGuest) {
-              onSave({ 
-                  ...result, 
-                  uploadedStoryImage: payload.uploadedStoryImage, 
-                  isCustomAttempt: !!customStimulus 
-              });
-          }
-          
-          // Update UI
-          setStep(PPDTStep.FINISHED);
-      } catch (e) {
-          console.error("Eval Error:", e);
-          // Stay on Processing or show Retry
-          setStep(PPDTStep.FINISHED); // Fallback to finished state with empty feedback or handle error
-      }
-  };
-
-  // Subscribe to DB updates if we have an ID (Backup for when background worker updates it)
-  useEffect(() => {
-      if (testId && step === PPDTStep.PROCESSING) {
-          const unsubscribe = subscribeToTestResult(testId, (newRecord) => {
-              if (newRecord.status === 'COMPLETED' && newRecord.result_data) {
-                  setFeedback(newRecord.result_data);
-                  setStep(PPDTStep.FINISHED);
-              }
-          });
-          return () => unsubscribe();
-      }
-  }, [testId, step]);
 
   // Render logic...
   const renderContent = () => {
     switch (step) {
+      // ... (Previous steps remain the same) ...
       case PPDTStep.IDLE:
         return (
           <div className="max-w-4xl mx-auto text-center py-20 md:py-28 space-y-12 animate-in fade-in zoom-in duration-500">
@@ -535,271 +483,362 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
          const isTimeUp = step === PPDTStep.UPLOAD_GRACE_PERIOD;
          return (
             <div className="max-w-7xl mx-auto space-y-6 md:space-y-10">
-                {/* Header */}
+                {/* ... (Existing Content for WRITING phase) ... */}
                 <div className="flex justify-between items-end border-b pb-4 md:pb-6 border-slate-100">
-                    <div>
-                        <h3 className="text-2xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter">Story Writing Phase</h3>
-                        <p className="text-slate-400 text-[10px] md:text-sm font-bold uppercase tracking-widest mt-2 underline decoration-blue-500 underline-offset-4 decoration-2">Write on paper & Include the Character Box</p>
+                <div>
+                    <h3 className="text-2xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter">Story Writing Phase</h3>
+                    <p className="text-slate-400 text-[10px] md:text-sm font-bold uppercase tracking-widest mt-2 underline decoration-blue-500 underline-offset-4 decoration-2">Write on paper & Include the Character Box</p>
+                </div>
+                <div className={`px-6 py-3 md:px-10 md:py-5 rounded-[1.5rem] md:rounded-[2rem] font-mono font-black text-2xl md:text-4xl border-4 transition-all ${timeLeft < 30 || isTimeUp ? 'bg-red-50 border-red-500 text-red-600 animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.2)]' : 'bg-slate-900 border-slate-800 text-white'}`}>
+                    {isTimeUp ? "TIME UP" : `${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')}`}
+                </div>
+                </div>
+
+                <div className="space-y-6 md:space-y-8">
+                {isTimeUp && (
+                    <div className="bg-red-600 text-white p-6 rounded-2xl text-center font-black uppercase tracking-[0.2em] shadow-xl animate-pulse flex items-center justify-center gap-3">
+                    <AlertCircle size={24} />
+                    <span>Pen Down! Scan & Upload Your Answer Sheet Now.</span>
                     </div>
-                    <div className={`px-6 py-3 md:px-10 md:py-5 rounded-[1.5rem] md:rounded-[2rem] font-mono font-black text-2xl md:text-4xl border-4 transition-all ${timeLeft < 30 || isTimeUp ? 'bg-red-50 border-red-500 text-red-600 animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.4)]' : 'bg-slate-900 border-slate-900 text-white shadow-xl'}`}>
-                        <div className="flex items-center gap-3 md:gap-4">
-                            <Timer className="w-6 h-6 md:w-8 md:h-8" />
-                            {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                )}
+                
+                {ocrError && (
+                    <div className="bg-yellow-50 text-yellow-800 p-4 rounded-xl border border-yellow-200 text-xs font-bold flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                        <AlertCircle size={18} className="shrink-0" />
+                        <span>{ocrError}</span>
+                    </div>
+                )}
+
+                <div className={`grid ${uploadedImageBase64 ? 'grid-cols-1 lg:grid-cols-2 gap-6' : 'grid-cols-1'}`}>
+                    {uploadedImageBase64 && (
+                        <div className="relative rounded-[2.5rem] overflow-hidden border-4 border-slate-100 bg-slate-50 min-h-[300px] lg:h-auto shadow-inner flex items-center justify-center group">
+                            <img src={`data:image/jpeg;base64,${uploadedImageBase64}`} className="w-full h-full object-contain p-4 transition-transform group-hover:scale-105" alt="Uploaded Answer" />
+                            <div className="absolute top-4 left-4 bg-slate-900/80 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md flex items-center gap-2">
+                            <ImageIcon size={12} /> Original Scan
+                            </div>
                         </div>
+                    )}
+
+                    <div className="relative flex flex-col h-full">
+                        {uploadedImageBase64 && (
+                        <div className="flex items-center gap-2 mb-2 text-blue-600 px-2">
+                            <Edit3 size={14} />
+                            <p className="text-[10px] font-black uppercase tracking-widest">Digital Transcript (Review & Edit)</p>
+                        </div>
+                        )}
+                        <textarea 
+                        value={story}
+                        onChange={(e) => setStory(e.target.value)}
+                        disabled={isTranscribing || (isTimeUp && !uploadedImageBase64)}
+                        placeholder={uploadedImageBase64 ? "Review and edit the AI transcription here..." : "Your story will appear here automatically once you upload your paper image..."}
+                        className={`w-full ${uploadedImageBase64 ? 'h-[400px]' : 'h-[400px] md:h-[500px]'} p-6 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-100 focus:border-slate-900 outline-none transition-all text-lg leading-relaxed shadow-xl bg-white font-medium ${isTranscribing || (isTimeUp && !uploadedImageBase64) ? 'opacity-50 blur-[1px]' : ''}`}
+                        />
+                        {isTranscribing && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-xl rounded-[2.5rem] md:rounded-[3.5rem] z-10">
+                            <Loader2 className="w-12 h-12 md:w-16 md:h-16 text-slate-900 animate-spin mb-6" />
+                            <p className="text-slate-900 font-black uppercase tracking-[0.4em] text-xs">AI OCR: Reading Handwriting...</p>
+                        </div>
+                        )}
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Paper Upload Section */}
-                    <div className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-xl flex flex-col justify-between">
-                       <div className="space-y-4">
-                           <div className="flex items-center gap-3 text-blue-600">
-                               <div className="p-3 bg-blue-50 rounded-xl"><Upload size={24} /></div>
-                               <h4 className="font-black text-lg md:text-xl uppercase tracking-tight">Upload Handwritten Story</h4>
-                           </div>
-                           <p className="text-xs md:text-sm text-slate-500 font-medium leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                               Prefer writing on paper? Take a clear photo. AI will attempt to transcribe it.
-                           </p>
-                           {ocrError && <div className="text-red-500 text-xs font-bold bg-red-50 p-3 rounded-xl flex items-center gap-2"><AlertCircle size={14}/> {ocrError}</div>}
-                       </div>
-                       
-                       <div className="mt-6 md:mt-8">
-                           {uploadedImageBase64 ? (
-                               <div className="relative rounded-2xl overflow-hidden aspect-video border-2 border-green-500 group">
-                                   <img src={`data:image/jpeg;base64,${uploadedImageBase64}`} className="w-full h-full object-cover" alt="Uploaded Story" />
-                                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                       <button onClick={() => { setUploadedImageBase64(null); setStory(''); }} className="bg-red-600 text-white px-6 py-3 rounded-full font-black uppercase text-xs flex items-center gap-2"><X size={14} /> Remove</button>
-                                   </div>
-                                   <div className="absolute top-2 right-2 bg-green-500 text-white p-2 rounded-full shadow-lg"><CheckCircle size={16} /></div>
-                               </div>
-                           ) : (
-                               <div className="flex flex-col gap-3">
-                                   <button onClick={() => fileInputRef.current?.click()} disabled={isTranscribing} className="w-full h-32 md:h-40 border-2 border-dashed border-slate-300 rounded-3xl flex flex-col items-center justify-center gap-3 text-slate-400 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-all group">
-                                       {isTranscribing ? <Loader2 className="animate-spin w-8 h-8" /> : <Camera className="w-8 h-8 md:w-10 md:h-10 group-hover:scale-110 transition-transform" />}
-                                       <span className="font-black uppercase tracking-widest text-xs md:text-sm">Tap to Upload / Camera</span>
-                                   </button>
-                                   <button onClick={() => setShowCamera(true)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2"><Camera size={16} /> Use Web Camera</button>
-                                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                               </div>
-                           )}
-                       </div>
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 justify-between items-center bg-white p-6 rounded-[2.5rem] border-2 border-slate-50 shadow-lg">
+                    <div className="flex gap-4 w-full md:w-auto">
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                    <button onClick={() => fileInputRef.current?.click()} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-8 md:px-10 py-4 md:py-5 bg-blue-600 text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl">
+                        <Upload className="w-4 h-4" /> {uploadedImageBase64 ? 'Re-Upload File' : 'Upload File'}
+                    </button>
+                    <button onClick={() => setShowCamera(true)} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-8 md:px-10 py-4 md:py-5 bg-slate-900 text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl">
+                        <Camera className="w-4 h-4" /> Use Camera
+                    </button>
                     </div>
-
-                    {/* Text Area Section */}
-                    <div className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-xl flex flex-col h-full">
-                       <div className="flex items-center gap-3 text-slate-900 mb-4">
-                           <div className="p-3 bg-slate-100 rounded-xl"><FileText size={24} /></div>
-                           <h4 className="font-black text-lg md:text-xl uppercase tracking-tight">Or Type Story</h4>
-                       </div>
-                       <textarea 
-                           value={story}
-                           onChange={(e) => setStory(e.target.value)}
-                           placeholder="Type your story here if not uploading image..."
-                           className="flex-1 w-full p-6 bg-slate-50 border border-slate-200 rounded-3xl resize-none outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all font-medium text-slate-700 text-sm md:text-base leading-relaxed"
-                       />
-                    </div>
-                </div>
-
-                <div className="flex justify-center pt-4 md:pt-8">
                     <button 
-                        onClick={() => { setStep(PPDTStep.NARRATION); setTimeLeft(60); }}
-                        className="px-12 md:px-16 py-5 md:py-6 bg-green-600 text-white rounded-full font-black uppercase tracking-widest text-xs md:text-sm shadow-xl hover:bg-green-700 hover:scale-105 transition-all flex items-center gap-3"
+                    onClick={() => { triggerBuzzer(); setStep(PPDTStep.STORY_SUBMITTED); }}
+                    disabled={!story.trim() || isTranscribing}
+                    className="w-full md:w-auto px-12 md:px-16 py-4 md:py-5 bg-green-600 text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-green-700 transition-all shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-30"
                     >
-                        Submit & Proceed to Narration <ArrowRight size={18} />
+                    Confirm Submission
                     </button>
                 </div>
-                <CameraModal isOpen={showCamera} onClose={() => setShowCamera(false)} onCapture={(base64) => processImage(base64)} />
+                </div>
+                
+                {/* Camera Modal Integration */}
+                <CameraModal 
+                    isOpen={showCamera} 
+                    onClose={() => setShowCamera(false)} 
+                    onCapture={(base64) => processImage(base64)}
+                />
             </div>
          );
 
       case PPDTStep.STORY_SUBMITTED:
-         return null;
+        return (
+            <div className="max-w-3xl mx-auto text-center py-16 md:py-24 space-y-8 md:space-y-12">
+                <div className="w-20 h-20 md:w-28 md:h-28 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 md:mb-8 shadow-inner border-2 border-green-100 animate-bounce">
+                <CheckCircle className="w-10 h-10 md:w-14 md:h-14" />
+                </div>
+                <h3 className="text-3xl md:text-5xl font-black text-slate-900 uppercase tracking-tighter">Story Logged</h3>
+                <p className="text-slate-500 font-medium text-lg md:text-xl leading-relaxed italic px-4 md:px-12">
+                "Gentleman, you have finished your writing. Prepare for individual narration. Keep your voice firm and head high."
+                </p>
+                <button 
+                onClick={() => { setStep(PPDTStep.NARRATION); setTimeLeft(60); }}
+                className="px-16 md:px-20 py-5 md:py-6 bg-blue-600 text-white rounded-full font-black uppercase tracking-widest text-xs md:text-sm hover:bg-blue-700 transition-all shadow-[0_20px_40px_rgba(37,99,235,0.3)] hover:-translate-y-1"
+                >
+                Begin Narration (1 Min)
+                </button>
+            </div>
+        );
 
       case PPDTStep.NARRATION:
-         return (
-            <div className="max-w-4xl mx-auto py-12 md:py-20 text-center space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-500">
-               <div className="space-y-4">
-                   <div className="inline-flex items-center gap-3 px-6 py-2 bg-slate-100 rounded-full text-slate-600 font-black uppercase text-xs tracking-widest">
-                       <Mic size={14} /> Narration Phase
-                   </div>
-                   <h3 className="text-4xl md:text-6xl font-black text-slate-900 uppercase tracking-tighter">Speak Your Story</h3>
-                   <p className="text-slate-500 font-medium text-lg md:text-xl max-w-2xl mx-auto">
-                       You have 1 minute. Be confident, clear, and concise. Click the mic to start.
-                   </p>
-               </div>
-
-               <div className="relative w-48 h-48 md:w-64 md:h-64 mx-auto">
-                   {/* Ripple Effect */}
-                   {isRecording && (
-                       <>
-                           <div className="absolute inset-0 bg-red-500/20 rounded-full animate-ping" />
-                           <div className="absolute inset-4 bg-red-500/30 rounded-full animate-ping animation-delay-300" />
-                       </>
-                   )}
-                   <button 
-                       onClick={isRecording ? stopNarration : startNarration}
-                       className={`relative z-10 w-full h-full rounded-full flex flex-col items-center justify-center border-8 transition-all shadow-2xl group ${isRecording ? 'bg-red-600 border-red-200 scale-110' : 'bg-slate-900 border-slate-100 hover:bg-slate-800 hover:scale-105'}`}
-                   >
-                       {isRecording ? <MicOff size={64} className="text-white mb-2" /> : <Mic size={64} className="text-white mb-2" />}
-                       <span className="text-white font-black uppercase tracking-widest text-xs md:text-sm">
-                           {isRecording ? 'Stop Recording' : 'Start Recording'}
-                       </span>
-                   </button>
-               </div>
-
-               {isRecording && (
-                   <div className="text-4xl md:text-6xl font-mono font-black text-slate-900 tabular-nums">
-                       {timeLeft}s
-                   </div>
-               )}
-
-               <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-xl max-w-2xl mx-auto text-left relative overflow-hidden">
-                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
-                   <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-3">Live Transcript</p>
-                   <p className="text-slate-700 font-medium text-lg leading-relaxed min-h-[100px]">
-                       {narrationText || <span className="text-slate-300 italic">Listening...</span>}
-                   </p>
-                   {transcriptionError && <p className="text-red-500 text-xs font-bold mt-2">{transcriptionError}</p>}
-               </div>
-
-               {!isRecording && narrationText && (
-                   <button onClick={submitForProcessing} className="px-12 py-5 bg-green-600 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-green-700 shadow-xl transition-all">
-                       Submit Assessment
-                   </button>
-               )}
+        return (
+            <div className="max-w-4xl mx-auto text-center py-8 md:py-12 space-y-8 md:space-y-12">
+            <div className={`relative w-32 h-32 md:w-48 md:h-48 rounded-full flex items-center justify-center mx-auto transition-all duration-700 border-8 ${isRecording ? 'bg-red-50 border-red-500 scale-110 shadow-[0_0_80px_rgba(239,68,68,0.4)] ring-8 ring-red-500/10' : 'bg-slate-50 border-slate-200 shadow-inner'}`}>
+                {isRecording ? <Volume2 className="w-12 h-12 md:w-20 md:h-20 text-red-600 animate-pulse" /> : <MicOff className="w-12 h-12 md:w-20 md:h-20 text-slate-300" />}
             </div>
-         );
-
-      case PPDTStep.PROCESSING:
-         return (
-             <div className="flex flex-col items-center justify-center py-40 space-y-8 animate-in fade-in duration-700">
-                 <div className="relative">
-                     <div className="w-24 h-24 border-8 border-slate-100 border-t-blue-600 rounded-full animate-spin" />
-                     <div className="absolute inset-0 flex items-center justify-center">
-                         <BrainCircuit className="text-slate-300" size={32} />
-                     </div>
-                 </div>
-                 <div className="text-center space-y-2">
-                     <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Analyzing Performance</h3>
-                     <p className="text-slate-500 font-medium text-sm">Evaluating Story, Psych Profile, and Narration...</p>
-                 </div>
-             </div>
-         );
+            <div className={`text-7xl md:text-9xl font-mono font-black tabular-nums transition-colors duration-500 ${timeLeft < 10 ? 'text-red-600 animate-pulse' : 'text-slate-900'}`}>
+                {timeLeft}s
+            </div>
+            <div className="bg-slate-50 p-8 md:p-12 rounded-[2rem] md:rounded-[3.5rem] border border-slate-200 min-h-[150px] md:min-h-[200px] flex items-center justify-center italic text-slate-700 text-lg md:text-xl shadow-inner overflow-hidden">
+                {transcriptionError ? (
+                    <span className="text-red-500 font-bold">{transcriptionError}</span>
+                ) : isRecording ? (
+                    <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                    <span className="text-blue-600 font-black uppercase tracking-[0.4em] text-xs">Recording Transmission...</span>
+                    <p className="text-slate-400 text-sm not-italic mt-2">Live transcript hidden to prevent distraction.</p>
+                    </div>
+                ) : (
+                    <span className="text-slate-300">"Confirm to start the 60s countdown..."</span>
+                )}
+            </div>
+            <div className="flex flex-col md:flex-row justify-center gap-4 md:gap-8">
+                {!isRecording ? (
+                <button onClick={startNarration} className="px-16 md:px-20 py-6 md:py-7 bg-red-600 text-white rounded-full font-black uppercase tracking-widest text-xs md:text-sm hover:bg-red-700 shadow-2xl transition-all">
+                    Confirm & Start Speak
+                </button>
+                ) : (
+                <button onClick={stopNarration} className="px-16 md:px-20 py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs md:text-sm hover:bg-black shadow-2xl transition-all">
+                    Conclude Session
+                </button>
+                )}
+            </div>
+            </div>
+        );
 
       case PPDTStep.FINISHED:
-         return (
-             <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in slide-in-from-bottom-12 duration-700">
-                 <div className="bg-slate-900 text-white p-10 md:p-16 rounded-[3rem] shadow-2xl relative overflow-hidden text-center">
-                     <div className="relative z-10 space-y-6">
-                         <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-yellow-400 text-black rounded-full text-[10px] font-black uppercase tracking-widest">
-                             <CheckCircle size={12} /> Assessment Complete
-                         </div>
-                         <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter">
-                             PPDT <span className="text-blue-500">Report</span>
-                         </h2>
-                         {feedback && (
-                             <div className="flex flex-col md:flex-row justify-center gap-8 pt-8">
-                                 <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/10 min-w-[200px]">
-                                     <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Psych Score</p>
-                                     <p className="text-6xl font-black text-yellow-400">{feedback.score || "N/A"}</p>
-                                 </div>
-                                 <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/10 min-w-[200px]">
-                                     <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Verdict</p>
-                                     <p className="text-2xl font-black text-white mt-3 uppercase tracking-wide">{feedback.verdict || "Pending"}</p>
-                                 </div>
-                             </div>
-                         )}
-                     </div>
-                     <Target className="absolute -right-12 -bottom-12 w-64 h-64 text-white/5 rotate-12" />
+        if (isLoading) {
+          return (
+            <div className="flex flex-col items-center justify-center py-24 md:py-40 space-y-8 md:space-y-12">
+              <div className="relative">
+                <Loader2 className="w-16 h-16 md:w-24 md:h-24 text-slate-900 animate-spin" />
+                <ShieldCheck className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 text-blue-500" />
+              </div>
+              <p className="text-slate-900 font-black uppercase tracking-[0.5em] text-xs md:text-sm">Psychologist Assessment in Progress...</p>
+            </div>
+          );
+        }
+        return (
+          <div className="max-w-6xl mx-auto space-y-8 md:space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-12 duration-1000">
+            <div className="bg-slate-950 p-8 md:p-16 rounded-[3rem] md:rounded-[4rem] text-white relative overflow-hidden shadow-2xl">
+               <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-12 md:gap-16">
+                  <div className="text-center md:text-left space-y-6">
+                     <span className="bg-yellow-400 text-black px-6 py-2 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] shadow-lg">Stage 1 Verdict</span>
+                     <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter leading-none">The Board's <br/><span className="text-yellow-400">Verdict</span></h2>
+                     <p className="text-slate-400 font-medium max-w-lg leading-relaxed text-sm md:text-lg italic opacity-80">"{feedback?.recommendations}"</p>
+                  </div>
+                  <div className="flex flex-col items-center bg-white/5 p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border border-white/10 backdrop-blur-3xl shadow-2xl">
+                     <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.4em] opacity-40 mb-4">Board Score</span>
+                     <div className="text-7xl md:text-9xl font-black text-yellow-400">{feedback?.score}</div>
+                     
+                     <button 
+                        onClick={() => setShowScoreHelp(!showScoreHelp)}
+                        className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/70 hover:text-white transition-colors"
+                      >
+                         <HelpCircle size={14} /> Understand Score {showScoreHelp ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                      </button>
+                  </div>
+               </div>
+            </div>
+
+            {/* Stimulus Image Preview - Added for user reference */}
+            {currentImageUrl && (
+                <div className="flex justify-center -mt-6 mb-8 relative z-20">
+                    <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-100 transform hover:scale-105 transition-transform duration-300">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center mb-2">Stimulus Reference</p>
+                        <img
+                            src={currentImageUrl}
+                            alt="PPDT Stimulus"
+                            className="h-40 md:h-56 w-auto object-contain rounded-xl bg-slate-50"
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* SCORE EXPLANATION */}
+            {showScoreHelp && (
+                 <div className="bg-blue-50 border border-blue-100 p-6 md:p-8 rounded-[2rem] animate-in slide-in-from-top-4">
+                    <h4 className="text-sm font-black uppercase tracking-widest text-blue-800 mb-4">Board Grading Standard</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-green-500 shadow-sm">
+                          <span className="block text-xl font-black text-slate-900">9.0 - 10</span>
+                          <span className="text-[10px] font-bold uppercase text-green-600 tracking-wider">Outstanding</span>
+                          <p className="text-[10px] text-slate-500 mt-1">Exceptional OLQ demonstration. Certain recommendation.</p>
+                       </div>
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm">
+                          <span className="block text-xl font-black text-slate-900">7.0 - 8.9</span>
+                          <span className="text-[10px] font-bold uppercase text-blue-600 tracking-wider">High Potential</span>
+                          <p className="text-[10px] text-slate-500 mt-1">Clear pass. Good consistency in thought and expression.</p>
+                       </div>
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-yellow-500 shadow-sm">
+                          <span className="block text-xl font-black text-slate-900">5.0 - 6.9</span>
+                          <span className="text-[10px] font-bold uppercase text-yellow-600 tracking-wider">Borderline</span>
+                          <p className="text-[10px] text-slate-500 mt-1">Average. Needs significant polish in planning or confidence.</p>
+                       </div>
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-red-500 shadow-sm">
+                          <span className="block text-xl font-black text-slate-900">&lt; 5.0</span>
+                          <span className="text-[10px] font-bold uppercase text-red-600 tracking-wider">Below Average</span>
+                          <p className="text-[10px] text-slate-500 mt-1">Foundation weak. Requires introspection and practice.</p>
+                       </div>
+                    </div>
                  </div>
+            )}
 
-                 {feedback && (
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                         {/* Analysis Card */}
-                         <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-                             <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-6 flex items-center gap-3">
-                                 <ScanEye className="text-blue-600" /> Observation Analysis
-                             </h4>
-                             <p className="text-sm text-slate-600 font-medium leading-relaxed bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                                 {feedback.observationAnalysis || "Analysis not available."}
-                             </p>
-                             
-                             <div className="mt-8 grid grid-cols-2 gap-4">
-                                 <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
-                                     <p className="text-[10px] font-black uppercase tracking-widest text-green-700 mb-2">Strengths</p>
-                                     <ul className="space-y-1">
-                                         {feedback.strengths?.map((s: string, i: number) => (
-                                             <li key={i} className="text-xs font-bold text-slate-700 flex gap-2"><CheckCircle size={12} className="text-green-500 mt-0.5" /> {s}</li>
-                                         ))}
-                                     </ul>
-                                 </div>
-                                 <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
-                                     <p className="text-[10px] font-black uppercase tracking-widest text-red-700 mb-2">Weaknesses</p>
-                                     <ul className="space-y-1">
-                                         {feedback.weaknesses?.map((w: string, i: number) => (
-                                             <li key={i} className="text-xs font-bold text-slate-700 flex gap-2"><AlertCircle size={12} className="text-red-500 mt-0.5" /> {w}</li>
-                                         ))}
-                                     </ul>
-                                 </div>
-                             </div>
-                         </div>
+            {/* IDEAL STORY SECTION */}
+            {feedback?.idealStory && (
+                <div className="bg-slate-900 p-8 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] shadow-xl relative overflow-hidden mt-8">
+                    <div className="absolute top-0 right-0 p-6 opacity-10">
+                        <BookOpen size={120} className="text-white" />
+                    </div>
+                    <div className="relative z-10 space-y-4">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-yellow-400 rounded-lg text-black">
+                                <Star size={20} fill="currentColor" />
+                            </div>
+                            <h4 className="text-xl font-black uppercase tracking-widest text-white">Board's Recommended Story</h4>
+                        </div>
+                        <p className="text-slate-300 font-medium leading-relaxed text-sm md:text-base italic p-6 bg-white/5 rounded-2xl border border-white/10">
+                            "{feedback.idealStory}"
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-right">
+                            * Example of logical perception & positive action
+                        </p>
+                    </div>
+                </div>
+            )}
 
-                         {/* Ideal Story Card */}
-                         <div className="bg-blue-50 p-8 rounded-[2.5rem] border border-blue-100 shadow-inner">
-                             <h4 className="text-xl font-black text-blue-900 uppercase tracking-tighter mb-6 flex items-center gap-3">
-                                 <Star className="text-yellow-500 fill-yellow-500" /> Ideal Approach
-                             </h4>
-                             <p className="text-sm text-slate-700 font-medium leading-relaxed italic">
-                                 "{feedback.idealStory || feedback.recommendations}"
-                             </p>
-                             <div className="mt-8 pt-8 border-t border-blue-200">
-                                 <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-4">Perception Check</p>
-                                 <div className="grid grid-cols-3 gap-2 text-center">
-                                     <div className="bg-white p-3 rounded-xl shadow-sm">
-                                         <span className="block text-[8px] font-bold text-slate-400 uppercase">Age</span>
-                                         <span className="font-black text-slate-800">{feedback.perception?.heroAge || "N/A"}</span>
-                                     </div>
-                                     <div className="bg-white p-3 rounded-xl shadow-sm">
-                                         <span className="block text-[8px] font-bold text-slate-400 uppercase">Sex</span>
-                                         <span className="font-black text-slate-800">{feedback.perception?.heroSex || "N/A"}</span>
-                                     </div>
-                                     <div className="bg-white p-3 rounded-xl shadow-sm">
-                                         <span className="block text-[8px] font-bold text-slate-400 uppercase">Mood</span>
-                                         <span className="font-black text-slate-800">{feedback.perception?.heroMood || "N/A"}</span>
-                                     </div>
-                                 </div>
-                             </div>
-                         </div>
-                     </div>
-                 )}
+            {feedback?.observationAnalysis && (
+                <div className="bg-yellow-50 border-l-4 border-yellow-500 p-6 md:p-8 rounded-[2rem] shadow-md animate-in slide-in-from-left-4">
+                    <div className="flex items-start gap-4">
+                        <div className="p-3 bg-yellow-100 rounded-full text-yellow-600 shrink-0">
+                            <ScanEye size={24} />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-2">Observation Accuracy</h4>
+                            <p className="text-slate-700 font-medium leading-relaxed text-sm">{feedback.observationAnalysis}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-                 {/* Feedback & Exit */}
-                 {userId && (
-                     <SessionFeedback testType="PPDT" userId={userId} />
-                 )}
-
-                 <div className="flex flex-col md:flex-row gap-4 justify-center pt-8">
-                     <button onClick={() => window.location.reload()} className="px-12 py-5 bg-white text-slate-900 border-2 border-slate-200 rounded-full font-black uppercase tracking-widest text-xs hover:bg-slate-50 transition-all">
-                         Retry PPDT
-                     </button>
-                     {!isGuest ? (
-                         <button onClick={() => {}} className="px-12 py-5 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl">
-                             Save to Dossier
-                         </button>
-                     ) : (
-                         <button onClick={onLoginRedirect} className="px-12 py-5 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest text-xs hover:bg-yellow-300 transition-all shadow-xl flex items-center gap-2">
-                             <LogIn size={16} /> Save Progress (Login)
-                         </button>
-                     )}
+            {feedback?.perception && (
+              <div className="grid md:grid-cols-3 gap-6 md:gap-8">
+                 <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border-2 border-slate-50 shadow-xl space-y-6">
+                   <h4 className="font-black text-xs uppercase tracking-[0.2em] text-purple-600 flex items-center gap-3"><Eye className="w-5 h-5" /> Perception</h4>
+                   <div className="space-y-4 text-sm font-bold text-slate-700">
+                      <div className="flex justify-between border-b border-slate-100 pb-2"><span>Hero Age:</span> <span className="text-slate-900">{feedback.perception.heroAge}</span></div>
+                      <div className="flex justify-between border-b border-slate-100 pb-2"><span>Hero Sex:</span> <span className="text-slate-900">{feedback.perception.heroSex}</span></div>
+                      <div className="flex justify-between border-b border-slate-100 pb-2"><span>Hero Mood:</span> <span className="text-slate-900">{feedback.perception.heroMood}</span></div>
+                      <div className="pt-2"><span className="text-slate-400 text-xs block mb-1">Theme</span> <span className="text-slate-900">{feedback.perception.mainTheme}</span></div>
+                   </div>
                  </div>
-             </div>
-         );
+                 
+                 <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border-2 border-slate-50 shadow-xl space-y-6 md:col-span-2">
+                   <h4 className="font-black text-xs uppercase tracking-[0.2em] text-blue-600 flex items-center gap-3"><BrainCircuit className="w-5 h-5" /> Story Dynamics</h4>
+                   <div className="grid md:grid-cols-2 gap-8 text-sm font-medium text-slate-600">
+                     <div>
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Action</span>
+                       <p className="leading-relaxed bg-slate-50 p-4 rounded-2xl">{feedback?.storyAnalysis?.action}</p>
+                     </div>
+                     <div>
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Outcome</span>
+                       <p className="leading-relaxed bg-slate-50 p-4 rounded-2xl">{feedback?.storyAnalysis?.outcome}</p>
+                     </div>
+                   </div>
+                 </div>
+              </div>
+            )}
 
-      default: return null;
+            <div className="grid md:grid-cols-2 gap-6 md:gap-10">
+               <div className="bg-white p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-50 shadow-2xl">
+                  <h4 className="font-black text-xs uppercase tracking-[0.3em] text-green-600 mb-8 md:mb-10 flex items-center gap-4"><CheckCircle className="w-6 h-6" /> Key Strengths</h4>
+                  <div className="space-y-4 md:space-y-5">
+                    {feedback?.strengths.map((s: string, i: number) => (
+                      <div key={i} className="flex gap-4 md:gap-5 p-4 md:p-5 bg-green-50 rounded-2xl md:rounded-3xl border border-green-100 text-slate-800 text-sm font-bold">
+                        <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-green-500 shrink-0" /> {s}
+                      </div>
+                    ))}
+                  </div>
+               </div>
+               <div className="bg-white p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-50 shadow-2xl">
+                  <h4 className="font-black text-xs uppercase tracking-[0.3em] text-red-500 mb-8 md:mb-10 flex items-center gap-4"><AlertCircle className="w-6 h-6" /> OLQ Gaps</h4>
+                  <div className="space-y-4 md:space-y-5">
+                    {feedback?.weaknesses.map((w: string, i: number) => (
+                      <div key={i} className="flex gap-4 md:gap-5 p-4 md:p-5 bg-red-50 rounded-2xl md:rounded-3xl border border-red-100 text-slate-800 text-sm font-bold">
+                        <AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-red-500 shrink-0" /> {w}
+                      </div>
+                    ))}
+                  </div>
+               </div>
+            </div>
+
+            {/* FEEDBACK INTEGRATION */}
+            {userId && (
+                <SessionFeedback testType="PPDT" userId={userId} />
+            )}
+
+            {isGuest ? (
+                <button 
+                  onClick={onLoginRedirect}
+                  className="w-full py-6 md:py-7 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest text-xs hover:bg-yellow-300 transition-all shadow-2xl flex items-center justify-center gap-3"
+                >
+                  <LogIn size={16} /> Sign Up to Unlock More
+                </button>
+            ) : (
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
+                >
+                  Report for Next Simulation
+                </button>
+            )}
+          </div>
+        );
     }
   };
 
-  return renderContent();
+  return (
+    <div className={`min-h-[85vh] transition-all duration-500 ease-in-out ${showBuzzer ? 'bg-red-600/20' : 'bg-transparent'}`}>
+       <div className="bg-white rounded-[2.5rem] md:rounded-[4.5rem] shadow-2xl border border-slate-100 p-6 md:p-16 min-h-[80vh] relative overflow-hidden ring-1 ring-slate-200/50">
+         {/* ... (Admin skip button and buzzer overlay) ... */}
+         {isAdmin && timeLeft > 0 && (
+            <button 
+                onClick={() => setTimeLeft(0)}
+                className="fixed bottom-6 right-6 z-[100] bg-red-600 text-white pl-4 pr-6 py-3 rounded-full font-black text-[10px] uppercase shadow-2xl hover:bg-red-700 transition-all flex items-center gap-2 border-4 border-white animate-pulse hover:animate-none"
+            >
+                <FastForward size={14} fill="currentColor" /> Admin Skip
+            </button>
+         )}
+
+         {showBuzzer && (
+            <div className="absolute inset-0 z-[100] border-[12px] md:border-[24px] border-red-600/80 pointer-events-none animate-pulse flex items-center justify-center backdrop-blur-sm">
+               <div className="bg-red-600 text-white px-12 md:px-24 py-8 md:py-12 rounded-full font-black text-4xl md:text-7xl shadow-[0_0_100px_rgba(220,38,38,1)] uppercase transform -rotate-12 border-4 md:border-8 border-white">BUZZER</div>
+            </div>
+         )}
+         {renderContent()}
+       </div>
+    </div>
+  );
 };
 
 export default PPDTTest;
