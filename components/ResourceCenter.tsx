@@ -31,7 +31,7 @@ const ResourceCenter: React.FC<ResourceCenterProps> = ({ initialTab = 'GK' }) =>
     try {
       const { text } = await fetchDailyNews();
       const blocks = text?.split('---NEWS_BLOCK---').slice(1) || [];
-      const parsedNews = blocks.map(block => {
+      const parsedNews = blocks.map((block: string) => {
           const headline = block.match(/HEADLINE:\s*(.*)/i)?.[1]?.trim() || "Defense Update";
           const tag = block.match(/TAG:\s*(.*)/i)?.[1]?.trim() || "National";
           const summary = block.match(/SUMMARY:\s*(.*)/i)?.[1]?.trim() || "No summary available.";
