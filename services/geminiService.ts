@@ -1,5 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
+import { getCachedContent, setCachedContent } from './supabaseService';
 
 // Helper to get Gemini client with API key from environment
 export const getGeminiClient = () => {
@@ -106,6 +107,20 @@ export function createSSBChat() {
 }
 
 export async function fetchDailyNews() {
+  const dateKey = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
+  
+  // 1. CHECK CACHE FIRST
+  try {
+      const cachedData = await getCachedContent('DAILY_NEWS', dateKey);
+      if (cachedData) {
+          console.log("Serving News from Cache");
+          return cachedData;
+      }
+  } catch(e) {
+      console.warn("Cache check failed, continuing to live fetch");
+  }
+
+  // 2. FETCH FROM AI IF NOT CACHED
   const ai = getGeminiClient();
   const date = new Date().toDateString();
   
@@ -137,10 +152,20 @@ export async function fetchDailyNews() {
       },
     });
     
-    return {
+    const result = {
         text: response.text,
         groundingMetadata: response.candidates?.[0]?.groundingMetadata
     };
+    
+    // 3. SAVE TO CACHE
+    try {
+        await setCachedContent('DAILY_NEWS', dateKey, result);
+    } catch(e) {
+        console.warn("Failed to cache news", e);
+    }
+    
+    return result;
+
   } catch (e) {
     console.error("News Fetch Failed:", e);
     // Return Fallback Data instead of throwing error

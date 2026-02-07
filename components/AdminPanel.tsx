@@ -266,7 +266,7 @@ const AdminPanel: React.FC = () => {
       u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // UPDATED ROBUST SQL v4.0 (Includes Feedback & Coupons)
+  // UPDATED ROBUST SQL v4.1 (Includes Daily Cache)
   const storageSQL = `
 -- 1. FORCE ACCESS TO USER SUBSCRIPTIONS
 create table if not exists public.user_subscriptions (
@@ -284,7 +284,7 @@ create policy "Enable read access for all users" on public.user_subscriptions fo
 create policy "Enable update for users" on public.user_subscriptions for update using (auth.uid() = user_id);
 create policy "Enable insert for users" on public.user_subscriptions for insert with check (auth.uid() = user_id);
 
--- 2. COUPONS TABLE (Fixes Counting Issue)
+-- 2. COUPONS TABLE
 create table if not exists public.coupons (
   code text primary key,
   discount_percent integer,
@@ -297,13 +297,13 @@ drop policy if exists "Public read coupons" on public.coupons;
 drop policy if exists "Public update coupons" on public.coupons;
 drop policy if exists "Admin all coupons" on public.coupons;
 create policy "Public read coupons" on public.coupons for select using (true);
-create policy "Public update coupons" on public.coupons for update using (true); -- Required to increment count
-create policy "Admin all coupons" on public.coupons for all using (true); -- Full admin access via client if needed (requires stricter checks in prod)
+create policy "Public update coupons" on public.coupons for update using (true);
+create policy "Admin all coupons" on public.coupons for all using (true);
 
--- 3. USER FEEDBACK TABLE (Fixes Fetch Issue)
+-- 3. USER FEEDBACK TABLE
 create table if not exists public.user_feedback (
   id uuid default uuid_generate_v4() primary key,
-  user_id uuid, -- Foreign key removed to prevent errors if user deleted
+  user_id uuid, 
   test_type text,
   rating integer,
   comments text,
@@ -317,7 +317,7 @@ create policy "Public insert feedback" on public.user_feedback for insert with c
 create policy "Public read feedback" on public.user_feedback for select using (true);
 create policy "Public delete feedback" on public.user_feedback for delete using (true);
 
--- 4. ASPIRANTS (Ensure existence for joins)
+-- 4. ASPIRANTS
 create table if not exists public.aspirants (
   user_id uuid references auth.users not null primary key,
   email text,
@@ -333,7 +333,23 @@ create policy "Public read aspirants" on public.aspirants for select using (true
 create policy "Users can update own profile" on public.aspirants for update using (auth.uid() = user_id);
 create policy "Users can insert own profile" on public.aspirants for insert with check (auth.uid() = user_id);
 
--- 5. Link Feedback to Aspirants (Safe)
+-- 5. DAILY CACHE (NEW: Saves API Cost)
+create table if not exists public.daily_cache (
+  id uuid default uuid_generate_v4() primary key,
+  date_key text not null,
+  category text not null,
+  content jsonb not null,
+  created_at timestamptz default now(),
+  unique(date_key, category)
+);
+alter table public.daily_cache enable row level security;
+drop policy if exists "Read cache" on public.daily_cache;
+drop policy if exists "Write cache" on public.daily_cache;
+create policy "Read cache" on public.daily_cache for select using (true);
+create policy "Write cache" on public.daily_cache for insert with check (true);
+create policy "Update cache" on public.daily_cache for update using (true);
+
+-- 6. Link Feedback to Aspirants (Safe)
 do $$
 begin
   if not exists (select 1 from information_schema.table_constraints where constraint_name = 'user_feedback_user_id_fkey') then
@@ -378,7 +394,7 @@ end $$;
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-slate-900">
                     <Settings className="text-blue-600" size={24} />
-                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v4.0)</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v4.1)</h5>
                 </div>
                 {showSqlHelp && !errorMsg && (
                     <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
@@ -387,7 +403,7 @@ end $$;
             
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-xl">
                 <p className="text-xs text-yellow-800 font-bold">
-                    <strong>Critical Update:</strong> Run this script to fix Coupon Counting and Feedback Display. It creates missing tables and sets proper RLS policies.
+                    <strong>Critical Update:</strong> Run this script to create the <code>daily_cache</code> table. This reduces API costs significantly.
                 </p>
             </div>
 

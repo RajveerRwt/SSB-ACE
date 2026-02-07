@@ -8,6 +8,27 @@ const supabaseAnonKey = process.env.REACT_APP_SUPABASE_KEY || '';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// --- CACHING SERVICE ---
+
+export const getCachedContent = async (category: string, dateKey: string) => {
+  const { data } = await supabase
+    .from('daily_cache')
+    .select('content')
+    .eq('category', category)
+    .eq('date_key', dateKey)
+    .maybeSingle();
+  
+  return data?.content || null;
+};
+
+export const setCachedContent = async (category: string, dateKey: string, content: any) => {
+  await supabase.from('daily_cache').upsert({
+      category,
+      date_key: dateKey,
+      content
+  }, { onConflict: 'category,date_key' });
+};
+
 // --- AUTHENTICATION ---
 
 export const signInWithEmail = async (email: string, password: string) => {
