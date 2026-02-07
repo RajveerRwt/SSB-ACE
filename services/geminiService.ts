@@ -113,11 +113,11 @@ export async function fetchDailyNews() {
   try {
       const cachedData = await getCachedContent('DAILY_NEWS', dateKey);
       if (cachedData) {
-          console.log("Serving News from Cache");
+          console.log("Serving Daily News from Cache");
           return cachedData;
       }
   } catch(e) {
-      console.warn("Cache check failed, continuing to live fetch");
+      console.warn("Cache read failed", e);
   }
 
   // 2. FETCH FROM AI IF NOT CACHED
@@ -158,11 +158,7 @@ export async function fetchDailyNews() {
     };
     
     // 3. SAVE TO CACHE
-    try {
-        await setCachedContent('DAILY_NEWS', dateKey, result);
-    } catch(e) {
-        console.warn("Failed to cache news", e);
-    }
+    await setCachedContent('DAILY_NEWS', dateKey, result);
     
     return result;
 

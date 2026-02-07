@@ -22,11 +22,13 @@ export const getCachedContent = async (category: string, dateKey: string) => {
 };
 
 export const setCachedContent = async (category: string, dateKey: string, content: any) => {
-  await supabase.from('daily_cache').upsert({
+  const { error } = await supabase.from('daily_cache').upsert({
       category,
       date_key: dateKey,
       content
   }, { onConflict: 'category,date_key' });
+  
+  if (error) console.error("Cache Write Error:", error);
 };
 
 // --- AUTHENTICATION ---

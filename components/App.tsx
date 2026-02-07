@@ -228,7 +228,7 @@ const Dashboard: React.FC<{
                {subscription?.tier === 'PRO' && <span className="px-3 py-1 bg-blue-600 text-white text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full flex items-center gap-2"><Crown size={12}/> Pro Cadet</span>}
                <span className="text-slate-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">Board Simulation v4.0</span>
              </div>
-             <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Master Your SSB <br/><span className="text-yellow-400">1:1 PI with Col. Arjun singh(virtual IO)/span></h1>
+             <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Master Your SSB <br/><span className="text-yellow-400">1:1 PI with Col. Arjun Singh (Virtual IO)</span></h1>
              <p className="text-slate-300 text-sm md:text-lg leading-relaxed font-medium opacity-90 max-w-2xl">
                Practice exactly like real SSB with full detailed and personalised assessment with advanced AI.
              </p>
@@ -599,18 +599,13 @@ const App: React.FC = () => {
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentOpen, setPaymentOpen] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
     const initAuth = async () => {
       const sessionUser = await checkAuthSession();
       if (sessionUser) {
-        setUser(sessionUser.id);
-        setUserEmail(sessionUser.email || '');
-        syncUserProfile(sessionUser);
-        const data = await getUserData(sessionUser.id);
-        if (data) setPiqData(data);
-        const sub = await getUserSubscription(sessionUser.id);
-        setSubscription(sub);
+        handleUserAuthenticated(sessionUser);
       }
       setIsLoading(false);
     };
@@ -619,10 +614,7 @@ const App: React.FC = () => {
 
     const unsubscribe = subscribeToAuthChanges((u) => {
       if (u) {
-        setUser(u.id);
-        setUserEmail(u.email || '');
-        getUserData(u.id).then(d => d && setPiqData(d));
-        getUserSubscription(u.id).then(sub => setSubscription(sub));
+        handleUserAuthenticated(u);
       } else {
         setUser(null);
         setUserEmail(null);
@@ -636,12 +628,42 @@ const App: React.FC = () => {
     };
   }, []);
 
+  const handleUserAuthenticated = async (u: any) => {
+      setUser(u.id);
+      setUserEmail(u.email || '');
+      
+      // Load user specific data
+      getUserData(u.id).then(d => d && setPiqData(d));
+      getUserSubscription(u.id).then(sub => setSubscription(sub));
+      
+      // Check for first-time welcome
+      const hasSeenWelcome = localStorage.getItem(`ssb_welcome_seen_${u.id}`);
+      if (!hasSeenWelcome) {
+          setShowWelcome(true);
+      }
+  };
+
+  const handleWelcomeClose = () => {
+      if (user) {
+          localStorage.setItem(`ssb_welcome_seen_${user}`, 'true');
+      }
+      setShowWelcome(false);
+  };
+
   const handleLogin = (uid: string, email?: string) => {
+    // This is called from Login component, but auth state change listener usually handles it too.
+    // We update state here for immediate UI feedback.
     setUser(uid);
     setUserEmail(email || '');
     setActiveTest(TestType.DASHBOARD);
+    
     getUserData(uid).then(d => d && setPiqData(d));
     getUserSubscription(uid).then(sub => setSubscription(sub));
+    
+    const hasSeenWelcome = localStorage.getItem(`ssb_welcome_seen_${uid}`);
+    if (!hasSeenWelcome) {
+        setShowWelcome(true);
+    }
   };
 
   const handleLogoutAction = async () => {
@@ -783,15 +805,18 @@ const App: React.FC = () => {
     >
       {renderContent()}
       {user && (
-        <PaymentModal 
-            userId={user} 
-            isOpen={isPaymentOpen} 
-            onClose={() => setPaymentOpen(false)} 
-            onSuccess={() => {
-                // Refresh subscription immediately after payment success
-                getUserSubscription(user).then(sub => setSubscription(sub));
-            }}
-        />
+        <>
+            <PaymentModal 
+                userId={user} 
+                isOpen={isPaymentOpen} 
+                onClose={() => setPaymentOpen(false)} 
+                onSuccess={() => {
+                    // Refresh subscription immediately after payment success
+                    getUserSubscription(user).then(sub => setSubscription(sub));
+                }}
+            />
+            {/* Removed duplicate WelcomeModal from here if it exists in Dashboard or handle it uniquely */}
+        </>
       )}
     </Layout>
   );
