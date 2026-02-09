@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart } from 'lucide-react';
 import { 
@@ -266,7 +265,7 @@ const AdminPanel: React.FC = () => {
       u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // UPDATED ROBUST SQL v4.1 (Includes Daily Cache)
+  // UPDATED ROBUST SQL v5.1 (Fixes missing users via Trigger & Backfill)
   const storageSQL = `
 -- 1. FORCE ACCESS TO USER SUBSCRIPTIONS
 create table if not exists public.user_subscriptions (
@@ -333,7 +332,7 @@ create policy "Public read aspirants" on public.aspirants for select using (true
 create policy "Users can update own profile" on public.aspirants for update using (auth.uid() = user_id);
 create policy "Users can insert own profile" on public.aspirants for insert with check (auth.uid() = user_id);
 
--- 5. DAILY CACHE (NEW: Saves API Cost)
+-- 5. DAILY CACHE
 create table if not exists public.daily_cache (
   id uuid default uuid_generate_v4() primary key,
   date_key text not null,
@@ -356,6 +355,51 @@ begin
     alter table public.user_feedback add constraint user_feedback_user_id_fkey foreign key (user_id) references public.aspirants(user_id) on delete set null;
   end if;
 end $$;
+
+-- 7. AUTOMATIC USER SYNC TRIGGER (Fixes missing cadets issue)
+-- This ensures that as soon as a user signs up, they appear in your Admin Panel instantly.
+create or replace function public.handle_new_user() 
+returns trigger as $$
+begin
+  insert into public.aspirants (user_id, email, full_name, last_active)
+  values (new.id, new.email, new.raw_user_meta_data->>'full_name', now())
+  on conflict (user_id) do update
+  set email = excluded.email,
+      last_active = now();
+  
+  insert into public.user_subscriptions (user_id, tier, usage, extra_credits)
+  values (
+    new.id, 
+    'FREE', 
+    '{"interview_used": 0, "interview_limit": 1, "ppdt_used": 0, "ppdt_limit": 10, "tat_used": 0, "tat_limit": 2, "wat_used": 0, "wat_limit": 3, "srt_used": 0, "srt_limit": 3, "sdt_used": 0}'::jsonb,
+    '{"interview": 0}'::jsonb
+  )
+  on conflict (user_id) do nothing;
+
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Trigger execution
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- 8. BACKFILL MISSING USERS (Runs immediately to fix current data gap)
+insert into public.aspirants (user_id, email, full_name, last_active)
+select id, email, raw_user_meta_data->>'full_name', created_at
+from auth.users
+on conflict (user_id) do nothing;
+
+insert into public.user_subscriptions (user_id, tier, usage, extra_credits)
+select 
+  id, 
+  'FREE', 
+  '{"interview_used": 0, "interview_limit": 1, "ppdt_used": 0, "ppdt_limit": 10, "tat_used": 0, "tat_limit": 2, "wat_used": 0, "wat_limit": 3, "srt_used": 0, "srt_limit": 3, "sdt_used": 0}'::jsonb,
+  '{"interview": 0}'::jsonb
+from auth.users
+on conflict (user_id) do nothing;
 `;
 
   return (
@@ -394,7 +438,7 @@ end $$;
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-slate-900">
                     <Settings className="text-blue-600" size={24} />
-                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v4.1)</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v5.1)</h5>
                 </div>
                 {showSqlHelp && !errorMsg && (
                     <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
@@ -403,7 +447,7 @@ end $$;
             
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-xl">
                 <p className="text-xs text-yellow-800 font-bold">
-                    <strong>Critical Update:</strong> Run this script to create the <code>daily_cache</code> table. This reduces API costs significantly.
+                    <strong>Instructions:</strong> To fix missing users, copy this script and run it in the Supabase SQL Editor. It includes a <strong>Trigger</strong> to prevent this in the future and a <strong>Backfill</strong> to fix past data.
                 </p>
             </div>
 
@@ -543,7 +587,6 @@ end $$;
               </div>
           </div>
       ) : activeTab === 'PAYMENTS' ? (
-          // ... (Existing Payments Code) ...
           <div className="space-y-6">
               {payments.length === 0 ? (
                   <div className="p-12 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-xl">
