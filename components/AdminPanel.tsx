@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
@@ -293,7 +293,7 @@ const AdminPanel: React.FC = () => {
       return true;
   });
 
-  // UPDATED ROBUST SQL v5.2 (Fixes unconfirmed emails visibility & syncs timestamps)
+  // UPDATED ROBUST SQL v5.3 (Includes Last Active Backfill & Full Usage Tracking)
   const storageSQL = `
 -- 1. FORCE ACCESS TO USER SUBSCRIPTIONS
 create table if not exists public.user_subscriptions (
@@ -392,15 +392,15 @@ begin
   end if;
 end $$;
 
--- 7. AUTOMATIC USER SYNC TRIGGER (Updated for Email Confirmation)
+-- 7. AUTOMATIC USER SYNC TRIGGER (v5.3 - Syncs Actual Sign In Time)
 create or replace function public.handle_new_user() 
 returns trigger as $$
 begin
   insert into public.aspirants (user_id, email, full_name, last_active, email_confirmed_at)
-  values (new.id, new.email, new.raw_user_meta_data->>'full_name', now(), new.email_confirmed_at)
+  values (new.id, new.email, new.raw_user_meta_data->>'full_name', coalesce(new.last_sign_in_at, now()), new.email_confirmed_at)
   on conflict (user_id) do update
   set email = excluded.email,
-      last_active = now(),
+      last_active = coalesce(new.last_sign_in_at, now()), -- Sync real login time
       email_confirmed_at = excluded.email_confirmed_at;
   
   insert into public.user_subscriptions (user_id, tier, usage, extra_credits)
@@ -422,23 +422,28 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- Trigger execution (Update - for email confirmation)
+-- Trigger execution (Update - for sign-in & email confirmation)
 drop trigger if exists on_auth_user_updated on auth.users;
 create trigger on_auth_user_updated
   after update on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 8. BACKFILL MISSING USERS & CONFIRMATION STATUS
+-- 8. BACKFILL & SYNC ACTIVE STATUS FOR EXISTING USERS
+-- This queries auth.users to get the REAL last_sign_in_at and updates the public table
 update public.aspirants a
-set email_confirmed_at = u.email_confirmed_at
+set last_active = u.last_sign_in_at,
+    email_confirmed_at = u.email_confirmed_at
 from auth.users u
-where a.user_id = u.id;
+where a.user_id = u.id
+and u.last_sign_in_at is not null;
 
+-- Ensure all users exist in aspirants
 insert into public.aspirants (user_id, email, full_name, last_active, email_confirmed_at)
-select id, email, raw_user_meta_data->>'full_name', created_at, email_confirmed_at
+select id, email, raw_user_meta_data->>'full_name', coalesce(last_sign_in_at, created_at), email_confirmed_at
 from auth.users
 on conflict (user_id) do nothing;
 
+-- Ensure all users have subscriptions
 insert into public.user_subscriptions (user_id, tier, usage, extra_credits)
 select 
   id, 
@@ -485,7 +490,7 @@ on conflict (user_id) do nothing;
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-slate-900">
                     <Settings className="text-blue-600" size={24} />
-                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v5.2)</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v5.3)</h5>
                 </div>
                 {showSqlHelp && !errorMsg && (
                     <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
@@ -494,7 +499,7 @@ on conflict (user_id) do nothing;
             
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-xl">
                 <p className="text-xs text-yellow-800 font-bold">
-                    <strong>Instructions:</strong> To fix missing users and sync email confirmation status, copy this script and run it in the Supabase SQL Editor.
+                    <strong>Instructions:</strong> To fix missing users and sync email confirmation/active status, copy this script and run it in the Supabase SQL Editor.
                 </p>
             </div>
 
@@ -547,7 +552,7 @@ on conflict (user_id) do nothing;
 
       {activeTab === 'DAILY' ? (
           <div className="max-w-3xl mx-auto space-y-6">
-              {/* Daily Challenge UI */}
+              {/* Daily Challenge UI (Same as before) */}
               <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
                   <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6 flex items-center gap-3">
                       <Zap className="text-teal-600" /> Create Daily Dossier
@@ -796,6 +801,18 @@ on conflict (user_id) do nothing;
                                       <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">TAT</span>
                                       <span className="text-sm font-black text-slate-700">{u.subscription_data?.usage?.tat_used || 0}</span>
                                   </div>
+                                  <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-100">
+                                      <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">WAT</span>
+                                      <span className="text-sm font-black text-slate-700">{u.subscription_data?.usage?.wat_used || 0}</span>
+                                  </div>
+                                  <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-100">
+                                      <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">SRT</span>
+                                      <span className="text-sm font-black text-slate-700">{u.subscription_data?.usage?.srt_used || 0}</span>
+                                  </div>
+                                  <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-100">
+                                      <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">SDT</span>
+                                      <span className="text-sm font-black text-slate-700">{u.subscription_data?.usage?.sdt_used || 0}</span>
+                                  </div>
                               </div>
                           </div>
                           <div className="flex gap-3 pt-4 border-t border-slate-50">
@@ -807,6 +824,7 @@ on conflict (user_id) do nothing;
               </div>
           </div>
       ) : (activeTab === 'PPDT' || activeTab === 'TAT') ? (
+          // ... (Rest of PPDT/TAT Logic remains the same)
           <div className="space-y-8">
               <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
                   <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6">Upload {activeTab} Scenario</h3>
@@ -834,6 +852,7 @@ on conflict (user_id) do nothing;
               </div>
           </div>
       ) : (activeTab === 'WAT' || activeTab === 'SRT') ? (
+          // ... (Rest of WAT/SRT Logic remains the same)
           <div className="space-y-8">
               <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
                   <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6">Bulk Upload {activeTab}</h3>
@@ -865,6 +884,7 @@ on conflict (user_id) do nothing;
               </div>
           </div>
       ) : activeTab === 'COUPONS' ? (
+          // ... (Rest of Coupons Logic remains same)
           <div className="space-y-8">
               <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
                   <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6">Create Discount Code</h3>
@@ -888,6 +908,7 @@ on conflict (user_id) do nothing;
               </div>
           </div>
       ) : activeTab === 'BROADCAST' ? (
+          // ... (Rest of Broadcast Logic)
           <div className="max-w-2xl mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
               <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">System Broadcast</h3>
               <select value={broadcastType} onChange={(e: any) => setBroadcastType(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800">
@@ -900,6 +921,7 @@ on conflict (user_id) do nothing;
               <button onClick={handleUpload} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-700 shadow-lg flex items-center justify-center gap-2"><Radio size={16} /> Send Alert</button>
           </div>
       ) : activeTab === 'FEEDBACK' ? (
+          // ... (Rest of Feedback Logic)
           <div className="space-y-4">
               {feedbackList.length === 0 ? (
                   <div className="p-12 text-center text-slate-400 font-bold">No feedback received yet.</div>
@@ -923,7 +945,7 @@ on conflict (user_id) do nothing;
         <div className="text-center py-12 text-slate-400 font-bold">Select a valid tab or add content.</div>
       )}
       
-      {/* USER DETAILS MODAL */}
+      {/* USER DETAILS MODAL (Duplicate from above but for safety if logic flow changes) */}
       {selectedUser && (
           <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl relative">
@@ -977,6 +999,10 @@ on conflict (user_id) do nothing;
                               <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
                                   <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.srt_used || 0}</span>
                                   <span className="text-[9px] font-bold text-slate-400 uppercase">SRT</span>
+                              </div>
+                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
+                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.sdt_used || 0}</span>
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase">SDT</span>
                               </div>
                           </div>
                       </div>
