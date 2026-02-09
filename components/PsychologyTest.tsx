@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info, LogIn } from 'lucide-react';
+import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info, LogIn, ThumbsUp, ThumbsDown, MinusCircle } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, STANDARD_WAT_SET } from '../services/geminiService';
 import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
 import { TestType } from '../types';
@@ -776,24 +776,56 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                     {feedback?.verdict && type !== TestType.WAT && type !== TestType.SRT && <p className="text-xl text-slate-300 font-medium italic">"{feedback.verdict}"</p>}
                     {(type === TestType.WAT || type === TestType.SRT) && feedback?.generalFeedback && <p className="text-lg text-slate-300 font-medium italic">"{feedback.generalFeedback}"</p>}
                 </div>
-                {type !== TestType.WAT && type !== TestType.SRT ? (
+                
+                {(type === TestType.WAT || type === TestType.SRT) ? (
+                    // NEW SCOREBOARD FOR WAT/SRT
+                    <div className="flex gap-6 z-10">
+                        <div className="bg-white/10 p-6 rounded-[2rem] border border-white/10 backdrop-blur-md text-center min-w-[140px]">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2">Psych Grade</span>
+                            <span className="text-5xl font-black text-yellow-400">{feedback?.score || "N/A"}<span className="text-lg text-white/50">/10</span></span>
+                        </div>
+                        <div className="bg-white/10 p-6 rounded-[2rem] border border-white/10 backdrop-blur-md text-center min-w-[140px]">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2">Speed</span>
+                            <span className="text-5xl font-black text-white">{feedback?.attemptedCount || 0} <span className="text-2xl text-slate-400">/ 60</span></span>
+                        </div>
+                    </div>
+                ) : (
+                    // STANDARD SCORE FOR OTHERS
                     <div className="bg-white/10 p-8 rounded-[3rem] border border-white/10 backdrop-blur-md text-center min-w-[200px] z-10">
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Score</span>
                         <span className="text-7xl font-black text-yellow-400">{feedback?.score || "N/A"}</span>
                     </div>
-                ) : (
-                    <div className="bg-white/10 p-8 rounded-[3rem] border border-white/10 backdrop-blur-md text-center min-w-[200px] z-10">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Attempted</span>
-                        <span className="text-6xl font-black text-white">{feedback?.attemptedCount || 0} <span className="text-2xl text-slate-400">/ 60</span></span>
-                    </div>
                 )}
             </div>
 
-            {/* WAT/SRT SPECIFIC ANALYSIS */}
+            {/* WAT/SRT SPECIFIC SCOREBOARD & ANALYSIS */}
+            {(type === TestType.WAT || type === TestType.SRT) && feedback?.qualityStats && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Quality Card 1: Positive/Effective */}
+                    <div className="bg-green-50 p-6 rounded-[2.5rem] border border-green-100 flex flex-col items-center justify-center text-center shadow-sm">
+                        <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center text-green-600 mb-3"><ThumbsUp size={24}/></div>
+                        <span className="text-4xl font-black text-slate-900">{feedback.qualityStats.positive || feedback.qualityStats.effective || 0}</span>
+                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest mt-1">High OLQ Responses</span>
+                    </div>
+                    {/* Quality Card 2: Neutral/Partial */}
+                    <div className="bg-blue-50 p-6 rounded-[2.5rem] border border-blue-100 flex flex-col items-center justify-center text-center shadow-sm">
+                        <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 mb-3"><MinusCircle size={24}/></div>
+                        <span className="text-4xl font-black text-slate-900">{feedback.qualityStats.neutral || feedback.qualityStats.partial || 0}</span>
+                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">Average Responses</span>
+                    </div>
+                    {/* Quality Card 3: Negative/Passive */}
+                    <div className="bg-red-50 p-6 rounded-[2.5rem] border border-red-100 flex flex-col items-center justify-center text-center shadow-sm">
+                        <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center text-red-600 mb-3"><ThumbsDown size={24}/></div>
+                        <span className="text-4xl font-black text-slate-900">{feedback.qualityStats.negative || feedback.qualityStats.passive || 0}</span>
+                        <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest mt-1">Needs Improvement</span>
+                    </div>
+                </div>
+            )}
+
             {(type === TestType.WAT || type === TestType.SRT) && feedback?.detailedAnalysis && (
                 <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">
                     <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
-                        <Activity size={24} className="text-purple-600" /> {type === TestType.WAT ? 'Word Association' : 'Situation Reaction'} Analysis
+                        <Activity size={24} className="text-purple-600" /> Detailed Assessment Log
                     </h3>
                     <div className="grid grid-cols-1 gap-4">
                         {feedback.detailedAnalysis.map((item: any, i: number) => (
@@ -806,7 +838,10 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                                     <div className="space-y-1">
                                         <div className="flex justify-between">
                                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Your Response</span>
-                                            <span className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">{item.assessment}</span>
+                                            <span className={`text-[9px] font-bold uppercase tracking-widest ${
+                                                item.assessment?.toLowerCase().includes('positive') || item.assessment?.toLowerCase().includes('effective') ? 'text-green-600' : 
+                                                item.assessment?.toLowerCase().includes('negative') || item.assessment?.toLowerCase().includes('passive') ? 'text-red-600' : 'text-blue-600'
+                                            }`}>{item.assessment}</span>
                                         </div>
                                         <p className={`p-3 rounded-xl text-sm font-medium ${item.userResponse && item.userResponse !== "Not Attempted" ? 'bg-white border border-slate-200 text-slate-700' : 'bg-red-50 text-red-400 border border-red-100 italic'}`}>
                                             {item.userResponse || "Not Attempted"}

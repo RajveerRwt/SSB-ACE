@@ -69,6 +69,7 @@ const generateFallbackEvaluation = (testType: string, textContent: string) => {
     observationAnalysis: "Could not verify observation accuracy in fallback mode.",
     // WAT/SRT Specifics (Fallback)
     attemptedCount: 0,
+    qualityStats: { positive: 0, neutral: 0, negative: 0, effective: 0, partial: 0, passive: 0 },
     generalFeedback: "Server unavailable. Review your responses manually.",
     detailedAnalysis: [],
     // Legacy support
@@ -483,6 +484,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
              2. If a response is missing or illegible, mark it as "Not Attempted".
              3. Assess each response for Officer Like Qualities (OLQ). Keep assessment brief (3-5 words).
              4. Provide an 'idealResponse' for EVERY word (including unattempted ones).
+             5. Calculate a score (0-10) based on positive OLQ demonstration.
              
              Output Format: JSON
              `;
@@ -492,14 +494,20 @@ export async function evaluatePerformance(testType: string, userData: any) {
              });
         } else {
              promptText = `
-             Analyze this Word Association Test (WAT).
+             Analyze this Word Association Test (WAT) strictly based on SSB Psychological Standards.
+             
+             Scoring Criteria (SSB Method):
+             - Positive/Constructive (High OLQ): Shows courage, determination, social responsibility, optimism. (1 Point)
+             - Observational/Factual (Neutral): Describes the word or a fact. No personality projection. (0.5 Points)
+             - Negative/Pessimistic/Avoidant (Low OLQ): Shows fear, anxiety, delay, or negative outcome. (0 Points)
+             - 'I'/'Me' centric: Low score.
              
              Input Data:
              ${watResponses.map((i: any) => `Word ${i.id}: "${i.word}" -> User Response: "${i.response}"`).join("\n")}
 
              Tasks:
-             1. Check each response. If empty, mark as "Not Attempted".
-             2. Assess each response for Officer Like Qualities (OLQ). Keep assessment brief (e.g., "Positive", "Shows Courage", "Negative", "Neutral").
+             1. Classify each response into 'Positive', 'Neutral', or 'Negative'.
+             2. Calculate a final score out of 10 based on the quality and quantity of Positive responses.
              3. Provide an 'idealResponse' for EVERY word.
              
              Output Format: JSON
@@ -515,7 +523,16 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
+                        score: { type: Type.NUMBER, description: "Overall score out of 10 based on OLQ." },
                         attemptedCount: { type: Type.INTEGER, description: "Total number of words attempted by user" },
+                        qualityStats: {
+                            type: Type.OBJECT,
+                            properties: {
+                                positive: { type: Type.INTEGER },
+                                neutral: { type: Type.INTEGER },
+                                negative: { type: Type.INTEGER }
+                            }
+                        },
                         generalFeedback: { type: Type.STRING, description: "Overall observation of personality based on responses." },
                         detailedAnalysis: {
                             type: Type.ARRAY,
@@ -525,7 +542,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
                                     id: { type: Type.INTEGER },
                                     word: { type: Type.STRING },
                                     userResponse: { type: Type.STRING, description: "The transcribed or typed response." },
-                                    assessment: { type: Type.STRING, description: "Brief psychological remark." },
+                                    assessment: { type: Type.STRING, description: "Brief psychological remark (e.g. Positive, Neutral, Negative)." },
                                     idealResponse: { type: Type.STRING, description: "A high-OLQ example sentence." }
                                 }
                             }
@@ -749,6 +766,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
              2. If a response is missing or illegible, mark it as "Not Attempted".
              3. Assess each response for Officer Like Qualities (OLQ).
              4. Provide an 'idealResponse' for EVERY situation.
+             5. Calculate a Score (0-10) based on reaction quality (Effective vs Impulsive vs Passive).
              
              The situations were (in order):
              ${srtResponses.map((i: any) => `${i.id}. ${i.situation}`).join("\n")}
@@ -760,8 +778,12 @@ export async function evaluatePerformance(testType: string, userData: any) {
                  parts.push({ inlineData: { data: img, mimeType: 'image/jpeg' } });
              });
         } else {
-            promptText = `Evaluate these SRT (Situation Reaction Test) responses for Officer Like Qualities (OLQ).
-            For EACH situation, provide a brief 'idealResponse' that shows courage, speed, and responsibility.
+            promptText = `Evaluate these SRT (Situation Reaction Test) responses based on SSB Standards.
+            
+            Scoring Guide:
+            - Effective (High OLQ): Action-oriented, completes the task, socially responsible, brave. (1 Point)
+            - Partial (Medium OLQ): Address the problem but incomplete solution or lacks resourcefulness. (0.5 Points)
+            - Passive/Avoidant/Impulsive (Low OLQ): Ignores problem, runs away, or unrealistic action. (0 Points)
             
             Input Data:
             ${srtResponses.map((i: any) => `Q${i.id}: "${i.situation}" -> User Answer: "${i.response}"`).join("\n")}
@@ -778,7 +800,16 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
+                        score: { type: Type.NUMBER, description: "Score out of 10 based on reaction effectiveness." },
                         attemptedCount: { type: Type.INTEGER, description: "Total number of situations attempted by user" },
+                        qualityStats: {
+                            type: Type.OBJECT,
+                            properties: {
+                                effective: { type: Type.INTEGER },
+                                partial: { type: Type.INTEGER },
+                                passive: { type: Type.INTEGER }
+                            }
+                        },
                         generalFeedback: { type: Type.STRING, description: "Overall observation of personality based on responses." },
                         detailedAnalysis: {
                             type: Type.ARRAY,
@@ -788,7 +819,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
                                     id: { type: Type.INTEGER },
                                     situation: { type: Type.STRING },
                                     userResponse: { type: Type.STRING, description: "The transcribed or typed response." },
-                                    assessment: { type: Type.STRING, description: "Brief psychological remark." },
+                                    assessment: { type: Type.STRING, description: "Brief psychological remark (e.g. Effective, Passive, Partial)." },
                                     idealResponse: { type: Type.STRING, description: "A high-OLQ example reaction." }
                                 }
                             }
