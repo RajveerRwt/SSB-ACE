@@ -462,7 +462,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         return safeJSONParse(response.text);
     } 
     
-    // 2. WAT EVALUATION (Updated: Quality > Quantity > Speed)
+    // 2. WAT EVALUATION (Updated: Quality > Quantity > Speed + Explicit Targets)
     else if (testType === 'WAT') {
         const { watResponses, watSheetImages } = userData;
         // watResponses is array of {id, word, response}
@@ -487,8 +487,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
              5. Calculate a score (0-10) based on positive OLQ demonstration.
              
              SCORING CRITERIA (Important):
-             - QUALITY > SPEED > QUANTITY.
-             - A high-quality response (Original, Positive, Observational) is worth more than just finishing the test.
+             - **Quality > Speed > Quantity**.
+             - **Ideal Attempts: 45+**. If attempts are below 45, the user is too slow. Deduct points heavily for low attempts unless quality is exceptional.
              - Attempting all 60 with poor/negative/cliché responses should result in a lower score than attempting 45 with high OLQ.
              
              Output Format: JSON
@@ -503,11 +503,12 @@ export async function evaluatePerformance(testType: string, userData: any) {
              
              Scoring Criteria (SSB Method):
              - **Quality > Speed > Quantity**. Do not just count attempts.
+             - **Ideal Attempts: 45+**. 
              - Positive/Constructive (High OLQ): Shows courage, determination, social responsibility, optimism. (1 Point)
              - Observational/Factual (Neutral): Describes the word or a fact. No personality projection. (0.5 Points)
              - Negative/Pessimistic/Avoidant (Low OLQ): Shows fear, anxiety, delay, or negative outcome. (0 Points)
              - 'I'/'Me' centric: Low score.
-             - Unattempted / Skipped: Mark clearly as "Not Attempted" (0 Points), but do NOT penalize heavily if the attempted ones are high quality.
+             - Unattempted / Skipped: Mark clearly as "Not Attempted" (0 Points).
              
              Input Data (Includes empty strings for unattempted):
              ${watResponses.map((i: any) => `Word ${i.id}: "${i.word}" -> User Response: "${i.response || ""}"`).join("\n")}
@@ -759,7 +760,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         return safeJSONParse(response.text);
     }
 
-    // 6. SRT EVALUATION (Updated: Quality > Quantity > Speed)
+    // 6. SRT EVALUATION (Updated: Quality > Quantity > Speed + Explicit Benchmarks)
     else if (testType === 'SRT') {
         const { srtResponses, srtSheetImages } = userData;
         
@@ -778,9 +779,11 @@ export async function evaluatePerformance(testType: string, userData: any) {
              
              SCORING CRITERIA:
              - **Quality > Speed > Quantity**.
-             - Effective reactions (Action-oriented, Logical) score highest.
-             - Passive/Avoidant reactions score low.
-             - Do NOT penalize unattempted questions as heavily as poor reactions, but completing 60 with quality is ideal.
+             - **Attempt Count Benchmarks**:
+                * 50+: Excellent (Top Scorer) - Reward if quality is maintained.
+                * 45-55: Very Good (Ideal Range)
+                * 35-40: Acceptable (Minimum Threshold) - If responses are high quality.
+                * Below 30: Caution (Slow decision making) - Deduct points significantly.
              
              The situations were (in order):
              ${srtResponses.map((i: any) => `${i.id}. ${i.situation}`).join("\n")}
@@ -796,6 +799,11 @@ export async function evaluatePerformance(testType: string, userData: any) {
             
             SCORING GUIDE:
             - **Quality > Speed > Quantity**.
+            - **Attempt Count Benchmarks**:
+                * 50+: Excellent (Top Scorer) if quality is good.
+                * 45-55: Ideal Range (Very Good).
+                * 35-40: Acceptable Minimum.
+                * Below 30: Low Speed / Over-cautious.
             - Effective (High OLQ): Action-oriented, completes the task, socially responsible, brave. (1 Point)
             - Partial (Medium OLQ): Address the problem but incomplete solution or lacks resourcefulness. (0.5 Points)
             - Passive/Avoidant/Impulsive (Low OLQ): Ignores problem, runs away, or unrealistic action. (0 Points)

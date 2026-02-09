@@ -105,6 +105,21 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       return "Below Average";
   };
 
+  // Helper to determine Speed Rating based on specific rules
+  const getAttemptAnalysis = (testType: TestType, count: number) => {
+      if (testType === TestType.WAT) {
+          if (count >= 45) return { label: "Ideal Pace", color: "bg-green-500" };
+          return { label: "Below Avg Speed", color: "bg-red-500" };
+      }
+      if (testType === TestType.SRT) {
+          if (count >= 50) return { label: "Top Scorer Pace", color: "bg-purple-500" };
+          if (count >= 45) return { label: "Very Good", color: "bg-green-500" };
+          if (count >= 35) return { label: "Acceptable", color: "bg-blue-500" };
+          return { label: "Caution: Slow", color: "bg-red-500" };
+      }
+      return { label: "Completed", color: "bg-slate-500" };
+  };
+
   const startTest = async () => {
     setIsLoading(true);
     setFeedback(null);
@@ -773,6 +788,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   }
 
   if (phase === PsychologyPhase.COMPLETED) {
+    const speedAnalysis = (type === TestType.WAT || type === TestType.SRT) ? getAttemptAnalysis(type, feedback?.attemptedCount || 0) : null;
+
     return (
         <div className="max-w-6xl mx-auto space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-12">
             
@@ -797,8 +814,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                             </span>
                         </div>
                         <div className="bg-white/10 p-6 rounded-[2rem] border border-white/10 backdrop-blur-md text-center min-w-[140px]">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2">Speed</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2">Speed / Attempts</span>
                             <span className="text-5xl font-black text-white">{feedback?.attemptedCount || 0} <span className="text-2xl text-slate-400">/ 60</span></span>
+                            {/* Dynamic Attempt Analysis Label */}
+                            {speedAnalysis && (
+                                <span className={`block mt-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded text-white ${speedAnalysis.color}`}>
+                                    {speedAnalysis.label}
+                                </span>
+                            )}
                         </div>
                     </div>
                 ) : (
