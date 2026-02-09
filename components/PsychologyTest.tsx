@@ -97,6 +97,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     osc.stop(ctx.currentTime + duration);
   };
 
+  const getScoreDescription = (score: number) => {
+      if (score >= 9) return "Outstanding";
+      if (score >= 7.5) return "High Potential";
+      if (score >= 6) return "Recommended";
+      if (score >= 4) return "Average";
+      return "Below Average";
+  };
+
   const startTest = async () => {
     setIsLoading(true);
     setFeedback(null);
@@ -783,6 +791,10 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                         <div className="bg-white/10 p-6 rounded-[2rem] border border-white/10 backdrop-blur-md text-center min-w-[140px]">
                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2">Psych Grade</span>
                             <span className="text-5xl font-black text-yellow-400">{feedback?.score || "N/A"}<span className="text-lg text-white/50">/10</span></span>
+                            {/* Score Description */}
+                            <span className="block mt-2 text-[10px] font-black uppercase tracking-widest bg-white/20 px-2 py-1 rounded text-white">
+                                {getScoreDescription(feedback?.score || 0)}
+                            </span>
                         </div>
                         <div className="bg-white/10 p-6 rounded-[2rem] border border-white/10 backdrop-blur-md text-center min-w-[140px]">
                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2">Speed</span>
@@ -828,34 +840,39 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                         <Activity size={24} className="text-purple-600" /> Detailed Assessment Log
                     </h3>
                     <div className="grid grid-cols-1 gap-4">
-                        {feedback.detailedAnalysis.map((item: any, i: number) => (
-                            <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:bg-white hover:shadow-md transition-all flex flex-col md:flex-row gap-6">
-                                <div className="md:w-1/4 shrink-0 flex items-center gap-4">
-                                    <span className="text-2xl font-black text-slate-200">{(i + 1).toString().padStart(2, '0')}</span>
-                                    <p className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-wide leading-tight">{item.word || item.situation}</p>
-                                </div>
-                                <div className="md:w-3/4 grid md:grid-cols-2 gap-6">
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between">
-                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Your Response</span>
-                                            <span className={`text-[9px] font-bold uppercase tracking-widest ${
-                                                item.assessment?.toLowerCase().includes('positive') || item.assessment?.toLowerCase().includes('effective') ? 'text-green-600' : 
-                                                item.assessment?.toLowerCase().includes('negative') || item.assessment?.toLowerCase().includes('passive') ? 'text-red-600' : 'text-blue-600'
-                                            }`}>{item.assessment}</span>
+                        {feedback.detailedAnalysis.map((item: any, i: number) => {
+                            const isUnattempted = !item.userResponse || item.userResponse === "Not Attempted" || item.userResponse === "" || item.assessment?.includes("Unattempted");
+                            
+                            return (
+                                <div key={i} className={`p-6 rounded-3xl border transition-all flex flex-col md:flex-row gap-6 ${isUnattempted ? 'bg-slate-100 border-slate-200 opacity-90' : 'bg-slate-50 border-slate-100 hover:bg-white hover:shadow-md'}`}>
+                                    <div className="md:w-1/4 shrink-0 flex items-center gap-4">
+                                        <span className="text-2xl font-black text-slate-300">{(i + 1).toString().padStart(2, '0')}</span>
+                                        <p className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-wide leading-tight">{item.word || item.situation}</p>
+                                    </div>
+                                    <div className="md:w-3/4 grid md:grid-cols-2 gap-6">
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between">
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Your Response</span>
+                                                <span className={`text-[9px] font-bold uppercase tracking-widest ${
+                                                    isUnattempted ? 'text-red-500' :
+                                                    item.assessment?.toLowerCase().includes('positive') || item.assessment?.toLowerCase().includes('effective') ? 'text-green-600' : 
+                                                    item.assessment?.toLowerCase().includes('negative') || item.assessment?.toLowerCase().includes('passive') ? 'text-red-600' : 'text-blue-600'
+                                                }`}>{isUnattempted ? "Not Attempted" : item.assessment}</span>
+                                            </div>
+                                            <p className={`p-3 rounded-xl text-sm font-medium ${!isUnattempted ? 'bg-white border border-slate-200 text-slate-700' : 'bg-red-50 text-red-400 border border-red-100 italic'}`}>
+                                                {isUnattempted ? "Skipped" : item.userResponse}
+                                            </p>
                                         </div>
-                                        <p className={`p-3 rounded-xl text-sm font-medium ${item.userResponse && item.userResponse !== "Not Attempted" ? 'bg-white border border-slate-200 text-slate-700' : 'bg-red-50 text-red-400 border border-red-100 italic'}`}>
-                                            {item.userResponse || "Not Attempted"}
-                                        </p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <span className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Ideal Response</span>
-                                        <p className="p-3 bg-green-50 border border-green-100 rounded-xl text-sm font-medium text-slate-700">
-                                            {item.idealResponse}
-                                        </p>
+                                        <div className="space-y-1">
+                                            <span className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Ideal Response</span>
+                                            <p className="p-3 bg-green-50 border border-green-100 rounded-xl text-sm font-medium text-slate-700">
+                                                {item.idealResponse}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             )}

@@ -462,7 +462,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         return safeJSONParse(response.text);
     } 
     
-    // 2. WAT EVALUATION (Specific "No Score" request)
+    // 2. WAT EVALUATION (Updated: Quality > Quantity > Speed)
     else if (testType === 'WAT') {
         const { watResponses, watSheetImages } = userData;
         // watResponses is array of {id, word, response}
@@ -486,6 +486,11 @@ export async function evaluatePerformance(testType: string, userData: any) {
              4. Provide an 'idealResponse' for EVERY word (including unattempted ones).
              5. Calculate a score (0-10) based on positive OLQ demonstration.
              
+             SCORING CRITERIA (Important):
+             - QUALITY > SPEED > QUANTITY.
+             - A high-quality response (Original, Positive, Observational) is worth more than just finishing the test.
+             - Attempting all 60 with poor/negative/cliché responses should result in a lower score than attempting 45 with high OLQ.
+             
              Output Format: JSON
              `;
              parts.push({ text: promptText });
@@ -497,18 +502,21 @@ export async function evaluatePerformance(testType: string, userData: any) {
              Analyze this Word Association Test (WAT) strictly based on SSB Psychological Standards.
              
              Scoring Criteria (SSB Method):
+             - **Quality > Speed > Quantity**. Do not just count attempts.
              - Positive/Constructive (High OLQ): Shows courage, determination, social responsibility, optimism. (1 Point)
              - Observational/Factual (Neutral): Describes the word or a fact. No personality projection. (0.5 Points)
              - Negative/Pessimistic/Avoidant (Low OLQ): Shows fear, anxiety, delay, or negative outcome. (0 Points)
              - 'I'/'Me' centric: Low score.
+             - Unattempted / Skipped: Mark clearly as "Not Attempted" (0 Points), but do NOT penalize heavily if the attempted ones are high quality.
              
-             Input Data:
-             ${watResponses.map((i: any) => `Word ${i.id}: "${i.word}" -> User Response: "${i.response}"`).join("\n")}
+             Input Data (Includes empty strings for unattempted):
+             ${watResponses.map((i: any) => `Word ${i.id}: "${i.word}" -> User Response: "${i.response || ""}"`).join("\n")}
 
              Tasks:
-             1. Classify each response into 'Positive', 'Neutral', or 'Negative'.
-             2. Calculate a final score out of 10 based on the quality and quantity of Positive responses.
-             3. Provide an 'idealResponse' for EVERY word.
+             1. Classify each response into 'Positive', 'Neutral', or 'Negative'. For empty strings, classify as 'Unattempted'.
+             2. Calculate a final score out of 10.
+             3. Provide an 'idealResponse' for EVERY word, especially unattempted ones.
+             4. Populate 'detailedAnalysis' for ALL 60 items.
              
              Output Format: JSON
              `;
@@ -523,7 +531,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        score: { type: Type.NUMBER, description: "Overall score out of 10 based on OLQ." },
+                        score: { type: Type.NUMBER, description: "Overall score out of 10 based on Quality first." },
                         attemptedCount: { type: Type.INTEGER, description: "Total number of words attempted by user" },
                         qualityStats: {
                             type: Type.OBJECT,
@@ -541,8 +549,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
                                 properties: {
                                     id: { type: Type.INTEGER },
                                     word: { type: Type.STRING },
-                                    userResponse: { type: Type.STRING, description: "The transcribed or typed response." },
-                                    assessment: { type: Type.STRING, description: "Brief psychological remark (e.g. Positive, Neutral, Negative)." },
+                                    userResponse: { type: Type.STRING, description: "The transcribed or typed response. 'Not Attempted' if empty." },
+                                    assessment: { type: Type.STRING, description: "Brief psychological remark (e.g. Positive, Neutral, Negative, Unattempted)." },
                                     idealResponse: { type: Type.STRING, description: "A high-OLQ example sentence." }
                                 }
                             }
@@ -751,7 +759,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         return safeJSONParse(response.text);
     }
 
-    // 6. SRT EVALUATION
+    // 6. SRT EVALUATION (Updated: Quality > Quantity > Speed)
     else if (testType === 'SRT') {
         const { srtResponses, srtSheetImages } = userData;
         
@@ -766,7 +774,13 @@ export async function evaluatePerformance(testType: string, userData: any) {
              2. If a response is missing or illegible, mark it as "Not Attempted".
              3. Assess each response for Officer Like Qualities (OLQ).
              4. Provide an 'idealResponse' for EVERY situation.
-             5. Calculate a Score (0-10) based on reaction quality (Effective vs Impulsive vs Passive).
+             5. Calculate a Score (0-10) based on reaction quality.
+             
+             SCORING CRITERIA:
+             - **Quality > Speed > Quantity**.
+             - Effective reactions (Action-oriented, Logical) score highest.
+             - Passive/Avoidant reactions score low.
+             - Do NOT penalize unattempted questions as heavily as poor reactions, but completing 60 with quality is ideal.
              
              The situations were (in order):
              ${srtResponses.map((i: any) => `${i.id}. ${i.situation}`).join("\n")}
@@ -780,13 +794,21 @@ export async function evaluatePerformance(testType: string, userData: any) {
         } else {
             promptText = `Evaluate these SRT (Situation Reaction Test) responses based on SSB Standards.
             
-            Scoring Guide:
+            SCORING GUIDE:
+            - **Quality > Speed > Quantity**.
             - Effective (High OLQ): Action-oriented, completes the task, socially responsible, brave. (1 Point)
             - Partial (Medium OLQ): Address the problem but incomplete solution or lacks resourcefulness. (0.5 Points)
             - Passive/Avoidant/Impulsive (Low OLQ): Ignores problem, runs away, or unrealistic action. (0 Points)
+            - Unattempted: Mark as "Not Attempted" (0 Points).
             
-            Input Data:
-            ${srtResponses.map((i: any) => `Q${i.id}: "${i.situation}" -> User Answer: "${i.response}"`).join("\n")}
+            Input Data (Includes empty strings for unattempted):
+            ${srtResponses.map((i: any) => `Q${i.id}: "${i.situation}" -> User Answer: "${i.response || ""}"`).join("\n")}
+            
+            Tasks:
+            1. Analyze every response. If empty, mark assessment as "Unattempted".
+            2. Calculate Score (0-10).
+            3. Populate 'detailedAnalysis' for ALL 60 items.
+            4. Provide 'idealResponse' for ALL items.
             
             Return JSON.`;
             parts.push({ text: promptText });
@@ -800,7 +822,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        score: { type: Type.NUMBER, description: "Score out of 10 based on reaction effectiveness." },
+                        score: { type: Type.NUMBER, description: "Score out of 10 based on reaction effectiveness (Quality over Quantity)." },
                         attemptedCount: { type: Type.INTEGER, description: "Total number of situations attempted by user" },
                         qualityStats: {
                             type: Type.OBJECT,
@@ -818,8 +840,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
                                 properties: {
                                     id: { type: Type.INTEGER },
                                     situation: { type: Type.STRING },
-                                    userResponse: { type: Type.STRING, description: "The transcribed or typed response." },
-                                    assessment: { type: Type.STRING, description: "Brief psychological remark (e.g. Effective, Passive, Partial)." },
+                                    userResponse: { type: Type.STRING, description: "The transcribed or typed response. 'Not Attempted' if empty." },
+                                    assessment: { type: Type.STRING, description: "Brief psychological remark (e.g. Effective, Passive, Partial, Unattempted)." },
                                     idealResponse: { type: Type.STRING, description: "A high-OLQ example reaction." }
                                 }
                             }
