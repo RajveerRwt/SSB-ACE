@@ -47,7 +47,7 @@ export async function generateTestContent(testType: string) {
               }
           }
       });
-      return { items: safeJSONParse(response.text) || [] };
+      return { items: safeJSONParse(response.text || "") || [] };
   }
   return { items: [] };
 }
@@ -101,7 +101,7 @@ export async function evaluateLecturette(topic: string, transcript: string, dura
                 }
             }
         });
-        return safeJSONParse(response.text);
+        return safeJSONParse(response.text || "");
     } catch (e) {
         console.error("Lecturette Eval Failed", e);
         return null;
@@ -161,7 +161,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 }
             }
         });
-        return safeJSONParse(response.text);
+        return safeJSONParse(response.text || "");
     }
 
     // 2. WAT / SRT EVALUATION
@@ -228,7 +228,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 }
             }
         });
-        return safeJSONParse(response.text);
+        return safeJSONParse(response.text || "");
     }
 
     // 3. PPDT EVALUATION
@@ -294,7 +294,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
             }
           }
         });
-        return safeJSONParse(response.text);
+        return safeJSONParse(response.text || "");
     }
 
     // 4. TAT EVALUATION
@@ -346,7 +346,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 }
             }
         });
-        return safeJSONParse(response.text);
+        return safeJSONParse(response.text || "");
     }
 
     // 5. SDT EVALUATION
@@ -391,7 +391,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 }
             }
         });
-        return safeJSONParse(response.text);
+        return safeJSONParse(response.text || "");
     }
 
     // Default Fallback
@@ -436,7 +436,7 @@ export async function extractPIQFromImage(base64: string, mimeType: string) {
                 responseMimeType: 'application/json'
             }
         });
-        return safeJSONParse(response.text) || {};
+        return safeJSONParse(response.text || "") || {};
     } catch (e) {
         console.error("OCR failed", e);
         return {};
@@ -452,7 +452,7 @@ export async function fetchDailyNews() {
                 tools: [{ googleSearch: {} }]
             }
         });
-        return { text: response.text, groundingMetadata: response.candidates?.[0]?.groundingMetadata };
+        return { text: response.text || "", groundingMetadata: response.candidates?.[0]?.groundingMetadata };
     } catch (e) {
         console.error("News fetch failed", e);
         return { text: "", groundingMetadata: null };
@@ -485,7 +485,7 @@ export async function generateLecturette(topic: string) {
                 }
             }
         });
-        return safeJSONParse(response.text);
+        return safeJSONParse(response.text || "");
     } catch (e) {
         console.error("Lecturette gen failed", e);
         return null;

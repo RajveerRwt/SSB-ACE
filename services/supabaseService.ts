@@ -3,8 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
 
 // Initialize Supabase Client
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_KEY || '';
+// Provide a fallback URL/Key to prevent "supabaseUrl is required" crash during initialization if env vars are missing.
+// Requests will fail gracefully instead of the app crashing on load.
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_KEY || 'placeholder';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
