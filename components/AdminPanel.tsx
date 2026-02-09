@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
@@ -49,6 +49,7 @@ const AdminPanel: React.FC = () => {
 
   // User Management
   const [searchQuery, setSearchQuery] = useState('');
+  const [userFilter, setUserFilter] = useState<'ALL' | 'ACTIVE_24H' | 'UNVERIFIED'>('ALL');
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
 
   // Confirmation Modal State
@@ -107,6 +108,21 @@ const AdminPanel: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [activeTab]);
+
+  const timeAgo = (dateString: string) => {
+    if (!dateString) return 'Never';
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (seconds < 60) return 'Just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
 
   const handleUpload = async () => {
     setIsUploading(true);
@@ -249,7 +265,7 @@ const AdminPanel: React.FC = () => {
   const userStats = {
       total: users.length,
       pro: users.filter(u => u.subscription_data?.tier === 'PRO').length,
-      free: users.filter(u => !u.subscription_data?.tier || u.subscription_data?.tier === 'FREE').length,
+      unverified: users.filter(u => !u.email_confirmed_at).length,
       activeToday: users.filter(u => {
           if (!u.last_active) return false;
           const diff = Date.now() - new Date(u.last_active).getTime();
@@ -260,12 +276,24 @@ const AdminPanel: React.FC = () => {
       tatUsed: users.reduce((acc, u) => acc + (u.subscription_data?.usage?.tat_used || 0), 0)
   };
 
-  const filteredUsers = users.filter(u => 
-      u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      u.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = users.filter(u => {
+      const matchesSearch = u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            u.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      if (!matchesSearch) return false;
 
-  // UPDATED ROBUST SQL v5.1 (Fixes missing users via Trigger & Backfill)
+      if (userFilter === 'ACTIVE_24H') {
+          if (!u.last_active) return false;
+          const diff = Date.now() - new Date(u.last_active).getTime();
+          return diff < 86400000;
+      }
+      if (userFilter === 'UNVERIFIED') {
+          return !u.email_confirmed_at;
+      }
+      return true;
+  });
+
+  // UPDATED ROBUST SQL v5.2 (Fixes unconfirmed emails visibility & syncs timestamps)
   const storageSQL = `
 -- 1. FORCE ACCESS TO USER SUBSCRIPTIONS
 create table if not exists public.user_subscriptions (
@@ -316,7 +344,7 @@ create policy "Public insert feedback" on public.user_feedback for insert with c
 create policy "Public read feedback" on public.user_feedback for select using (true);
 create policy "Public delete feedback" on public.user_feedback for delete using (true);
 
--- 4. ASPIRANTS
+-- 4. ASPIRANTS (Add email_confirmed_at)
 create table if not exists public.aspirants (
   user_id uuid references auth.users not null primary key,
   email text,
@@ -326,6 +354,14 @@ create table if not exists public.aspirants (
   streak_count integer default 0,
   last_streak_date timestamptz
 );
+-- Add column safely if missing
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'aspirants' and column_name = 'email_confirmed_at') then
+    alter table public.aspirants add column email_confirmed_at timestamptz;
+  end if;
+end $$;
+
 alter table public.aspirants enable row level security;
 drop policy if exists "Public read aspirants" on public.aspirants;
 create policy "Public read aspirants" on public.aspirants for select using (true);
@@ -356,16 +392,16 @@ begin
   end if;
 end $$;
 
--- 7. AUTOMATIC USER SYNC TRIGGER (Fixes missing cadets issue)
--- This ensures that as soon as a user signs up, they appear in your Admin Panel instantly.
+-- 7. AUTOMATIC USER SYNC TRIGGER (Updated for Email Confirmation)
 create or replace function public.handle_new_user() 
 returns trigger as $$
 begin
-  insert into public.aspirants (user_id, email, full_name, last_active)
-  values (new.id, new.email, new.raw_user_meta_data->>'full_name', now())
+  insert into public.aspirants (user_id, email, full_name, last_active, email_confirmed_at)
+  values (new.id, new.email, new.raw_user_meta_data->>'full_name', now(), new.email_confirmed_at)
   on conflict (user_id) do update
   set email = excluded.email,
-      last_active = now();
+      last_active = now(),
+      email_confirmed_at = excluded.email_confirmed_at;
   
   insert into public.user_subscriptions (user_id, tier, usage, extra_credits)
   values (
@@ -380,15 +416,26 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Trigger execution
+-- Trigger execution (Insert)
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 8. BACKFILL MISSING USERS (Runs immediately to fix current data gap)
-insert into public.aspirants (user_id, email, full_name, last_active)
-select id, email, raw_user_meta_data->>'full_name', created_at
+-- Trigger execution (Update - for email confirmation)
+drop trigger if exists on_auth_user_updated on auth.users;
+create trigger on_auth_user_updated
+  after update on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- 8. BACKFILL MISSING USERS & CONFIRMATION STATUS
+update public.aspirants a
+set email_confirmed_at = u.email_confirmed_at
+from auth.users u
+where a.user_id = u.id;
+
+insert into public.aspirants (user_id, email, full_name, last_active, email_confirmed_at)
+select id, email, raw_user_meta_data->>'full_name', created_at, email_confirmed_at
 from auth.users
 on conflict (user_id) do nothing;
 
@@ -438,7 +485,7 @@ on conflict (user_id) do nothing;
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-slate-900">
                     <Settings className="text-blue-600" size={24} />
-                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v5.1)</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v5.2)</h5>
                 </div>
                 {showSqlHelp && !errorMsg && (
                     <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
@@ -447,7 +494,7 @@ on conflict (user_id) do nothing;
             
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-xl">
                 <p className="text-xs text-yellow-800 font-bold">
-                    <strong>Instructions:</strong> To fix missing users, copy this script and run it in the Supabase SQL Editor. It includes a <strong>Trigger</strong> to prevent this in the future and a <strong>Backfill</strong> to fix past data.
+                    <strong>Instructions:</strong> To fix missing users and sync email confirmation status, copy this script and run it in the Supabase SQL Editor.
                 </p>
             </div>
 
@@ -500,6 +547,7 @@ on conflict (user_id) do nothing;
 
       {activeTab === 'DAILY' ? (
           <div className="max-w-3xl mx-auto space-y-6">
+              {/* Daily Challenge UI */}
               <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
                   <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6 flex items-center gap-3">
                       <Zap className="text-teal-600" /> Create Daily Dossier
@@ -639,7 +687,7 @@ on conflict (user_id) do nothing;
                           </div>
                           <h4 className="text-4xl font-black tracking-tight">{userStats.total}</h4>
                           <p className="text-[10px] font-bold mt-2 opacity-80 flex items-center gap-1">
-                              <Activity size={10} /> {userStats.activeToday} Active Today
+                              <Activity size={10} /> {userStats.activeToday} Active (24h)
                           </p>
                       </div>
                       <Users className="absolute -bottom-4 -right-4 w-24 h-24 opacity-10 group-hover:scale-110 transition-transform" />
@@ -653,7 +701,7 @@ on conflict (user_id) do nothing;
                           </div>
                           <h4 className="text-4xl font-black text-slate-900 tracking-tight">{userStats.pro}</h4>
                           <div className="flex items-center gap-2 mt-2">
-                              <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded">{userStats.free} Free Users</span>
+                              {userStats.unverified > 0 && <span className="text-[9px] font-black text-red-500 bg-red-50 px-2 py-0.5 rounded">{userStats.unverified} Unverified Emails</span>}
                           </div>
                       </div>
                       <div className="absolute right-4 top-1/2 -translate-y-1/2 w-16 h-16">
@@ -687,26 +735,46 @@ on conflict (user_id) do nothing;
               </div>
 
               {/* USER SEARCH & LIST */}
-              <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-lg flex items-center gap-4 sticky top-24 z-10">
-                  <Search className="text-slate-400 ml-2" size={20} />
-                  <input 
-                    type="text" 
-                    placeholder="Search Cadets by Name or Email..." 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-transparent font-bold text-slate-700 outline-none placeholder:text-slate-300"
-                  />
+              <div className="flex flex-col md:flex-row gap-4 sticky top-24 z-10">
+                  <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-lg flex-1 flex items-center gap-4">
+                      <Search className="text-slate-400 ml-2" size={20} />
+                      <input 
+                        type="text" 
+                        placeholder="Search Cadets by Name or Email..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-transparent font-bold text-slate-700 outline-none placeholder:text-slate-300"
+                      />
+                  </div>
+                  <div className="flex bg-white p-2 rounded-[2rem] border border-slate-100 shadow-lg gap-2">
+                      <button onClick={() => setUserFilter('ALL')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${userFilter === 'ALL' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}>All</button>
+                      <button onClick={() => setUserFilter('ACTIVE_24H')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${userFilter === 'ACTIVE_24H' ? 'bg-green-500 text-white' : 'text-slate-400 hover:bg-green-50'}`}>Active 24h</button>
+                      <button onClick={() => setUserFilter('UNVERIFIED')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${userFilter === 'UNVERIFIED' ? 'bg-red-500 text-white' : 'text-slate-400 hover:bg-red-50'}`}>Unverified</button>
+                  </div>
               </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredUsers.map(u => (
-                      <div key={u.user_id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-xl flex flex-col justify-between group hover:border-slate-300 transition-all">
-                          <div className="space-y-4 mb-6">
+                      <div key={u.user_id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-xl flex flex-col justify-between group hover:border-slate-300 transition-all relative overflow-hidden">
+                          {/* Unverified Badge */}
+                          {!u.email_confirmed_at && (
+                              <div className="absolute top-0 right-0 bg-red-50 text-red-600 px-4 py-2 rounded-bl-2xl text-[9px] font-black uppercase tracking-widest border-b border-l border-red-100 flex items-center gap-2">
+                                  <MailWarning size={12} /> Unverified
+                              </div>
+                          )}
+                          
+                          <div className="space-y-4 mb-6 pt-4">
                               <div className="flex justify-between items-start">
                                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${u.subscription_data?.tier === 'PRO' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 text-slate-500'}`}>
                                       {u.subscription_data?.tier === 'PRO' ? <Crown size={24} /> : <User size={24} />}
                                   </div>
-                                  <div className="px-3 py-1 bg-slate-50 rounded-full text-[9px] font-black uppercase text-slate-400 tracking-widest">
-                                      {u.subscription_data?.tier || 'FREE'}
+                                  <div className="flex flex-col items-end gap-1">
+                                      <div className="px-3 py-1 bg-slate-50 rounded-full text-[9px] font-black uppercase text-slate-400 tracking-widest">
+                                          {u.subscription_data?.tier || 'FREE'}
+                                      </div>
+                                      <p className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                                          <Clock size={10} /> Active: {timeAgo(u.last_active)}
+                                      </p>
                                   </div>
                               </div>
                               <div>
@@ -727,14 +795,6 @@ on conflict (user_id) do nothing;
                                   <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-100">
                                       <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">TAT</span>
                                       <span className="text-sm font-black text-slate-700">{u.subscription_data?.usage?.tat_used || 0}</span>
-                                  </div>
-                                  <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-100">
-                                      <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">WAT</span>
-                                      <span className="text-sm font-black text-slate-700">{u.subscription_data?.usage?.wat_used || 0}</span>
-                                  </div>
-                                  <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-100">
-                                      <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">SRT</span>
-                                      <span className="text-sm font-black text-slate-700">{u.subscription_data?.usage?.srt_used || 0}</span>
                                   </div>
                               </div>
                           </div>
@@ -863,7 +923,7 @@ on conflict (user_id) do nothing;
         <div className="text-center py-12 text-slate-400 font-bold">Select a valid tab or add content.</div>
       )}
       
-      {/* USER DETAILS MODAL and CONFIRMATION MODAL - Unchanged logic, just ensure they are rendered */}
+      {/* USER DETAILS MODAL */}
       {selectedUser && (
           <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl relative">
@@ -879,8 +939,19 @@ on conflict (user_id) do nothing;
                           <div>
                               <h2 className="text-2xl font-black text-slate-900">{selectedUser.full_name || 'Cadet'}</h2>
                               <p className="text-sm font-bold text-slate-500">{selectedUser.email}</p>
-                              <div className="flex gap-2 mt-2">
+                              
+                              <div className="flex flex-wrap gap-2 mt-2">
                                   <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedUser.subscription_data?.tier || 'FREE'}</span>
+                                  {!selectedUser.email_confirmed_at && (
+                                      <span className="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                                          <MailWarning size={12} /> Email Not Verified
+                                      </span>
+                                  )}
+                                  {selectedUser.last_active && (
+                                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                                          <UserCheck size={12} /> Active: {timeAgo(selectedUser.last_active)}
+                                      </span>
+                                  )}
                               </div>
                           </div>
                       </div>
