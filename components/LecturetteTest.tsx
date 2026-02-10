@@ -281,18 +281,18 @@ const LecturetteTest: React.FC = () => {
                   </button>
 
                   {/* LEFT: AUDIO VISUALIZER */}
-                  <div className="w-full md:w-1/2 bg-slate-900 relative flex flex-col justify-center items-center overflow-hidden">
+                  <div className="w-full md:w-1/2 bg-slate-900 relative flex flex-col justify-center items-center overflow-hidden shrink-0 h-72 md:h-auto border-b md:border-b-0 md:border-r border-slate-800">
                       <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-black pointer-events-none"></div>
                       
                       <div className="relative z-10 text-center space-y-8">
-                          <div className={`w-40 h-40 rounded-full flex items-center justify-center border-8 transition-all duration-500 ${isRecording ? 'border-red-500 shadow-[0_0_50px_rgba(239,68,68,0.4)] bg-red-900/20' : 'border-slate-800 bg-slate-800'}`}>
+                          <div className={`w-32 h-32 md:w-40 md:h-40 rounded-full flex items-center justify-center border-8 transition-all duration-500 ${isRecording ? 'border-red-500 shadow-[0_0_50px_rgba(239,68,68,0.4)] bg-red-900/20' : 'border-slate-800 bg-slate-800'}`}>
                               <Mic size={64} className={`${isRecording ? 'text-red-500 animate-pulse' : 'text-slate-600'}`} />
                           </div>
                           
                           <div>
                               {isRecording ? (
                                   <>
-                                    <div className="text-6xl font-mono font-black text-white drop-shadow-lg tracking-tighter mb-2">
+                                    <div className="text-5xl md:text-6xl font-mono font-black text-white drop-shadow-lg tracking-tighter mb-2">
                                         {formatTime(speechTimer)}
                                     </div>
                                     <p className="text-red-500 font-black uppercase tracking-[0.5em] text-xs animate-pulse">Recording On Air</p>
@@ -327,7 +327,7 @@ const LecturetteTest: React.FC = () => {
                   </div>
 
                   {/* RIGHT: CONTENT & CONTROLS */}
-                  <div className="w-full md:w-1/2 bg-slate-50 flex flex-col relative">
+                  <div className="w-full md:w-1/2 bg-slate-50 flex flex-col relative overflow-hidden flex-1">
                       {/* EVALUATION VIEW */}
                       {feedback ? (
                           <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
@@ -384,7 +384,7 @@ const LecturetteTest: React.FC = () => {
                       ) : (
                           // PREPARATION VIEW
                           <>
-                              <div className="p-8 border-b border-slate-200 bg-white">
+                              <div className="p-6 md:p-8 border-b border-slate-200 bg-white">
                                   <div className="flex justify-between items-start">
                                       <div>
                                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Topic Card</span>
@@ -396,7 +396,7 @@ const LecturetteTest: React.FC = () => {
                                   </div>
                               </div>
 
-                              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar relative">
+                              <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar relative">
                                   {loadingLecturette ? (
                                       <div className="flex flex-col items-center justify-center py-12 space-y-4">
                                           <Loader2 className="w-10 h-10 text-purple-600 animate-spin" />
