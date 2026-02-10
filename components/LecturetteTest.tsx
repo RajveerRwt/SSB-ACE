@@ -78,7 +78,14 @@ const LecturetteTest: React.FC = () => {
       let interval: any;
       if (isRecording) {
           interval = setInterval(() => {
-              setSpeechTimer(prev => prev + 1);
+              setSpeechTimer(prev => {
+                  const newVal = prev + 1;
+                  // Warning Bell at 2.5 minutes (150 seconds)
+                  if (newVal === 150) {
+                      playBuzzer(400, 1.0); 
+                  }
+                  return newVal;
+              });
           }, 1000);
       }
       return () => clearInterval(interval);
@@ -289,6 +296,11 @@ const LecturetteTest: React.FC = () => {
                                         {formatTime(speechTimer)}
                                     </div>
                                     <p className="text-red-500 font-black uppercase tracking-[0.5em] text-xs animate-pulse">Recording On Air</p>
+                                    {speechTimer > 150 && (
+                                        <p className="text-yellow-400 font-black uppercase tracking-[0.2em] text-[10px] mt-2 animate-bounce">
+                                            Warning: Wrap Up (30s Left)
+                                        </p>
+                                    )}
                                   </>
                               ) : (
                                   <p className="text-slate-500 font-black uppercase tracking-[0.2em] text-xs">Microphone Standby</p>
