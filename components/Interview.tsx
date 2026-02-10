@@ -72,9 +72,12 @@ interface InterviewProps {
   piqData?: PIQData;
   onSave?: (result: any) => void;
   isAdmin?: boolean;
+  userId?: string;
+  isGuest?: boolean;
+  onLoginRedirect?: () => void;
 }
 
-const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin }) => {
+const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId, isGuest, onLoginRedirect }) => {
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isCameraOn, setIsCameraOn] = useState(true);
