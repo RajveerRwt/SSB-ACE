@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Video, Eye, Award, Activity, StopCircle, RefreshCw, Layout } from 'lucide-react';
+import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio } from 'lucide-react';
 import { generateLecturette, evaluateLecturette } from '../services/geminiService';
 
 const LECTURETTE_TOPICS = [
@@ -25,13 +26,14 @@ const LecturetteTest: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [feedback, setFeedback] = useState<any>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   
   // Media Refs
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef<string>("");
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const playBuzzer = (freq: number = 200, duration: number = 0.5) => {
     if (!audioCtxRef.current) {
@@ -82,26 +84,6 @@ const LecturetteTest: React.FC = () => {
       return () => clearInterval(interval);
   }, [isRecording]);
 
-  const startCamera = async () => {
-      try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-          streamRef.current = stream;
-          if (videoRef.current) {
-              videoRef.current.srcObject = stream;
-          }
-      } catch (e) {
-          console.error("Camera error", e);
-          alert("Please allow camera access for the GTO simulation.");
-      }
-  };
-
-  const stopCamera = () => {
-      if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
-          streamRef.current = null;
-      }
-  };
-
   const handleLecturetteClick = async (topic: string) => {
       setSelectedLecturette(topic);
       setLecturetteContent(null);
@@ -110,12 +92,12 @@ const LecturetteTest: React.FC = () => {
       setSpeechTimer(0);
       setIsPrepTimerRunning(false);
       setFeedback(null);
+      setAudioUrl(null);
       transcriptRef.current = "";
       
       try {
           const content = await generateLecturette(topic);
           setLecturetteContent(content);
-          startCamera();
       } catch (e) {
           console.error("Failed to gen lecturette", e);
       } finally {
@@ -124,49 +106,92 @@ const LecturetteTest: React.FC = () => {
   };
 
   const handleClose = () => {
-      stopCamera();
       setSelectedLecturette(null);
       setIsPrepTimerRunning(false);
       setIsRecording(false);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+      }
+      if (recognitionRef.current) recognitionRef.current.stop();
   };
 
-  const startRecording = () => {
-      setIsPrepTimerRunning(false);
-      setIsRecording(true);
-      setSpeechTimer(0);
-      transcriptRef.current = "";
-      
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-          alert("Speech Recognition not supported in this browser. Use Chrome.");
-          return;
-      }
+  const startRecording = async () => {
+      try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          
+          setIsPrepTimerRunning(false);
+          setIsRecording(true);
+          setSpeechTimer(0);
+          setAudioUrl(null);
+          transcriptRef.current = "";
+          audioChunksRef.current = [];
 
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-IN';
-
-      recognition.onresult = (event: any) => {
-          let finalTranscript = '';
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-              if (event.results[i].isFinal) {
-                  finalTranscript += event.results[i][0].transcript + " ";
+          // 1. Start Audio Recording for Playback
+          const mediaRecorder = new MediaRecorder(stream);
+          mediaRecorderRef.current = mediaRecorder;
+          
+          mediaRecorder.ondataavailable = (event) => {
+              if (event.data.size > 0) {
+                  audioChunksRef.current.push(event.data);
               }
-          }
-          if (finalTranscript) {
-              transcriptRef.current += finalTranscript;
-          }
-      };
+          };
 
-      recognition.start();
+          mediaRecorder.start();
+
+          // 2. Start Speech Recognition for Analysis
+          const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+          if (SpeechRecognition) {
+              const recognition = new SpeechRecognition();
+              recognitionRef.current = recognition;
+              recognition.continuous = true;
+              recognition.interimResults = true;
+              recognition.lang = 'en-IN';
+
+              recognition.onresult = (event: any) => {
+                  let finalTranscript = '';
+                  for (let i = event.resultIndex; i < event.results.length; ++i) {
+                      if (event.results[i].isFinal) {
+                          finalTranscript += event.results[i][0].transcript + " ";
+                      }
+                  }
+                  if (finalTranscript) {
+                      transcriptRef.current += finalTranscript;
+                  }
+              };
+              recognition.start();
+          } else {
+              console.warn("Speech Recognition API not supported");
+          }
+
+      } catch (err) {
+          console.error("Microphone Access Denied", err);
+          alert("Microphone access is required for the Lecturette test.");
+      }
   };
 
   const stopRecording = async () => {
       setIsRecording(false);
+      
+      // Stop Recognition
       if (recognitionRef.current) recognitionRef.current.stop();
       
+      // Stop Media Recorder
+      if (mediaRecorderRef.current) {
+          mediaRecorderRef.current.stop();
+          mediaRecorderRef.current.onstop = async () => {
+              const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+              const url = URL.createObjectURL(audioBlob);
+              setAudioUrl(url);
+              
+              // Proceed to Evaluation
+              handleEvaluation();
+          };
+      } else {
+          handleEvaluation();
+      }
+  };
+
+  const handleEvaluation = async () => {
       setIsEvaluating(true);
       try {
           const result = await evaluateLecturette(selectedLecturette || "Topic", transcriptRef.current, speechTimer);
@@ -248,44 +273,45 @@ const LecturetteTest: React.FC = () => {
                       <X size={24} />
                   </button>
 
-                  {/* LEFT: GTO MIRROR & CAMERA */}
-                  <div className="w-full md:w-1/2 bg-black relative flex flex-col justify-center overflow-hidden">
-                      <video 
-                          ref={videoRef} 
-                          autoPlay 
-                          muted 
-                          playsInline 
-                          className="w-full h-full object-cover mirror-mode opacity-80"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none"></div>
+                  {/* LEFT: AUDIO VISUALIZER */}
+                  <div className="w-full md:w-1/2 bg-slate-900 relative flex flex-col justify-center items-center overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-black pointer-events-none"></div>
                       
-                      {/* OVERLAYS */}
-                      <div className="absolute top-6 left-6 right-6 flex justify-between items-start">
-                          <div className="bg-red-600/90 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse flex items-center gap-2">
-                              <div className="w-2 h-2 bg-white rounded-full"></div> Live Feed
+                      <div className="relative z-10 text-center space-y-8">
+                          <div className={`w-40 h-40 rounded-full flex items-center justify-center border-8 transition-all duration-500 ${isRecording ? 'border-red-500 shadow-[0_0_50px_rgba(239,68,68,0.4)] bg-red-900/20' : 'border-slate-800 bg-slate-800'}`}>
+                              <Mic size={64} className={`${isRecording ? 'text-red-500 animate-pulse' : 'text-slate-600'}`} />
                           </div>
-                          <div className="flex flex-col items-end">
-                              <span className="text-white/50 text-[9px] font-black uppercase tracking-widest">Postural Check</span>
-                              <span className="text-white text-xs font-bold">Stand Straight • Eye Contact</span>
+                          
+                          <div>
+                              {isRecording ? (
+                                  <>
+                                    <div className="text-6xl font-mono font-black text-white drop-shadow-lg tracking-tighter mb-2">
+                                        {formatTime(speechTimer)}
+                                    </div>
+                                    <p className="text-red-500 font-black uppercase tracking-[0.5em] text-xs animate-pulse">Recording On Air</p>
+                                  </>
+                              ) : (
+                                  <p className="text-slate-500 font-black uppercase tracking-[0.2em] text-xs">Microphone Standby</p>
+                              )}
                           </div>
                       </div>
 
-                      {/* RECORDING STATUS */}
-                      <div className="absolute bottom-10 left-0 w-full flex justify-center">
-                          {isRecording ? (
-                              <div className="flex flex-col items-center gap-2">
-                                  <div className="text-6xl font-mono font-black text-white drop-shadow-lg tracking-tighter">
-                                      {formatTime(speechTimer)}
-                                  </div>
-                                  <span className="text-red-500 font-black uppercase tracking-[0.5em] text-xs bg-black/50 px-4 py-1 rounded-full animate-pulse">Recording</span>
-                              </div>
-                          ) : (
-                              <div className="bg-black/60 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 text-center">
-                                  <p className="text-white font-bold text-sm">GTO is Observing</p>
-                                  <p className="text-slate-400 text-[10px]">Your body language is being monitored.</p>
-                              </div>
-                          )}
-                      </div>
+                      {/* Waveform Animation */}
+                      {isRecording && (
+                          <div className="absolute bottom-0 left-0 w-full h-32 flex items-end justify-center gap-1 pb-10 opacity-30">
+                              {[...Array(20)].map((_, i) => (
+                                  <div 
+                                    key={i} 
+                                    className="w-2 bg-red-500 rounded-t-full animate-bounce" 
+                                    style={{ 
+                                        height: `${Math.random() * 80 + 20}%`, 
+                                        animationDuration: `${Math.random() * 0.5 + 0.5}s`,
+                                        animationDelay: `${i * 0.05}s`
+                                    }} 
+                                  />
+                              ))}
+                          </div>
+                      )}
                   </div>
 
                   {/* RIGHT: CONTENT & CONTROLS */}
@@ -303,6 +329,17 @@ const LecturetteTest: React.FC = () => {
                                   </div>
                                   <div className="ml-auto text-4xl font-black text-slate-900">{feedback.score}<span className="text-lg text-slate-400">/10</span></div>
                               </div>
+
+                              {/* AUDIO PLAYER */}
+                              {audioUrl && (
+                                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                                      <div className="flex items-center gap-2 mb-2 text-blue-600">
+                                          <FileAudio size={16} />
+                                          <span className="text-[10px] font-black uppercase tracking-widest">Your Recording</span>
+                                      </div>
+                                      <audio controls src={audioUrl} className="w-full h-10" />
+                                  </div>
+                              )}
 
                               <div className="grid grid-cols-1 gap-4">
                                   <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
@@ -347,14 +384,14 @@ const LecturetteTest: React.FC = () => {
                                   </div>
                               </div>
 
-                              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar relative">
                                   {loadingLecturette ? (
                                       <div className="flex flex-col items-center justify-center py-12 space-y-4">
                                           <Loader2 className="w-10 h-10 text-purple-600 animate-spin" />
                                           <p className="text-xs font-black uppercase tracking-widest text-slate-400">Generating AI Outline...</p>
                                       </div>
                                   ) : lecturetteContent ? (
-                                      <div className="space-y-6">
+                                      <div className={`space-y-6 transition-all duration-500 ${isRecording ? 'blur-md select-none pointer-events-none opacity-50' : ''}`}>
                                           <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
                                               <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1 block">Intro Idea</span>
                                               <p className="text-sm font-medium text-slate-700">{lecturetteContent.introduction}</p>
@@ -375,6 +412,15 @@ const LecturetteTest: React.FC = () => {
                                       </div>
                                   ) : (
                                       <p className="text-center text-red-500 font-bold">Failed to load content.</p>
+                                  )}
+                                  
+                                  {isRecording && (
+                                      <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+                                          <div className="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-xl text-center border-2 border-red-100">
+                                              <p className="text-slate-900 font-black uppercase tracking-widest mb-2">Eyes Up!</p>
+                                              <p className="text-slate-500 text-xs font-medium max-w-[200px]">Content hidden. Speak from memory to demonstrate confidence.</p>
+                                          </div>
+                                      </div>
                                   )}
                               </div>
 
