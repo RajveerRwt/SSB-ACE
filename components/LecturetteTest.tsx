@@ -1,9 +1,34 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio, MapPin, Filter } from 'lucide-react';
+import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio, MapPin, Filter, Star } from 'lucide-react';
 import { generateLecturette, evaluateLecturette } from '../services/geminiService';
 
+const IMPORTANT_TOPICS_LIST = [
+    "India China relation", "Indo China relationship", 
+    "India US relation", "India us relationship", "Indo-US relations",
+    "India Pakistan relation", "Indo pak relations", "India-Pakistan Relations",
+    "Corruption", "Corruption in Public Life",
+    "My inspiration in life", 
+    "Global warming", 
+    "Dictatorship", 
+    "Physical fitness", 
+    "Communal violence", 
+    "BRICS", "Role of India in BRICS",
+    "Climate change", 
+    "Indian education system", 
+    "Crime against women", 
+    "G20", "India's G20 Presidency"
+];
+
 const LECTURETTE_TOPICS = [
+    // --- IMPORTANT / FREQUENTLY ASKED ADDITIONS ---
+    { title: "My inspiration in life", board: "Frequent", category: "Personal", difficulty: "Low" },
+    { title: "Dictatorship", board: "Frequent", category: "Political", difficulty: "Medium" },
+    { title: "Communal violence", board: "Frequent", category: "Social", difficulty: "High" },
+    { title: "Indian education system", board: "Frequent", category: "National", difficulty: "Medium" },
+    { title: "Crime against women", board: "Frequent", category: "Social", difficulty: "High" },
+    { title: "Corruption", board: "Frequent", category: "Social", difficulty: "Medium" },
+
     // 11 SSB Allahabad
     { title: "Growing Economy", board: "11 SSB Allahabad", category: "Economy", difficulty: "Medium" },
     { title: "My first trip", board: "11 SSB Allahabad", category: "Personal", difficulty: "Low" },
@@ -407,9 +432,21 @@ const LecturetteTest: React.FC = () => {
       return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Filter Topics
-  const boards = ['ALL', 'Allahabad', 'Bhopal', 'Bengaluru', 'Kapurthala', 'Dehradun', 'Visakhapatnam', 'Varanasi', 'Mysore', 'Gandhinagar', 'Kolkata'];
-  const filteredTopics = LECTURETTE_TOPICS.filter(t => activeBoardFilter === 'ALL' || t.board.includes(activeBoardFilter));
+  // GENERATE UNIQUE BOARD LIST DYNAMICALLY
+  const uniqueBoards = Array.from(new Set(LECTURETTE_TOPICS.map(t => t.board)))
+    .filter(b => b !== 'Frequent') // Exclude generic marker from standard list
+    .sort();
+  
+  const boards = ['ALL', 'IMPORTANT', ...uniqueBoards];
+
+  // Modified Filtering Logic
+  const filteredTopics = LECTURETTE_TOPICS.filter(t => {
+      if (activeBoardFilter === 'ALL') return true;
+      if (activeBoardFilter === 'IMPORTANT') {
+          return IMPORTANT_TOPICS_LIST.includes(t.title) || t.board === 'Frequent';
+      }
+      return t.board === activeBoardFilter;
+  });
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700 relative">
@@ -422,7 +459,7 @@ const LecturetteTest: React.FC = () => {
             </span>
             <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">Lecturette <span className="text-yellow-400">Simulator</span></h1>
             <p className="text-slate-400 max-w-2xl font-medium leading-relaxed text-sm md:text-base">
-               Practice board-specific topics. 3 Mins Preparation • 3 Mins Speech. AI evaluates your Content, Structure, and Fluency.
+               Practice specific board topics. 3 Mins Preparation • 3 Mins Speech. AI evaluates your Content, Structure, and Fluency.
             </p>
          </div>
          <div className="absolute top-0 right-0 p-8 opacity-5">
@@ -436,26 +473,31 @@ const LecturetteTest: React.FC = () => {
               <div className="flex flex-col md:flex-row justify-between items-center gap-6 border-b border-slate-100 pb-6 mb-6">
                   <div>
                       <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Topic Cards</h3>
-                      <p className="text-slate-500 text-xs font-bold mt-2">Recently asked topics in various SSB/AFSB Boards.</p>
+                      <p className="text-slate-500 text-xs font-bold mt-2">Filter by Board Number to see exact recent topics.</p>
                   </div>
+              </div>
                   
-                  {/* BOARD FILTER */}
-                  <div className="flex flex-wrap gap-2 justify-center md:justify-end">
-                      {boards.map(b => (
-                          <button 
-                            key={b}
-                            onClick={() => setActiveBoardFilter(b)}
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeBoardFilter === b ? 'bg-purple-600 text-white shadow-lg' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
-                          >
-                              {b === 'ALL' ? 'All Boards' : b}
-                          </button>
-                      ))}
-                  </div>
+              {/* BOARD FILTER - Scrollable */}
+              <div className="flex overflow-x-auto pb-4 gap-2 mb-6 custom-scrollbar">
+                  {boards.map(b => (
+                      <button 
+                        key={b}
+                        onClick={() => setActiveBoardFilter(b)}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap shrink-0 flex items-center gap-2 ${
+                            activeBoardFilter === b 
+                            ? (b === 'IMPORTANT' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-purple-600 text-white shadow-lg') 
+                            : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                        }`}
+                      >
+                          {b === 'IMPORTANT' && <Star size={12} fill="currentColor" />}
+                          {b === 'ALL' ? 'All Boards' : b === 'IMPORTANT' ? 'Important Topics' : b}
+                      </button>
+                  ))}
               </div>
 
               {filteredTopics.length === 0 ? (
                   <div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest text-xs">
-                      No topics found for this board filter.
+                      No topics found for this filter.
                   </div>
               ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -473,7 +515,7 @@ const LecturetteTest: React.FC = () => {
                                       <h5 className="font-bold text-slate-900 text-sm group-hover:text-purple-900 leading-tight">{topic.title}</h5>
                                       <div className="flex items-center gap-2 mt-1">
                                           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                                              <MapPin size={10} /> {topic.board}
+                                              <MapPin size={10} /> {topic.board === 'Frequent' ? 'Repeated Topic' : topic.board}
                                           </span>
                                           <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest px-2 py-0.5 bg-blue-50 rounded-full">
                                               {topic.category}
