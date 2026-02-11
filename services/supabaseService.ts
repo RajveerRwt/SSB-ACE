@@ -33,6 +33,30 @@ export const setCachedContent = async (category: string, dateKey: string, conten
   if (error) console.error("Cache Write Error:", error);
 };
 
+// --- LECTURETTE CACHING (NEW) ---
+
+export const getLecturetteContent = async (topic: string) => {
+  const { data } = await supabase
+    .from('lecturette_topics')
+    .select('content')
+    .eq('topic', topic)
+    .maybeSingle();
+  return data?.content || null;
+};
+
+export const saveLecturetteContent = async (topic: string, board: string, category: string, content: any) => {
+  const { error } = await supabase
+    .from('lecturette_topics')
+    .upsert({
+      topic,
+      board,
+      category,
+      content
+    }, { onConflict: 'topic' });
+    
+  if (error) console.error("Error saving lecturette cache:", error);
+};
+
 // --- AUTHENTICATION ---
 
 export const signInWithEmail = async (email: string, password: string) => {

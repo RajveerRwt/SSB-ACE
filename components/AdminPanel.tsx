@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature } from 'lucide-react';
 import { 
@@ -293,7 +294,7 @@ const AdminPanel: React.FC = () => {
       return true;
   });
 
-  // UPDATED ROBUST SQL v5.3 (Includes Last Active Backfill & Full Usage Tracking)
+  // UPDATED ROBUST SQL v5.3 (Includes Lecturette Cache Table)
   const storageSQL = `
 -- 1. FORCE ACCESS TO USER SUBSCRIPTIONS
 create table if not exists public.user_subscriptions (
@@ -392,7 +393,7 @@ begin
   end if;
 end $$;
 
--- 7. AUTOMATIC USER SYNC TRIGGER (v5.3 - Syncs Actual Sign In Time)
+-- 7. AUTOMATIC USER SYNC TRIGGER
 create or replace function public.handle_new_user() 
 returns trigger as $$
 begin
@@ -452,6 +453,23 @@ select
   '{"interview": 0}'::jsonb
 from auth.users
 on conflict (user_id) do nothing;
+
+-- 9. LECTURETTE CACHE TABLE (NEW)
+create table if not exists public.lecturette_topics (
+  id uuid default uuid_generate_v4() primary key,
+  topic text unique not null,
+  board text,
+  category text,
+  content jsonb not null,
+  created_at timestamptz default now()
+);
+alter table public.lecturette_topics enable row level security;
+drop policy if exists "Public read lecturettes" on public.lecturette_topics;
+drop policy if exists "Public insert lecturettes" on public.lecturette_topics;
+drop policy if exists "Public update lecturettes" on public.lecturette_topics;
+create policy "Public read lecturettes" on public.lecturette_topics for select using (true);
+create policy "Public insert lecturettes" on public.lecturette_topics for insert with check (true);
+create policy "Public update lecturettes" on public.lecturette_topics for update using (true);
 `;
 
   return (

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio, MapPin, Filter, Star } from 'lucide-react';
 import { generateLecturette, evaluateLecturette } from '../services/geminiService';
+import { getLecturetteContent, saveLecturetteContent } from '../services/supabaseService';
 
 const IMPORTANT_TOPICS_LIST = [
     "India China relation", "Indo China relationship", 
@@ -307,7 +308,8 @@ const LecturetteTest: React.FC = () => {
       return () => clearInterval(interval);
   }, [isRecording]);
 
-  const handleLecturetteClick = async (topic: string) => {
+  const handleLecturetteClick = async (topicData: any) => {
+      const topic = topicData.title;
       setSelectedLecturette(topic);
       setLecturetteContent(null);
       setLoadingLecturette(true);
@@ -319,8 +321,20 @@ const LecturetteTest: React.FC = () => {
       transcriptRef.current = "";
       
       try {
-          const content = await generateLecturette(topic);
-          setLecturetteContent(content);
+          // 1. Check Cache
+          const cached = await getLecturetteContent(topic);
+          
+          if (cached) {
+              setLecturetteContent(cached);
+          } else {
+              // 2. Generate via AI if not cached
+              const content = await generateLecturette(topic);
+              if (content) {
+                  setLecturetteContent(content);
+                  // 3. Save to DB for next user
+                  await saveLecturetteContent(topic, topicData.board, topicData.category, content);
+              }
+          }
       } catch (e) {
           console.error("Failed to gen lecturette", e);
       } finally {
@@ -504,7 +518,7 @@ const LecturetteTest: React.FC = () => {
                       {filteredTopics.map((topic, i) => (
                           <div 
                             key={i} 
-                            onClick={() => handleLecturetteClick(topic.title)}
+                            onClick={() => handleLecturetteClick(topic)}
                             className="flex flex-col md:flex-row items-start md:items-center justify-between p-5 bg-white border border-slate-200 rounded-2xl hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all group shadow-sm hover:shadow-lg gap-4"
                           >
                               <div className="flex items-center gap-4">
