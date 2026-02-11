@@ -1,19 +1,52 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio } from 'lucide-react';
+import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio, MapPin, Filter } from 'lucide-react';
 import { generateLecturette, evaluateLecturette } from '../services/geminiService';
 
 const LECTURETTE_TOPICS = [
-    { title: "Indo-US Relations", difficulty: "High", category: "International" },
-    { title: "Women in Combat Roles", difficulty: "Medium", category: "Social" },
-    { title: "Cyber Warfare", difficulty: "High", category: "Technology" },
-    { title: "Atmanirbhar Bharat in Defense", difficulty: "Medium", category: "National" },
-    { title: "Climate Change & Security", difficulty: "Low", category: "Global" },
-    { title: "Role of Youth in Nation Building", difficulty: "Low", category: "Social" },
-    { title: "Artificial Intelligence in Modern Warfare", difficulty: "High", category: "Tech" },
-    { title: "India's Nuclear Policy", difficulty: "High", category: "Defense" },
-    { title: "NEP 2020", difficulty: "Medium", category: "Education" },
-    { title: "G20 Presidency Impact", difficulty: "Medium", category: "International" },
+    { title: "Climate Change and Agriculture", board: "33 SSB Bhopal", category: "Environment", difficulty: "Medium" },
+    { title: "Digital Surveillance and Privacy", board: "19 SSB Allahabad", category: "Technology", difficulty: "High" },
+    { title: "India’s Role in Global Peacekeeping", board: "11 SSB Allahabad", category: "International", difficulty: "Medium" },
+    { title: "National Artificial Intelligence Strategy", board: "24 SSB Bengaluru", category: "Technology", difficulty: "High" },
+    { title: "Terror Financing Networks", board: "33 SSB Bhopal", category: "Security", difficulty: "High" },
+    { title: "Youth and Environmental Protection", board: "32 SSB Kapurthala", category: "Social", difficulty: "Low" },
+    { title: "Smart Border Management", board: "21 SSB Bengaluru", category: "Defense", difficulty: "Medium" },
+    { title: "Disaster Response Technologies", board: "24 SSB Bengaluru", category: "Technology", difficulty: "Medium" },
+    { title: "Defence and Innovation Ecosystem", board: "21 SSB Bengaluru", category: "Defense", difficulty: "High" },
+    { title: "Women Leadership in Security Sector", board: "33 SSB Bhopal", category: "Social", difficulty: "Medium" },
+    { title: "Cyber Warfare and International Law", board: "19 SSB Allahabad", category: "Technology", difficulty: "High" },
+    { title: "Strategic Autonomy of India", board: "14 SSB Allahabad", category: "International", difficulty: "High" },
+    { title: "Space Power and National Security", board: "21 SSB Bengaluru", category: "Defense", difficulty: "High" },
+    { title: "Community Policing", board: "18 SSB Allahabad", category: "Social", difficulty: "Low" },
+    { title: "National Health Security", board: "33 SSB Bhopal", category: "Social", difficulty: "Medium" },
+    { title: "Youth and Start-up Culture", board: "31 SSB Kapurthala", category: "Economy", difficulty: "Medium" },
+    { title: "Defence Supply Chain Management", board: "24 SSB Bengaluru", category: "Defense", difficulty: "High" },
+    { title: "Climate Finance", board: "14 SSB Allahabad", category: "Environment", difficulty: "High" },
+    { title: "Military Training and Technology", board: "1 AFSB Dehradun", category: "Defense", difficulty: "Medium" },
+    { title: "Cyber Security Workforce", board: "24 SSB Bengaluru", category: "Technology", difficulty: "Medium" },
+    { title: "Border Villages Development", board: "33 SSB Bhopal", category: "National", difficulty: "Medium" },
+    { title: "Defence Cooperation with ASEAN", board: "21 SSB Bengaluru", category: "International", difficulty: "High" },
+    { title: "Role of Armed Forces in Disaster Relief", board: "General", category: "Defense", difficulty: "Low" },
+    { title: "Space-Based Navigation Systems", board: "21 SSB Bengaluru", category: "Technology", difficulty: "High" },
+    { title: "Digital Governance and Transparency", board: "18 SSB Allahabad", category: "National", difficulty: "Medium" },
+    { title: "Youth and National Integration", board: "32 SSB Kapurthala", category: "Social", difficulty: "Low" },
+    { title: "Defence Export Promotion", board: "24 SSB Bengaluru", category: "Defense", difficulty: "Medium" },
+    { title: "Cyber Security Awareness in Society", board: "31 SSB Kapurthala", category: "Social", difficulty: "Low" },
+    { title: "Climate Change and Coastal Security", board: "2 SSB Visakhapatnam", category: "Environment", difficulty: "High" },
+    { title: "Maritime Domain Awareness", board: "2 SSB Visakhapatnam", category: "Defense", difficulty: "High" },
+    { title: "Military Ethics in Peacekeeping", board: "1 AFSB Dehradun", category: "Defense", difficulty: "Medium" },
+    { title: "Strategic Minerals Security", board: "14 SSB Allahabad", category: "National", difficulty: "High" },
+    { title: "Defence Space Command", board: "21 SSB Bengaluru", category: "Defense", difficulty: "High" },
+    { title: "Youth and Social Innovation", board: "31 SSB Kapurthala", category: "Social", difficulty: "Low" },
+    { title: "Digital Forensics", board: "24 SSB Bengaluru", category: "Technology", difficulty: "Medium" },
+    { title: "Border Infrastructure and Connectivity", board: "33 SSB Bhopal", category: "National", difficulty: "Medium" },
+    { title: "Defence Technology Absorption", board: "21 SSB Bengaluru", category: "Defense", difficulty: "High" },
+    { title: "Cyber Threats to Critical Infrastructure", board: "24 SSB Bengaluru", category: "Technology", difficulty: "High" },
+    { title: "Climate Change and Internal Security", board: "33 SSB Bhopal", category: "Environment", difficulty: "High" },
+    { title: "Women in Disaster Response Forces", board: "33 SSB Bhopal", category: "Social", difficulty: "Medium" },
+    { title: "Strategic Culture of India", board: "11 SSB Allahabad", category: "National", difficulty: "High" },
+    { title: "Military Leadership in Joint Operations", board: "1 AFSB Dehradun", category: "Defense", difficulty: "High" },
+    { title: "Future of Joint Warfare", board: "21 SSB Bengaluru", category: "Defense", difficulty: "High" }
 ];
 
 const LecturetteTest: React.FC = () => {
@@ -27,6 +60,7 @@ const LecturetteTest: React.FC = () => {
   const [feedback, setFeedback] = useState<any>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [activeBoardFilter, setActiveBoardFilter] = useState<string>('ALL');
   
   // Media Refs
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -216,6 +250,10 @@ const LecturetteTest: React.FC = () => {
       return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Filter Topics
+  const boards = ['ALL', 'Allahabad', 'Bhopal', 'Bengaluru', 'Kapurthala', 'Dehradun', 'Visakhapatnam'];
+  const filteredTopics = LECTURETTE_TOPICS.filter(t => activeBoardFilter === 'ALL' || t.board.includes(activeBoardFilter));
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700 relative">
       
@@ -227,7 +265,7 @@ const LecturetteTest: React.FC = () => {
             </span>
             <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">Lecturette <span className="text-yellow-400">Simulator</span></h1>
             <p className="text-slate-400 max-w-2xl font-medium leading-relaxed text-sm md:text-base">
-               3 Mins Preparation • 3 Mins Speech. The AI GTO evaluates your Content, Structure, Fluency, and Body Language (via self-correction).
+               Practice board-specific topics. 3 Mins Preparation • 3 Mins Speech. AI evaluates your Content, Structure, and Fluency.
             </p>
          </div>
          <div className="absolute top-0 right-0 p-8 opacity-5">
@@ -238,34 +276,61 @@ const LecturetteTest: React.FC = () => {
       {/* TOPIC LIST */}
       {!selectedLecturette && (
           <div className="bg-white rounded-[2.5rem] p-6 md:p-10 border border-slate-100 shadow-xl">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-100 pb-6 mb-6">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-6 border-b border-slate-100 pb-6 mb-6">
                   <div>
                       <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Topic Cards</h3>
-                      <p className="text-slate-500 text-xs font-bold mt-2">Pick a card to enter the simulation room.</p>
+                      <p className="text-slate-500 text-xs font-bold mt-2">Recently asked topics in various SSB/AFSB Boards.</p>
+                  </div>
+                  
+                  {/* BOARD FILTER */}
+                  <div className="flex flex-wrap gap-2 justify-center md:justify-end">
+                      {boards.map(b => (
+                          <button 
+                            key={b}
+                            onClick={() => setActiveBoardFilter(b)}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeBoardFilter === b ? 'bg-purple-600 text-white shadow-lg' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                          >
+                              {b === 'ALL' ? 'All Boards' : b}
+                          </button>
+                      ))}
                   </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {LECTURETTE_TOPICS.map((topic, i) => (
-                      <div 
-                        key={i} 
-                        onClick={() => handleLecturetteClick(topic.title)}
-                        className="flex items-center justify-between p-5 bg-white border border-slate-200 rounded-2xl hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all group shadow-sm hover:shadow-lg"
-                      >
-                          <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-purple-600 group-hover:text-white transition-colors font-black text-xs">
-                                  {i + 1}
+
+              {filteredTopics.length === 0 ? (
+                  <div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest text-xs">
+                      No topics found for this board filter.
+                  </div>
+              ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {filteredTopics.map((topic, i) => (
+                          <div 
+                            key={i} 
+                            onClick={() => handleLecturetteClick(topic.title)}
+                            className="flex flex-col md:flex-row items-start md:items-center justify-between p-5 bg-white border border-slate-200 rounded-2xl hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all group shadow-sm hover:shadow-lg gap-4"
+                          >
+                              <div className="flex items-center gap-4">
+                                  <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-purple-600 group-hover:text-white transition-colors font-black text-xs shrink-0">
+                                      {i + 1}
+                                  </div>
+                                  <div>
+                                      <h5 className="font-bold text-slate-900 text-sm group-hover:text-purple-900 leading-tight">{topic.title}</h5>
+                                      <div className="flex items-center gap-2 mt-1">
+                                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                              <MapPin size={10} /> {topic.board}
+                                          </span>
+                                          <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest px-2 py-0.5 bg-blue-50 rounded-full">
+                                              {topic.category}
+                                          </span>
+                                      </div>
+                                  </div>
                               </div>
-                              <div>
-                                  <h5 className="font-bold text-slate-900 text-sm group-hover:text-purple-900">{topic.title}</h5>
-                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{topic.category}</span>
-                              </div>
+                              <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest shrink-0 ${topic.difficulty === 'High' ? 'bg-red-100 text-red-700' : topic.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                                  {topic.difficulty}
+                              </span>
                           </div>
-                          <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${topic.difficulty === 'High' ? 'bg-red-100 text-red-700' : topic.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
-                              {topic.difficulty}
-                          </span>
-                      </div>
-                  ))}
-              </div>
+                      ))}
+                  </div>
+              )}
           </div>
       )}
 
