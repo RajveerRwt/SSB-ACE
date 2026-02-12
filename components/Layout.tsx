@@ -197,8 +197,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
       }
   };
 
-  // Repeated text for seamless loop effect without JS calculation
-  // Repeating it 10 times ensures it's wide enough for most screens
+  // Repeated text for seamless loop effect
   const marqueeContent = Array(10).fill(tickerConfig.message).map((msg, i) => (
       <span key={i} className="flex items-center">
           {msg}
@@ -436,23 +435,23 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
           </div>
         </header>
 
-        {/* NEWS TICKER (Dynamic, Speed Controlled & Seamless) */}
+        {/* NEWS TICKER (Theme Matched: Navy/Yellow) */}
         {tickerConfig.is_active && activeTest === TestType.DASHBOARD && tickerConfig.message && (
-            <div className="w-full bg-[#dc2626] text-white overflow-hidden relative z-20 shadow-md h-10 flex items-center">
-                <div className="absolute left-0 top-0 bottom-0 bg-[#b91c1c] px-4 text-[10px] font-black uppercase tracking-widest shrink-0 flex items-center gap-2 z-20 shadow-lg border-r border-[#991b1b]">
-                    <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span> Breaking
+            <div className="w-full bg-slate-900 text-slate-200 overflow-hidden relative z-20 shadow-md h-10 flex items-center border-b border-white/10">
+                <div className="absolute left-0 top-0 bottom-0 bg-yellow-400 text-slate-900 px-4 text-[10px] font-black uppercase tracking-widest shrink-0 flex items-center gap-2 z-20 shadow-lg skew-x-[-10deg] -ml-2 pl-6">
+                    <span className="w-2 h-2 bg-slate-900 rounded-full animate-pulse skew-x-[10deg]"></span> 
+                    <span className="skew-x-[10deg]">Notice</span>
                 </div>
                 
                 {/* Seamless Marquee Container */}
-                <div className="flex overflow-hidden w-full h-full items-center relative mask-linear-gradient">
+                <div className="flex overflow-hidden w-full h-full items-center relative mask-linear-gradient pl-20">
                     <div 
                         className="animate-marquee flex gap-0 shrink-0 items-center text-xs font-bold uppercase tracking-wide whitespace-nowrap"
                         style={{ '--marquee-duration': `${tickerConfig.speed}s` } as React.CSSProperties}
                     >
                        {marqueeContent}
                     </div>
-                    {/* Duplicate for seamless effect logic (Already handled by repeating content inside single scroller if wide enough, or use double div technique) */}
-                    {/* Reliable CSS-only infinite loop: Need two identical children animating continuously */}
+                    {/* Duplicate for seamless loop logic if css requires two children (Tailwind implementation handles single usually if wide enough, but repeating here ensures continuity) */}
                     <div 
                         className="animate-marquee flex gap-0 shrink-0 items-center text-xs font-bold uppercase tracking-wide whitespace-nowrap"
                         style={{ '--marquee-duration': `${tickerConfig.speed}s` } as React.CSSProperties}
