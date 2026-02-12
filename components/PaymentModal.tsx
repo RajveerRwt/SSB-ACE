@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock, Tag, CreditCard, BookOpen, ChevronRight, IndianRupee, Coins } from 'lucide-react';
+import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock, Tag, CreditCard, BookOpen, ChevronRight } from 'lucide-react';
 import { processRazorpayTransaction, getLatestPaymentRequest, validateCoupon } from '../services/supabaseService';
 
 interface PaymentModalProps {
@@ -20,8 +20,7 @@ declare global {
 const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, onSuccess, planType = 'PRO' }) => {
   const [step, setStep] = useState<'SELECT' | 'PAY' | 'SUCCESS'>('SELECT');
   const [selectedAmount, setSelectedAmount] = useState(0);
-  const [selectedPlan, setSelectedPlan] = useState<string>('');
-  const [customAmount, setCustomAmount] = useState('');
+  const [selectedPlan, setSelectedPlan] = useState<'PRO_SUBSCRIPTION' | 'STANDARD_SUBSCRIPTION' | 'INTERVIEW_ADDON'>('PRO_SUBSCRIPTION');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
 
@@ -37,13 +36,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
         setStep('SELECT');
         setError('');
         setProcessing(false);
-        setCustomAmount('');
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const initiatePayment = (amount: number, type: string) => {
+  const initiatePayment = (amount: number, type: 'PRO_SUBSCRIPTION' | 'STANDARD_SUBSCRIPTION' | 'INTERVIEW_ADDON') => {
     setSelectedAmount(amount);
     setSelectedPlan(type);
     setStep('PAY');
@@ -53,19 +51,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
     setAppliedCoupon('');
     setDiscount(0);
     setCouponMessage(null);
-  };
-
-  const handleCustomPayment = () => {
-      const amt = parseInt(customAmount);
-      if (!amt || amt < 10) {
-          setError("Minimum amount is ₹10");
-          return;
-      }
-      // Check if custom amount matches a bundle, if so upgrade them
-      if (amt === 100) initiatePayment(100, 'BUNDLE_100');
-      else if (amt === 200) initiatePayment(200, 'BUNDLE_200');
-      else if (amt === 300) initiatePayment(300, 'BUNDLE_300');
-      else initiatePayment(amt, 'CUSTOM');
   };
 
   const handleApplyCoupon = async () => {
@@ -124,14 +109,17 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
     }
 
     // ROBUST KEY RETRIEVAL STRATEGY
+    // We cast to 'any' to avoid TypeScript build errors if types aren't fully loaded
     let keyId = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID;
     
     if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE') {
+        // Fallback to process.env if available
         if (typeof process !== 'undefined' && (process as any).env) {
             keyId = (process as any).env.RAZORPAY_KEY_ID;
         }
     }
     
+    // Direct Fallback if Env fails
     if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE') {
         keyId = "rzp_live_S6bUN9RquDzbeY";
     }
@@ -145,12 +133,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
 
     const options = {
       key: keyId, 
-      amount: finalAmount * 100, 
+      amount: finalAmount * 100, // Amount is in currency subunits. Default currency is INR.
       currency: "INR",
       name: "SSBPREP.ONLINE",
-      description: "Coin Wallet Top-up",
-      image: "https://ssbprep.online/logo.svg",
+      description: selectedPlan === 'PRO_SUBSCRIPTION' ? "Pro Cadet Access" : "Interview Add-on",
+      image: "https://ssbprep.online/logo.svg", // Using site logo
       handler: async function (response: any) {
+        // Handle Success
         try {
             await processRazorpayTransaction(
                 userId, 
@@ -161,15 +150,24 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
             );
             setStep('SUCCESS');
             setProcessing(false);
-            onSuccess(); 
+            onSuccess(); // Trigger parent refresh if needed
         } catch (e: any) {
-            setError("Payment successful but coin activation failed. Contact Support with Ref: " + response.razorpay_payment_id);
+            setError("Payment successful but activation failed. Contact Support with Ref: " + response.razorpay_payment_id);
             setProcessing(false);
         }
       },
-      prefill: { name: "", email: "", contact: "" },
-      notes: { plan: selectedPlan, userId: userId },
-      theme: { color: "#1e293b" }
+      prefill: {
+        name: "", // Can fetch from user profile if needed
+        email: "",
+        contact: ""
+      },
+      notes: {
+        plan: selectedPlan,
+        userId: userId
+      },
+      theme: {
+        color: "#1e293b"
+      }
     };
 
     try {
@@ -186,13 +184,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
     }
   };
 
-  const getCoinsReceived = (amount: number, type: string) => {
-      if (type === 'BUNDLE_100' || amount === 100) return 110;
-      if (type === 'BUNDLE_200' || amount === 200) return 230;
-      if (type === 'BUNDLE_300' || amount === 300) return 350;
-      return amount; // 1:1 Default
-  };
-
   return (
     <div className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
        <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
@@ -207,11 +198,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                  <ArrowLeft size={20} />
                </button>
              )}
-             <div className="w-12 h-12 bg-yellow-400 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg text-slate-900">
-               <Coins size={24} />
+             <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg text-white">
+               <CreditCard size={24} />
              </div>
-             <h3 className="text-white font-black uppercase tracking-widest text-lg">Wallet Top-Up</h3>
-             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">1 Coin = 1 Rupee (Bonus on Bundles)</p>
+             <h3 className="text-white font-black uppercase tracking-widest text-lg">Secure Checkout</h3>
+             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">Powered by Razorpay</p>
           </div>
 
           <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
@@ -219,93 +210,80 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
              {step === 'SELECT' && (
                <div className="space-y-6">
                   <div className="text-center space-y-2">
-                      <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Select Bundle</h4>
-                      <p className="text-slate-500 text-xs font-medium">Get extra coins with larger packs.</p>
+                      <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Choose Your Upgrade</h4>
+                      <p className="text-slate-500 text-xs font-medium">Select a plan to boost your SSB preparation.</p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Bundle 100 */}
-                      <div 
-                        onClick={() => initiatePayment(100, 'BUNDLE_100')}
-                        className="p-4 rounded-[1.5rem] border-2 border-slate-100 bg-white hover:border-blue-400 cursor-pointer transition-all hover:shadow-lg flex flex-col items-center justify-center gap-2 group text-center"
-                      >
-                         <div className="bg-slate-100 text-slate-500 p-3 rounded-xl mb-1">
-                            <Coins size={20} />
-                         </div>
-                         <h4 className="font-black text-slate-900 text-lg">110 Coins</h4>
-                         <p className="text-xs text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded">10% Extra</p>
-                         <span className="text-xl font-black text-slate-800 mt-2">₹100</span>
-                      </div>
-
-                      {/* Bundle 200 */}
-                      <div 
-                        onClick={() => initiatePayment(200, 'BUNDLE_200')}
-                        className="p-4 rounded-[1.5rem] border-2 border-slate-100 bg-white hover:border-purple-400 cursor-pointer transition-all hover:shadow-lg flex flex-col items-center justify-center gap-2 group text-center"
-                      >
-                         <div className="bg-purple-50 text-purple-500 p-3 rounded-xl mb-1">
-                            <Coins size={20} />
-                         </div>
-                         <h4 className="font-black text-slate-900 text-lg">230 Coins</h4>
-                         <p className="text-xs text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded">15% Extra</p>
-                         <span className="text-xl font-black text-slate-800 mt-2">₹200</span>
-                      </div>
-
-                      {/* Bundle 300 */}
-                      <div 
-                        onClick={() => initiatePayment(300, 'BUNDLE_300')}
-                        className="p-4 rounded-[1.5rem] border-4 border-yellow-400 bg-yellow-50/50 cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all flex flex-col items-center justify-center gap-2 group text-center relative overflow-hidden"
-                      >
-                         <div className="absolute top-0 right-0 bg-yellow-400 text-black px-3 py-1 text-[8px] font-black uppercase tracking-widest rounded-bl-xl">Best</div>
-                         <div className="bg-yellow-400 text-black p-3 rounded-xl mb-1 shadow-sm">
-                            <Zap size={20} fill="currentColor" />
-                         </div>
-                         <h4 className="font-black text-slate-900 text-lg">350 Coins</h4>
-                         <p className="text-xs text-green-700 font-bold bg-green-100 px-2 py-0.5 rounded">Max Value</p>
-                         <span className="text-2xl font-black text-slate-900 mt-2">₹300</span>
-                      </div>
+                  {/* Interview Top-up - Moved to Top */}
+                  <div 
+                    onClick={() => initiatePayment(39, 'INTERVIEW_ADDON')}
+                    className="p-4 rounded-[1.5rem] border-2 border-blue-100 bg-blue-50/30 hover:border-blue-300 cursor-pointer transition-all hover:bg-blue-100/50 flex items-center justify-between gap-4 group"
+                  >
+                    <div className="flex items-center gap-4">
+                       <div className="bg-blue-600 text-white p-3 rounded-xl shadow-lg shadow-blue-500/20">
+                          <Smartphone size={20} />
+                       </div>
+                       <div>
+                           <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest">Interview Top-up</h4>
+                           <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Add 1 Extra Interview Credit</p>
+                       </div>
+                    </div>
+                    <div className="text-right flex items-center gap-3">
+                        <span className="text-xl font-black text-slate-900">₹39</span>
+                        <div className="bg-white p-1.5 rounded-full border border-slate-100 shadow-sm group-hover:scale-110 transition-transform">
+                            <ChevronRight size={14} className="text-slate-400" />
+                        </div>
+                    </div>
                   </div>
 
-                  {/* Custom Amount */}
-                  <div className="pt-4 border-t border-slate-100">
-                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest text-center mb-3">Or Enter Custom Amount</p>
-                      <div className="flex gap-2">
-                          <div className="relative flex-1">
-                              <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">₹</span>
-                              <input 
-                                  type="number" 
-                                  value={customAmount}
-                                  onChange={(e) => {
-                                      setCustomAmount(e.target.value);
-                                      setError('');
-                                  }}
-                                  placeholder="e.g. 50"
-                                  className="w-full pl-8 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-slate-900 transition-all"
-                              />
+                  {/* PRO PLAN - Full Width */}
+                  <div 
+                    onClick={() => initiatePayment(299, 'PRO_SUBSCRIPTION')}
+                    className="p-6 rounded-[2rem] border-4 border-yellow-400 bg-white relative overflow-hidden cursor-pointer hover:shadow-2xl hover:scale-[1.01] transition-all group"
+                  >
+                      <div className="absolute top-0 right-0 bg-yellow-400 text-black px-4 py-1.5 rounded-bl-2xl text-[9px] font-black uppercase tracking-widest shadow-md">Recommended</div>
+                      <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+                          <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-4">
+                                  <h5 className="font-black text-slate-900 uppercase tracking-widest text-lg">Officer Plan</h5>
+                                  <span className="bg-blue-600 text-white px-2 py-1 rounded text-[9px] font-bold uppercase">Pro</span>
+                              </div>
+                              <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> 5 Personal Interviews (AI Virtual IO)</li>
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> 30 PPDT with Narration</li>
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> 7 TAT Sets</li>
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> 10 SRT & 10 WAT Sets</li>
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> SDT & SSB AI Guide</li>
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> Daily News / Current Affairs</li>
+                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> Daily Practice</li>
+                                  <li className="flex gap-2 items-center md:col-span-2 text-slate-800"><Star size={14} className="text-yellow-500 shrink-0" /> Detailed & Personalized Assessment</li>
+                              </ul>
                           </div>
-                          <button 
-                              onClick={handleCustomPayment}
-                              className="px-6 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all shadow-lg"
-                          >
-                              Add
-                          </button>
+                          <div className="text-right shrink-0 flex flex-col justify-between items-end w-full md:w-auto mt-4 md:mt-0">
+                              <div className="flex items-baseline gap-2 justify-end">
+                                  <span className="text-sm font-bold text-slate-400 line-through">₹599</span>
+                                  <span className="text-4xl font-black text-slate-900">₹299</span>
+                              </div>
+                              <button className="mt-4 px-8 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest group-hover:bg-black transition-colors w-full">
+                                  Select Plan
+                              </button>
+                          </div>
                       </div>
-                      {error && <p className="text-red-500 text-xs font-bold mt-2 text-center">{error}</p>}
                   </div>
                </div>
              )}
 
              {step === 'PAY' && (
                <div className="space-y-6 text-center animate-in slide-in-from-right duration-300">
+                  
+                  {/* Amount Display */}
                   <div className="space-y-1">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">You Pay</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Payable</p>
                     <div className="flex items-center justify-center gap-2">
                         {discount > 0 && (
                             <span className="text-lg font-bold text-slate-400 line-through">₹{selectedAmount}</span>
                         )}
                         <span className="text-4xl font-black text-slate-900">₹{finalAmount}</span>
-                    </div>
-                    <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl inline-block mt-2 font-bold text-xs">
-                        Getting {getCoinsReceived(selectedAmount, selectedPlan)} Coins
                     </div>
                   </div>
 
@@ -337,6 +315,16 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                           </p>
                       )}
                   </div>
+                  {!discount && (
+                        <div className="flex justify-end mt-2">
+                            <button 
+                                onClick={() => { setCouponCode('REPUBLIC26'); }}
+                                className="text-[9px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest flex items-center gap-1 hover:underline"
+                            >
+                                <Star size={10} fill="currentColor" /> Use Code: REPUBLIC26
+                            </button>
+                        </div>
+                  )}
 
                   {error && (
                     <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-xl text-xs font-bold">
@@ -352,6 +340,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                     {processing ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} />}
                     {processing ? 'Processing...' : 'Pay with Razorpay'}
                   </button>
+                  
+                  <div className="flex justify-center gap-4 opacity-50 grayscale hover:grayscale-0 transition-all">
+                     {/* Placeholder icons for trust badges */}
+                     <span className="text-[10px] font-bold text-slate-400">UPI</span>
+                     <span className="text-[10px] font-bold text-slate-400">Cards</span>
+                     <span className="text-[10px] font-bold text-slate-400">NetBanking</span>
+                  </div>
                </div>
              )}
 
@@ -363,14 +358,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                   <div className="space-y-2">
                      <h3 className="text-2xl font-black text-slate-900 uppercase">Payment Successful!</h3>
                      <p className="text-slate-500 font-medium text-sm leading-relaxed px-4">
-                        Coins have been added to your wallet.
+                        Your plan has been upgraded instantly. You can now access all Pro features.
                      </p>
                   </div>
                   <button 
                     onClick={onClose}
                     className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-lg"
                   >
-                    Continue Training
+                    Start Training Now
                   </button>
                </div>
              )}

@@ -34,9 +34,7 @@ import {
   Crown,
   Library,
   BookOpen,
-  Zap,
-  Coins,
-  Plus
+  Zap
 } from 'lucide-react';
 import { getRecentAnnouncements, subscribeToAnnouncements, getTickerConfig, subscribeToTicker } from '../services/supabaseService';
 
@@ -50,10 +48,9 @@ interface LayoutProps {
   isLoggedIn: boolean;
   isAdmin?: boolean;
   subscription?: UserSubscription | null;
-  onOpenPayment?: () => void; // Added callback to open payment modal from header
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLogout, onLogin, user, isLoggedIn, isAdmin, subscription, onOpenPayment }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLogout, onLogin, user, isLoggedIn, isAdmin, subscription }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   
@@ -298,6 +295,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                  <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Logged in as</p>
                  <div className="flex items-center gap-2">
                     <p className="text-xs font-bold text-slate-300 truncate">{user}</p>
+                    {subscription?.tier === 'PRO' && <span className="bg-yellow-400 text-black text-[8px] px-1.5 py-0.5 rounded font-black uppercase">PRO</span>}
                  </div>
                  {isAdmin && <span className="text-[8px] bg-red-600 px-1.5 py-0.5 rounded text-white font-black uppercase tracking-widest mt-1 inline-block">Admin</span>}
                </div>
@@ -366,24 +364,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
           </div>
 
           <div className="flex items-center gap-3 md:gap-6">
-            
-            {/* COIN WALLET DISPLAY */}
-            {isLoggedIn && (
-                <div 
-                    onClick={onOpenPayment}
-                    className="hidden md:flex items-center gap-2 px-4 py-1.5 bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-full cursor-pointer hover:bg-yellow-100 transition-all group"
-                    title="Coin Balance"
-                >
-                    <div className="w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center text-yellow-900 shadow-sm group-hover:scale-110 transition-transform">
-                        <Coins size={12} strokeWidth={3} />
-                    </div>
-                    <span className="text-xs font-black">{subscription?.coins || 0}</span>
-                    <div className="w-4 h-4 bg-slate-900 text-white rounded-full flex items-center justify-center ml-1">
-                        <Plus size={10} />
-                    </div>
-                </div>
-            )}
-
             <div className="flex flex-col items-end hidden md:flex">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
                 {isLoggedIn ? (isAdmin ? 'Admin Access' : 'Deployment Ready') : 'Guest Access'}
@@ -392,6 +372,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                 <span className={`w-1.5 h-1.5 rounded-full ${isLoggedIn ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`} />
                 {isLoggedIn ? 'Active' : 'Preview'}
               </span>
+              {subscription?.tier === 'PRO' && <span className="text-[9px] font-black text-yellow-500 uppercase tracking-widest mt-0.5 flex items-center gap-1"><Crown size={10} /> Pro Officer</span>}
             </div>
             
             {/* Notification Bell Dropdown */}
@@ -470,6 +451,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                     >
                        {marqueeContent}
                     </div>
+                    {/* Duplicate for seamless loop logic if css requires two children (Tailwind implementation handles single usually if wide enough, but repeating here ensures continuity) */}
                     <div 
                         className="animate-marquee flex gap-0 shrink-0 items-center text-xs font-bold uppercase tracking-wide whitespace-nowrap"
                         style={{ '--marquee-duration': `${tickerConfig.speed}s` } as React.CSSProperties}

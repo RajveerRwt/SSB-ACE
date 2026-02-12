@@ -3,23 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
 
 // Initialize Supabase Client
+// Provide a fallback URL/Key to prevent "supabaseUrl is required" crash during initialization if env vars are missing.
+// Requests will fail gracefully instead of the app crashing on load.
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_KEY || 'placeholder';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// --- COIN RATES ---
-export const TEST_RATES = {
-    PPDT: 5,
-    TAT: 10,
-    WAT: 5,
-    SRT: 5,
-    SDT: 5,
-    LECTURETTE: 5,
-    INTERVIEW_FULL: 50,
-    INTERVIEW_TRIAL: 10,
-    DAILY_PRACTICE: 0 // Free
-};
 
 // --- CACHING SERVICE ---
 
@@ -44,7 +33,7 @@ export const setCachedContent = async (category: string, dateKey: string, conten
   if (error) console.error("Cache Write Error:", error);
 };
 
-// --- LECTURETTE CACHING ---
+// --- LECTURETTE CACHING (NEW) ---
 
 export const getLecturetteContent = async (topic: string) => {
   const { data } = await supabase
@@ -68,7 +57,7 @@ export const saveLecturetteContent = async (topic: string, board: string, catego
   if (error) console.error("Error saving lecturette cache:", error);
 };
 
-// --- TICKER CONFIGURATION ---
+// --- TICKER CONFIGURATION (UPDATED) ---
 
 export const getTickerConfig = async () => {
   const { data } = await supabase
@@ -104,9 +93,11 @@ export const subscribeToTicker = (callback: (config: any) => void) => {
 
 export const signInWithEmail = async (email: string, password: string) => {
   const auth = supabase.auth as any;
+  // Handle v2
   if (auth.signInWithPassword) {
     return await auth.signInWithPassword({ email, password });
   }
+  // Handle v1
   const { user, session, error } = await auth.signIn({ email, password });
   return { data: { user, session }, error };
 };
@@ -123,16 +114,21 @@ export const signInWithGoogle = async () => {
 
 export const signUpWithEmail = async (email: string, password: string, fullName: string) => {
   const auth = supabase.auth as any;
+  // Attempt registration (hybrid support)
   let result;
   if (auth.signInWithPassword) {
+      // v2
       result = await auth.signUp({ 
         email, 
         password,
         options: {
-          data: { full_name: fullName }
+          data: { 
+            full_name: fullName 
+          }
         }
       });
   } else {
+      // v1
       const { user, session, error } = await auth.signUp({ email, password }, { data: { full_name: fullName } });
       result = { data: { user, session }, error };
   }
@@ -149,6 +145,7 @@ export const checkAuthSession = async () => {
     const { data: { session } } = await auth.getSession();
     return session?.user || null;
   }
+  // v1 fallback
   const session = auth.session ? auth.session() : null;
   return session?.user || null;
 };
@@ -165,13 +162,14 @@ export const subscribeToAuthChanges = (callback: (user: any) => void) => {
 };
 
 export const isUserAdmin = (email: string | null | undefined) => {
-  const adminEmails = ['rajveerrawat947@gmail.com', 'admin@ssbprep.online']; 
+  const adminEmails = ['rajveerrawat947@gmail.com', 'admin@ssbprep.online']; // Add your admin emails here
   return email ? adminEmails.includes(email) : false;
 };
 
 export const syncUserProfile = async (user: any) => {
   if (!user) return;
   
+  // Ensure user profile exists in 'aspirants' table
   const { error } = await supabase
     .from('aspirants')
     .upsert({ 
@@ -183,7 +181,7 @@ export const syncUserProfile = async (user: any) => {
     
   if (error) console.error("Sync Profile Error:", error);
   
-  // Ensure subscription/wallet entry exists
+  // Ensure subscription entry exists using UPSERT to prevent race conditions or missing rows
   const { data: sub } = await supabase
     .from('user_subscriptions')
     .select('tier')
@@ -191,10 +189,10 @@ export const syncUserProfile = async (user: any) => {
     .maybeSingle(); 
     
   if (!sub) {
+      // NEW USER DEFAULT LIMITS
       const { error: subError } = await supabase.from('user_subscriptions').insert({
           user_id: user.id,
           tier: 'FREE',
-          coins: 50, // Default 50 Coins for new users
           usage: {
             interview_used: 0, interview_limit: 1, 
             ppdt_used: 0, ppdt_limit: 10,          
@@ -205,7 +203,7 @@ export const syncUserProfile = async (user: any) => {
           },
           extra_credits: { interview: 0 }
       });
-      if (subError) console.warn("Sub Init Error:", subError);
+      if (subError) console.warn("Sub Init Error (Table might be missing):", subError);
   }
 };
 
@@ -265,35 +263,46 @@ export const saveTestAttempt = async (userId: string, testType: string, resultDa
 };
 
 export const getAllUsers = async () => {
+  // 1. Fetch Aspirants Profile Data
+  // Using select('*') to prevent "column not found" errors if schema drifts
   const { data: aspirants, error: aspError } = await supabase
     .from('aspirants')
     .select('*')
     .order('last_active', { ascending: false });
 
   if (aspError) {
+    console.error("SSB Admin: Error fetching aspirants", aspError);
     return [];
   }
 
-  const { data: subs } = await supabase
+  // 2. Fetch All Subscriptions separately to ensure FRESH data
+  const { data: subs, error: subError } = await supabase
     .from('user_subscriptions')
     .select('*');
 
+  if (subError) {
+    console.error("SSB Admin: Error fetching subscriptions", subError);
+  }
+
+  // 3. Manual Merge
   const mergedData = aspirants?.map((u: any) => {
+      // Find matching subscription by user_id from the FRESH table
       const sub = subs?.find((s: any) => s.user_id === u.user_id);
       
       const defaultSub = { 
           tier: 'FREE', 
-          coins: 50,
           usage: { 
-            interview_used: 0, 
-            ppdt_used: 0, 
-            tat_used: 0, 
-            wat_used: 0, 
-            srt_used: 0, 
+            interview_used: 0, interview_limit: 1,
+            ppdt_used: 0, ppdt_limit: 10,
+            tat_used: 0, tat_limit: 2,
+            wat_used: 0, wat_limit: 3,
+            srt_used: 0, srt_limit: 3,
             sdt_used: 0 
-          }
+          },
+          extra_credits: { interview: 0 }
       };
 
+      // Ensure we prioritize the live subscription table over any stale aspirant column
       return {
           ...u,
           subscription_data: sub || defaultSub
@@ -311,7 +320,7 @@ export const deleteUserProfile = async (userId: string) => {
     await supabase.from('aspirants').delete().eq('user_id', userId);
 };
 
-// --- COIN WALLET SYSTEM ---
+// --- SUBSCRIPTION & PAYMENTS ---
 
 export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
   let { data: sub, error } = await supabase
@@ -320,61 +329,151 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (!sub) {
-      // Return default structure if missing
-      return {
-          tier: 'FREE',
-          coins: 50,
-          expiryDate: null,
-          usage: { interview_used: 0, interview_limit: 1, ppdt_used: 0, ppdt_limit: 10, tat_used: 0, tat_limit: 2, wat_used: 0, wat_limit: 3, srt_used: 0, srt_limit: 3, sdt_used: 0 },
-          extra_credits: { interview: 0 }
-      };
+  if (error) console.warn("Fetch Sub Error:", error.message);
+
+  // 2. SELF-HEALING (PRO): If subscription is missing or FREE, check for valid payments
+  if (!sub || sub.tier === 'FREE') {
+      const { data: payment } = await supabase
+          .from('payment_requests')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('status', 'APPROVED')
+          .eq('plan_type', 'PRO_SUBSCRIPTION')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(); 
+
+      if (payment) {
+          console.log(`SSB: Auto-Repairing Subscription for ${userId} based on Payment ID: ${payment.id}`);
+          
+          try {
+              const paymentDate = payment.created_at;
+              const getUsageCount = async (testType: string) => {
+                  const { count } = await supabase
+                      .from('test_history')
+                      .select('*', { count: 'exact', head: true })
+                      .eq('user_id', userId)
+                      .eq('test_type', testType)
+                      .gt('created_at', paymentDate);
+                  return count || 0;
+              };
+
+              const [interviewUsed, ppdtUsed, tatUsed, watUsed, srtUsed] = await Promise.all([
+                  getUsageCount('INTERVIEW'),
+                  getUsageCount('PPDT'),
+                  getUsageCount('TAT'),
+                  getUsageCount('WAT'),
+                  getUsageCount('SRT')
+              ]);
+
+              const repairedSub = {
+                  user_id: userId,
+                  tier: 'PRO',
+                  usage: {
+                      interview_used: interviewUsed,
+                      interview_limit: 5,
+                      ppdt_used: ppdtUsed,
+                      ppdt_limit: 30,
+                      tat_used: tatUsed,
+                      tat_limit: 7,
+                      wat_used: watUsed,
+                      wat_limit: 10,
+                      srt_used: srtUsed,
+                      srt_limit: 10,
+                      sdt_used: 0 
+                  },
+                  extra_credits: sub?.extra_credits || { interview: 0 }
+              };
+
+              const { error: upsertError } = await supabase.from('user_subscriptions').upsert(repairedSub);
+              if (!upsertError) {
+                  // @ts-ignore
+                  return repairedSub;
+              } else {
+                  console.error("Self-healing failed:", upsertError);
+              }
+          } catch(e) {
+              console.error("Self-healing crashed", e);
+          }
+      }
   }
-  
-  // Ensure coins property exists
-  if (sub.coins === undefined || sub.coins === null) {
-      sub.coins = 50;
+
+  // 3. MIGRATION FOR LEGACY FREE USERS
+  if (sub && sub.tier === 'FREE') {
+      const currentUsage = sub.usage;
+      if (currentUsage.interview_limit < 1 || currentUsage.ppdt_limit < 10) {
+          const newUsage = {
+              ...currentUsage,
+              interview_limit: Math.max(currentUsage.interview_limit, 1),
+              ppdt_limit: Math.max(currentUsage.ppdt_limit, 10),
+              tat_limit: Math.max(currentUsage.tat_limit, 2),
+              wat_limit: Math.max(currentUsage.wat_limit, 3),
+              srt_limit: Math.max(currentUsage.srt_limit, 3)
+          };
+          await supabase.from('user_subscriptions').update({ usage: newUsage }).eq('user_id', userId);
+          sub.usage = newUsage;
+      }
   }
+    
+  if (!sub) return {
+      tier: 'FREE',
+      expiryDate: null,
+      usage: {
+        interview_used: 0, interview_limit: 1, 
+        ppdt_used: 0, ppdt_limit: 10,
+        tat_used: 0, tat_limit: 2,
+        wat_used: 0, wat_limit: 3,
+        srt_used: 0, srt_limit: 3,
+        sdt_used: 0
+      },
+      extra_credits: { interview: 0 }
+  };
   
   return sub;
 };
 
-export const checkBalance = async (userId: string, cost: number) => {
-    const sub = await getUserSubscription(userId);
-    const balance = sub.coins || 0;
-    
-    if (balance >= cost) {
-        return { allowed: true, balance };
-    }
-    return { allowed: false, balance, shortfall: cost - balance };
-};
-
-export const deductCoins = async (userId: string, cost: number) => {
-    const { data: sub } = await supabase.from('user_subscriptions').select('coins').eq('user_id', userId).single();
-    if (!sub) return false;
-    
-    const newBalance = Math.max(0, (sub.coins || 0) - cost);
-    await supabase.from('user_subscriptions').update({ coins: newBalance }).eq('user_id', userId);
-    return true;
-};
-
-// Deprecated in favor of checkBalance, kept for legacy compatibility if needed
 export const checkLimit = async (userId: string, testType: string) => {
-  return { allowed: true, message: "OK" };
+  const sub = await getUserSubscription(userId);
+  let allowed = false;
+  let message = "Usage limit reached. Upgrade to Pro.";
+  
+  const usage = sub.usage;
+  
+  if (testType === 'INTERVIEW') {
+      const total = usage.interview_limit + sub.extra_credits.interview;
+      if (usage.interview_used < total) allowed = true;
+      else message = "Interview credits exhausted. Purchase Top-up.";
+  } else if (testType === 'PPDT') {
+      if (usage.ppdt_used < usage.ppdt_limit) allowed = true;
+  } else if (testType === 'TAT') {
+      if (usage.tat_used < usage.tat_limit) allowed = true;
+  } else if (testType === 'WAT') {
+      if (usage.wat_used < usage.wat_limit) allowed = true;
+  } else if (testType === 'SRT') {
+      if (usage.srt_used < usage.srt_limit) allowed = true;
+  }
+  
+  return { allowed, message };
 };
 
-// Updated to track usage stats but logic is now Coin based
 export const incrementUsage = async (userId: string, testType: string) => {
   const sub = await getUserSubscription(userId);
   const usage = sub.usage;
   
   let update: any = {};
   
-  if (testType === 'INTERVIEW') update = { 'usage': { ...usage, interview_used: (usage.interview_used || 0) + 1 } };
-  else if (testType === 'PPDT') update = { 'usage': { ...usage, ppdt_used: (usage.ppdt_used || 0) + 1 } };
-  else if (testType === 'TAT') update = { 'usage': { ...usage, tat_used: (usage.tat_used || 0) + 1 } };
-  else if (testType === 'WAT') update = { 'usage': { ...usage, wat_used: (usage.wat_used || 0) + 1 } };
-  else if (testType === 'SRT') update = { 'usage': { ...usage, srt_used: (usage.srt_used || 0) + 1 } };
+  if (testType === 'INTERVIEW') update = { 'usage': { ...usage, interview_used: usage.interview_used + 1 } };
+  else if (testType === 'PPDT') update = { 'usage': { ...usage, ppdt_used: usage.ppdt_used + 1 } };
+  else if (testType === 'TAT') update = { 'usage': { ...usage, tat_used: usage.tat_used + 1 } };
+  else if (testType === 'WAT') update = { 'usage': { ...usage, wat_used: usage.wat_used + 1 } };
+  else if (testType === 'SRT') update = { 'usage': { ...usage, srt_used: usage.srt_used + 1 } };
+  
+  if (testType === 'INTERVIEW' && usage.interview_used >= usage.interview_limit) {
+      update = { 
+          'usage': { ...usage, interview_used: usage.interview_used + 1 },
+          'extra_credits': { ...sub.extra_credits, interview: Math.max(0, sub.extra_credits.interview - 1) } 
+      };
+  }
 
   if (Object.keys(update).length > 0) {
       await supabase
@@ -404,55 +503,61 @@ export const getPendingPayments = async () => {
   return data || [];
 };
 
-export const activatePlanForUser = async (userId: string, planType: string, amount?: number) => {
-  // Fetch current coins
-  const { data: current } = await supabase.from('user_subscriptions').select('coins').eq('user_id', userId).maybeSingle();
-  const currentCoins = current?.coins || 0;
+export const activatePlanForUser = async (userId: string, planType: string) => {
+  let update: any = { user_id: userId };
   
-  let coinsToAdd = 0;
-  
-  // Coin Bundle Logic
-  if (planType === 'BUNDLE_100' || (planType === 'CUSTOM' && amount === 100)) {
-      coinsToAdd = 110;
-  } else if (planType === 'BUNDLE_200' || (planType === 'CUSTOM' && amount === 200)) {
-      coinsToAdd = 230;
-  } else if (planType === 'BUNDLE_300' || (planType === 'CUSTOM' && amount === 300)) {
-      coinsToAdd = 350;
-  } else if (planType === 'CUSTOM' && amount) {
-      // 1:1 Rate for custom amounts if not matching bundles
-      coinsToAdd = amount;
-  } else if (planType === 'PRO_MIGRATION') {
-      // Special migration for Pro users
-      // This sets a fixed 300 if they were previously default
-      coinsToAdd = 300; 
-  }
+  const defaultUsage = {
+      interview_used: 0, interview_limit: 1,
+      ppdt_used: 0, ppdt_limit: 10,
+      tat_used: 0, tat_limit: 2,
+      wat_used: 0, wat_limit: 3,
+      srt_used: 0, srt_limit: 3,
+      sdt_used: 0
+  };
 
-  // If it's a migration, we might want to SET rather than ADD if it's a clean slate, 
-  // but adding ensures we don't wipe existing. 
-  // However, for Pro migration specifically, let's ensure they have *at least* 300.
-  let newBalance = currentCoins + coinsToAdd;
-  
-  if (planType === 'PRO_MIGRATION' && currentCoins < 300) {
-      newBalance = 300;
+  if (planType === 'PRO_SUBSCRIPTION') {
+      update = {
+          ...update,
+          tier: 'PRO',
+          usage: {
+            interview_used: 0, interview_limit: 5,
+            ppdt_used: 0, ppdt_limit: 30,
+            tat_used: 0, tat_limit: 7,
+            wat_used: 0, wat_limit: 10,
+            srt_used: 0, srt_limit: 10,
+            sdt_used: 0
+          },
+          extra_credits: { interview: 0 } 
+      };
+      
+      const { data: existing } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle();
+      if (existing) {
+          update.extra_credits = existing.extra_credits || { interview: 0 };
+      }
+      
+  } else if (planType === 'INTERVIEW_ADDON') {
+      const { data: current } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle();
+      
+      const currentExtras = current?.extra_credits?.interview || 0;
+      const currentUsage = current?.usage || defaultUsage;
+      const currentTier = current?.tier || 'FREE';
+
+      update = {
+          ...update,
+          tier: currentTier,
+          usage: currentUsage,
+          extra_credits: { interview: currentExtras + 1 }
+      };
   }
   
-  const { error: subError } = await supabase
-    .from('user_subscriptions')
-    .upsert({ 
-        user_id: userId, 
-        coins: newBalance,
-        tier: 'PRO' // Any purchase upgrades tier visual
-    }, { onConflict: 'user_id' }); 
-    
+  const { error: subError } = await supabase.from('user_subscriptions').upsert(update);
   if (subError) throw subError;
 };
 
 export const approvePaymentRequest = async (id: string, userId: string, planType: string) => {
-  const { data: req } = await supabase.from('payment_requests').select('amount').eq('id', id).single();
   const { error: payError } = await supabase.from('payment_requests').update({ status: 'APPROVED' }).eq('id', id);
   if (payError) throw payError;
-  
-  await activatePlanForUser(userId, planType, req?.amount);
+  await activatePlanForUser(userId, planType);
 };
 
 export const rejectPaymentRequest = async (id: string) => {
@@ -474,7 +579,7 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
         throw new Error("Could not record payment. Database Error.");
     }
     
-    await activatePlanForUser(userId, planType, amount);
+    await activatePlanForUser(userId, planType);
     
     if (couponCode) {
         const { data: coupon } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).maybeSingle();
@@ -484,7 +589,8 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
     }
 };
 
-// ... (Rest of Content Management functions same as before) ...
+// --- CONTENT MANAGEMENT ---
+
 export const getPPDTScenarios = async () => {
   const { data } = await supabase.from('ppdt_scenarios').select('*');
   return data || [];
@@ -494,8 +600,13 @@ export const uploadPPDTScenario = async (file: File, description: string) => {
   const fileName = `ppdt-${Date.now()}-${file.name}`;
   const { data, error } = await supabase.storage.from('scenarios').upload(fileName, file);
   if (error) throw error;
+  
   const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
-  await supabase.from('ppdt_scenarios').insert({ image_url: publicUrl, description });
+  
+  await supabase.from('ppdt_scenarios').insert({
+      image_url: publicUrl,
+      description
+  });
 };
 
 export const deletePPDTScenario = async (id: string, url: string) => {
@@ -513,8 +624,14 @@ export const uploadTATScenario = async (file: File, description: string, setTag:
   const fileName = `tat-${Date.now()}-${file.name}`;
   const { error } = await supabase.storage.from('scenarios').upload(fileName, file);
   if (error) throw error;
+  
   const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
-  await supabase.from('tat_scenarios').insert({ image_url: publicUrl, description, set_tag: setTag });
+  
+  await supabase.from('tat_scenarios').insert({
+      image_url: publicUrl,
+      description,
+      set_tag: setTag
+  });
 };
 
 export const deleteTATScenario = async (id: string, url: string) => {
@@ -569,7 +686,7 @@ export const createCoupon = async (code: string, discount: number, influencer: s
       code: code.toUpperCase(),
       discount_percent: discount,
       influencer_name: influencer,
-      usage_count: 0 
+      usage_count: 0 // Initialize explicitly
   });
 };
 
@@ -601,6 +718,7 @@ export const uploadDailyChallenge = async (ppdtFile: File | null, wat: string, s
       const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName);
       ppdtUrl = data.publicUrl;
   }
+  
   await supabase.from('daily_challenges').insert({
       ppdt_image_url: ppdtUrl,
       wat_words: [wat],
@@ -612,7 +730,9 @@ export const uploadDailyChallenge = async (ppdtFile: File | null, wat: string, s
 export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: string, srt: string, interview: string) => {
   const auth = supabase.auth as any;
   const user = auth.user ? auth.user() : (await auth.getUser()).data.user;
+  
   if (!user) throw new Error("Login Required");
+  
   await supabase.from('daily_submissions').insert({
       challenge_id: challengeId,
       user_id: user.id,
@@ -656,6 +776,7 @@ export const subscribeToAnnouncements = (callback: (a: Announcement) => void) =>
         callback(payload.new as Announcement);
     })
     .subscribe();
+    
   return () => { supabase.removeChannel(channel); };
 };
 

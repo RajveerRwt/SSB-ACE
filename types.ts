@@ -78,8 +78,7 @@ export interface UserResponse {
 
 export interface UserSubscription {
   tier: 'FREE' | 'STANDARD' | 'PRO';
-  coins: number; // Added Wallet Balance
-  expiryDate: string | null; 
+  expiryDate: string | null; // ISO Date string
   usage: {
     interview_used: number;
     interview_limit: number;
@@ -103,7 +102,7 @@ export interface PaymentRequest {
   user_id: string;
   utr: string;
   amount: number;
-  plan_type: string; // Changed to string to support dynamic bundle names
+  plan_type: 'PRO_SUBSCRIPTION' | 'STANDARD_SUBSCRIPTION' | 'INTERVIEW_ADDON';
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   created_at: string;
 }
