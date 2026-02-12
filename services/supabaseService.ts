@@ -57,6 +57,42 @@ export const saveLecturetteContent = async (topic: string, board: string, catego
   if (error) console.error("Error saving lecturette cache:", error);
 };
 
+// --- TICKER CONFIGURATION (NEW) ---
+
+export const getTickerConfig = async () => {
+  // We assume a single row configuration table or we fetch the latest
+  const { data } = await supabase
+    .from('ticker_config')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data || { message: '', is_active: false };
+};
+
+export const updateTickerConfig = async (message: string, is_active: boolean) => {
+  // Always update the single row or insert if missing. 
+  // We will assume ID 1 for simplicity or just upsert based on a singleton logic in future,
+  // but simpler here is to insert a new row to keep history or update existing.
+  // For this app, let's just insert a new one to be the "latest".
+  
+  await supabase.from('ticker_config').insert({
+      message,
+      is_active
+  });
+};
+
+export const subscribeToTicker = (callback: (config: any) => void) => {
+  const channel = supabase
+    .channel('public:ticker_config')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ticker_config' }, payload => {
+        callback(payload.new);
+    })
+    .subscribe();
+    
+  return () => { supabase.removeChannel(channel); };
+};
+
 // --- AUTHENTICATION ---
 
 export const signInWithEmail = async (email: string, password: string) => {

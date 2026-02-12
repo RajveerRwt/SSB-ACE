@@ -33,9 +33,10 @@ import {
   Youtube,
   Crown,
   Library,
-  BookOpen
+  BookOpen,
+  Zap
 } from 'lucide-react';
-import { getRecentAnnouncements, subscribeToAnnouncements } from '../services/supabaseService';
+import { getRecentAnnouncements, subscribeToAnnouncements, getTickerConfig, subscribeToTicker } from '../services/supabaseService';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -57,6 +58,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   
+  // Ticker State
+  const [tickerConfig, setTickerConfig] = useState({ message: '', is_active: false });
+
   // Notifications History
   const [notifications, setNotifications] = useState<Announcement[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -83,8 +87,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
         setUnreadCount(newItems.length);
     });
 
-    // 2. Subscribe to real-time updates
-    const unsubscribe = subscribeToAnnouncements((newAnnouncement) => {
+    // 2. Fetch Initial Ticker State
+    getTickerConfig().then(config => {
+        setTickerConfig(config);
+    });
+
+    // 3. Subscribe to real-time updates (Announcements + Ticker)
+    const unsubscribeAnnouncements = subscribeToAnnouncements((newAnnouncement) => {
         // Add to history list immediately
         setNotifications(prev => [newAnnouncement, ...prev]);
         setUnreadCount(prev => prev + 1);
@@ -99,6 +108,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
             audio.volume = 0.5;
             audio.play().catch(e => console.log("Audio play blocked", e));
         } catch(e) {}
+    });
+
+    const unsubscribeTicker = subscribeToTicker((newConfig) => {
+        if (newConfig) {
+            setTickerConfig(newConfig);
+        }
     });
 
     const handleResize = () => {
@@ -125,7 +140,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     return () => {
         window.removeEventListener('resize', handleResize);
         document.removeEventListener('mousedown', handleClickOutside);
-        if (unsubscribe) unsubscribe();
+        if (unsubscribeAnnouncements) unsubscribeAnnouncements();
+        if (unsubscribeTicker) unsubscribeTicker();
     };
   }, []);
 
@@ -303,6 +319,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full relative overflow-hidden">
+        
+        {/* HEADER */}
         <header className="bg-white h-16 border-b flex items-center justify-between px-4 md:px-8 shrink-0 z-30 shadow-sm sticky top-0">
           <div className="flex items-center gap-4">
             <button 
@@ -408,6 +426,22 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
             </div>
           </div>
         </header>
+
+        {/* NEWS TICKER (Dynamic & Conditional) */}
+        {tickerConfig.is_active && activeTest === TestType.DASHBOARD && tickerConfig.message && (
+            <div className="w-full bg-yellow-400 text-black overflow-hidden relative z-20 shadow-md">
+                <div className="flex items-center">
+                    <div className="bg-yellow-500 px-4 py-2 text-[10px] font-black uppercase tracking-widest shrink-0 flex items-center gap-2 z-10 shadow-lg">
+                        <Zap size={14} fill="currentColor" /> Latest
+                    </div>
+                    <div className="flex-1 overflow-hidden whitespace-nowrap py-2">
+                        <div className="animate-marquee inline-block text-xs font-bold uppercase tracking-wide">
+                            {tickerConfig.message} &nbsp;&bull;&nbsp; {tickerConfig.message} &nbsp;&bull;&nbsp; {tickerConfig.message}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* REAL-TIME ANNOUNCEMENT BANNER (TOASTER) */}
         {showAnnouncement && announcement && (

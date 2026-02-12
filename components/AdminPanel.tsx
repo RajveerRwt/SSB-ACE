@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
@@ -9,7 +9,7 @@ import {
   getPendingPayments, approvePaymentRequest, rejectPaymentRequest,
   getAllUsers, deleteUserProfile, getCoupons, createCoupon, deleteCoupon,
   uploadDailyChallenge, sendAnnouncement, getAllFeedback, deleteFeedback,
-  getLatestDailyChallenge
+  getLatestDailyChallenge, getTickerConfig, updateTickerConfig
 } from '../services/supabaseService';
 
 const AdminPanel: React.FC = () => {
@@ -44,9 +44,11 @@ const AdminPanel: React.FC = () => {
   const [dailySrt, setDailySrt] = useState('');
   const [dailyInterview, setDailyInterview] = useState('');
 
-  // Broadcast Inputs
+  // Broadcast & Ticker Inputs
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [broadcastType, setBroadcastType] = useState<'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT'>('INFO');
+  const [tickerMsg, setTickerMsg] = useState('');
+  const [isTickerActive, setIsTickerActive] = useState(false);
 
   // User Management
   const [searchQuery, setSearchQuery] = useState('');
@@ -90,7 +92,12 @@ const AdminPanel: React.FC = () => {
       } else if (activeTab === 'DAILY') {
         const ch = await getLatestDailyChallenge();
         setCurrentChallenge(ch);
-      } else if (activeTab !== 'BROADCAST') {
+      } else if (activeTab === 'BROADCAST') {
+        // Fetch ticker config when Broadcast tab is active
+        const config = await getTickerConfig();
+        setTickerMsg(config.message || '');
+        setIsTickerActive(config.is_active || false);
+      } else {
         let data;
         if (activeTab === 'PPDT') data = await getPPDTScenarios();
         else if (activeTab === 'TAT') data = await getTATScenarios();
@@ -123,6 +130,18 @@ const AdminPanel: React.FC = () => {
     if (hours < 24) return `${hours}h ago`;
     const days = Math.floor(hours / 24);
     return `${days}d ago`;
+  };
+
+  const handleUpdateTicker = async () => {
+      setIsUploading(true);
+      try {
+          await updateTickerConfig(tickerMsg, isTickerActive);
+          alert("Ticker Updated Successfully");
+      } catch (e: any) {
+          setErrorMsg(e.message);
+      } finally {
+          setIsUploading(false);
+      }
   };
 
   const handleUpload = async () => {
@@ -294,7 +313,7 @@ const AdminPanel: React.FC = () => {
       return true;
   });
 
-  // UPDATED ROBUST SQL v5.3 (Includes Lecturette Cache Table)
+  // UPDATED ROBUST SQL v5.3 (Includes Lecturette Cache Table and Ticker Config)
   const storageSQL = `
 -- 1. FORCE ACCESS TO USER SUBSCRIPTIONS
 create table if not exists public.user_subscriptions (
@@ -454,7 +473,7 @@ select
 from auth.users
 on conflict (user_id) do nothing;
 
--- 9. LECTURETTE CACHE TABLE (NEW)
+-- 9. LECTURETTE CACHE TABLE
 create table if not exists public.lecturette_topics (
   id uuid default uuid_generate_v4() primary key,
   topic text unique not null,
@@ -470,6 +489,19 @@ drop policy if exists "Public update lecturettes" on public.lecturette_topics;
 create policy "Public read lecturettes" on public.lecturette_topics for select using (true);
 create policy "Public insert lecturettes" on public.lecturette_topics for insert with check (true);
 create policy "Public update lecturettes" on public.lecturette_topics for update using (true);
+
+-- 10. TICKER CONFIG TABLE
+create table if not exists public.ticker_config (
+  id uuid default uuid_generate_v4() primary key,
+  message text,
+  is_active boolean default false,
+  created_at timestamptz default now()
+);
+alter table public.ticker_config enable row level security;
+drop policy if exists "Public read ticker" on public.ticker_config;
+drop policy if exists "Public insert ticker" on public.ticker_config;
+create policy "Public read ticker" on public.ticker_config for select using (true);
+create policy "Public insert ticker" on public.ticker_config for insert with check (true);
 `;
 
   return (
@@ -926,17 +958,51 @@ create policy "Public update lecturettes" on public.lecturette_topics for update
               </div>
           </div>
       ) : activeTab === 'BROADCAST' ? (
-          // ... (Rest of Broadcast Logic)
-          <div className="max-w-2xl mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">System Broadcast</h3>
-              <select value={broadcastType} onChange={(e: any) => setBroadcastType(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800">
-                  <option value="INFO">Information (Blue)</option>
-                  <option value="WARNING">Warning (Yellow)</option>
-                  <option value="SUCCESS">Success (Green)</option>
-                  <option value="URGENT">Urgent (Red)</option>
-              </select>
-              <textarea value={broadcastMsg} onChange={(e) => setBroadcastMsg(e.target.value)} placeholder="Notification Message..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 h-32 outline-none resize-none" />
-              <button onClick={handleUpload} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-700 shadow-lg flex items-center justify-center gap-2"><Radio size={16} /> Send Alert</button>
+          <div className="space-y-8 animate-in fade-in">
+              {/* Broadcast Alert Section */}
+              <div className="max-w-2xl mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">System Broadcast</h3>
+                  <select value={broadcastType} onChange={(e: any) => setBroadcastType(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800">
+                      <option value="INFO">Information (Blue)</option>
+                      <option value="WARNING">Warning (Yellow)</option>
+                      <option value="SUCCESS">Success (Green)</option>
+                      <option value="URGENT">Urgent (Red)</option>
+                  </select>
+                  <textarea value={broadcastMsg} onChange={(e) => setBroadcastMsg(e.target.value)} placeholder="Notification Message (Pop-up)" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 h-32 outline-none resize-none" />
+                  <button onClick={handleUpload} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-700 shadow-lg flex items-center justify-center gap-2"><Radio size={16} /> Send Alert</button>
+              </div>
+
+              {/* NEWS TICKER MANAGEMENT SECTION */}
+              <div className="max-w-2xl mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
+                  <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                          <ScrollText className="text-blue-600" /> News Ticker Bar
+                      </h3>
+                      <button 
+                          onClick={() => setIsTickerActive(!isTickerActive)}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${isTickerActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}
+                      >
+                          {isTickerActive ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                          {isTickerActive ? 'Active' : 'Disabled'}
+                      </button>
+                  </div>
+                  <p className="text-xs text-slate-500 font-bold bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      This text scrolls continuously at the top of the User Dashboard. Use it for important updates, new features, or exam notifications.
+                  </p>
+                  <textarea 
+                      value={tickerMsg} 
+                      onChange={(e) => setTickerMsg(e.target.value)} 
+                      placeholder="Enter ticker text here..." 
+                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 h-24 outline-none resize-none" 
+                  />
+                  <button 
+                      onClick={handleUpdateTicker} 
+                      disabled={isUploading}
+                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 shadow-lg flex items-center justify-center gap-2"
+                  >
+                      {isUploading ? <Loader2 className="animate-spin" /> : <RefreshCw size={16} />} Update Ticker
+                  </button>
+              </div>
           </div>
       ) : activeTab === 'FEEDBACK' ? (
           // ... (Rest of Feedback Logic)
