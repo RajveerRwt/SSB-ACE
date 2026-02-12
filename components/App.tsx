@@ -20,7 +20,7 @@ import LecturetteTest from './LecturetteTest';
 import Footer from './Footer';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Helper Component for Progress Ring (Unchanged)
@@ -107,7 +107,7 @@ const Dashboard: React.FC<{
     { id: TestType.SRT, label: 'SRT', sub: 'Psychology', icon: Brain, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100', cost: TEST_RATES.SRT },
     { id: TestType.SDT, label: 'SDT', sub: 'Self Desc.', icon: FileSignature, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100', cost: TEST_RATES.SDT },
     { id: TestType.LECTURETTE, label: 'Lecturette', sub: 'Topics', icon: BookOpen, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100', cost: TEST_RATES.LECTURETTE },
-    { id: TestType.INTERVIEW, label: '1:1 Interview', sub: 'Virtual IO', icon: Mic, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', cost: 0 }, // Cost 0 to enter lobby
+    { id: TestType.INTERVIEW, label: '1:1 Interview', sub: 'Virtual IO', icon: Mic, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', cost: TEST_RATES.INTERVIEW_FULL }, // Used for display logic mainly
     { id: TestType.DAILY_PRACTICE, label: 'Daily Dose', sub: 'Practice', icon: Clock, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-100', cost: 0 },
     { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', sub: 'Updates', icon: Globe, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100', cost: 0 },
     { id: TestType.AI_BOT, label: 'AI Guide', sub: 'ChatBot', icon: Bot, color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-100', cost: 0 },
@@ -184,7 +184,6 @@ const Dashboard: React.FC<{
            <div className="space-y-6">
              <div className="flex items-center gap-3">
                <span className="px-3 py-1 bg-yellow-400 text-black text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg animate-bounce">Officer Potential</span>
-               {subscription?.tier === 'PRO' && <span className="px-3 py-1 bg-blue-600 text-white text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full flex items-center gap-2"><Crown size={12}/> Pro Cadet</span>}
                <span className="text-slate-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">Board Simulation v4.0</span>
              </div>
              <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Master Your SSB <br/><span className="text-yellow-400">1:1 PI with Col. Arjun Singh (Virtual IO)</span></h1>
@@ -240,7 +239,7 @@ const Dashboard: React.FC<{
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="text-3xl font-black text-white flex items-center gap-2">
-                            <IndianRupee size={24} /> {subscription.coins}
+                            <Coins size={24} /> {subscription.coins}
                         </div>
                         <span className="text-[10px] font-medium text-slate-400">Available Credits</span>
                     </div>
@@ -394,12 +393,16 @@ const Dashboard: React.FC<{
                             <span className="block text-xs font-black text-slate-900 uppercase tracking-tight leading-tight">{action.label}</span>
                             <span className="block text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1">{action.sub}</span>
                         </div>
-                        {action.cost > 0 && (
+                        
+                        {/* Only show Cost if Logged In */}
+                        {isLoggedIn && action.cost > 0 && (
                             <div className="absolute top-2 right-2 bg-slate-900 text-yellow-400 px-2 py-0.5 rounded text-[8px] font-black flex items-center gap-1 shadow-sm">
-                                <IndianRupee size={8} /> {action.cost}
+                                <Coins size={8} /> {action.cost}
                             </div>
                         )}
-                        {action.cost === 0 && (
+                        
+                        {/* Only show FREE if explicitly cost 0 AND NOT Interview (Interview has special lobby with costs) */}
+                        {action.cost === 0 && action.id !== TestType.INTERVIEW && (
                             <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-0.5 rounded text-[8px] font-black shadow-sm">
                                 FREE
                             </div>

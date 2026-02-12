@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward, HelpCircle, ChevronDown, ChevronUp, AlertTriangle, Play, LogIn, IndianRupee } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward, HelpCircle, ChevronDown, ChevronUp, AlertTriangle, Play, LogIn, IndianRupee, Coins } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
@@ -590,7 +590,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
                     className="px-8 py-5 bg-white/10 hover:bg-white/20 text-white border border-white/10 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl transition-all flex flex-col items-center"
                   >
                     <span>Trial Mode</span>
-                    <span className="text-[9px] opacity-70 mt-1 flex items-center gap-1"><Clock size={10} /> 5 Min • <IndianRupee size={10} /> {TEST_RATES.INTERVIEW_TRIAL} Coins</span>
+                    <span className="text-[9px] opacity-70 mt-1 flex items-center gap-1"><Clock size={10} /> 5 Min • <Coins size={10} /> {TEST_RATES.INTERVIEW_TRIAL} Coins</span>
                   </button>
 
                   <button 
@@ -601,7 +601,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
                     {isProcessingPayment ? <Loader2 className="animate-spin" /> : (
                         <>
                             <span>Start Full Interview</span>
-                            <span className="text-[9px] opacity-80 mt-1 flex items-center gap-1"><Clock size={10} /> 30-40 Min • <IndianRupee size={10} /> {TEST_RATES.INTERVIEW_FULL} Coins</span>
+                            <span className="text-[9px] opacity-80 mt-1 flex items-center gap-1"><Clock size={10} /> 30-40 Min • <Coins size={10} /> {TEST_RATES.INTERVIEW_FULL} Coins</span>
                         </>
                     )}
                   </button>

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText, Gauge } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText, Gauge, Coins, Wallet } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
@@ -286,20 +286,19 @@ const AdminPanel: React.FC = () => {
       return acc;
   }, {});
 
-  // Calculate User Stats
+  // Calculate User Stats (Updated for Coin System)
   const userStats = {
       total: users.length,
-      pro: users.filter(u => u.subscription_data?.tier === 'PRO').length,
-      unverified: users.filter(u => !u.email_confirmed_at).length,
       activeToday: users.filter(u => {
           if (!u.last_active) return false;
           const diff = Date.now() - new Date(u.last_active).getTime();
           return diff < 86400000; // 24 hours
       }).length,
-      interviewsUsed: users.reduce((acc, u) => acc + (u.subscription_data?.usage?.interview_used || 0), 0),
-      ppdtUsed: users.reduce((acc, u) => acc + (u.subscription_data?.usage?.ppdt_used || 0), 0),
-      tatUsed: users.reduce((acc, u) => acc + (u.subscription_data?.usage?.tat_used || 0), 0)
+      totalCoins: users.reduce((acc, u) => acc + (u.subscription_data?.coins || 0), 0),
+      avgCoins: 0 // Calculated below
   };
+  
+  userStats.avgCoins = userStats.total > 0 ? Math.round(userStats.totalCoins / userStats.total) : 0;
 
   const filteredUsers = users.filter(u => {
       const matchesSearch = u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -318,7 +317,7 @@ const AdminPanel: React.FC = () => {
       return true;
   });
 
-  // UPDATED ROBUST SQL v5.7 (Pro Migration Fix)
+  // UPDATED ROBUST SQL v5.8 (Pro Reset)
   const storageSQL = `
 -- 10. TICKER CONFIG TABLE (With Speed)
 create table if not exists public.ticker_config (
@@ -355,10 +354,10 @@ end $$;
 update public.user_subscriptions set coins = 50 where coins is null;
 
 -- MIGRATE PRO USERS (One Time)
--- Give existing PRO users 300 coins
+-- Give ALL existing PRO users 300 coins
 update public.user_subscriptions 
 set coins = 300 
-where tier = 'PRO' and coins <= 50;
+where tier = 'PRO';
 `;
 
   return (
@@ -399,7 +398,7 @@ where tier = 'PRO' and coins <= 50;
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-slate-900">
                     <Settings className="text-blue-600" size={24} />
-                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v5.7 - Pro Migration)</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v5.8 - Pro Reset)</h5>
                 </div>
                 {showSqlHelp && !errorMsg && (
                     <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
@@ -408,7 +407,7 @@ where tier = 'PRO' and coins <= 50;
             
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-xl">
                 <p className="text-xs text-yellow-800 font-bold">
-                    <strong>Instructions:</strong> Run this script to migrate existing PRO users to 300 Coins.
+                    <strong>Instructions:</strong> Run this script to RESET all PRO users to 300 Coins.
                 </p>
             </div>
 
@@ -451,7 +450,38 @@ where tier = 'PRO' and coins <= 50;
       {/* USERS TAB - UPDATED TO SHOW COINS */}
       {activeTab === 'USERS' && (
           <div className="space-y-8">
-              {/* Stats ... */}
+              {/* COIN ECONOMY STATS - REPLACED OLD USAGE STATS */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between h-32">
+                      <div className="flex justify-between items-start">
+                          <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><User size={20} /></div>
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Cadets</span>
+                      </div>
+                      <div className="text-3xl font-black text-slate-900">{userStats.total}</div>
+                  </div>
+                  <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between h-32">
+                      <div className="flex justify-between items-start">
+                          <div className="p-2 bg-green-50 text-green-600 rounded-xl"><Activity size={20} /></div>
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Active Today</span>
+                      </div>
+                      <div className="text-3xl font-black text-slate-900">{userStats.activeToday}</div>
+                  </div>
+                  <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between h-32">
+                      <div className="flex justify-between items-start">
+                          <div className="p-2 bg-yellow-50 text-yellow-600 rounded-xl"><Coins size={20} /></div>
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Economy Size</span>
+                      </div>
+                      <div className="text-3xl font-black text-slate-900">{userStats.totalCoins}</div>
+                  </div>
+                  <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between h-32">
+                      <div className="flex justify-between items-start">
+                          <div className="p-2 bg-purple-50 text-purple-600 rounded-xl"><Wallet size={20} /></div>
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Avg Wallet</span>
+                      </div>
+                      <div className="text-3xl font-black text-slate-900">{userStats.avgCoins}</div>
+                  </div>
+              </div>
+
               {/* Search ... */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredUsers.map(u => (

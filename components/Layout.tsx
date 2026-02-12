@@ -35,7 +35,7 @@ import {
   Library,
   BookOpen,
   Zap,
-  IndianRupee,
+  Coins,
   Plus
 } from 'lucide-react';
 import { getRecentAnnouncements, subscribeToAnnouncements, getTickerConfig, subscribeToTicker } from '../services/supabaseService';
@@ -298,7 +298,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                  <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Logged in as</p>
                  <div className="flex items-center gap-2">
                     <p className="text-xs font-bold text-slate-300 truncate">{user}</p>
-                    {subscription?.tier === 'PRO' && <span className="bg-yellow-400 text-black text-[8px] px-1.5 py-0.5 rounded font-black uppercase">PRO</span>}
                  </div>
                  {isAdmin && <span className="text-[8px] bg-red-600 px-1.5 py-0.5 rounded text-white font-black uppercase tracking-widest mt-1 inline-block">Admin</span>}
                </div>
@@ -376,7 +375,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                     title="Coin Balance"
                 >
                     <div className="w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center text-yellow-900 shadow-sm group-hover:scale-110 transition-transform">
-                        <IndianRupee size={12} strokeWidth={3} />
+                        <Coins size={12} strokeWidth={3} />
                     </div>
                     <span className="text-xs font-black">{subscription?.coins || 0}</span>
                     <div className="w-4 h-4 bg-slate-900 text-white rounded-full flex items-center justify-center ml-1">
