@@ -59,7 +59,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   
   // Ticker State
-  const [tickerConfig, setTickerConfig] = useState({ message: '', is_active: false });
+  const [tickerConfig, setTickerConfig] = useState({ message: '', is_active: false, speed: 25 });
 
   // Notifications History
   const [notifications, setNotifications] = useState<Announcement[]>([]);
@@ -89,7 +89,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
 
     // 2. Fetch Initial Ticker State
     getTickerConfig().then(config => {
-        setTickerConfig(config);
+        setTickerConfig({ ...config, speed: config.speed || 25 });
     });
 
     // 3. Subscribe to real-time updates (Announcements + Ticker)
@@ -112,7 +112,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
 
     const unsubscribeTicker = subscribeToTicker((newConfig) => {
         if (newConfig) {
-            setTickerConfig(newConfig);
+            setTickerConfig({ ...newConfig, speed: newConfig.speed || 25 });
         }
     });
 
@@ -196,6 +196,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
           default: return <Info size={14} />;
       }
   };
+
+  // Repeated text for seamless loop effect without JS calculation
+  // Repeating it 10 times ensures it's wide enough for most screens
+  const marqueeContent = Array(10).fill(tickerConfig.message).map((msg, i) => (
+      <span key={i} className="flex items-center">
+          {msg}
+          <span className="mx-8 opacity-50">&bull;</span>
+      </span>
+  ));
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -427,17 +436,28 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
           </div>
         </header>
 
-        {/* NEWS TICKER (Dynamic & Conditional) */}
+        {/* NEWS TICKER (Dynamic, Speed Controlled & Seamless) */}
         {tickerConfig.is_active && activeTest === TestType.DASHBOARD && tickerConfig.message && (
-            <div className="w-full bg-yellow-400 text-black overflow-hidden relative z-20 shadow-md">
-                <div className="flex items-center">
-                    <div className="bg-yellow-500 px-4 py-2 text-[10px] font-black uppercase tracking-widest shrink-0 flex items-center gap-2 z-10 shadow-lg">
-                        <Zap size={14} fill="currentColor" /> Latest
+            <div className="w-full bg-[#dc2626] text-white overflow-hidden relative z-20 shadow-md h-10 flex items-center">
+                <div className="absolute left-0 top-0 bottom-0 bg-[#b91c1c] px-4 text-[10px] font-black uppercase tracking-widest shrink-0 flex items-center gap-2 z-20 shadow-lg border-r border-[#991b1b]">
+                    <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span> Breaking
+                </div>
+                
+                {/* Seamless Marquee Container */}
+                <div className="flex overflow-hidden w-full h-full items-center relative mask-linear-gradient">
+                    <div 
+                        className="animate-marquee flex gap-0 shrink-0 items-center text-xs font-bold uppercase tracking-wide whitespace-nowrap"
+                        style={{ '--marquee-duration': `${tickerConfig.speed}s` } as React.CSSProperties}
+                    >
+                       {marqueeContent}
                     </div>
-                    <div className="flex-1 overflow-hidden whitespace-nowrap py-2">
-                        <div className="animate-marquee inline-block text-xs font-bold uppercase tracking-wide">
-                            {tickerConfig.message} &nbsp;&bull;&nbsp; {tickerConfig.message} &nbsp;&bull;&nbsp; {tickerConfig.message}
-                        </div>
+                    {/* Duplicate for seamless effect logic (Already handled by repeating content inside single scroller if wide enough, or use double div technique) */}
+                    {/* Reliable CSS-only infinite loop: Need two identical children animating continuously */}
+                    <div 
+                        className="animate-marquee flex gap-0 shrink-0 items-center text-xs font-bold uppercase tracking-wide whitespace-nowrap"
+                        style={{ '--marquee-duration': `${tickerConfig.speed}s` } as React.CSSProperties}
+                    >
+                       {marqueeContent}
                     </div>
                 </div>
             </div>

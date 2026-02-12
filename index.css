@@ -41,12 +41,13 @@
     @apply bg-slate-200 rounded-full;
   }
 
+  /* SEAMLESS MARQUEE ANIMATION */
   .animate-marquee {
-    animation: marquee 25s linear infinite;
+    animation: marquee var(--marquee-duration, 20s) linear infinite;
   }
   
   @keyframes marquee {
-    0% { transform: translateX(100%); }
+    0% { transform: translateX(0); }
     100% { transform: translateX(-100%); }
   }
 }

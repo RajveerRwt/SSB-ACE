@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText, Gauge } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
@@ -49,6 +49,7 @@ const AdminPanel: React.FC = () => {
   const [broadcastType, setBroadcastType] = useState<'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT'>('INFO');
   const [tickerMsg, setTickerMsg] = useState('');
   const [isTickerActive, setIsTickerActive] = useState(false);
+  const [tickerSpeed, setTickerSpeed] = useState(25); // Default speed (seconds)
 
   // User Management
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,6 +98,7 @@ const AdminPanel: React.FC = () => {
         const config = await getTickerConfig();
         setTickerMsg(config.message || '');
         setIsTickerActive(config.is_active || false);
+        setTickerSpeed(config.speed || 25);
       } else {
         let data;
         if (activeTab === 'PPDT') data = await getPPDTScenarios();
@@ -135,7 +137,7 @@ const AdminPanel: React.FC = () => {
   const handleUpdateTicker = async () => {
       setIsUploading(true);
       try {
-          await updateTickerConfig(tickerMsg, isTickerActive);
+          await updateTickerConfig(tickerMsg, isTickerActive, tickerSpeed);
           alert("Ticker Updated Successfully");
       } catch (e: any) {
           setErrorMsg(e.message);
@@ -313,7 +315,7 @@ const AdminPanel: React.FC = () => {
       return true;
   });
 
-  // UPDATED ROBUST SQL v5.3 (Includes Lecturette Cache Table and Ticker Config)
+  // UPDATED ROBUST SQL v5.4 (Includes Ticker Speed Column)
   const storageSQL = `
 -- 1. FORCE ACCESS TO USER SUBSCRIPTIONS
 create table if not exists public.user_subscriptions (
@@ -490,11 +492,12 @@ create policy "Public read lecturettes" on public.lecturette_topics for select u
 create policy "Public insert lecturettes" on public.lecturette_topics for insert with check (true);
 create policy "Public update lecturettes" on public.lecturette_topics for update using (true);
 
--- 10. TICKER CONFIG TABLE
+-- 10. TICKER CONFIG TABLE (With Speed)
 create table if not exists public.ticker_config (
   id uuid default uuid_generate_v4() primary key,
   message text,
   is_active boolean default false,
+  speed integer default 25,
   created_at timestamptz default now()
 );
 alter table public.ticker_config enable row level security;
@@ -600,7 +603,76 @@ create policy "Public insert ticker" on public.ticker_config for insert with che
          <button onClick={() => setActiveTab('FEEDBACK')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-2 transition-all ${activeTab === 'FEEDBACK' ? 'bg-slate-800 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><MessageSquare size={14} /></button>
       </div>
 
-      {activeTab === 'DAILY' ? (
+      {activeTab === 'BROADCAST' ? (
+          <div className="space-y-8 animate-in fade-in">
+              {/* Broadcast Alert Section */}
+              <div className="max-w-2xl mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">System Broadcast</h3>
+                  <select value={broadcastType} onChange={(e: any) => setBroadcastType(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800">
+                      <option value="INFO">Information (Blue)</option>
+                      <option value="WARNING">Warning (Yellow)</option>
+                      <option value="SUCCESS">Success (Green)</option>
+                      <option value="URGENT">Urgent (Red)</option>
+                  </select>
+                  <textarea value={broadcastMsg} onChange={(e) => setBroadcastMsg(e.target.value)} placeholder="Notification Message (Pop-up)" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 h-32 outline-none resize-none" />
+                  <button onClick={handleUpload} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-700 shadow-lg flex items-center justify-center gap-2"><Radio size={16} /> Send Alert</button>
+              </div>
+
+              {/* NEWS TICKER MANAGEMENT SECTION */}
+              <div className="max-w-2xl mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
+                  <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                          <ScrollText className="text-blue-600" /> News Ticker Bar
+                      </h3>
+                      <button 
+                          onClick={() => setIsTickerActive(!isTickerActive)}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${isTickerActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}
+                      >
+                          {isTickerActive ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                          {isTickerActive ? 'Active' : 'Disabled'}
+                      </button>
+                  </div>
+                  <p className="text-xs text-slate-500 font-bold bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      This text scrolls continuously at the top of the User Dashboard.
+                  </p>
+                  <textarea 
+                      value={tickerMsg} 
+                      onChange={(e) => setTickerMsg(e.target.value)} 
+                      placeholder="Enter ticker text here..." 
+                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 h-24 outline-none resize-none" 
+                  />
+                  
+                  {/* Speed Control Slider */}
+                  <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><Gauge size={14} /> Scroll Speed</span>
+                          <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded">{tickerSpeed}s Loop</span>
+                      </div>
+                      <input 
+                          type="range" 
+                          min="10" 
+                          max="60" 
+                          step="5" 
+                          value={tickerSpeed} 
+                          onChange={(e) => setTickerSpeed(parseInt(e.target.value))}
+                          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                      />
+                      <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                          <span>Fast (10s)</span>
+                          <span>Slow (60s)</span>
+                      </div>
+                  </div>
+
+                  <button 
+                      onClick={handleUpdateTicker} 
+                      disabled={isUploading}
+                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 shadow-lg flex items-center justify-center gap-2"
+                  >
+                      {isUploading ? <Loader2 className="animate-spin" /> : <RefreshCw size={16} />} Update Ticker
+                  </button>
+              </div>
+          </div>
+      ) : activeTab === 'DAILY' ? (
           <div className="max-w-3xl mx-auto space-y-6">
               {/* Daily Challenge UI (Same as before) */}
               <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
@@ -957,53 +1029,6 @@ create policy "Public insert ticker" on public.ticker_config for insert with che
                   ))}
               </div>
           </div>
-      ) : activeTab === 'BROADCAST' ? (
-          <div className="space-y-8 animate-in fade-in">
-              {/* Broadcast Alert Section */}
-              <div className="max-w-2xl mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
-                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">System Broadcast</h3>
-                  <select value={broadcastType} onChange={(e: any) => setBroadcastType(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800">
-                      <option value="INFO">Information (Blue)</option>
-                      <option value="WARNING">Warning (Yellow)</option>
-                      <option value="SUCCESS">Success (Green)</option>
-                      <option value="URGENT">Urgent (Red)</option>
-                  </select>
-                  <textarea value={broadcastMsg} onChange={(e) => setBroadcastMsg(e.target.value)} placeholder="Notification Message (Pop-up)" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 h-32 outline-none resize-none" />
-                  <button onClick={handleUpload} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-700 shadow-lg flex items-center justify-center gap-2"><Radio size={16} /> Send Alert</button>
-              </div>
-
-              {/* NEWS TICKER MANAGEMENT SECTION */}
-              <div className="max-w-2xl mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
-                  <div className="flex justify-between items-center">
-                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
-                          <ScrollText className="text-blue-600" /> News Ticker Bar
-                      </h3>
-                      <button 
-                          onClick={() => setIsTickerActive(!isTickerActive)}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${isTickerActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}
-                      >
-                          {isTickerActive ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                          {isTickerActive ? 'Active' : 'Disabled'}
-                      </button>
-                  </div>
-                  <p className="text-xs text-slate-500 font-bold bg-slate-50 p-4 rounded-xl border border-slate-200">
-                      This text scrolls continuously at the top of the User Dashboard. Use it for important updates, new features, or exam notifications.
-                  </p>
-                  <textarea 
-                      value={tickerMsg} 
-                      onChange={(e) => setTickerMsg(e.target.value)} 
-                      placeholder="Enter ticker text here..." 
-                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 h-24 outline-none resize-none" 
-                  />
-                  <button 
-                      onClick={handleUpdateTicker} 
-                      disabled={isUploading}
-                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 shadow-lg flex items-center justify-center gap-2"
-                  >
-                      {isUploading ? <Loader2 className="animate-spin" /> : <RefreshCw size={16} />} Update Ticker
-                  </button>
-              </div>
-          </div>
       ) : activeTab === 'FEEDBACK' ? (
           // ... (Rest of Feedback Logic)
           <div className="space-y-4">
@@ -1027,72 +1052,6 @@ create policy "Public insert ticker" on public.ticker_config for insert with che
           </div>
       ) : (
         <div className="text-center py-12 text-slate-400 font-bold">Select a valid tab or add content.</div>
-      )}
-      
-      {/* USER DETAILS MODAL (Duplicate from above but for safety if logic flow changes) */}
-      {selectedUser && (
-          <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-              <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl relative">
-                  <div className="sticky top-0 bg-white z-10 p-6 border-b border-slate-100 flex justify-between items-center">
-                      <h3 className="text-xl font-black text-slate-900 uppercase">Cadet Dossier</h3>
-                      <button onClick={() => setSelectedUser(null)} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full"><XCircle size={20} /></button>
-                  </div>
-                  <div className="p-8 space-y-8">
-                      <div className="flex items-center gap-6">
-                          <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-3xl font-black ${selectedUser.subscription_data?.tier === 'PRO' ? 'bg-blue-600 text-white' : 'bg-slate-900 text-yellow-400'}`}>
-                              {selectedUser.full_name?.substring(0, 1) || 'U'}
-                          </div>
-                          <div>
-                              <h2 className="text-2xl font-black text-slate-900">{selectedUser.full_name || 'Cadet'}</h2>
-                              <p className="text-sm font-bold text-slate-500">{selectedUser.email}</p>
-                              
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                  <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedUser.subscription_data?.tier || 'FREE'}</span>
-                                  {!selectedUser.email_confirmed_at && (
-                                      <span className="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
-                                          <MailWarning size={12} /> Email Not Verified
-                                      </span>
-                                  )}
-                                  {selectedUser.last_active && (
-                                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
-                                          <UserCheck size={12} /> Active: {timeAgo(selectedUser.last_active)}
-                                      </span>
-                                  )}
-                              </div>
-                          </div>
-                      </div>
-                      <div className="space-y-4">
-                          <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest">Resource Usage</h4>
-                          <div className="grid grid-cols-3 gap-4">
-                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
-                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.interview_used || 0}</span>
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase">Interviews</span>
-                              </div>
-                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
-                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.ppdt_used || 0}</span>
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase">PPDT</span>
-                              </div>
-                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
-                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.tat_used || 0}</span>
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase">TAT</span>
-                              </div>
-                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
-                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.wat_used || 0}</span>
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase">WAT</span>
-                              </div>
-                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
-                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.srt_used || 0}</span>
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase">SRT</span>
-                              </div>
-                              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center">
-                                  <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.usage?.sdt_used || 0}</span>
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase">SDT</span>
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-          </div>
       )}
       
       {/* CONFIRMATION MODAL OVERLAY */}
