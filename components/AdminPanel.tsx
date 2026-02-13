@@ -356,6 +356,23 @@ update public.user_subscriptions set coins = 50 where coins is null;
 update public.user_subscriptions 
 set coins = 300 
 where tier = 'PRO';
+
+-- 12. DAILY NEWS CACHE TABLE
+create table if not exists public.daily_cache (
+  id uuid default uuid_generate_v4() primary key,
+  category text not null,
+  date_key text not null,
+  content jsonb,
+  created_at timestamptz default now(),
+  unique(category, date_key)
+);
+alter table public.daily_cache enable row level security;
+drop policy if exists "Public read cache" on public.daily_cache;
+drop policy if exists "Public insert cache" on public.daily_cache;
+drop policy if exists "Public update cache" on public.daily_cache;
+create policy "Public read cache" on public.daily_cache for select using (true);
+create policy "Public insert cache" on public.daily_cache for insert with check (true);
+create policy "Public update cache" on public.daily_cache for update using (true);
 `;
 
   return (

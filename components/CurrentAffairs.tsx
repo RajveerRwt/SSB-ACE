@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Newspaper, Globe, Loader2, RefreshCw, Calendar, Tag, AlertTriangle, ExternalLink, Shield, Clock } from 'lucide-react';
 import { fetchDailyNews } from '../services/geminiService';
+import { getCachedContent, setCachedContent } from '../services/supabaseService';
 
 interface NewsItem {
   headline: string;
@@ -20,7 +21,24 @@ const CurrentAffairs: React.FC = () => {
   const loadNews = async () => {
     setLoading(true);
     setError(null);
+    
+    // Generate a simple date key (YYYY-MM-DD)
+    // Using simple ISO date slice is sufficient for daily rotation
+    const dateKey = new Date().toISOString().split('T')[0];
+
     try {
+      // 1. Try to fetch from Supabase Cache first
+      const cachedData = await getCachedContent('NEWS', dateKey);
+      
+      if (cachedData && cachedData.news && cachedData.news.length > 0) {
+          setNews(cachedData.news);
+          setSources(cachedData.sources || []);
+          setLastUpdated("Cached Data");
+          setLoading(false);
+          return;
+      }
+
+      // 2. If no cache, fetch from Gemini API
       const { text, groundingMetadata } = await fetchDailyNews();
       const blocks = text?.split('---NEWS_BLOCK---').slice(1) || [];
       const parsedNews: NewsItem[] = blocks.map((block: string) => {
@@ -30,13 +48,22 @@ const CurrentAffairs: React.FC = () => {
           const relevance = block.match(/SSB_RELEVANCE:\s*(.*)/i)?.[1]?.trim() || "General Awareness";
           return { headline, tag, summary, relevance };
       });
-      setNews(parsedNews);
+      
       const webSources = (groundingMetadata?.groundingChunks || [])
         .filter((c: any) => c.web?.uri)
         .map((c: any) => ({ title: c.web.title, uri: c.web.uri }));
+
+      setNews(parsedNews);
       setSources(webSources);
       setLastUpdated(new Date().toLocaleTimeString());
+
+      // 3. Save result to Cache
+      if (parsedNews.length > 0) {
+          await setCachedContent('NEWS', dateKey, { news: parsedNews, sources: webSources });
+      }
+
     } catch (err: any) {
+      console.error("News Load Error:", err);
       setError("Secure link unstable. Unable to retrieve intelligence.");
     } finally {
       setLoading(false);
@@ -56,7 +83,7 @@ const CurrentAffairs: React.FC = () => {
             <p className="text-slate-400 max-w-2xl font-medium leading-relaxed text-sm md:text-base">Daily situational report on Geopolitics and National affairs for SSB Aspirants.</p>
             <div className="flex items-center justify-center gap-4 pt-4">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2"><Calendar size={12} /> {new Date().toDateString()}</p>
-                {lastUpdated && <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2"><Clock size={12} /> Sync: {lastUpdated}</p>}
+                {lastUpdated && <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2"><Clock size={12} /> Status: {lastUpdated}</p>}
             </div>
          </div>
          <Newspaper className="absolute top-1/2 -right-12 -translate-y-1/2 w-64 h-64 text-white/5 rotate-12 pointer-events-none" />
@@ -91,6 +118,20 @@ const CurrentAffairs: React.FC = () => {
                       </article>
                   ))}
               </div>
+              
+              {/* Sources Section */}
+              {sources.length > 0 && (
+                  <div className="mt-8 p-6 bg-slate-50 rounded-[2rem] border border-slate-200">
+                      <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2"><ExternalLink size={14}/> Sources</h4>
+                      <div className="flex flex-wrap gap-2">
+                          {sources.map((s: any, i: number) => (
+                              <a key={i} href={s.uri} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline bg-white px-3 py-1 rounded-full border border-slate-100 shadow-sm truncate max-w-[200px]">
+                                  {s.title}
+                              </a>
+                          ))}
+                      </div>
+                  </div>
+              )}
           </section>
       )}
     </div>

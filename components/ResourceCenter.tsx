@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, FileText, Globe, Zap, Layout, CheckCircle, Search, Calendar, Tag, MessageSquare, Loader2, ArrowRight, Mic, Users, Timer, X, Play, HelpCircle, Anchor, Shield, Plane, Award, Map, List, ChevronRight } from 'lucide-react';
 import { fetchDailyNews } from '../services/geminiService';
+import { getCachedContent, setCachedContent } from '../services/supabaseService';
 
 interface ResourceCenterProps {
   initialTab?: 'GK' | 'GD' | 'INTERVIEW' | 'BLOG';
@@ -28,7 +29,18 @@ const ResourceCenter: React.FC<ResourceCenterProps> = ({ initialTab = 'GK' }) =>
 
   const fetchBlogData = async () => {
     setBlogLoading(true);
+    const dateKey = new Date().toISOString().split('T')[0];
+
     try {
+      // 1. Try Cache
+      const cached = await getCachedContent('NEWS', dateKey);
+      if (cached && cached.news) {
+          setBlogContent(cached.news);
+          setBlogLoading(false);
+          return;
+      }
+
+      // 2. Fetch fresh
       const { text } = await fetchDailyNews();
       const blocks = text?.split('---NEWS_BLOCK---').slice(1) || [];
       const parsedNews = blocks.map((block: string) => {
@@ -39,6 +51,12 @@ const ResourceCenter: React.FC<ResourceCenterProps> = ({ initialTab = 'GK' }) =>
           return { headline, tag, summary, relevance };
       });
       setBlogContent(parsedNews);
+
+      // 3. Cache it
+      if (parsedNews.length > 0) {
+          await setCachedContent('NEWS', dateKey, { news: parsedNews, sources: [] });
+      }
+
     } catch (e) {
       console.error("Failed to fetch blog data", e);
     } finally {
