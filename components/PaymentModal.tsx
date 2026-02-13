@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock, Tag, CreditCard, BookOpen, ChevronRight } from 'lucide-react';
+import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock, Tag, CreditCard, BookOpen, ChevronRight, Coins, Plus, Info } from 'lucide-react';
 import { processRazorpayTransaction, getLatestPaymentRequest, validateCoupon } from '../services/supabaseService';
 
 interface PaymentModalProps {
@@ -20,7 +20,9 @@ declare global {
 const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, onSuccess, planType = 'PRO' }) => {
   const [step, setStep] = useState<'SELECT' | 'PAY' | 'SUCCESS'>('SELECT');
   const [selectedAmount, setSelectedAmount] = useState(0);
-  const [selectedPlan, setSelectedPlan] = useState<'PRO_SUBSCRIPTION' | 'STANDARD_SUBSCRIPTION' | 'INTERVIEW_ADDON'>('PRO_SUBSCRIPTION');
+  const [coinsToCredit, setCoinsToCredit] = useState(0);
+  const [selectedPlan, setSelectedPlan] = useState<'PRO_SUBSCRIPTION' | 'STANDARD_SUBSCRIPTION' | 'INTERVIEW_ADDON' | 'COIN_PACK'>('COIN_PACK');
+  const [customAmount, setCustomAmount] = useState('');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
 
@@ -36,13 +38,15 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
         setStep('SELECT');
         setError('');
         setProcessing(false);
+        setCustomAmount('');
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const initiatePayment = (amount: number, type: 'PRO_SUBSCRIPTION' | 'STANDARD_SUBSCRIPTION' | 'INTERVIEW_ADDON') => {
+  const initiatePayment = (amount: number, coins: number, type: 'COIN_PACK') => {
     setSelectedAmount(amount);
+    setCoinsToCredit(coins);
     setSelectedPlan(type);
     setStep('PAY');
     setError('');
@@ -51,6 +55,21 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
     setAppliedCoupon('');
     setDiscount(0);
     setCouponMessage(null);
+  };
+
+  const handleCustomProceed = () => {
+      const amount = parseInt(customAmount);
+      if (!amount || amount < 10) {
+          setError("Minimum amount is ₹10");
+          return;
+      }
+      // Check for bundle matches to award bonus even if typed manually
+      let coins = amount;
+      if (amount === 100) coins = 110;
+      if (amount === 200) coins = 230;
+      if (amount === 300) coins = 350;
+
+      initiatePayment(amount, coins, 'COIN_PACK');
   };
 
   const handleApplyCoupon = async () => {
@@ -108,66 +127,52 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
       return;
     }
 
-    // ROBUST KEY RETRIEVAL STRATEGY
-    // We cast to 'any' to avoid TypeScript build errors if types aren't fully loaded
+    // Robust Key Retrieval
     let keyId = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID;
-    
     if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE') {
-        // Fallback to process.env if available
         if (typeof process !== 'undefined' && (process as any).env) {
             keyId = (process as any).env.RAZORPAY_KEY_ID;
         }
     }
-    
-    // Direct Fallback if Env fails
     if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE') {
         keyId = "rzp_live_S6bUN9RquDzbeY";
     }
     
     if (!keyId) {
-        console.error("Razorpay Key is missing completely.");
-        setError("Payment System Error: Merchant Key Missing. Please restart server.");
+        console.error("Razorpay Key is missing.");
+        setError("Payment System Error: Merchant Key Missing.");
         setProcessing(false);
         return;
     }
 
     const options = {
       key: keyId, 
-      amount: finalAmount * 100, // Amount is in currency subunits. Default currency is INR.
+      amount: finalAmount * 100, 
       currency: "INR",
       name: "SSBPREP.ONLINE",
-      description: selectedPlan === 'PRO_SUBSCRIPTION' ? "Pro Cadet Access" : "Interview Add-on",
-      image: "https://ssbprep.online/logo.svg", // Using site logo
+      description: `Coin Recharge: ${coinsToCredit} Coins`,
+      image: "https://ssbprep.online/logo.svg",
       handler: async function (response: any) {
-        // Handle Success
         try {
             await processRazorpayTransaction(
                 userId, 
                 response.razorpay_payment_id, 
                 finalAmount, 
                 selectedPlan, 
-                appliedCoupon
+                appliedCoupon,
+                coinsToCredit // Pass calculated coins explicitly
             );
             setStep('SUCCESS');
             setProcessing(false);
-            onSuccess(); // Trigger parent refresh if needed
+            onSuccess(); 
         } catch (e: any) {
-            setError("Payment successful but activation failed. Contact Support with Ref: " + response.razorpay_payment_id);
+            setError("Payment successful but coin credit failed. Contact Support: " + response.razorpay_payment_id);
             setProcessing(false);
         }
       },
-      prefill: {
-        name: "", // Can fetch from user profile if needed
-        email: "",
-        contact: ""
-      },
-      notes: {
-        plan: selectedPlan,
-        userId: userId
-      },
-      theme: {
-        color: "#1e293b"
-      }
+      prefill: { name: "", email: "", contact: "" },
+      notes: { plan: selectedPlan, userId: userId, coins: coinsToCredit },
+      theme: { color: "#1e293b" }
     };
 
     try {
@@ -198,78 +203,81 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                  <ArrowLeft size={20} />
                </button>
              )}
-             <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg text-white">
-               <CreditCard size={24} />
+             <div className="w-12 h-12 bg-yellow-400 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg text-black">
+               <Coins size={24} />
              </div>
-             <h3 className="text-white font-black uppercase tracking-widest text-lg">Secure Checkout</h3>
-             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">Powered by Razorpay</p>
+             <h3 className="text-white font-black uppercase tracking-widest text-lg">Wallet Recharge</h3>
+             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">Add Coins to Unlock Tests</p>
           </div>
 
           <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
              
              {step === 'SELECT' && (
-               <div className="space-y-6">
-                  <div className="text-center space-y-2">
-                      <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Choose Your Upgrade</h4>
-                      <p className="text-slate-500 text-xs font-medium">Select a plan to boost your SSB preparation.</p>
-                  </div>
+               <div className="space-y-8">
+                  
+                  {/* COIN BUNDLES */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Bundle 1 */}
+                      <div 
+                        onClick={() => initiatePayment(100, 110, 'COIN_PACK')}
+                        className="p-6 bg-white border-2 border-slate-100 rounded-[2rem] hover:border-blue-500 hover:shadow-xl cursor-pointer transition-all group relative overflow-hidden text-center"
+                      >
+                          <div className="absolute top-0 right-0 bg-green-500 text-white text-[9px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">+10 Free</div>
+                          <h4 className="text-3xl font-black text-slate-900 mb-1">110 <span className="text-sm text-slate-400">Coins</span></h4>
+                          <p className="text-lg font-bold text-blue-600">₹100</p>
+                      </div>
 
-                  {/* Interview Top-up - Moved to Top */}
-                  <div 
-                    onClick={() => initiatePayment(39, 'INTERVIEW_ADDON')}
-                    className="p-4 rounded-[1.5rem] border-2 border-blue-100 bg-blue-50/30 hover:border-blue-300 cursor-pointer transition-all hover:bg-blue-100/50 flex items-center justify-between gap-4 group"
-                  >
-                    <div className="flex items-center gap-4">
-                       <div className="bg-blue-600 text-white p-3 rounded-xl shadow-lg shadow-blue-500/20">
-                          <Smartphone size={20} />
-                       </div>
-                       <div>
-                           <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest">Interview Top-up</h4>
-                           <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Add 1 Extra Interview Credit</p>
-                       </div>
-                    </div>
-                    <div className="text-right flex items-center gap-3">
-                        <span className="text-xl font-black text-slate-900">₹39</span>
-                        <div className="bg-white p-1.5 rounded-full border border-slate-100 shadow-sm group-hover:scale-110 transition-transform">
-                            <ChevronRight size={14} className="text-slate-400" />
-                        </div>
-                    </div>
-                  </div>
+                      {/* Bundle 2 */}
+                      <div 
+                        onClick={() => initiatePayment(200, 230, 'COIN_PACK')}
+                        className="p-6 bg-blue-50 border-2 border-blue-200 rounded-[2rem] hover:border-blue-600 hover:shadow-xl cursor-pointer transition-all group relative overflow-hidden text-center transform hover:-translate-y-1"
+                      >
+                          <div className="absolute top-0 right-0 bg-yellow-400 text-black text-[9px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">+30 Free</div>
+                          <div className="absolute -left-4 -bottom-4 text-blue-100">
+                              <Coins size={64} />
+                          </div>
+                          <h4 className="text-3xl font-black text-slate-900 mb-1 relative z-10">230 <span className="text-sm text-slate-500">Coins</span></h4>
+                          <p className="text-lg font-bold text-blue-700 relative z-10">₹200</p>
+                      </div>
 
-                  {/* PRO PLAN - Full Width */}
-                  <div 
-                    onClick={() => initiatePayment(299, 'PRO_SUBSCRIPTION')}
-                    className="p-6 rounded-[2rem] border-4 border-yellow-400 bg-white relative overflow-hidden cursor-pointer hover:shadow-2xl hover:scale-[1.01] transition-all group"
-                  >
-                      <div className="absolute top-0 right-0 bg-yellow-400 text-black px-4 py-1.5 rounded-bl-2xl text-[9px] font-black uppercase tracking-widest shadow-md">Recommended</div>
-                      <div className="flex flex-col md:flex-row justify-between items-start gap-6">
-                          <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-4">
-                                  <h5 className="font-black text-slate-900 uppercase tracking-widest text-lg">Officer Plan</h5>
-                                  <span className="bg-blue-600 text-white px-2 py-1 rounded text-[9px] font-bold uppercase">Pro</span>
-                              </div>
-                              <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> 5 Personal Interviews (AI Virtual IO)</li>
-                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> 30 PPDT with Narration</li>
-                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> 7 TAT Sets</li>
-                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> 10 SRT & 10 WAT Sets</li>
-                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> SDT & SSB AI Guide</li>
-                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> Daily News / Current Affairs</li>
-                                  <li className="flex gap-2 items-center"><Zap size={14} className="text-blue-600 shrink-0" /> Daily Practice</li>
-                                  <li className="flex gap-2 items-center md:col-span-2 text-slate-800"><Star size={14} className="text-yellow-500 shrink-0" /> Detailed & Personalized Assessment</li>
-                              </ul>
-                          </div>
-                          <div className="text-right shrink-0 flex flex-col justify-between items-end w-full md:w-auto mt-4 md:mt-0">
-                              <div className="flex items-baseline gap-2 justify-end">
-                                  <span className="text-sm font-bold text-slate-400 line-through">₹599</span>
-                                  <span className="text-4xl font-black text-slate-900">₹299</span>
-                              </div>
-                              <button className="mt-4 px-8 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest group-hover:bg-black transition-colors w-full">
-                                  Select Plan
-                              </button>
-                          </div>
+                      {/* Bundle 3 */}
+                      <div 
+                        onClick={() => initiatePayment(300, 350, 'COIN_PACK')}
+                        className="p-6 bg-slate-900 border-2 border-slate-800 rounded-[2rem] hover:border-yellow-400 hover:shadow-xl cursor-pointer transition-all group relative overflow-hidden text-center"
+                      >
+                          <div className="absolute top-0 right-0 bg-yellow-400 text-black text-[9px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">+50 Free</div>
+                          <h4 className="text-3xl font-black text-white mb-1">350 <span className="text-sm text-slate-500">Coins</span></h4>
+                          <p className="text-lg font-bold text-yellow-400">₹300</p>
                       </div>
                   </div>
+
+                  {/* CUSTOM AMOUNT */}
+                  <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200">
+                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-3">Custom Amount</label>
+                      <div className="flex gap-4">
+                          <div className="relative flex-1">
+                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
+                              <input 
+                                type="number" 
+                                value={customAmount}
+                                onChange={(e) => setCustomAmount(e.target.value)}
+                                placeholder="Enter Amount" 
+                                className="w-full pl-8 pr-4 py-4 rounded-2xl border-none outline-none font-black text-slate-900 focus:ring-2 focus:ring-blue-500 transition-all bg-white"
+                              />
+                          </div>
+                          <button 
+                            onClick={handleCustomProceed}
+                            className="bg-slate-900 text-white px-6 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all shadow-lg"
+                          >
+                              Proceed
+                          </button>
+                      </div>
+                      <p className="text-[10px] font-bold text-slate-400 mt-2 flex items-center gap-2">
+                          <Info size={12} /> 1 Rupee = 1 Coin (No Bonus on custom amounts)
+                      </p>
+                      {error && <p className="text-red-500 text-xs font-bold mt-2">{error}</p>}
+                  </div>
+
                </div>
              )}
 
@@ -278,7 +286,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                   
                   {/* Amount Display */}
                   <div className="space-y-1">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Payable</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Adding {coinsToCredit} Coins</p>
                     <div className="flex items-center justify-center gap-2">
                         {discount > 0 && (
                             <span className="text-lg font-bold text-slate-400 line-through">₹{selectedAmount}</span>
@@ -315,16 +323,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                           </p>
                       )}
                   </div>
-                  {!discount && (
-                        <div className="flex justify-end mt-2">
-                            <button 
-                                onClick={() => { setCouponCode('REPUBLIC26'); }}
-                                className="text-[9px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest flex items-center gap-1 hover:underline"
-                            >
-                                <Star size={10} fill="currentColor" /> Use Code: REPUBLIC26
-                            </button>
-                        </div>
-                  )}
 
                   {error && (
                     <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-xl text-xs font-bold">
@@ -338,15 +336,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                     className="w-full py-4 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {processing ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} />}
-                    {processing ? 'Processing...' : 'Pay with Razorpay'}
+                    {processing ? 'Processing Payment...' : `Pay ₹${finalAmount}`}
                   </button>
-                  
-                  <div className="flex justify-center gap-4 opacity-50 grayscale hover:grayscale-0 transition-all">
-                     {/* Placeholder icons for trust badges */}
-                     <span className="text-[10px] font-bold text-slate-400">UPI</span>
-                     <span className="text-[10px] font-bold text-slate-400">Cards</span>
-                     <span className="text-[10px] font-bold text-slate-400">NetBanking</span>
-                  </div>
                </div>
              )}
 
@@ -358,14 +349,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
                   <div className="space-y-2">
                      <h3 className="text-2xl font-black text-slate-900 uppercase">Payment Successful!</h3>
                      <p className="text-slate-500 font-medium text-sm leading-relaxed px-4">
-                        Your plan has been upgraded instantly. You can now access all Pro features.
+                        {coinsToCredit} Coins have been added to your wallet.
                      </p>
                   </div>
                   <button 
                     onClick={onClose}
                     className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-lg"
                   >
-                    Start Training Now
+                    Continue
                   </button>
                </div>
              )}

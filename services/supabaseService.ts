@@ -411,9 +411,7 @@ export const getPendingPayments = async () => {
   return data || [];
 };
 
-export const activatePlanForUser = async (userId: string, planType: string, amount?: number) => {
-  // Credit coins based on payment
-  // 1 Rupee = 1 Coin
+export const activatePlanForUser = async (userId: string, planType: string, amount?: number, coinsCredit?: number) => {
   const { data: sub } = await supabase
       .from('user_subscriptions')
       .select('coins')
@@ -421,7 +419,20 @@ export const activatePlanForUser = async (userId: string, planType: string, amou
       .single();
       
   const currentCoins = sub?.coins || 0;
-  const coinsToAdd = amount || 0; // Simple 1:1 mapping as requested
+  let coinsToAdd = 0;
+
+  if (coinsCredit !== undefined) {
+      // Explicit coins passed from client (Bundle logic applied in UI)
+      coinsToAdd = coinsCredit;
+  } else {
+      // Fallback: If coinsCredit not passed (e.g. Admin Panel approvals), apply default bundle logic
+      coinsToAdd = amount || 0;
+      if (planType === 'COIN_PACK' || planType === 'PRO_SUBSCRIPTION' || planType === 'INTERVIEW_ADDON') {
+          if (amount === 100) coinsToAdd = 110;
+          else if (amount === 200) coinsToAdd = 230;
+          else if (amount === 300) coinsToAdd = 350;
+      }
+  }
   
   const { error } = await supabase
       .from('user_subscriptions')
@@ -446,7 +457,7 @@ export const rejectPaymentRequest = async (id: string) => {
   await supabase.from('payment_requests').update({ status: 'REJECTED' }).eq('id', id);
 };
 
-export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode?: string) => {
+export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode?: string, coinsCredit?: number) => {
     const { data, error } = await supabase.from('payment_requests').insert({
         user_id: userId,
         utr: paymentId,
@@ -458,7 +469,7 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
     
     if (error) throw new Error("Could not record payment.");
     
-    await activatePlanForUser(userId, planType, amount);
+    await activatePlanForUser(userId, planType, amount, coinsCredit);
     
     if (couponCode) {
         const { data: coupon } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).maybeSingle();
