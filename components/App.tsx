@@ -1,27 +1,27 @@
 
 import React, { useState, useEffect } from 'react';
 import Layout from './Layout';
-import Login from './components/Login';
-import PPDTTest from './components/PPDTTest';
-import PsychologyTest from './components/PsychologyTest';
-import Interview from './components/Interview';
-import PIQForm from './components/PIQForm';
-import ContactForm from './components/ContactForm';
-import SSBStages from './components/SSBStages';
-import SSBBot from './components/SSBBot';
-import AdminPanel from './components/AdminPanel';
-import PaymentModal from './components/PaymentModal';
-import LegalPages from './components/LegalPages';
-import HowToUse from './components/HowToUse';
-import CurrentAffairs from './components/CurrentAffairs';
-import DailyPractice from './components/DailyPractice';
-import ResourceCenter from './components/ResourceCenter';
-import LecturetteTest from './components/LecturetteTest';
-import Footer from './components/Footer';
-import { TestType, PIQData, UserSubscription } from './types';
-import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES } from './services/supabaseService';
+import Login from './Login';
+import PPDTTest from './PPDTTest';
+import PsychologyTest from './PsychologyTest';
+import Interview from './Interview';
+import PIQForm from './PIQForm';
+import ContactForm from './ContactForm';
+import SSBStages from './SSBStages';
+import SSBBot from './SSBBot';
+import AdminPanel from './AdminPanel';
+import PaymentModal from './PaymentModal';
+import LegalPages from './LegalPages';
+import HowToUse from './HowToUse';
+import CurrentAffairs from './CurrentAffairs';
+import DailyPractice from './DailyPractice';
+import ResourceCenter from './ResourceCenter';
+import LecturetteTest from './LecturetteTest';
+import Footer from './Footer';
+import { TestType, PIQData, UserSubscription } from '../types';
+import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES } from '../services/supabaseService';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins } from 'lucide-react';
-import { SSBLogo } from './components/Logo';
+import { SSBLogo } from './Logo';
 
 // Helper Component for Progress Ring (Unchanged)
 const ProgressRing: React.FC<{ score: number, color: string, label: string, icon: any, subtext: string }> = ({ score, color, label, icon: Icon, subtext }) => {
@@ -131,17 +131,17 @@ const Dashboard: React.FC<{
   useEffect(() => {
     if (isLoggedIn && user && !user.startsWith('demo')) {
       setLoadingHistory(true);
-      getUserHistory(user).then(data => {
+      getUserHistory(user).then((data: any[]) => {
         setHistory(data);
         
         // Calculate Stats
-        const ppdtLogs = data.filter(h => h.type.includes('PPDT'));
-        const psychLogs = data.filter(h => ['TAT', 'WAT', 'SRT', 'SDT'].some(t => h.type.includes(t)));
-        const interviewLogs = data.filter(h => h.type.includes('INTERVIEW'));
+        const ppdtLogs = data.filter((h: any) => h.type.includes('PPDT'));
+        const psychLogs = data.filter((h: any) => ['TAT', 'WAT', 'SRT', 'SDT'].some(t => h.type.includes(t)));
+        const interviewLogs = data.filter((h: any) => h.type.includes('INTERVIEW'));
 
-        const ppdtAvg = ppdtLogs.length ? ppdtLogs.reduce((a, b) => a + (Number(b.score) || 0), 0) / ppdtLogs.length : 0;
-        const psychAvg = psychLogs.length ? psychLogs.reduce((a, b) => a + (Number(b.score) || 0), 0) / psychLogs.length : 0;
-        const interviewAvg = interviewLogs.length ? interviewLogs.reduce((a, b) => a + (Number(b.score) || 0), 0) / interviewLogs.length : 0;
+        const ppdtAvg = ppdtLogs.length ? ppdtLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / ppdtLogs.length : 0;
+        const psychAvg = psychLogs.length ? psychLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / psychLogs.length : 0;
+        const interviewAvg = interviewLogs.length ? interviewLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / interviewLogs.length : 0;
         
         const totalTests = data.length;
         let rank = 'Cadet';
@@ -466,7 +466,7 @@ const App: React.FC = () => {
       setIsLoading(false);
     };
     initAuth();
-    const unsubscribe = subscribeToAuthChanges((u) => {
+    const unsubscribe = subscribeToAuthChanges((u: any) => {
       if (u) { handleUserAuthenticated(u); } else {
         setUser(null); setUserEmail(null); setPiqData(null); setSubscription(null);
       }
@@ -477,8 +477,8 @@ const App: React.FC = () => {
   const handleUserAuthenticated = async (u: any) => {
       setUser(u.id);
       setUserEmail(u.email || '');
-      getUserData(u.id).then(d => d && setPiqData(d));
-      getUserSubscription(u.id).then(sub => setSubscription(sub));
+      getUserData(u.id).then((d: any) => d && setPiqData(d));
+      getUserSubscription(u.id).then((sub: any) => setSubscription(sub));
       const hasSeenWelcome = localStorage.getItem(`ssb_welcome_seen_${u.id}`);
       if (!hasSeenWelcome) setShowWelcome(true);
   };
@@ -487,8 +487,8 @@ const App: React.FC = () => {
     setUser(uid);
     setUserEmail(email || '');
     setActiveTest(TestType.DASHBOARD);
-    getUserData(uid).then(d => d && setPiqData(d));
-    getUserSubscription(uid).then(sub => setSubscription(sub));
+    getUserData(uid).then((d: any) => d && setPiqData(d));
+    getUserSubscription(uid).then((sub: any) => setSubscription(sub));
   };
 
   const handleLogoutAction = async () => {
@@ -575,7 +575,7 @@ const App: React.FC = () => {
     switch (activeTest) {
       case TestType.LOGIN: return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.REGISTER: return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} initialIsSignUp={true} />;
-      case TestType.PIQ: return <PIQForm onSave={async (data) => { if(user) { await saveUserData(user, data); setPiqData(data); alert("PIQ Saved"); setActiveTest(TestType.DASHBOARD); } else { alert("Please login."); setActiveTest(TestType.LOGIN); } }} initialData={piqData || undefined} />;
+      case TestType.PIQ: return <PIQForm onSave={async (data: PIQData) => { if(user) { await saveUserData(user, data); setPiqData(data); alert("PIQ Saved"); setActiveTest(TestType.DASHBOARD); } else { alert("Please login."); setActiveTest(TestType.LOGIN); } }} initialData={piqData || undefined} />;
       case TestType.PPDT: return <PPDTTest onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.TAT: return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.WAT: return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
@@ -614,7 +614,7 @@ const App: React.FC = () => {
             userId={user} 
             isOpen={isPaymentOpen} 
             onClose={() => setPaymentOpen(false)} 
-            onSuccess={() => { getUserSubscription(user).then(sub => setSubscription(sub)); }}
+            onSuccess={() => { getUserSubscription(user).then((sub: any) => setSubscription(sub)); }}
         />
       )}
     </Layout>
