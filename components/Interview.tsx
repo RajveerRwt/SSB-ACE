@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward, HelpCircle, ChevronDown, ChevronUp, AlertTriangle, Play, LogIn } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward, HelpCircle, ChevronDown, ChevronUp, AlertTriangle, Play, LogIn, IndianRupee, Coins } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
 import SessionFeedback from './SessionFeedback';
+import { TEST_RATES } from '../services/supabaseService';
 
 /** 
  * SSB VIRTUAL INTERVIEW PROTOCOL (v5.3 - Variable Duration & CIQ)
@@ -95,9 +96,10 @@ interface InterviewProps {
   userId?: string;
   isGuest?: boolean;
   onLoginRedirect?: () => void;
+  onConsumeCoins?: (cost: number) => Promise<boolean>;
 }
 
-const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
+const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId, isGuest = false, onLoginRedirect, onConsumeCoins }) => {
   const [sessionMode, setSessionMode] = useState<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
   // Ref to track session mode synchronously across callbacks to prevent race conditions during termination
   const sessionModeRef = useRef<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
@@ -114,6 +116,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
   const [showScoreHelp, setShowScoreHelp] = useState(false);
   const [showEarlyExitWarning, setShowEarlyExitWarning] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const activePIQ = isGuest ? GUEST_PIQ : piqData;
 
@@ -197,7 +200,22 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
      }
   }, [cleanupAudio]);
 
-  const startBoardSession = async (isRetry = false) => {
+  const handleStartSession = async (type: 'FULL' | 'TRIAL', isRetry = false) => {
+      // Logic for deducting coins
+      if (!isGuest && !isRetry && onConsumeCoins) {
+          setIsProcessingPayment(true);
+          const cost = type === 'FULL' ? TEST_RATES.INTERVIEW_FULL : TEST_RATES.INTERVIEW_TRIAL;
+          const success = await onConsumeCoins(cost);
+          setIsProcessingPayment(false);
+          
+          if (!success) return; // Stop if payment failed
+      }
+
+      // Proceed to start
+      startBoardSession(type, isRetry);
+  };
+
+  const startBoardSession = async (type: 'FULL' | 'TRIAL', isRetry = false) => {
     if (!isRetry) {
       setSessionMode('SESSION');
       sessionModeRef.current = 'SESSION';
@@ -205,9 +223,9 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
       conversationHistoryRef.current = []; // Only clear history on fresh start
       
       // VARIABLE DURATION LOGIC:
-      // Guest: 5 Minutes (300s) fixed
-      // User: 30-40 Minutes
-      const duration = isGuest ? 300 : Math.floor(Math.random() * (2400 - 1800 + 1)) + 1800;
+      // Guest/Trial: 5 Minutes (300s) fixed
+      // Full: 30-40 Minutes
+      const duration = (isGuest || type === 'TRIAL') ? 300 : Math.floor(Math.random() * (2400 - 1800 + 1)) + 1800;
       setTimeLeft(duration);
       setTotalDuration(duration);
       timeLeftRef.current = duration;
@@ -264,7 +282,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
       const baseInstruction = `You are Col. Arjun Singh, President of 1 AFSB.
           CONTEXT: A rigorous, formal Personal Interview for the Indian Armed Forces.
           PIQ DATA: ${JSON.stringify(activePIQ)}.
-          ${isGuest ? "NOTE: This is a TRIAL GUEST USER. Keep the interview very short and focus on introducing the SSB format." : ""}
+          ${(isGuest || type === 'TRIAL') ? "NOTE: This is a TRIAL INTERVIEW (5 Minutes). Keep questions short and focus on introducing the SSB format." : ""}
           
           *** PROTOCOL: AUDIO & VISUAL ***
           1. MODALITY: You can SEE and HEAR the candidate. 
@@ -470,7 +488,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
        const delay = 1000 + (retryCountRef.current * 500); 
        retryCountRef.current += 1;
        setConnectionStatus('RECONNECTING');
-       setTimeout(() => startBoardSession(true), delay);
+       setTimeout(() => startBoardSession('FULL', true), delay); // Default to full context if reconnecting
     } else {
        setConnectionStatus('DISCONNECTED');
        setError("Network link unstable. Session terminated for security.");
@@ -480,7 +498,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
   const handleEndCallRequest = () => {
       const durationSeconds = totalDuration - timeLeft;
       // If interview is less than 10 minutes (600 seconds)
-      if (durationSeconds < 600 && !isGuest) {
+      if (durationSeconds < 600 && !isGuest && totalDuration > 600) {
           setShowEarlyExitWarning(true);
       } else {
           endSession();
@@ -551,29 +569,43 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
               </div>
               <h1 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter">IO <span className="text-blue-500">Interview</span></h1>
               <div className="flex justify-center gap-4">
-                 <span className="px-3 md:px-4 py-1.5 bg-blue-500/20 text-blue-300 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-blue-500/30 flex items-center gap-2">
-                   <Clock size={12} /> {isGuest ? '5 Minutes (Guest Trial)' : '30-40 Minutes'}
-                 </span>
                  <span className="px-3 md:px-4 py-1.5 bg-green-500/20 text-green-300 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-green-500/30 flex items-center gap-2">
                    <Video size={12} /> Video Enabled
                  </span>
               </div>
               
               <div className="bg-white/5 p-6 rounded-2xl border border-white/10 text-left max-w-xl mx-auto space-y-3">
-                 <h4 className="text-yellow-400 font-black uppercase text-xs tracking-widest flex items-center gap-2"><Info size={14} /> Entry Instructions</h4>
+                 <h4 className="text-yellow-400 font-black uppercase text-xs tracking-widest flex items-center gap-2"><Info size={14} /> Protocol</h4>
                  <ul className="text-slate-300 text-xs space-y-2 font-medium">
                     <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Camera Permission Required (IO can see you).</li>
-                    <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Sit in a well-lit room with upright posture.</li>
                     <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> <b>Greeting Mandatory:</b> Wish the Officer (e.g. "Good Morning Sir") immediately upon entering.</li>
                  </ul>
               </div>
 
-              <button 
-                onClick={() => startBoardSession(false)} 
-                className="px-12 md:px-16 py-5 md:py-7 bg-blue-600 hover:bg-blue-50 text-white rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all hover:scale-105 active:scale-95"
-              >
-                Allow Cam/Mic & Enter
-              </button>
+              {/* SELECTION BUTTONS */}
+              <div className="flex flex-col md:flex-row gap-4 justify-center">
+                  <button 
+                    onClick={() => handleStartSession('TRIAL')} 
+                    disabled={isProcessingPayment}
+                    className="px-8 py-5 bg-white/10 hover:bg-white/20 text-white border border-white/10 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl transition-all flex flex-col items-center"
+                  >
+                    <span>Trial Mode</span>
+                    <span className="text-[9px] opacity-70 mt-1 flex items-center gap-1"><Clock size={10} /> 5 Min • <Coins size={10} /> {TEST_RATES.INTERVIEW_TRIAL} Coins</span>
+                  </button>
+
+                  <button 
+                    onClick={() => handleStartSession('FULL')} 
+                    disabled={isProcessingPayment}
+                    className="px-12 py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl transition-all hover:scale-105 active:scale-95 flex flex-col items-center"
+                  >
+                    {isProcessingPayment ? <Loader2 className="animate-spin" /> : (
+                        <>
+                            <span>Start Full Interview</span>
+                            <span className="text-[9px] opacity-80 mt-1 flex items-center gap-1"><Clock size={10} /> 30-40 Min • <Coins size={10} /> {TEST_RATES.INTERVIEW_FULL} Coins</span>
+                        </>
+                    )}
+                  </button>
+              </div>
            </div>
         </div>
       </div>
@@ -600,7 +632,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
            <div className="flex items-center gap-3">
              <AlertCircle size={16} /> {error}
            </div>
-           <button onClick={() => startBoardSession(false)} className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-xl hover:bg-red-700 transition-colors">
+           <button onClick={() => startBoardSession('FULL', false)} className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-xl hover:bg-red-700 transition-colors">
              <RefreshCw size={12} /> Restart
            </button>
         </div>
