@@ -38,12 +38,12 @@ import {
   Coins,
   Plus
 } from 'lucide-react';
-import { getRecentAnnouncements, subscribeToAnnouncements, getTickerConfig, subscribeToTicker } from '../services/supabaseService';
+import { getRecentAnnouncements, subscribeToAnnouncements, getTickerConfig, subscribeToTicker, TEST_RATES } from '../services/supabaseService';
 
 interface LayoutProps {
   children: React.ReactNode;
   activeTest: TestType;
-  onNavigate: (test: TestType) => void;
+  onNavigate: (test: TestType, params?: any) => void;
   onLogout?: () => void;
   onLogin?: () => void;
   user?: string;
@@ -178,7 +178,19 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
   ];
 
   const handleNavClick = (id: TestType) => {
-    onNavigate(id);
+    let cost = 0;
+    
+    // Apply costs specifically for tests that deduct on entry, consistent with Dashboard
+    if (id === TestType.PPDT) cost = TEST_RATES.PPDT;
+    else if (id === TestType.TAT) cost = TEST_RATES.TAT;
+    else if (id === TestType.WAT) cost = TEST_RATES.WAT;
+    else if (id === TestType.SRT) cost = TEST_RATES.SRT;
+    else if (id === TestType.SDT) cost = TEST_RATES.SDT;
+    
+    // NOTE: Lecturette and Interview deduct internally or are 0 on navigation
+    // NOTE: Free resources, Guide, etc., default to 0
+
+    onNavigate(id, { cost });
     if (isMobile) setSidebarOpen(false);
   };
 
