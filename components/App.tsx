@@ -1,29 +1,29 @@
 
 import React, { useState, useEffect } from 'react';
-import Layout from './components/Layout';
-import Login from './components/Login';
-import PPDTTest from './components/PPDTTest';
-import PsychologyTest from './components/PsychologyTest';
-import Interview from './components/Interview';
-import PIQForm from './components/PIQForm';
-import ContactForm from './components/ContactForm';
-import SSBStages from './components/SSBStages';
-import SSBBot from './components/SSBBot';
-import AdminPanel from './components/AdminPanel';
-import PaymentModal from './components/PaymentModal';
-import LegalPages from './components/LegalPages';
-import HowToUse from './components/HowToUse';
-import CurrentAffairs from './components/CurrentAffairs';
-import DailyPractice from './components/DailyPractice';
-import ResourceCenter from './components/ResourceCenter';
-import LecturetteTest from './components/LecturetteTest';
-import Footer from './components/Footer';
+import Layout from './Layout';
+import Login from './Login';
+import PPDTTest from './PPDTTest';
+import PsychologyTest from './PsychologyTest';
+import Interview from './Interview';
+import PIQForm from './PIQForm';
+import ContactForm from './ContactForm';
+import SSBStages from './SSBStages';
+import SSBBot from './SSBBot';
+import AdminPanel from './AdminPanel';
+import PaymentModal from './PaymentModal';
+import LegalPages from './LegalPages';
+import HowToUse from './HowToUse';
+import CurrentAffairs from './CurrentAffairs';
+import DailyPractice from './DailyPractice';
+import ResourceCenter from './ResourceCenter';
+import LecturetteTest from './LecturetteTest';
+import Footer from './Footer';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES } from '../services/supabaseService';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins } from 'lucide-react';
-import { SSBLogo } from './components/Logo';
+import { SSBLogo } from './Logo';
 
-// Helper Component for Progress Ring (Unchanged)
+// Helper Component for Progress Ring
 const ProgressRing: React.FC<{ score: number, color: string, label: string, icon: any, subtext: string }> = ({ score, color, label, icon: Icon, subtext }) => {
   const radius = 36;
   const circumference = 2 * Math.PI * radius;
@@ -55,7 +55,7 @@ const ProgressRing: React.FC<{ score: number, color: string, label: string, icon
   )
 }
 
-// Dashboard Component (Updated to show Coin Costs)
+// Dashboard Component
 const Dashboard: React.FC<{ 
   onStartTest: (t: TestType, params?: any) => void, 
   piqLoaded: boolean,
@@ -66,7 +66,6 @@ const Dashboard: React.FC<{
   subscription: UserSubscription | null,
   onShowGuestWarning: () => void
 }> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user, onOpenPayment, subscription, onShowGuestWarning }) => {
-  // ... (State and Effects identical to previous version, just ensuring TEST_RATES are used correctly in quickActions)
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -107,7 +106,7 @@ const Dashboard: React.FC<{
     { id: TestType.SRT, label: 'SRT', sub: 'Psychology', icon: Brain, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100', cost: TEST_RATES.SRT },
     { id: TestType.SDT, label: 'SDT', sub: 'Self Desc.', icon: FileSignature, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100', cost: TEST_RATES.SDT },
     { id: TestType.LECTURETTE, label: 'Lecturette', sub: 'Topics', icon: BookOpen, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100', cost: TEST_RATES.LECTURETTE },
-    { id: TestType.INTERVIEW, label: '1:1 Interview', sub: 'Virtual IO', icon: Mic, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', cost: TEST_RATES.INTERVIEW_FULL }, // Used for display logic mainly
+    { id: TestType.INTERVIEW, label: '1:1 Interview', sub: 'Virtual IO', icon: Mic, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', cost: TEST_RATES.INTERVIEW_FULL }, 
     { id: TestType.DAILY_PRACTICE, label: 'Daily Dose', sub: 'Practice', icon: Clock, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-100', cost: 0 },
     { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', sub: 'Updates', icon: Globe, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100', cost: 0 },
     { id: TestType.AI_BOT, label: 'AI Guide', sub: 'ChatBot', icon: Bot, color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-100', cost: 0 },
@@ -171,12 +170,8 @@ const Dashboard: React.FC<{
       if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // ... (HERO SECTION RENDER logic mostly same, adding Coin display in user panel) ...
-
   return (
     <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-0">
-      
-      {/* ... Payment Banners ... */}
       
       {/* HERO SECTION */}
       <div className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl border-b-8 border-yellow-500">
@@ -247,9 +242,7 @@ const Dashboard: React.FC<{
              )}
            </div>
            
-           {/* ... Right side Hero Image (unchanged) ... */}
            <div className="hidden lg:flex flex-col gap-6 relative justify-center h-full">
-              {/* BRANDING HEADER */}
               <div className="w-full flex justify-end animate-in fade-in slide-in-from-right-8 duration-1000 delay-200">
                   <div className="flex items-center gap-4">
                       <div className="text-right">
@@ -282,10 +275,8 @@ const Dashboard: React.FC<{
       <div className="grid lg:grid-cols-12 gap-6 md:gap-10">
         <div className="lg:col-span-8 space-y-6 md:space-y-10">
           
-          {/* Soldier Profile ... (unchanged) ... */}
           {isLoggedIn && (
             <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-xl overflow-hidden relative">
-              {/* ... same stats content ... */}
               <div className="flex justify-between items-center mb-8 relative z-10">
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg">
@@ -309,7 +300,6 @@ const Dashboard: React.FC<{
                   <ProgressRing score={stats.psychAvg} color="text-purple-500" label="Psychology" icon={Brain} subtext="TAT/WAT/SRT" />
                   <ProgressRing score={stats.interviewAvg} color="text-yellow-500" label="Interview" icon={Mic} subtext="IO Score" />
               </div>
-              {/* ... history toggle etc ... */}
               <div className="border-t border-slate-100 pt-4">
                   <button 
                     onClick={() => setShowFullHistory(!showFullHistory)}
@@ -420,7 +410,6 @@ const Dashboard: React.FC<{
           </div>
         </div>
 
-        {/* ... (Right Column unchanged) ... */}
         <div className="lg:col-span-4 space-y-6 md:space-y-10">
            <div className="bg-slate-950 p-8 md:p-12 rounded-[2rem] md:rounded-[4rem] text-white shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
               <div className="absolute top-0 left-0 w-full h-1.5 bg-yellow-500" />
@@ -448,7 +437,6 @@ const Dashboard: React.FC<{
         </div>
       </div>
 
-      {/* ... (Testimonials & Footer unchanged) ... */}
       <Footer onNavigate={onStartTest} />
     </div>
   );
@@ -505,11 +493,9 @@ const App: React.FC = () => {
     setActiveTest(TestType.DASHBOARD);
   };
 
-  // UPDATED NAVIGATION WITH COIN CHECK
   const navigateTo = async (test: TestType, params?: any) => {
      if (test === TestType.LOGIN && user) return;
      
-     // 1. ADMIN CHECK
      if (test === TestType.ADMIN && !isUserAdmin(userEmail)) {
         alert("Access Denied.");
         return;
@@ -542,7 +528,6 @@ const App: React.FC = () => {
      setActiveTest(test);
   };
   
-  // New: Handle consumption from child components (e.g. Interview)
   const handleCoinConsumption = async (cost: number): Promise<boolean> => {
       if (!user) return false;
       const { allowed, balance } = await checkBalance(user, cost);
@@ -568,7 +553,6 @@ const App: React.FC = () => {
       let typeStr = activeTest.toString();
       await saveTestAttempt(user, typeStr, result);
       await incrementUsage(user, typeStr);
-      // No extra deduction here, as we deducted on entry
   };
 
   const handleShowGuestWarning = () => {
@@ -577,7 +561,6 @@ const App: React.FC = () => {
       }
   };
 
-  // ... (renderContent switch remains similar, just passing onSave etc) ...
   const renderContent = () => {
     switch (activeTest) {
       case TestType.LOGIN: return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
