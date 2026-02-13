@@ -13,7 +13,7 @@ export const TEST_RATES = {
     PPDT: 5,
     SRT: 5,
     WAT: 5,
-    LECTURETTE: 5,
+    LECTURETTE: 3, // Updated to 3 Coins
     SDT: 5,
     TAT: 10,
     INTERVIEW_TRIAL: 10, // 5 Mins

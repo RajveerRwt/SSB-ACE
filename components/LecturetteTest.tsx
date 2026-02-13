@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio, MapPin, Filter, Star } from 'lucide-react';
+import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio, MapPin, Filter, Star, Coins } from 'lucide-react';
 import { generateLecturette, evaluateLecturette } from '../services/geminiService';
-import { getLecturetteContent, saveLecturetteContent } from '../services/supabaseService';
+import { getLecturetteContent, saveLecturetteContent, TEST_RATES } from '../services/supabaseService';
 
 const IMPORTANT_TOPICS_LIST = [
     "India China relation", "Indo China relationship", 
@@ -232,7 +232,11 @@ const LECTURETTE_TOPICS = [
     { title: "Role of DRDO", board: "NSB Kolkata", category: "Defense", difficulty: "Medium" }
 ];
 
-const LecturetteTest: React.FC = () => {
+interface LecturetteTestProps {
+  onConsumeCoins?: (cost: number) => Promise<boolean>;
+}
+
+const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins }) => {
   const [selectedLecturette, setSelectedLecturette] = useState<string | null>(null);
   const [lecturetteContent, setLecturetteContent] = useState<any>(null);
   const [loadingLecturette, setLoadingLecturette] = useState(false);
@@ -244,6 +248,7 @@ const LecturetteTest: React.FC = () => {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [activeBoardFilter, setActiveBoardFilter] = useState<string>('ALL');
+  const [processingPayment, setProcessingPayment] = useState(false);
   
   // Media Refs
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -309,6 +314,16 @@ const LecturetteTest: React.FC = () => {
   }, [isRecording]);
 
   const handleLecturetteClick = async (topicData: any) => {
+      if (processingPayment) return;
+
+      // Handle Coin Deduction for Topic Access
+      if (onConsumeCoins) {
+          setProcessingPayment(true);
+          const success = await onConsumeCoins(TEST_RATES.LECTURETTE);
+          setProcessingPayment(false);
+          if (!success) return; // Stop if user cancels or fails payment
+      }
+
       const topic = topicData.title;
       setSelectedLecturette(topic);
       setLecturetteContent(null);
@@ -537,9 +552,16 @@ const LecturetteTest: React.FC = () => {
                                       </div>
                                   </div>
                               </div>
-                              <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest shrink-0 ${topic.difficulty === 'High' ? 'bg-red-100 text-red-700' : topic.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
-                                  {topic.difficulty}
-                              </span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                  <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${topic.difficulty === 'High' ? 'bg-red-100 text-red-700' : topic.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                                      {topic.difficulty}
+                                  </span>
+                                  {onConsumeCoins && (
+                                      <span className="bg-slate-900 text-yellow-400 px-2 py-1 rounded text-[9px] font-black flex items-center gap-1">
+                                          <Coins size={8} /> {TEST_RATES.LECTURETTE}
+                                      </span>
+                                  )}
+                              </div>
                           </div>
                       ))}
                   </div>
