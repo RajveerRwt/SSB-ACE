@@ -574,5 +574,22 @@ export const getRecentAnnouncements = async (): Promise<Announcement[]> => { con
 export const subscribeToAnnouncements = (callback: (a: Announcement) => void) => { const channel = supabase.channel('public:announcements').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, payload => { callback(payload.new as Announcement); }).subscribe(); return () => { supabase.removeChannel(channel); }; };
 export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT') => { await supabase.from('announcements').insert({ message, type, is_active: true }); };
 export const submitUserFeedback = async (userId: string, testType: string, rating: number, comments: string) => { await supabase.from('user_feedback').insert({ user_id: userId, test_type: testType, rating: rating, comments: comments }); };
-export const getAllFeedback = async () => { const { data } = await supabase.from('user_feedback').select('*, aspirants(full_name, email)').order('created_at', { ascending: false }); return data || []; };
+
+export const getAllFeedback = async () => {
+  const { data, error } = await supabase
+    .from('user_feedback')
+    .select('*, aspirants(full_name, email)')
+    .order('created_at', { ascending: false });
+
+  if (!error && data) return data;
+
+  // Fallback if relation fails
+  const { data: rawData } = await supabase
+    .from('user_feedback')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  return rawData || [];
+};
+
 export const deleteFeedback = async (id: string) => { await supabase.from('user_feedback').delete().eq('id', id); };
