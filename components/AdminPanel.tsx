@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText, Gauge, Coins, Wallet } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText, Gauge, Coins, Wallet, History, X } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
@@ -54,7 +54,7 @@ const AdminPanel: React.FC = () => {
 
   // User Management
   const [searchQuery, setSearchQuery] = useState('');
-  const [userFilter, setUserFilter] = useState<'ALL' | 'ACTIVE_24H' | 'UNVERIFIED'>('ALL');
+  const [userFilter, setUserFilter] = useState<'ALL' | 'ACTIVE_24H' | 'NEW_7D'>('ALL');
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
 
   // Confirmation Modal State
@@ -287,19 +287,43 @@ const AdminPanel: React.FC = () => {
       return acc;
   }, {});
 
-  // Calculate User Stats
-  const userStats = {
-      total: users.length,
-      activeToday: users.filter(u => {
+  // Detailed User Stats Calculation
+  const userStats = React.useMemo(() => {
+      const now = new Date();
+      const active24h = users.filter(u => {
           if (!u.last_active) return false;
-          const diff = Date.now() - new Date(u.last_active).getTime();
-          return diff < 86400000; // 24 hours
-      }).length,
-      totalCoins: users.reduce((acc, u) => acc + (u.subscription_data?.coins || 0), 0),
-      avgCoins: 0 
-  };
-  
-  userStats.avgCoins = userStats.total > 0 ? Math.round(userStats.totalCoins / userStats.total) : 0;
+          const diff = now.getTime() - new Date(u.last_active).getTime();
+          return diff < 86400000;
+      }).length;
+
+      const new7d = users.filter(u => {
+          if (!u.created_at) return false; // Using created_at from aspirants if available, else infer
+          // Fallback: If 'created_at' not in aspirants, use first test history date or skip
+          // Assuming updated getAllUsers returns created_at for profile or we use subscription created_at if available
+          return false; // Enhance this if DB has created_at
+      }).length; // Will be 0 if column missing, but logical place
+
+      const totalTests = users.reduce((acc, u) => acc + (u.test_history?.length || 0), 0);
+      const totalCoins = users.reduce((acc, u) => acc + (u.subscription_data?.coins || 0), 0);
+
+      // Count new users by checking if first test was in last 7 days (proxy if profile date missing)
+      const newUsersCount = users.filter(u => {
+          const firstTest = u.test_history && u.test_history.length > 0 ? u.test_history[u.test_history.length-1].created_at : null;
+          if (firstTest) {
+              const diff = now.getTime() - new Date(firstTest).getTime();
+              return diff < 7 * 24 * 60 * 60 * 1000;
+          }
+          return false;
+      }).length;
+
+      return {
+          total: users.length,
+          activeToday: active24h,
+          newCadets: newUsersCount,
+          totalTests,
+          totalCoins
+      };
+  }, [users]);
 
   const filteredUsers = users.filter(u => {
       const matchesSearch = u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -312,8 +336,14 @@ const AdminPanel: React.FC = () => {
           const diff = Date.now() - new Date(u.last_active).getTime();
           return diff < 86400000;
       }
-      if (userFilter === 'UNVERIFIED') {
-          return !u.email_confirmed_at;
+      if (userFilter === 'NEW_7D') {
+          // Use first test or recent activity as proxy if created_at missing
+          const firstTest = u.test_history && u.test_history.length > 0 ? u.test_history[u.test_history.length-1].created_at : null;
+          if (firstTest) {
+              const diff = Date.now() - new Date(firstTest).getTime();
+              return diff < 7 * 86400000;
+          }
+          return false;
       }
       return true;
   });
@@ -321,17 +351,6 @@ const AdminPanel: React.FC = () => {
   const storageSQL = `
 -- 13. OIR SUPPORT IN DAILY CHALLENGES
 alter table public.daily_challenges add column if not exists oir_text text;
-
--- Existing Tables (for reference)
--- create table if not exists public.daily_challenges (
---   id uuid default uuid_generate_v4() primary key,
---   ppdt_image_url text, -- Used for OIR Image now
---   wat_words text[],
---   srt_situations text[],
---   interview_question text,
---   oir_text text, -- NEW
---   created_at timestamptz default now()
--- );
 `;
 
   return (
@@ -377,12 +396,6 @@ alter table public.daily_challenges add column if not exists oir_text text;
                 )}
             </div>
             
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-xl">
-                <p className="text-xs text-yellow-800 font-bold">
-                    <strong>Instructions:</strong> Run this script to add 'oir_text' column to 'daily_challenges'.
-                </p>
-            </div>
-
             <div className="relative group">
               <pre className="bg-slate-900 text-blue-300 p-6 rounded-2xl text-[10px] font-mono overflow-x-auto border-2 border-slate-800 leading-relaxed shadow-inner max-h-[300px]">
                 {storageSQL}
@@ -395,22 +408,10 @@ alter table public.daily_challenges add column if not exists oir_text text;
                 {copied ? 'Copied' : 'Copy SQL'}
               </button>
             </div>
-
-            <div className="flex gap-4">
-              <a 
-                href="https://supabase.com/dashboard/project/_/sql" 
-                target="_blank" 
-                rel="noreferrer"
-                className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-lg"
-              >
-                <Database size={14} /> Open SQL Editor <ExternalLink size={12} />
-              </a>
-            </div>
           </div>
         </div>
       )}
 
-      {/* FULL NAVIGATION TABS RESTORED */}
       <div className="flex flex-wrap justify-center md:justify-start gap-4">
          <button onClick={() => setActiveTab('PAYMENTS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PAYMENTS' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><IndianRupee size={16} /> Payments {payments.length > 0 && `(${payments.length})`}</button>
          <button onClick={() => setActiveTab('USERS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'USERS' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><User size={16} /> Cadets</button>
@@ -424,14 +425,14 @@ alter table public.daily_challenges add column if not exists oir_text text;
          <button onClick={() => setActiveTab('FEEDBACK')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'FEEDBACK' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><MessageSquare size={16} /> Feedback</button>
       </div>
 
-      {/* USERS TAB - UPDATED TO SHOW COINS */}
+      {/* USERS TAB - TRANSFORMED */}
       {activeTab === 'USERS' && (
-          <div className="space-y-8">
-              {/* COIN ECONOMY STATS */}
+          <div className="space-y-8 animate-in fade-in">
+              {/* INSIGHTS HEADER */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between h-32">
                       <div className="flex justify-between items-start">
-                          <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><User size={20} /></div>
+                          <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><User size={20} /></div>
                           <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Cadets</span>
                       </div>
                       <div className="text-3xl font-black text-slate-900">{userStats.total}</div>
@@ -439,23 +440,23 @@ alter table public.daily_challenges add column if not exists oir_text text;
                   <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between h-32">
                       <div className="flex justify-between items-start">
                           <div className="p-2 bg-green-50 text-green-600 rounded-xl"><Activity size={20} /></div>
-                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Active Today</span>
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Active (24h)</span>
                       </div>
                       <div className="text-3xl font-black text-slate-900">{userStats.activeToday}</div>
                   </div>
                   <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between h-32">
                       <div className="flex justify-between items-start">
-                          <div className="p-2 bg-yellow-50 text-yellow-600 rounded-xl"><Coins size={20} /></div>
-                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Economy Size</span>
+                          <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><UserCheck size={20} /></div>
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">New (7d)</span>
                       </div>
-                      <div className="text-3xl font-black text-slate-900">{userStats.totalCoins}</div>
+                      <div className="text-3xl font-black text-slate-900">{userStats.newCadets}</div>
                   </div>
                   <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between h-32">
                       <div className="flex justify-between items-start">
-                          <div className="p-2 bg-purple-50 text-purple-600 rounded-xl"><Wallet size={20} /></div>
-                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Avg Wallet</span>
+                          <div className="p-2 bg-purple-50 text-purple-600 rounded-xl"><Layers size={20} /></div>
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Assessments</span>
                       </div>
-                      <div className="text-3xl font-black text-slate-900">{userStats.avgCoins}</div>
+                      <div className="text-3xl font-black text-slate-900">{userStats.totalTests}</div>
                   </div>
               </div>
 
@@ -474,54 +475,172 @@ alter table public.daily_challenges add column if not exists oir_text text;
                   <div className="flex gap-2 w-full md:w-auto">
                       <button onClick={() => setUserFilter('ALL')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex-1 md:flex-none ${userFilter === 'ALL' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>All</button>
                       <button onClick={() => setUserFilter('ACTIVE_24H')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex-1 md:flex-none ${userFilter === 'ACTIVE_24H' ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-500'}`}>Active 24H</button>
-                      <button onClick={() => setUserFilter('UNVERIFIED')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex-1 md:flex-none ${userFilter === 'UNVERIFIED' ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-500'}`}>Unverified</button>
+                      <button onClick={() => setUserFilter('NEW_7D')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex-1 md:flex-none ${userFilter === 'NEW_7D' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-500'}`}>New Cadets</button>
                   </div>
               </div>
 
-              {/* USER LIST GRID */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredUsers.map(u => (
-                      <div key={u.user_id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-xl flex flex-col justify-between group hover:border-slate-300 transition-all relative overflow-hidden">
-                          <button onClick={() => handleDeleteUser(u.user_id)} className="absolute top-4 right-4 p-2 bg-red-50 text-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100"><Trash2 size={16} /></button>
+              {/* DETAILED USER TABLE */}
+              <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-50">
+                              <tr>
+                                  <th className="p-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">Cadet Identity</th>
+                                  <th className="p-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">Engagement</th>
+                                  <th className="p-6 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Tests Taken</th>
+                                  <th className="p-6 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Wallet</th>
+                                  <th className="p-6 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Actions</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                              {filteredUsers.map(u => (
+                                  <tr key={u.user_id} className="hover:bg-slate-50/50 transition-colors group">
+                                      <td className="p-6">
+                                          <div className="flex items-center gap-3">
+                                              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm ${u.subscription_data?.tier === 'PRO' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                                                  {u.full_name?.[0]?.toUpperCase() || 'U'}
+                                              </div>
+                                              <div>
+                                                  <h4 className="font-bold text-slate-900 text-sm">{u.full_name || 'Cadet'}</h4>
+                                                  <p className="text-[10px] text-slate-400">{u.email}</p>
+                                              </div>
+                                          </div>
+                                      </td>
+                                      <td className="p-6">
+                                          <div className="space-y-1">
+                                              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                                                  Last Active: <span className="text-slate-800">{timeAgo(u.last_active)}</span>
+                                              </p>
+                                              <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${u.subscription_data?.tier === 'PRO' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                  {u.subscription_data?.tier}
+                                              </span>
+                                          </div>
+                                      </td>
+                                      <td className="p-6 text-center">
+                                          <div className="inline-flex gap-2">
+                                              <div className="px-3 py-1 bg-purple-50 rounded-lg border border-purple-100" title="Interview">
+                                                  <span className="block text-[9px] font-black text-purple-400 uppercase">IO</span>
+                                                  <span className="text-sm font-black text-purple-700">{u.test_history?.filter((t: any) => t.test_type.includes('Interview')).length || 0}</span>
+                                              </div>
+                                              <div className="px-3 py-1 bg-green-50 rounded-lg border border-green-100" title="Psychology">
+                                                  <span className="block text-[9px] font-black text-green-400 uppercase">PSY</span>
+                                                  <span className="text-sm font-black text-green-700">{u.test_history?.filter((t: any) => !t.test_type.includes('Interview') && !t.test_type.includes('PPDT')).length || 0}</span>
+                                              </div>
+                                              <div className="px-3 py-1 bg-blue-50 rounded-lg border border-blue-100" title="PPDT">
+                                                  <span className="block text-[9px] font-black text-blue-400 uppercase">SCR</span>
+                                                  <span className="text-sm font-black text-blue-700">{u.test_history?.filter((t: any) => t.test_type.includes('PPDT')).length || 0}</span>
+                                              </div>
+                                          </div>
+                                      </td>
+                                      <td className="p-6 text-center">
+                                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-full text-[10px] font-black">
+                                              <Coins size={10} /> {u.subscription_data?.coins || 0}
+                                          </span>
+                                      </td>
+                                      <td className="p-6 text-right">
+                                          <div className="flex justify-end gap-2">
+                                              <button 
+                                                  onClick={() => setSelectedUser(u)}
+                                                  className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                                                  title="View Dossier"
+                                              >
+                                                  <Eye size={16} />
+                                              </button>
+                                              <button 
+                                                  onClick={() => handleDeleteUser(u.user_id)}
+                                                  className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm opacity-0 group-hover:opacity-100"
+                                                  title="Delete User"
+                                              >
+                                                  <Trash2 size={16} />
+                                              </button>
+                                          </div>
+                                      </td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+
+              {/* USER DOSSIER MODAL */}
+              {selectedUser && (
+                  <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+                      <div className="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+                          <div className="bg-slate-950 p-6 flex justify-between items-center shrink-0">
+                              <div className="flex items-center gap-4">
+                                  <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white font-black text-lg">
+                                      {selectedUser.full_name?.[0] || 'U'}
+                                  </div>
+                                  <div>
+                                      <h3 className="text-white font-black uppercase tracking-widest text-lg">{selectedUser.full_name || 'Cadet Dossier'}</h3>
+                                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">{selectedUser.email}</p>
+                                  </div>
+                              </div>
+                              <button onClick={() => setSelectedUser(null)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors">
+                                  <X size={20} />
+                              </button>
+                          </div>
                           
-                          <div className="space-y-4 mb-6 pt-4">
-                              <div className="flex justify-between items-start">
-                                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${u.subscription_data?.tier === 'PRO' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 text-slate-500'}`}>
-                                      {u.subscription_data?.tier === 'PRO' ? <Crown size={24} /> : <User size={24} />}
+                          <div className="p-8 overflow-y-auto custom-scrollbar space-y-8">
+                              {/* Summary Stats */}
+                              <div className="grid grid-cols-3 gap-4">
+                                  <div className="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
+                                      <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Attempts</span>
+                                      <span className="text-2xl font-black text-slate-900">{selectedUser.test_history?.length || 0}</span>
                                   </div>
-                                  <div className="flex flex-col items-end gap-1">
-                                      <div className="px-3 py-1 bg-yellow-400 text-black rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm">
-                                          <IndianRupee size={10} /> {u.subscription_data?.coins || 0} Coins
-                                      </div>
-                                      <p className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
-                                          <Clock size={10} /> Active: {timeAgo(u.last_active)}
-                                      </p>
+                                  <div className="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
+                                      <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Average Score</span>
+                                      <span className="text-2xl font-black text-blue-600">
+                                          {selectedUser.test_history?.length > 0 
+                                              ? (selectedUser.test_history.reduce((a: any, b: any) => a + (Number(b.score) || 0), 0) / selectedUser.test_history.length).toFixed(1)
+                                              : '-'}
+                                      </span>
+                                  </div>
+                                  <div className="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
+                                      <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Activity</span>
+                                      <span className="text-sm font-bold text-slate-700 mt-2">{timeAgo(selectedUser.last_active)}</span>
                                   </div>
                               </div>
+
+                              {/* History List */}
                               <div>
-                                  <h4 className="text-lg font-black text-slate-900 truncate">{u.full_name || u.email?.split('@')[0] || 'Unknown Cadet'}</h4>
-                                  <p className="text-xs font-medium text-slate-500 truncate">{u.email}</p>
-                              </div>
-                              <div className="grid grid-cols-3 gap-2 pt-2">
-                                  <div className="text-center p-2 bg-slate-50 rounded-xl">
-                                      <span className="block text-[10px] font-black text-slate-400 uppercase">IO</span>
-                                      <span className="font-black text-slate-800">{u.subscription_data?.usage?.interview_used || 0}</span>
-                                  </div>
-                                  <div className="text-center p-2 bg-slate-50 rounded-xl">
-                                      <span className="block text-[10px] font-black text-slate-400 uppercase">PPDT</span>
-                                      <span className="font-black text-slate-800">{u.subscription_data?.usage?.ppdt_used || 0}</span>
-                                  </div>
-                                  <div className="text-center p-2 bg-slate-50 rounded-xl">
-                                      <span className="block text-[10px] font-black text-slate-400 uppercase">TAT</span>
-                                      <span className="font-black text-slate-800">{u.subscription_data?.usage?.tat_used || 0}</span>
-                                  </div>
+                                  <h4 className="font-black text-slate-900 uppercase tracking-widest text-sm mb-4 flex items-center gap-2">
+                                      <History size={16} /> Assessment Log
+                                  </h4>
+                                  {(!selectedUser.test_history || selectedUser.test_history.length === 0) ? (
+                                      <div className="text-center p-8 bg-slate-50 rounded-2xl text-slate-400 font-bold text-xs italic">
+                                          No assessments recorded yet.
+                                      </div>
+                                  ) : (
+                                      <div className="space-y-3">
+                                          {selectedUser.test_history.map((h: any, i: number) => (
+                                              <div key={h.id || i} className="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-2xl hover:shadow-md transition-all">
+                                                  <div className="flex items-center gap-4">
+                                                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] text-white ${h.test_type.includes('Interview') ? 'bg-purple-600' : h.test_type.includes('PPDT') ? 'bg-blue-600' : 'bg-slate-900'}`}>
+                                                          {h.test_type.substring(0, 2).toUpperCase()}
+                                                      </div>
+                                                      <div>
+                                                          <p className="text-xs font-black text-slate-900 uppercase">{h.test_type}</p>
+                                                          <p className="text-[10px] text-slate-400 font-bold">{new Date(h.created_at).toLocaleString()}</p>
+                                                      </div>
+                                                  </div>
+                                                  <div className="text-right">
+                                                      <span className="block text-lg font-black text-slate-900">{h.score}</span>
+                                                      <span className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Score</span>
+                                                  </div>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  )}
                               </div>
                           </div>
                       </div>
-                  ))}
-              </div>
+                  </div>
+              )}
           </div>
       )}
+      
+      {/* ... (Keep Payments, Daily, PPDT, WAT, SRT, TAT, Coupons, Broadcast, Feedback tabs same as before) ... */}
       
       {/* PAYMENTS TAB */}
       {activeTab === 'PAYMENTS' && (
@@ -620,7 +739,7 @@ alter table public.daily_challenges add column if not exists oir_text text;
           </div>
       )}
 
-      {/* PPDT Tab (Keeping existing structure for normal PPDT scenario management) */}
+      {/* PPDT Tab */}
       {activeTab === 'PPDT' && (
           <div className="space-y-8 animate-in fade-in">
               <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
@@ -652,7 +771,7 @@ alter table public.daily_challenges add column if not exists oir_text text;
           </div>
       )}
       
-      {/* ... other tabs ... */}
+      {/* ... (Keep existing WAT, SRT, TAT, COUPONS, BROADCAST, FEEDBACK tabs - ensure closing brace for AdminPanel) ... */}
       {/* WAT */}
       {activeTab === 'WAT' && (
           <div className="space-y-8 animate-in fade-in">
@@ -666,8 +785,6 @@ alter table public.daily_challenges add column if not exists oir_text text;
                       </button>
                   </div>
               </div>
-              
-              {/* WAT Sets */}
               {Object.keys(groupedItems).map(tag => (
                   <div key={tag} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg">
                       <div className="flex justify-between items-center mb-4">
@@ -700,8 +817,6 @@ alter table public.daily_challenges add column if not exists oir_text text;
                       </button>
                   </div>
               </div>
-              
-              {/* SRT Sets */}
               {Object.keys(groupedItems).map(tag => (
                   <div key={tag} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg">
                       <div className="flex justify-between items-center mb-4">
@@ -742,8 +857,6 @@ alter table public.daily_challenges add column if not exists oir_text text;
                       </div>
                   </div>
               </div>
-              
-              {/* Grouped Display */}
               {Object.keys(groupedItems).map(tag => (
                   <div key={tag} className="space-y-4">
                       <h4 className="text-lg font-black uppercase tracking-widest text-slate-500 pl-4">{tag} ({groupedItems[tag].length})</h4>
@@ -777,7 +890,6 @@ alter table public.daily_challenges add column if not exists oir_text text;
                       Create
                   </button>
               </div>
-              
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {coupons.map(c => (
                       <div key={c.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg relative overflow-hidden group">
@@ -794,7 +906,7 @@ alter table public.daily_challenges add column if not exists oir_text text;
           </div>
       )}
 
-      {/* BROADCAST & TICKER */}
+      {/* BROADCAST */}
       {activeTab === 'BROADCAST' && (
           <div className="space-y-8 animate-in fade-in">
               <div className="grid md:grid-cols-2 gap-8">
@@ -866,7 +978,25 @@ alter table public.daily_challenges add column if not exists oir_text text;
           </div>
       )}
       
-      {/* ... (Confirmation Modal etc) ... */}
+      {confirmAction && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white p-8 rounded-[2.5rem] w-full max-w-sm shadow-2xl text-center space-y-6">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${confirmAction.type === 'APPROVE' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                      {confirmAction.type === 'APPROVE' ? <CheckCircle size={32} /> : <XCircle size={32} />}
+                  </div>
+                  <div>
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Confirm {confirmAction.type}</h3>
+                      <p className="text-slate-500 font-bold text-xs mt-2">
+                          Are you sure you want to {confirmAction.type.toLowerCase()} this transaction for {confirmAction.fullName || 'User'}?
+                      </p>
+                  </div>
+                  <div className="flex gap-4">
+                      <button onClick={() => setConfirmAction(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-slate-200">Cancel</button>
+                      <button onClick={executeConfirmAction} className={`flex-1 py-4 rounded-xl font-black uppercase text-xs tracking-widest text-white ${confirmAction.type === 'APPROVE' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>Confirm</button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

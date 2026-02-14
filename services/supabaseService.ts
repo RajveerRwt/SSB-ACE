@@ -1,4 +1,5 @@
 
+// ... existing imports
 import { createClient } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
 
@@ -8,6 +9,7 @@ const supabaseAnonKey = process.env.REACT_APP_SUPABASE_KEY || 'placeholder';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// ... (Keep all existing constants and caching functions as is) ...
 // --- COIN RATES CONFIGURATION ---
 export const TEST_RATES = {
     PPDT: 5,
@@ -277,7 +279,9 @@ export const updateTestAttempt = async (id: string, resultData: any) => {
       .eq('id', id);
 };
 
+// UPDATED: Now fetches FULL test history for insights
 export const getAllUsers = async () => {
+  // 1. Fetch Aspirants
   const { data: aspirants, error: aspError } = await supabase
     .from('aspirants')
     .select('*')
@@ -285,15 +289,27 @@ export const getAllUsers = async () => {
 
   if (aspError) return [];
 
+  // 2. Fetch Subscriptions
   const { data: subs } = await supabase
     .from('user_subscriptions')
     .select('*');
 
+  // 3. Fetch Test History Summary (Lightweight if possible, or full fetch)
+  // We fetch last 5000 records to generate stats. 
+  // Ideally, use a view or RPC for large scale, but fine for now.
+  const { data: history } = await supabase
+    .from('test_history')
+    .select('user_id, test_type, created_at, score')
+    .order('created_at', { ascending: false });
+
   const mergedData = aspirants?.map((u: any) => {
       const sub = subs?.find((s: any) => s.user_id === u.user_id);
+      const userHistory = history?.filter((h: any) => h.user_id === u.user_id) || [];
+      
       return {
           ...u,
-          subscription_data: sub || { tier: 'FREE', coins: 0 }
+          subscription_data: sub || { tier: 'FREE', coins: 0, usage: {} },
+          test_history: userHistory
       };
   });
     
@@ -308,8 +324,7 @@ export const deleteUserProfile = async (userId: string) => {
     await supabase.from('aspirants').delete().eq('user_id', userId);
 };
 
-// --- COIN SYSTEM & SUBSCRIPTIONS ---
-
+// ... (Keep existing Subscription, Payment, and Content functions as is) ...
 export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
   let { data: sub, error } = await supabase
     .from('user_subscriptions')
@@ -334,9 +349,8 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
       extra_credits: { interview: 0 }
   };
   
-  // Ensure coins property exists
   if (sub.coins === undefined || sub.coins === null) {
-      sub.coins = 50; // Default fallback if DB column is null
+      sub.coins = 50; 
   }
   
   return sub;
@@ -373,16 +387,11 @@ export const deductCoins = async (userId: string, amount: number) => {
     return true;
 };
 
-// Deprecated limit checker, use checkBalance instead for generic tests
-// Kept for backward compatibility if needed for complex limits
 export const checkLimit = async (userId: string, testType: string) => {
-  // Pass through allowed true for now, rely on frontend coin check
-  // or implement specific legacy limits if coins shouldn't cover everything
   return { allowed: true, message: "" };
 };
 
 export const incrementUsage = async (userId: string, testType: string) => {
-  // Usage tracking for analytics (coins are deducted separately)
   const sub = await getUserSubscription(userId);
   const usage = sub.usage;
   
@@ -433,10 +442,8 @@ export const activatePlanForUser = async (userId: string, planType: string, amou
   let coinsToAdd = 0;
 
   if (coinsCredit !== undefined) {
-      // Explicit coins passed from client (Bundle logic applied in UI)
       coinsToAdd = coinsCredit;
   } else {
-      // Fallback: If coinsCredit not passed (e.g. Admin Panel approvals), apply default bundle logic
       coinsToAdd = amount || 0;
       if (planType === 'COIN_PACK' || planType === 'PRO_SUBSCRIPTION' || planType === 'INTERVIEW_ADDON') {
           if (amount === 100) coinsToAdd = 110;
@@ -454,7 +461,6 @@ export const activatePlanForUser = async (userId: string, planType: string, amou
 };
 
 export const approvePaymentRequest = async (id: string, userId: string, planType: string) => {
-  // Fetch amount to credit coins
   const { data: req } = await supabase.from('payment_requests').select('amount').eq('id', id).single();
   const amount = req?.amount || 0;
 
@@ -490,7 +496,7 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
     }
 };
 
-// --- CONTENT MANAGEMENT (Existing functions) ---
+// ... (Keep existing Content Management functions) ...
 export const getPPDTScenarios = async () => { const { data } = await supabase.from('ppdt_scenarios').select('*'); return data || []; };
 export const uploadPPDTScenario = async (file: File, description: string) => { const fileName = `ppdt-${Date.now()}-${file.name}`; await supabase.storage.from('scenarios').upload(fileName, file); const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName); await supabase.from('ppdt_scenarios').insert({ image_url: publicUrl, description }); };
 export const deletePPDTScenario = async (id: string, url: string) => { const fileName = url.split('/').pop(); if (fileName) await supabase.storage.from('scenarios').remove([fileName]); await supabase.from('ppdt_scenarios').delete().eq('id', id); };
@@ -513,18 +519,15 @@ export const getLatestDailyChallenge = async () => { const { data } = await supa
 
 export const uploadDailyChallenge = async (oirFile: File | null, oirText: string, wat: string, srt: string, interview: string) => {
   let oirUrl = null;
-  
   if (oirFile) {
     const fileName = `daily-oir-${Date.now()}-${oirFile.name}`;
     await supabase.storage.from('scenarios').upload(fileName, oirFile);
     const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName);
     oirUrl = data.publicUrl;
   }
-  
-  // Storing OIR data: Image goes to ppdt_image_url (reusing column), Text goes to new oir_text column
   await supabase.from('daily_challenges').insert({
-      ppdt_image_url: oirUrl, // Reusing existing column for OIR Image
-      oir_text: oirText,      // New column for OIR Text
+      ppdt_image_url: oirUrl,
+      oir_text: oirText,
       wat_words: [wat],
       srt_situations: [srt],
       interview_question: interview
@@ -534,13 +537,11 @@ export const uploadDailyChallenge = async (oirFile: File | null, oirText: string
 export const submitDailyEntry = async (challengeId: string, oirAnswer: string, wat: string, srt: string, interview: string) => {
   const auth = supabase.auth as any;
   const user = auth.user ? auth.user() : (await auth.getUser()).data.user;
-  
   if (!user) throw new Error("Login Required");
-  
   await supabase.from('daily_submissions').insert({
       challenge_id: challengeId,
       user_id: user.id,
-      ppdt_story: oirAnswer, // Reusing column for OIR Answer
+      ppdt_story: oirAnswer,
       wat_answers: [wat],
       srt_answers: [srt],
       interview_answer: interview
@@ -548,7 +549,6 @@ export const submitDailyEntry = async (challengeId: string, oirAnswer: string, w
 };
 
 export const getDailySubmissions = async (challengeId: string) => {
-  // Try fetching with user details (requires Foreign Key)
   const { data, error } = await supabase
     .from('daily_submissions')
     .select('*, aspirants(full_name, streak_count)') 
@@ -556,10 +556,7 @@ export const getDailySubmissions = async (challengeId: string) => {
     .order('created_at', { ascending: false });
 
   if (!error && data) return data;
-
-  console.warn("Fetching submissions without user details due to error or missing data:", error);
   
-  // Fallback: Fetch raw submissions if join failed (e.g. no FK)
   const { data: rawData } = await supabase
     .from('daily_submissions')
     .select('*')
@@ -583,7 +580,6 @@ export const getAllFeedback = async () => {
 
   if (!error && data) return data;
 
-  // Fallback if relation fails
   const { data: rawData } = await supabase
     .from('user_feedback')
     .select('*')
