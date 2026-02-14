@@ -296,16 +296,6 @@ const AdminPanel: React.FC = () => {
           return diff < 86400000;
       }).length;
 
-      const new7d = users.filter(u => {
-          if (!u.created_at) return false; // Using created_at from aspirants if available, else infer
-          // Fallback: If 'created_at' not in aspirants, use first test history date or skip
-          // Assuming updated getAllUsers returns created_at for profile or we use subscription created_at if available
-          return false; // Enhance this if DB has created_at
-      }).length; // Will be 0 if column missing, but logical place
-
-      const totalTests = users.reduce((acc, u) => acc + (u.test_history?.length || 0), 0);
-      const totalCoins = users.reduce((acc, u) => acc + (u.subscription_data?.coins || 0), 0);
-
       // Count new users by checking if first test was in last 7 days (proxy if profile date missing)
       const newUsersCount = users.filter(u => {
           const firstTest = u.test_history && u.test_history.length > 0 ? u.test_history[u.test_history.length-1].created_at : null;
@@ -315,6 +305,15 @@ const AdminPanel: React.FC = () => {
           }
           return false;
       }).length;
+
+      // Calculate total tests using subscription usage data
+      const totalTests = users.reduce((acc, u) => {
+          const usage = u.subscription_data?.usage || {};
+          const userTotal = (usage.interview_used || 0) + (usage.ppdt_used || 0) + (usage.tat_used || 0) + (usage.wat_used || 0) + (usage.srt_used || 0) + (usage.sdt_used || 0);
+          return acc + userTotal;
+      }, 0);
+
+      const totalCoins = users.reduce((acc, u) => acc + (u.subscription_data?.coins || 0), 0);
 
       return {
           total: users.length,
@@ -520,15 +519,17 @@ alter table public.daily_challenges add column if not exists oir_text text;
                                           <div className="inline-flex gap-2">
                                               <div className="px-3 py-1 bg-purple-50 rounded-lg border border-purple-100" title="Interview">
                                                   <span className="block text-[9px] font-black text-purple-400 uppercase">IO</span>
-                                                  <span className="text-sm font-black text-purple-700">{u.test_history?.filter((t: any) => t.test_type.includes('Interview')).length || 0}</span>
+                                                  <span className="text-sm font-black text-purple-700">{u.subscription_data?.usage?.interview_used || 0}</span>
                                               </div>
                                               <div className="px-3 py-1 bg-green-50 rounded-lg border border-green-100" title="Psychology">
                                                   <span className="block text-[9px] font-black text-green-400 uppercase">PSY</span>
-                                                  <span className="text-sm font-black text-green-700">{u.test_history?.filter((t: any) => !t.test_type.includes('Interview') && !t.test_type.includes('PPDT')).length || 0}</span>
+                                                  <span className="text-sm font-black text-green-700">
+                                                      {(u.subscription_data?.usage?.tat_used || 0) + (u.subscription_data?.usage?.wat_used || 0) + (u.subscription_data?.usage?.srt_used || 0) + (u.subscription_data?.usage?.sdt_used || 0)}
+                                                  </span>
                                               </div>
                                               <div className="px-3 py-1 bg-blue-50 rounded-lg border border-blue-100" title="PPDT">
                                                   <span className="block text-[9px] font-black text-blue-400 uppercase">SCR</span>
-                                                  <span className="text-sm font-black text-blue-700">{u.test_history?.filter((t: any) => t.test_type.includes('PPDT')).length || 0}</span>
+                                                  <span className="text-sm font-black text-blue-700">{u.subscription_data?.usage?.ppdt_used || 0}</span>
                                               </div>
                                           </div>
                                       </td>
@@ -586,7 +587,16 @@ alter table public.daily_challenges add column if not exists oir_text text;
                               <div className="grid grid-cols-3 gap-4">
                                   <div className="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
                                       <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Attempts</span>
-                                      <span className="text-2xl font-black text-slate-900">{selectedUser.test_history?.length || 0}</span>
+                                      <span className="text-2xl font-black text-slate-900">
+                                          {
+                                              (selectedUser.subscription_data?.usage?.interview_used || 0) + 
+                                              (selectedUser.subscription_data?.usage?.ppdt_used || 0) + 
+                                              (selectedUser.subscription_data?.usage?.tat_used || 0) + 
+                                              (selectedUser.subscription_data?.usage?.wat_used || 0) + 
+                                              (selectedUser.subscription_data?.usage?.srt_used || 0) + 
+                                              (selectedUser.subscription_data?.usage?.sdt_used || 0)
+                                          }
+                                      </span>
                                   </div>
                                   <div className="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
                                       <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Average Score</span>
