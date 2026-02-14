@@ -106,7 +106,7 @@ const Dashboard: React.FC<{
     { id: TestType.SRT, label: 'SRT', sub: 'Psychology', icon: Brain, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100', cost: TEST_RATES.SRT },
     { id: TestType.SDT, label: 'SDT', sub: 'Self Desc.', icon: FileSignature, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100', cost: TEST_RATES.SDT },
     { id: TestType.LECTURETTE, label: 'Lecturette', sub: 'Topics', icon: BookOpen, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100', cost: TEST_RATES.LECTURETTE },
-    { id: TestType.INTERVIEW, label: '1:1 Interview', sub: 'Virtual IO', icon: Mic, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', cost: TEST_RATES.INTERVIEW_FULL }, 
+    { id: TestType.INTERVIEW, label: '1:1 Interview', sub: 'Virtual IO', icon: Mic, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', cost: 0 }, // Cost set to 0 here to hide badge/skip immediate charge
     { id: TestType.DAILY_PRACTICE, label: 'Daily Dose', sub: 'Practice', icon: Clock, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-100', cost: 0 },
     { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', sub: 'Updates', icon: Globe, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100', cost: 0 },
     { id: TestType.AI_BOT, label: 'AI Guide', sub: 'ChatBot', icon: Bot, color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-100', cost: 0 },
@@ -359,15 +359,19 @@ const Dashboard: React.FC<{
                                 onStartTest(action.id, undefined); return;
                             }
                             
-                            // Free Tests
-                            if (action.cost === 0) {
-                                onStartTest(action.id, undefined);
+                            // 1:1 INTERVIEW SPECIAL LOGIC: Check PIQ then Go to Lobby (Cost = 0 here, deducted later)
+                            if (action.id === TestType.INTERVIEW) {
+                                if (!piqLoaded) {
+                                    onStartTest(TestType.PIQ);
+                                } else {
+                                    onStartTest(action.id, { cost: 0 }); // Skip immediate deduction
+                                }
                                 return;
                             }
 
-                            // Interview Check
-                            if (action.id === TestType.INTERVIEW && !piqLoaded) {
-                                onStartTest(TestType.PIQ);
+                            // Free Tests
+                            if (action.cost === 0) {
+                                onStartTest(action.id, undefined);
                                 return;
                             }
 
