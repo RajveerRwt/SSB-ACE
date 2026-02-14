@@ -207,7 +207,7 @@ const Dashboard: React.FC<{
                <div className="pt-4 space-y-4">
                   <div className="flex flex-col md:flex-row gap-4 w-full">
                     <button onClick={() => onStartTest(TestType.REGISTER)} className="px-8 md:px-10 py-5 bg-yellow-400 text-black rounded-2xl font-black uppercase text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3">
-                        <UserPlus size={16} /> Sign Up (Get 50 Coins)
+                        <UserPlus size={16} /> Sign Up
                     </button>
                     <button onClick={() => onStartTest(TestType.LOGIN)} className="px-8 md:px-10 py-5 bg-white/5 text-white rounded-2xl font-black uppercase text-xs border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3">
                         <LogIn size={16} /> Login
