@@ -13,7 +13,7 @@ export const TEST_RATES = {
     PPDT: 5,
     SRT: 5,
     WAT: 5,
-    LECTURETTE: 3,
+    LECTURETTE: 3, // Updated to 3 Coins
     SDT: 5,
     TAT: 10,
     INTERVIEW_TRIAL: 10, // 5 Mins
@@ -323,8 +323,9 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
       extra_credits: { interview: 0 }
   };
   
+  // Ensure coins property exists
   if (sub.coins === undefined || sub.coins === null) {
-      sub.coins = 50; 
+      sub.coins = 50; // Default fallback if DB column is null
   }
   
   return sub;
@@ -361,11 +362,16 @@ export const deductCoins = async (userId: string, amount: number) => {
     return true;
 };
 
+// Deprecated limit checker, use checkBalance instead for generic tests
+// Kept for backward compatibility if needed for complex limits
 export const checkLimit = async (userId: string, testType: string) => {
+  // Pass through allowed true for now, rely on frontend coin check
+  // or implement specific legacy limits if coins shouldn't cover everything
   return { allowed: true, message: "" };
 };
 
 export const incrementUsage = async (userId: string, testType: string) => {
+  // Usage tracking for analytics (coins are deducted separately)
   const sub = await getUserSubscription(userId);
   const usage = sub.usage;
   
@@ -416,8 +422,10 @@ export const activatePlanForUser = async (userId: string, planType: string, amou
   let coinsToAdd = 0;
 
   if (coinsCredit !== undefined) {
+      // Explicit coins passed from client (Bundle logic applied in UI)
       coinsToAdd = coinsCredit;
   } else {
+      // Fallback: If coinsCredit not passed (e.g. Admin Panel approvals), apply default bundle logic
       coinsToAdd = amount || 0;
       if (planType === 'COIN_PACK' || planType === 'PRO_SUBSCRIPTION' || planType === 'INTERVIEW_ADDON') {
           if (amount === 100) coinsToAdd = 110;
@@ -435,6 +443,7 @@ export const activatePlanForUser = async (userId: string, planType: string, amou
 };
 
 export const approvePaymentRequest = async (id: string, userId: string, planType: string) => {
+  // Fetch amount to credit coins
   const { data: req } = await supabase.from('payment_requests').select('amount').eq('id', id).single();
   const amount = req?.amount || 0;
 
@@ -490,43 +499,8 @@ export const createCoupon = async (code: string, discount: number, influencer: s
 export const deleteCoupon = async (code: string) => { await supabase.from('coupons').delete().eq('code', code); };
 export const validateCoupon = async (code: string) => { const { data } = await supabase.from('coupons').select('*').eq('code', code.toUpperCase()).maybeSingle(); if (!data) return { valid: false, message: 'Invalid Code' }; return { valid: true, discount: data.discount_percent, message: `Success! ${data.discount_percent}% OFF applied.` }; };
 export const getLatestDailyChallenge = async () => { const { data } = await supabase.from('daily_challenges').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle(); return data; };
-
-// UPDATED: uploadDailyChallenge to accept OIR text/image
-export const uploadDailyChallenge = async (oirFile: File | null, oirText: string, wat: string, srt: string, interview: string) => { 
-    let oirUrl = null; 
-    if (oirFile) { 
-        const fileName = `daily-oir-${Date.now()}-${oirFile.name}`; 
-        await supabase.storage.from('scenarios').upload(fileName, oirFile); 
-        const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName); 
-        oirUrl = data.publicUrl; 
-    } 
-    // Storing OIR Question Image in ppdt_image_url and OIR Question Text in oir_text (new column if available or extra json)
-    // Assuming schema allows additional fields or ignoring if strict. Using ppdt_image_url for OIR image for compatibility.
-    await supabase.from('daily_challenges').insert({ 
-        ppdt_image_url: oirUrl, // Repurposing for OIR Image
-        oir_text: oirText,      // New Field for OIR Text
-        wat_words: [wat], 
-        srt_situations: [srt], 
-        interview_question: interview 
-    }); 
-};
-
-// UPDATED: submitDailyEntry to handle OIR Answer
-export const submitDailyEntry = async (challengeId: string, oirAnswer: string, wat: string, srt: string, interview: string) => { 
-    const auth = supabase.auth as any; 
-    const user = auth.user ? auth.user() : (await auth.getUser()).data.user; 
-    if (!user) throw new Error("Login Required"); 
-    
-    await supabase.from('daily_submissions').insert({ 
-        challenge_id: challengeId, 
-        user_id: user.id, 
-        ppdt_story: oirAnswer, // Repurposing ppdt_story for OIR Answer
-        wat_answers: [wat], 
-        srt_answers: [srt], 
-        interview_answer: interview 
-    }); 
-};
-
+export const uploadDailyChallenge = async (ppdtFile: File | null, wat: string, srt: string, interview: string) => { let ppdtUrl = null; if (ppdtFile) { const fileName = `daily-${Date.now()}-${ppdtFile.name}`; await supabase.storage.from('scenarios').upload(fileName, ppdtFile); const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName); ppdtUrl = data.publicUrl; } await supabase.from('daily_challenges').insert({ ppdt_image_url: ppdtUrl, wat_words: [wat], srt_situations: [srt], interview_question: interview }); };
+export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: string, srt: string, interview: string) => { const auth = supabase.auth as any; const user = auth.user ? auth.user() : (await auth.getUser()).data.user; if (!user) throw new Error("Login Required"); await supabase.from('daily_submissions').insert({ challenge_id: challengeId, user_id: user.id, ppdt_story: ppdt, wat_answers: [wat], srt_answers: [srt], interview_answer: interview }); };
 export const getDailySubmissions = async (challengeId: string) => { const { data } = await supabase.from('daily_submissions').select('*, aspirants(full_name)').eq('challenge_id', challengeId).order('created_at', { ascending: false }); return data || []; };
 export const toggleLike = async (submissionId: string) => { const { data: sub } = await supabase.from('daily_submissions').select('likes_count').eq('id', submissionId).single(); if (sub) { await supabase.from('daily_submissions').update({ likes_count: (sub.likes_count || 0) + 1 }).eq('id', submissionId); } };
 export const getRecentAnnouncements = async (): Promise<Announcement[]> => { const { data } = await supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(5); return data || []; };

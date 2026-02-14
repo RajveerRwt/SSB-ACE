@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Loader2, Send, MessageSquare, Clock, User, ImageIcon, FileText, Zap, PenTool, Flame, Trophy, Lock, Heart, Award, Medal, Star, CheckCircle, Mic, RefreshCw, AlertTriangle, Brain } from 'lucide-react';
+import { Loader2, Send, MessageSquare, Clock, User, ImageIcon, FileText, Zap, PenTool, Flame, Trophy, Lock, Heart, Award, Medal, Star, CheckCircle, Mic, RefreshCw, AlertTriangle } from 'lucide-react';
 import { getLatestDailyChallenge, submitDailyEntry, getDailySubmissions, checkAuthSession, toggleLike, getUserStreak } from '../services/supabaseService';
 
 interface DailyPracticeProps {
@@ -17,8 +17,8 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Form State
-  const [oirAnswer, setOirAnswer] = useState(''); // Replaced PPDT Story
+  // Form State - Single Items
+  const [ppdtStory, setPpdtStory] = useState('');
   const [watAnswer, setWatAnswer] = useState('');
   const [srtAnswer, setSrtAnswer] = useState('');
   const [interviewAnswer, setInterviewAnswer] = useState('');
@@ -70,21 +70,21 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
         return;
     }
     
-    if (!oirAnswer.trim() && !watAnswer.trim() && !srtAnswer.trim() && !interviewAnswer.trim()) {
-        alert("Please complete at least one section (OIR, WAT, SRT, or Interview) before submitting.");
+    // CHANGED: Allow partial submission. Only block if EVERYTHING is empty.
+    if (!ppdtStory.trim() && !watAnswer.trim() && !srtAnswer.trim() && !interviewAnswer.trim()) {
+        alert("Please complete at least one section (PPDT, WAT, SRT, or Interview) before submitting.");
         return;
     }
 
     setIsSubmitting(true);
     try {
-      // Submitting OIR Answer in place of PPDT Story
-      await submitDailyEntry(challenge.id, oirAnswer, watAnswer, srtAnswer, interviewAnswer);
+      await submitDailyEntry(challenge.id, ppdtStory, watAnswer, srtAnswer, interviewAnswer);
       const subs = await getDailySubmissions(challenge.id);
       setSubmissions(subs);
       setHasSubmitted(true);
       setUserStreak(prev => prev + 1);
       
-      setOirAnswer('');
+      setPpdtStory('');
       setWatAnswer('');
       setSrtAnswer('');
       setInterviewAnswer('');
@@ -115,8 +115,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   const getBadges = (submissionIndex: number, sub: any) => {
       const badges = [];
       if (sub.likes_count >= 5) badges.push({ icon: Star, color: 'text-yellow-400', label: 'Popular' });
-      // Logic adjusted: Checking length of answer stored in ppdt_story column (now OIR answer)
-      if (sub.ppdt_story && sub.ppdt_story.length > 20) badges.push({ icon: PenTool, color: 'text-purple-400', label: 'Detailed' });
+      if (sub.ppdt_story && sub.ppdt_story.length > 500) badges.push({ icon: PenTool, color: 'text-purple-400', label: 'Orator' });
       if (sub.aspirants?.streak_count > 3) badges.push({ icon: Flame, color: 'text-orange-500', label: 'Consistent' });
       if (submissionIndex === 0) badges.push({ icon: Trophy, color: 'text-yellow-500', label: 'Top Cadet' });
       if (submissionIndex === 1) badges.push({ icon: Medal, color: 'text-slate-400', label: 'Runner Up' });
@@ -188,35 +187,24 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
 
       {/* CHALLENGE WORKSPACE - 4 BLOCKS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* 1. OIR (REPLACED PPDT) */}
+          {/* 1. PPDT */}
           <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg md:col-span-2 flex flex-col md:flex-row gap-6">
-              <div className="w-full md:w-1/3 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 shrink-0 flex items-center justify-center min-h-[200px]">
+              <div className="w-full md:w-1/3 aspect-[4/3] bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 shrink-0">
                   {challenge.ppdt_image_url ? (
-                      <img src={challenge.ppdt_image_url} className="w-full h-full object-contain" alt="OIR Question" />
+                      <img src={challenge.ppdt_image_url} className="w-full h-full object-cover grayscale contrast-125" alt="PPDT" />
                   ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold text-xs uppercase p-4">
-                          {challenge.oir_text ? "Text Only Question" : "No Image"}
-                      </div>
+                      <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold text-xs uppercase">No Image</div>
                   )}
               </div>
               <div className="flex-1 space-y-4">
-                  <div className="flex items-start justify-between">
-                      <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                          <Brain size={18} className="text-blue-600" /> 1. OIR Question
-                      </h3>
-                  </div>
-                  
-                  {challenge.oir_text && (
-                      <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                          <p className="text-sm font-bold text-blue-900">{challenge.oir_text}</p>
-                      </div>
-                  )}
-
+                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                      <ImageIcon size={18} className="text-blue-600" /> 1. PPDT Story
+                  </h3>
                   <textarea 
-                      value={oirAnswer}
-                      onChange={(e) => setOirAnswer(e.target.value)}
-                      placeholder="Write your answer and logic here..."
-                      className="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none outline-none focus:border-blue-500 transition-all text-sm font-medium"
+                      value={ppdtStory}
+                      onChange={(e) => setPpdtStory(e.target.value)}
+                      placeholder="Write your story here (Action, Hero, Outcome)..."
+                      className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none outline-none focus:border-blue-500 transition-all text-sm font-medium"
                   />
               </div>
           </div>
@@ -257,7 +245,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
               </div>
           </div>
 
-          {/* 4. Interview */}
+          {/* 4. Interview (New) */}
           <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg md:col-span-2">
               <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <Mic size={18} className="text-purple-600" /> 4. Interview Question
@@ -340,9 +328,9 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                               <div className="space-y-4">
                                   {sub.ppdt_story && (
                                     <div className="space-y-2">
-                                        <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest block bg-blue-50 px-2 py-1 rounded w-fit">OIR Answer</span>
-                                        <p className="text-xs text-slate-600 leading-relaxed font-mono bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                            {sub.ppdt_story}
+                                        <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest block bg-blue-50 px-2 py-1 rounded w-fit">PPDT Story</span>
+                                        <p className="text-xs text-slate-600 leading-relaxed italic bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                            "{sub.ppdt_story}"
                                         </p>
                                     </div>
                                   )}
