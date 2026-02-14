@@ -215,7 +215,25 @@ const AdminPanel: React.FC = () => {
       setConfirmAction({ id, type: action, userId, planType, email, fullName });
   };
 
-  // ... (Rest of component functions remain same)
+  const handleConfirmAction = async () => {
+      if (!confirmAction) return;
+      setIsUploading(true);
+      try {
+          if (confirmAction.type === 'APPROVE') {
+              await approvePaymentRequest(confirmAction.id, confirmAction.userId, confirmAction.planType);
+              alert("Payment Approved & Plan Activated.");
+          } else {
+              await rejectPaymentRequest(confirmAction.id);
+              alert("Payment Rejected.");
+          }
+          setConfirmAction(null);
+          fetchData();
+      } catch (e: any) {
+          setErrorMsg(e.message);
+      } finally {
+          setIsUploading(false);
+      }
+  };
 
   const handleDelete = async (id: string, url?: string) => {
     if (!window.confirm("Delete this item permanently?")) return;
@@ -303,13 +321,18 @@ const AdminPanel: React.FC = () => {
       return true;
   });
 
-  const storageSQL = `... (SQL Content kept same) ...`;
-
-  // ... (Render logic same until DAILY tab) ...
+  const storageSQL = `
+-- Enable Storage
+insert into storage.buckets (id, name, public) values ('scenarios', 'scenarios', true);
+create policy "Public Access" on storage.objects for select using ( bucket_id = 'scenarios' );
+create policy "Auth Upload" on storage.objects for insert with check ( bucket_id = 'scenarios' AND auth.role() = 'authenticated' );
+create policy "Auth Delete" on storage.objects for delete using ( bucket_id = 'scenarios' AND auth.role() = 'authenticated' );
+`;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700">
-      {/* ... (Header and Error Logic Same) ... */}
+      
+      {/* HEADER */}
       <div className="bg-slate-900 rounded-[2rem] p-8 md:p-12 text-white shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
         <div>
           <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter flex items-center gap-4">
@@ -327,7 +350,22 @@ const AdminPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
+      {errorMsg && (
+        <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-center gap-3 text-red-600 font-bold text-sm animate-in slide-in-from-top">
+           <AlertCircle size={20} /> {errorMsg}
+        </div>
+      )}
+
+      {showSqlHelp && (
+          <div className="bg-slate-800 text-slate-300 p-6 rounded-2xl font-mono text-xs overflow-x-auto relative">
+              <button onClick={() => copySQL(storageSQL)} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 px-3 py-1 rounded text-white flex items-center gap-2">
+                  <Clipboard size={12} /> {copied ? "Copied!" : "Copy SQL"}
+              </button>
+              <pre>{storageSQL}</pre>
+          </div>
+      )}
+
+      {/* TABS */}
       <div className="flex flex-wrap justify-center md:justify-start gap-4">
          <button onClick={() => setActiveTab('PAYMENTS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PAYMENTS' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><IndianRupee size={16} /> Payments {payments.length > 0 && `(${payments.length})`}</button>
          <button onClick={() => setActiveTab('USERS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'USERS' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><User size={16} /> Cadets</button>
@@ -341,8 +379,47 @@ const AdminPanel: React.FC = () => {
          <button onClick={() => setActiveTab('FEEDBACK')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'FEEDBACK' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><MessageSquare size={16} /> Feedback</button>
       </div>
 
-      {/* ... (Other Tabs Rendered Same) ... */}
-      
+      {/* CONTENT AREA */}
+      {(activeTab === 'PPDT' || activeTab === 'TAT') && (
+        <div className="grid md:grid-cols-2 gap-8 animate-in fade-in">
+           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 h-fit">
+              <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Upload size={24} className="text-blue-600"/> Upload Scenario</h3>
+              <div className="space-y-4">
+                 <div className="p-8 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => fileInputRef.current?.click()}>
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" />
+                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform"><ImageIcon className="text-slate-400" /></div>
+                    <p className="text-slate-500 font-bold text-sm">Click to Select Image</p>
+                 </div>
+                 <input value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Scenario Description / Context" className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
+                 {activeTab === 'TAT' && (
+                     <input value={setTag} onChange={e => setSetTag(e.target.value)} placeholder="Set Tag (e.g. Set 1, Hard, 11SSB)" className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
+                 )}
+                 <button onClick={handleUpload} disabled={isUploading} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2">
+                    {isUploading ? <Loader2 className="animate-spin" /> : <Plus size={16} />} Upload to Database
+                 </button>
+              </div>
+           </div>
+
+           <div className="space-y-4">
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest mb-4">Active Database ({items.length})</h3>
+              <div className="grid grid-cols-1 gap-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                 {items.map((item: any) => (
+                    <div key={item.id} className="flex gap-4 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                       <img src={item.image_url} alt="Scenario" className="w-24 h-24 object-cover rounded-xl bg-slate-50" />
+                       <div className="flex-1 flex flex-col justify-between">
+                          <div>
+                             <p className="text-xs font-bold text-slate-800 line-clamp-2">{item.description}</p>
+                             {item.set_tag && <span className="inline-block mt-2 px-2 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded uppercase">{item.set_tag}</span>}
+                          </div>
+                          <button onClick={() => handleDelete(item.id, item.image_url)} className="self-end text-red-400 hover:text-red-600 p-2"><Trash2 size={16} /></button>
+                       </div>
+                    </div>
+                 ))}
+              </div>
+           </div>
+        </div>
+      )}
+
       {/* DAILY CHALLENGE */}
       {activeTab === 'DAILY' && (
           <div className="grid md:grid-cols-2 gap-8 animate-in fade-in">
@@ -354,7 +431,7 @@ const AdminPanel: React.FC = () => {
                           <div className="p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" />
                               <button onClick={() => fileInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 text-slate-400 font-bold uppercase text-xs hover:text-teal-600 transition-colors">
-                                  <ImageIcon size={16} /> Select OIR Image
+                                  <ImageIcon size={16} /> {fileInputRef.current?.files?.[0] ? 'Image Selected' : 'Select OIR Image'}
                               </button>
                           </div>
                           <input value={dailyOirText} onChange={e => setDailyOirText(e.target.value)} placeholder="OIR Question Text (e.g. Find the odd one out...)" className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
@@ -392,9 +469,79 @@ const AdminPanel: React.FC = () => {
           </div>
       )}
 
-      {/* ... (Other Tabs like Users, Payments etc remain same) ... */}
-      {/* (Truncated for brevity, rest of file is unchanged logic wise for other tabs) */}
-      {/* Re-rendering users, payments, coupons, feedback, broadcast tabs as they were... */}
+      {/* WAT / SRT Manager */}
+      {(activeTab === 'WAT' || activeTab === 'SRT') && (
+          <div className="grid md:grid-cols-2 gap-8 animate-in fade-in">
+              <div className="space-y-6">
+                  <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                      <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Database size={24} className="text-blue-600"/> Bulk Upload {activeTab}</h3>
+                      <div className="space-y-4">
+                          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Input Data (One per line)</p>
+                          <textarea 
+                              value={activeTab === 'WAT' ? watBulkInput : srtBulkInput} 
+                              onChange={e => activeTab === 'WAT' ? setWatBulkInput(e.target.value) : setSrtBulkInput(e.target.value)} 
+                              placeholder={activeTab === 'WAT' ? "Blood\nArmy\nWar..." : "He was alone at night when...\nHis captain was injured during..."}
+                              className="w-full h-40 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm resize-none" 
+                          />
+                          <input 
+                              value={activeTab === 'WAT' ? watSetTag : srtSetTag} 
+                              onChange={e => activeTab === 'WAT' ? setWatSetTag(e.target.value) : setSrtSetTag(e.target.value)} 
+                              placeholder="Set Name (e.g. WAT Set 1, 19SSB)" 
+                              className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" 
+                          />
+                          <button onClick={handleUpload} disabled={isUploading} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2">
+                              {isUploading ? <Loader2 className="animate-spin" /> : <Upload size={16} />} Batch Upload
+                          </button>
+                      </div>
+                  </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 h-fit max-h-[600px] overflow-y-auto custom-scrollbar">
+                  <h3 className="text-lg font-black text-slate-900 mb-4 uppercase tracking-widest">Existing Sets</h3>
+                  {Object.keys(groupedItems).length === 0 ? <p className="text-slate-400 text-sm">No items found.</p> : Object.keys(groupedItems).map(tag => (
+                      <div key={tag} className="mb-6">
+                          <div className="flex justify-between items-center mb-2">
+                              <h4 className="font-bold text-blue-600 uppercase text-xs tracking-widest">{tag} ({groupedItems[tag].length})</h4>
+                              <button onClick={() => handleDeleteSet(tag)} className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase tracking-widest">Delete Set</button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                              {groupedItems[tag].map((item: any) => (
+                                  <div key={item.id} className="bg-slate-50 border border-slate-100 px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-2 group">
+                                      {item.word || item.question}
+                                      <button onClick={() => handleDelete(item.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={12} /></button>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  ))}
+              </div>
+          </div>
+      )}
+
+      {/* PAYMENTS TAB */}
+      {activeTab === 'PAYMENTS' && (
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 animate-in fade-in">
+              <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><IndianRupee size={24} className="text-yellow-500"/> Verification Queue</h3>
+              {payments.length === 0 ? <p className="text-slate-400 text-sm italic">No pending payments.</p> : (
+                  <div className="space-y-4">
+                      {payments.map(p => (
+                          <div key={p.id} className="flex flex-col md:flex-row justify-between items-center p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                              <div>
+                                  <p className="font-black text-slate-900 text-lg">₹{p.amount} <span className="text-xs text-slate-500 font-bold uppercase tracking-widest ml-2">{p.plan_type}</span></p>
+                                  <p className="text-xs text-slate-500 font-mono mt-1">UTR: {p.utr}</p>
+                                  <p className="text-xs text-slate-400 mt-1">{p.aspirants?.email} • {new Date(p.created_at).toLocaleString()}</p>
+                              </div>
+                              <div className="flex gap-4 mt-4 md:mt-0">
+                                  <button onClick={() => handlePaymentAction(p.id, 'APPROVE', p.user_id, p.plan_type, p.aspirants?.email, p.aspirants?.full_name)} className="px-6 py-3 bg-green-500 text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-green-600 transition-colors shadow-lg">Approve</button>
+                                  <button onClick={() => handlePaymentAction(p.id, 'REJECT', p.user_id, p.plan_type)} className="px-6 py-3 bg-red-500 text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-red-600 transition-colors shadow-lg">Reject</button>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              )}
+          </div>
+      )}
+
       {activeTab === 'USERS' && (
           <div className="space-y-8">
               {/* COIN ECONOMY STATS */}
@@ -445,8 +592,49 @@ const AdminPanel: React.FC = () => {
               </div>
           </div>
       )}
-      
-      {/* ... Rest of tabs (PAYMENTS, COUPONS, BROADCAST, FEEDBACK) standard rendering ... */}
+
+      {/* FEEDBACK TAB */}
+      {activeTab === 'FEEDBACK' && (
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 animate-in fade-in">
+              <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><MessageSquare size={24} className="text-blue-600"/> User Feedback</h3>
+              {feedbackList.length === 0 ? <p className="text-slate-400 text-sm italic">No feedback received yet.</p> : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {feedbackList.map(f => (
+                          <div key={f.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 relative group hover:bg-white hover:shadow-md transition-all">
+                              <button onClick={() => handleDelete(f.id)} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button>
+                              <div className="flex items-center gap-3 mb-3">
+                                  <div className="bg-yellow-400 text-black px-2 py-1 rounded text-[10px] font-black flex items-center gap-1"><Star size={10} fill="black" /> {f.rating}</div>
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{f.test_type}</span>
+                              </div>
+                              <p className="text-sm font-medium text-slate-800 italic mb-4">"{f.comments}"</p>
+                              <div className="flex justify-between items-center border-t border-slate-200 pt-3">
+                                  <span className="text-xs font-bold text-slate-600">{f.aspirants?.full_name || 'Anonymous'}</span>
+                                  <span className="text-[10px] text-slate-400">{new Date(f.created_at).toLocaleDateString()}</span>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              )}
+          </div>
+      )}
+
+      {/* CONFIRMATION MODAL */}
+      {confirmAction && (
+          <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
+                  <h3 className="text-xl font-black text-slate-900 uppercase mb-2">Confirm Action</h3>
+                  <p className="text-sm text-slate-600 mb-6">
+                      Are you sure you want to <strong>{confirmAction.type}</strong> this payment for {confirmAction.email}?
+                  </p>
+                  <div className="flex gap-4">
+                      <button onClick={() => setConfirmAction(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-200">Cancel</button>
+                      <button onClick={handleConfirmAction} className={`flex-1 py-3 text-white rounded-xl font-bold text-xs uppercase tracking-widest ${confirmAction.type === 'APPROVE' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>
+                          {isUploading ? <Loader2 className="animate-spin mx-auto" /> : 'Confirm'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };
