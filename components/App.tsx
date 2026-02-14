@@ -437,6 +437,37 @@ const Dashboard: React.FC<{
         </div>
       </div>
 
+      {/* TESTIMONIALS */}
+      <div className="max-w-4xl mx-auto mt-8 md:mt-12 bg-white rounded-[2.5rem] p-8 md:p-12 border border-slate-100 shadow-xl relative overflow-hidden text-center group">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500 opacity-20"></div>
+          <Quote className="w-16 h-16 text-slate-100 absolute top-8 left-8 transform -scale-x-100" />
+          
+          <div className="relative z-10 space-y-6 animate-in fade-in duration-700" key={testimonialIndex}>
+              <p className="text-lg md:text-2xl font-medium text-slate-700 italic leading-relaxed">
+                  "{testimonials[testimonialIndex].text}"
+              </p>
+              <div>
+                  <h4 className="text-sm md:text-base font-black text-slate-900 uppercase tracking-widest">
+                      {testimonials[testimonialIndex].name}
+                  </h4>
+                  <p className="text-[10px] md:text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">
+                      {testimonials[testimonialIndex].role}
+                  </p>
+              </div>
+          </div>
+
+          {/* Dots */}
+          <div className="flex justify-center gap-2 mt-8">
+              {testimonials.map((_, i) => (
+                  <button 
+                    key={i} 
+                    onClick={() => setTestimonialIndex(i)}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${i === testimonialIndex ? 'w-8 bg-slate-900' : 'w-2 bg-slate-200 hover:bg-slate-300'}`} 
+                  />
+              ))}
+          </div>
+      </div>
+
       <Footer onNavigate={onStartTest} />
     </div>
   );
