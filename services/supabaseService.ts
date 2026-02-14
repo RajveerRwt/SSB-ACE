@@ -548,8 +548,25 @@ export const submitDailyEntry = async (challengeId: string, oirAnswer: string, w
 };
 
 export const getDailySubmissions = async (challengeId: string) => {
-  const { data } = await supabase.from('daily_submissions').select('*, aspirants(full_name, streak_count)').eq('challenge_id', challengeId).order('created_at', { ascending: false });
-  return data || [];
+  // Try fetching with user details (requires Foreign Key)
+  const { data, error } = await supabase
+    .from('daily_submissions')
+    .select('*, aspirants(full_name, streak_count)') 
+    .eq('challenge_id', challengeId)
+    .order('created_at', { ascending: false });
+
+  if (!error && data) return data;
+
+  console.warn("Fetching submissions without user details due to error or missing data:", error);
+  
+  // Fallback: Fetch raw submissions if join failed (e.g. no FK)
+  const { data: rawData } = await supabase
+    .from('daily_submissions')
+    .select('*')
+    .eq('challenge_id', challengeId)
+    .order('created_at', { ascending: false });
+    
+  return rawData || [];
 };
 
 export const toggleLike = async (submissionId: string) => { const { data: sub } = await supabase.from('daily_submissions').select('likes_count').eq('id', submissionId).single(); if (sub) { await supabase.from('daily_submissions').update({ likes_count: (sub.likes_count || 0) + 1 }).eq('id', submissionId); } };
