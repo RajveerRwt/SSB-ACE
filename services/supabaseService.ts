@@ -266,6 +266,17 @@ export const saveTestAttempt = async (userId: string, testType: string, resultDa
     });
 };
 
+// Update an existing test attempt (Used for retrying failed analysis)
+export const updateTestAttempt = async (id: string, resultData: any) => {
+    await supabase
+      .from('test_history')
+      .update({
+          score: resultData.score || 0,
+          result_data: resultData
+      })
+      .eq('id', id);
+};
+
 export const getAllUsers = async () => {
   const { data: aspirants, error: aspError } = await supabase
     .from('aspirants')
@@ -499,9 +510,48 @@ export const createCoupon = async (code: string, discount: number, influencer: s
 export const deleteCoupon = async (code: string) => { await supabase.from('coupons').delete().eq('code', code); };
 export const validateCoupon = async (code: string) => { const { data } = await supabase.from('coupons').select('*').eq('code', code.toUpperCase()).maybeSingle(); if (!data) return { valid: false, message: 'Invalid Code' }; return { valid: true, discount: data.discount_percent, message: `Success! ${data.discount_percent}% OFF applied.` }; };
 export const getLatestDailyChallenge = async () => { const { data } = await supabase.from('daily_challenges').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle(); return data; };
-export const uploadDailyChallenge = async (ppdtFile: File | null, wat: string, srt: string, interview: string) => { let ppdtUrl = null; if (ppdtFile) { const fileName = `daily-${Date.now()}-${ppdtFile.name}`; await supabase.storage.from('scenarios').upload(fileName, ppdtFile); const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName); ppdtUrl = data.publicUrl; } await supabase.from('daily_challenges').insert({ ppdt_image_url: ppdtUrl, wat_words: [wat], srt_situations: [srt], interview_question: interview }); };
-export const submitDailyEntry = async (challengeId: string, ppdt: string, wat: string, srt: string, interview: string) => { const auth = supabase.auth as any; const user = auth.user ? auth.user() : (await auth.getUser()).data.user; if (!user) throw new Error("Login Required"); await supabase.from('daily_submissions').insert({ challenge_id: challengeId, user_id: user.id, ppdt_story: ppdt, wat_answers: [wat], srt_answers: [srt], interview_answer: interview }); };
-export const getDailySubmissions = async (challengeId: string) => { const { data } = await supabase.from('daily_submissions').select('*, aspirants(full_name)').eq('challenge_id', challengeId).order('created_at', { ascending: false }); return data || []; };
+
+export const uploadDailyChallenge = async (oirFile: File | null, oirText: string, wat: string, srt: string, interview: string) => {
+  let oirUrl = null;
+  
+  if (oirFile) {
+    const fileName = `daily-oir-${Date.now()}-${oirFile.name}`;
+    await supabase.storage.from('scenarios').upload(fileName, oirFile);
+    const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName);
+    oirUrl = data.publicUrl;
+  }
+  
+  // Storing OIR data: Image goes to ppdt_image_url (reusing column), Text goes to new oir_text column
+  await supabase.from('daily_challenges').insert({
+      ppdt_image_url: oirUrl, // Reusing existing column for OIR Image
+      oir_text: oirText,      // New column for OIR Text
+      wat_words: [wat],
+      srt_situations: [srt],
+      interview_question: interview
+  });
+};
+
+export const submitDailyEntry = async (challengeId: string, oirAnswer: string, wat: string, srt: string, interview: string) => {
+  const auth = supabase.auth as any;
+  const user = auth.user ? auth.user() : (await auth.getUser()).data.user;
+  
+  if (!user) throw new Error("Login Required");
+  
+  await supabase.from('daily_submissions').insert({
+      challenge_id: challengeId,
+      user_id: user.id,
+      ppdt_story: oirAnswer, // Reusing column for OIR Answer
+      wat_answers: [wat],
+      srt_answers: [srt],
+      interview_answer: interview
+  });
+};
+
+export const getDailySubmissions = async (challengeId: string) => {
+  const { data } = await supabase.from('daily_submissions').select('*, aspirants(full_name, streak_count)').eq('challenge_id', challengeId).order('created_at', { ascending: false });
+  return data || [];
+};
+
 export const toggleLike = async (submissionId: string) => { const { data: sub } = await supabase.from('daily_submissions').select('likes_count').eq('id', submissionId).single(); if (sub) { await supabase.from('daily_submissions').update({ likes_count: (sub.likes_count || 0) + 1 }).eq('id', submissionId); } };
 export const getRecentAnnouncements = async (): Promise<Announcement[]> => { const { data } = await supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(5); return data || []; };
 export const subscribeToAnnouncements = (callback: (a: Announcement) => void) => { const channel = supabase.channel('public:announcements').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, payload => { callback(payload.new as Announcement); }).subscribe(); return () => { supabase.removeChannel(channel); }; };

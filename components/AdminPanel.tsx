@@ -40,6 +40,7 @@ const AdminPanel: React.FC = () => {
   const [influencerName, setInfluencerName] = useState('');
 
   // Daily Challenge Inputs
+  const [dailyOirText, setDailyOirText] = useState('');
   const [dailyWat, setDailyWat] = useState('');
   const [dailySrt, setDailySrt] = useState('');
   const [dailyInterview, setDailyInterview] = useState('');
@@ -160,12 +161,13 @@ const AdminPanel: React.FC = () => {
       } else if (activeTab === 'DAILY') {
           const file = fileInputRef.current?.files?.[0] || null;
           
-          if (!dailyWat.trim() || !dailySrt.trim() || !dailyInterview.trim()) {
-              throw new Error("Please provide 1 WAT Word, 1 SRT Situation, and 1 Interview Question.");
+          if ((!file && !dailyOirText.trim()) || !dailyWat.trim() || !dailySrt.trim() || !dailyInterview.trim()) {
+              throw new Error("Please provide OIR Question (Image/Text), 1 WAT, 1 SRT, and 1 Interview Question.");
           }
           
-          await uploadDailyChallenge(file, dailyWat.trim(), dailySrt.trim(), dailyInterview.trim());
+          await uploadDailyChallenge(file, dailyOirText.trim(), dailyWat.trim(), dailySrt.trim(), dailyInterview.trim());
           
+          setDailyOirText('');
           setDailyWat('');
           setDailySrt('');
           setDailyInterview('');
@@ -317,62 +319,19 @@ const AdminPanel: React.FC = () => {
   });
 
   const storageSQL = `
--- 10. TICKER CONFIG TABLE (With Speed)
-create table if not exists public.ticker_config (
-  id uuid default uuid_generate_v4() primary key,
-  message text,
-  is_active boolean default false,
-  speed integer default 25,
-  created_at timestamptz default now()
-);
-alter table public.ticker_config enable row level security;
-drop policy if exists "Public read ticker" on public.ticker_config;
-drop policy if exists "Public insert ticker" on public.ticker_config;
-create policy "Public read ticker" on public.ticker_config for select using (true);
-create policy "Public insert ticker" on public.ticker_config for insert with check (true);
+-- 13. OIR SUPPORT IN DAILY CHALLENGES
+alter table public.daily_challenges add column if not exists oir_text text;
 
--- SAFE MIGRATION: ADD SPEED IF MISSING
-do $$
-begin
-  if not exists (select 1 from information_schema.columns where table_name = 'ticker_config' and column_name = 'speed') then
-    alter table public.ticker_config add column speed integer default 25;
-  end if;
-end $$;
-
--- 11. COIN WALLET MIGRATION
--- Add 'coins' column to user_subscriptions if it doesn't exist
-do $$
-begin
-  if not exists (select 1 from information_schema.columns where table_name = 'user_subscriptions' and column_name = 'coins') then
-    alter table public.user_subscriptions add column coins integer default 50;
-  end if;
-end $$;
-
--- Reset default coins for existing users
-update public.user_subscriptions set coins = 50 where coins is null;
-
--- MIGRATE PRO USERS (One Time)
--- Give ALL existing PRO users 300 coins
-update public.user_subscriptions 
-set coins = 300 
-where tier = 'PRO';
-
--- 12. DAILY NEWS CACHE TABLE
-create table if not exists public.daily_cache (
-  id uuid default uuid_generate_v4() primary key,
-  category text not null,
-  date_key text not null,
-  content jsonb,
-  created_at timestamptz default now(),
-  unique(category, date_key)
-);
-alter table public.daily_cache enable row level security;
-drop policy if exists "Public read cache" on public.daily_cache;
-drop policy if exists "Public insert cache" on public.daily_cache;
-drop policy if exists "Public update cache" on public.daily_cache;
-create policy "Public read cache" on public.daily_cache for select using (true);
-create policy "Public insert cache" on public.daily_cache for insert with check (true);
-create policy "Public update cache" on public.daily_cache for update using (true);
+-- Existing Tables (for reference)
+-- create table if not exists public.daily_challenges (
+--   id uuid default uuid_generate_v4() primary key,
+--   ppdt_image_url text, -- Used for OIR Image now
+--   wat_words text[],
+--   srt_situations text[],
+--   interview_question text,
+--   oir_text text, -- NEW
+--   created_at timestamptz default now()
+-- );
 `;
 
   return (
@@ -411,7 +370,7 @@ create policy "Public update cache" on public.daily_cache for update using (true
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-slate-900">
                     <Settings className="text-blue-600" size={24} />
-                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v5.8 - Pro Reset)</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest">Database Initialization Script (v5.9 - OIR Support)</h5>
                 </div>
                 {showSqlHelp && !errorMsg && (
                     <button onClick={() => setShowSqlHelp(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={20} /></button>
@@ -420,7 +379,7 @@ create policy "Public update cache" on public.daily_cache for update using (true
             
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-xl">
                 <p className="text-xs text-yellow-800 font-bold">
-                    <strong>Instructions:</strong> Run this script to RESET all PRO users to 300 Coins.
+                    <strong>Instructions:</strong> Run this script to add 'oir_text' column to 'daily_challenges'.
                 </p>
             </div>
 
@@ -608,9 +567,60 @@ create policy "Public update cache" on public.daily_cache for update using (true
           </div>
       )}
 
-      {/* OTHER TABS (RESTORED) */}
-      
-      {/* PPDT */}
+      {/* DAILY CHALLENGE */}
+      {activeTab === 'DAILY' && (
+          <div className="grid md:grid-cols-2 gap-8 animate-in fade-in">
+              <div className="space-y-6">
+                  <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                      <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Clock size={24} className="text-teal-600"/> Update Daily Challenge</h3>
+                      <div className="space-y-4">
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">1. OIR Question (Image or Text)</label>
+                          <div className="p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" />
+                              <button onClick={() => fileInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 text-slate-400 font-bold uppercase text-xs hover:text-teal-600 transition-colors mb-2">
+                                  <ImageIcon size={16} /> Select OIR Image
+                              </button>
+                              <input 
+                                value={dailyOirText} 
+                                onChange={e => setDailyOirText(e.target.value)} 
+                                placeholder="OR Type OIR Question Text here..." 
+                                className="w-full p-2 bg-white rounded-xl border border-slate-200 outline-none font-medium text-xs" 
+                              />
+                          </div>
+                          
+                          <input value={dailyWat} onChange={e => setDailyWat(e.target.value)} placeholder="2. WAT Word" className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
+                          <input value={dailySrt} onChange={e => setDailySrt(e.target.value)} placeholder="3. SRT Situation" className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
+                          <input value={dailyInterview} onChange={e => setDailyInterview(e.target.value)} placeholder="4. Interview Question" className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
+                          <button onClick={handleUpload} disabled={isUploading} className="w-full py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-teal-700 transition-all flex items-center justify-center gap-2">
+                              {isUploading ? <Loader2 className="animate-spin" /> : <RefreshCw size={16} />} Publish Challenge
+                          </button>
+                      </div>
+                  </div>
+              </div>
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 h-fit">
+                  <h3 className="text-lg font-black text-slate-900 mb-4 uppercase tracking-widest">Current Live Challenge</h3>
+                  {currentChallenge ? (
+                      <div className="space-y-4">
+                          <div className="bg-slate-50 p-4 rounded-2xl">
+                              <p className="text-[10px] font-black uppercase text-slate-400 mb-2">OIR Question</p>
+                              {currentChallenge.ppdt_image_url && <img src={currentChallenge.ppdt_image_url} alt="Daily OIR" className="w-full h-32 object-contain rounded-xl bg-white border border-slate-200 mb-2" />}
+                              {currentChallenge.oir_text && <p className="text-sm font-bold text-slate-800">{currentChallenge.oir_text}</p>}
+                          </div>
+                          <div className="space-y-2">
+                              <p className="text-xs font-bold text-slate-500"><strong className="text-slate-900">WAT:</strong> {currentChallenge.wat_words?.[0]}</p>
+                              <p className="text-xs font-bold text-slate-500"><strong className="text-slate-900">SRT:</strong> {currentChallenge.srt_situations?.[0]}</p>
+                              <p className="text-xs font-bold text-slate-500"><strong className="text-slate-900">IO:</strong> {currentChallenge.interview_question}</p>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4">Posted: {new Date(currentChallenge.created_at).toLocaleString()}</p>
+                      </div>
+                  ) : (
+                      <p className="text-slate-400 font-bold text-sm italic">No active challenge found.</p>
+                  )}
+              </div>
+          </div>
+      )}
+
+      {/* PPDT Tab (Keeping existing structure for normal PPDT scenario management) */}
       {activeTab === 'PPDT' && (
           <div className="space-y-8 animate-in fade-in">
               <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
@@ -641,47 +651,8 @@ create policy "Public update cache" on public.daily_cache for update using (true
               </div>
           </div>
       )}
-
-      {/* TAT */}
-      {activeTab === 'TAT' && (
-          <div className="space-y-8 animate-in fade-in">
-              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-                  <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Layers size={24} className="text-blue-600"/> Upload TAT Slide</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-4">
-                          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" />
-                          <button onClick={() => fileInputRef.current?.click()} className="w-full h-40 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all gap-2">
-                              <ImageIcon size={32} /> <span className="text-xs font-black uppercase tracking-widest">Select Image</span>
-                          </button>
-                      </div>
-                      <div className="space-y-4">
-                          <input type="text" value={setTag} onChange={(e) => setSetTag(e.target.value)} placeholder="Set Tag (e.g. Set 1, 1 AFSB)" className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
-                          <textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Description..." className="w-full h-20 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm resize-none" />
-                          <button onClick={handleUpload} disabled={isUploading} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2">
-                              {isUploading ? <Loader2 className="animate-spin" /> : <Upload size={16} />} Upload
-                          </button>
-                      </div>
-                  </div>
-              </div>
-              
-              {/* Grouped Display */}
-              {Object.keys(groupedItems).map(tag => (
-                  <div key={tag} className="space-y-4">
-                      <h4 className="text-lg font-black uppercase tracking-widest text-slate-500 pl-4">{tag} ({groupedItems[tag].length})</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                          {groupedItems[tag].map((item: any) => (
-                              <div key={item.id} className="group relative bg-white p-4 rounded-[2rem] shadow-lg border border-slate-100 hover:shadow-xl transition-all">
-                                  <img src={item.image_url} className="w-full h-40 object-cover rounded-2xl mb-3 bg-slate-100" alt="TAT" />
-                                  <p className="text-[10px] font-bold text-slate-400 truncate px-2">{item.description}</p>
-                                  <button onClick={() => handleDelete(item.id, item.image_url)} className="absolute top-6 right-6 p-2 bg-red-600 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg"><Trash2 size={14} /></button>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-              ))}
-          </div>
-      )}
-
+      
+      {/* ... other tabs ... */}
       {/* WAT */}
       {activeTab === 'WAT' && (
           <div className="space-y-8 animate-in fade-in">
@@ -750,44 +721,43 @@ create policy "Public update cache" on public.daily_cache for update using (true
           </div>
       )}
 
-      {/* DAILY CHALLENGE */}
-      {activeTab === 'DAILY' && (
-          <div className="grid md:grid-cols-2 gap-8 animate-in fade-in">
-              <div className="space-y-6">
-                  <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-                      <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Clock size={24} className="text-teal-600"/> Update Daily Challenge</h3>
+      {/* TAT */}
+      {activeTab === 'TAT' && (
+          <div className="space-y-8 animate-in fade-in">
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                  <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Layers size={24} className="text-blue-600"/> Upload TAT Slide</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-4">
-                          <div className="p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-                              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" />
-                              <button onClick={() => fileInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 text-slate-400 font-bold uppercase text-xs hover:text-teal-600 transition-colors">
-                                  <ImageIcon size={16} /> Select PPDT Image
-                              </button>
-                          </div>
-                          <input value={dailyWat} onChange={e => setDailyWat(e.target.value)} placeholder="WAT Word of the Day" className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
-                          <input value={dailySrt} onChange={e => setDailySrt(e.target.value)} placeholder="SRT Situation of the Day" className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
-                          <input value={dailyInterview} onChange={e => setDailyInterview(e.target.value)} placeholder="Interview Question" className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
-                          <button onClick={handleUpload} disabled={isUploading} className="w-full py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-teal-700 transition-all flex items-center justify-center gap-2">
-                              {isUploading ? <Loader2 className="animate-spin" /> : <RefreshCw size={16} />} Publish Challenge
+                          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" />
+                          <button onClick={() => fileInputRef.current?.click()} className="w-full h-40 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all gap-2">
+                              <ImageIcon size={32} /> <span className="text-xs font-black uppercase tracking-widest">Select Image</span>
+                          </button>
+                      </div>
+                      <div className="space-y-4">
+                          <input type="text" value={setTag} onChange={(e) => setSetTag(e.target.value)} placeholder="Set Tag (e.g. Set 1, 1 AFSB)" className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
+                          <textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Description..." className="w-full h-20 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm resize-none" />
+                          <button onClick={handleUpload} disabled={isUploading} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2">
+                              {isUploading ? <Loader2 className="animate-spin" /> : <Upload size={16} />} Upload
                           </button>
                       </div>
                   </div>
               </div>
-              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 h-fit">
-                  <h3 className="text-lg font-black text-slate-900 mb-4 uppercase tracking-widest">Current Live Challenge</h3>
-                  {currentChallenge ? (
-                      <div className="space-y-4">
-                          {currentChallenge.ppdt_image_url && <img src={currentChallenge.ppdt_image_url} alt="Daily PPDT" className="w-full h-40 object-cover rounded-2xl" />}
-                          <div className="space-y-2">
-                              <p className="text-xs font-bold text-slate-500"><strong className="text-slate-900">WAT:</strong> {currentChallenge.wat_words?.[0]}</p>
-                              <p className="text-xs font-bold text-slate-500"><strong className="text-slate-900">SRT:</strong> {currentChallenge.srt_situations?.[0]}</p>
-                              <p className="text-xs font-bold text-slate-500"><strong className="text-slate-900">IO:</strong> {currentChallenge.interview_question}</p>
-                          </div>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4">Posted: {new Date(currentChallenge.created_at).toLocaleString()}</p>
+              
+              {/* Grouped Display */}
+              {Object.keys(groupedItems).map(tag => (
+                  <div key={tag} className="space-y-4">
+                      <h4 className="text-lg font-black uppercase tracking-widest text-slate-500 pl-4">{tag} ({groupedItems[tag].length})</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                          {groupedItems[tag].map((item: any) => (
+                              <div key={item.id} className="group relative bg-white p-4 rounded-[2rem] shadow-lg border border-slate-100 hover:shadow-xl transition-all">
+                                  <img src={item.image_url} className="w-full h-40 object-cover rounded-2xl mb-3 bg-slate-100" alt="TAT" />
+                                  <p className="text-[10px] font-bold text-slate-400 truncate px-2">{item.description}</p>
+                                  <button onClick={() => handleDelete(item.id, item.image_url)} className="absolute top-6 right-6 p-2 bg-red-600 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg"><Trash2 size={14} /></button>
+                              </div>
+                          ))}
                       </div>
-                  ) : (
-                      <p className="text-slate-400 font-bold text-sm italic">No active challenge found.</p>
-                  )}
-              </div>
+                  </div>
+              ))}
           </div>
       )}
 
