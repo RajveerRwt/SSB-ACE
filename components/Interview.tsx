@@ -363,7 +363,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
             }
 
             // 2. Video Input Pipeline (1 FPS for bandwidth/cost optimization)
-            const FRAME_RATE = 0.5; 
+            const FRAME_RATE = 0.2; 
             if (videoRef.current && canvasRef.current) {
                 frameIntervalRef.current = window.setInterval(() => {
                     const videoEl = videoRef.current;
