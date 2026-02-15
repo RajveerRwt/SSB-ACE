@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info, LogIn, ThumbsUp, ThumbsDown, MinusCircle } from 'lucide-react';
+import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info, LogIn, ThumbsUp, ThumbsDown, MinusCircle, Lock } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, STANDARD_WAT_SET } from '../services/geminiService';
 import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
 import { TestType } from '../types';
@@ -788,6 +788,52 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   }
 
   if (phase === PsychologyPhase.COMPLETED) {
+    // SPECIAL HANDLING FOR GUEST SDT - RESTRICTED VIEW
+    if (isGuest && type === TestType.SDT) {
+        return (
+            <div className="fixed inset-0 z-[200] bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
+                <div className="bg-white w-full max-w-md p-8 md:p-12 rounded-[3rem] shadow-2xl text-center space-y-8 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500"></div>
+                    
+                    <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-900 shadow-inner mb-2 relative">
+                        <FileSignature size={40} className="text-slate-300 absolute" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/10 rounded-full backdrop-blur-[1px]">
+                            <Lock size={32} className="text-slate-900" />
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                        <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">SDT Report Locked</h3>
+                        <p className="text-slate-500 font-medium text-sm leading-relaxed px-4">
+                            Your Self Description has been analyzed. <br/>
+                            <span className="text-blue-600 font-bold">Sign Up</span> to unlock your Consistency Score and Psych Evaluation.
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <button 
+                            onClick={onLoginRedirect}
+                            className="w-full py-5 bg-yellow-400 text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-yellow-300 transition-all shadow-xl hover:-translate-y-1 flex items-center justify-center gap-3"
+                        >
+                            <LogIn size={16} /> View Full Assessment
+                        </button>
+                        
+                        <button 
+                            onClick={() => window.location.reload()} 
+                            className="w-full py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-xs hover:border-slate-300 hover:text-slate-600 transition-all"
+                        >
+                            Return to Dashboard
+                        </button>
+                    </div>
+                    
+                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em]">
+                        Restricted Access
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     const speedAnalysis = (type === TestType.WAT || type === TestType.SRT) ? getAttemptAnalysis(type, feedback?.attemptedCount || 0) : null;
 
     return (
