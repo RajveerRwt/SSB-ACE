@@ -316,24 +316,14 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, isGuest
   }, [isRecording]);
 
   const handleLecturetteClick = async (topicData: any) => {
-      if (processingPayment) return;
-
       // GUEST RESTRICTION LOGIC
-      if (isGuest) {
-          if (topicData.title !== "My inspiration in life") {
-              if (onLoginRedirect) onLoginRedirect();
-              return;
-          }
-          // If it IS "My inspiration in life", allow free access - skip payment logic
-      } 
-      // REGISTERED USER LOGIC
-      else if (onConsumeCoins) {
-          setProcessingPayment(true);
-          const success = await onConsumeCoins(TEST_RATES.LECTURETTE);
-          setProcessingPayment(false);
-          if (!success) return; // Stop if user cancels or fails payment
+      if (isGuest && topicData.title !== "My inspiration in life") {
+          if (onLoginRedirect) onLoginRedirect();
+          return;
       }
 
+      // NO PAYMENT HERE - Deduction moved to "Start Speech"
+      
       const topic = topicData.title;
       setSelectedLecturette(topic);
       setLecturetteContent(null);
@@ -378,6 +368,20 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, isGuest
   };
 
   const startRecording = async () => {
+      // PAYMENT LOGIC MOVED HERE
+      if (processingPayment) return;
+
+      const isFreeTopic = selectedLecturette === "My inspiration in life";
+      
+      // If user is registered AND topic is NOT free AND we have a consumption function
+      if (!isGuest && !isFreeTopic && onConsumeCoins) {
+          setProcessingPayment(true);
+          const success = await onConsumeCoins(TEST_RATES.LECTURETTE);
+          setProcessingPayment(false);
+          
+          if (!success) return; // Stop if payment failed or cancelled
+      }
+
       try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           
@@ -763,9 +767,11 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, isGuest
                                           </button>
                                           <button 
                                               onClick={startRecording}
-                                              className="flex-1 py-4 bg-red-600 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-red-700 shadow-lg flex items-center justify-center gap-2"
+                                              disabled={processingPayment}
+                                              className="flex-1 py-4 bg-red-600 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-red-700 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
                                           >
-                                              <Mic size={16} /> Start Speech
+                                              {processingPayment ? <Loader2 size={16} className="animate-spin" /> : <Mic size={16} />}
+                                              {processingPayment ? 'Processing...' : 'Start Speech'}
                                           </button>
                                       </>
                                   ) : (
