@@ -616,7 +616,7 @@ const App: React.FC = () => {
       case TestType.CURRENT_AFFAIRS: return <CurrentAffairs />;
       case TestType.DAILY_PRACTICE: return <DailyPractice onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.RESOURCES: return <ResourceCenter />;
-      case TestType.LECTURETTE: return <LecturetteTest onConsumeCoins={handleCoinConsumption} />;
+      case TestType.LECTURETTE: return <LecturetteTest onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       default: return <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} />;
     }
   };
