@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star, Camera, LogIn } from 'lucide-react';
+import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star, Camera, LogIn, Lock, Coins } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
-import { getPPDTScenarios, getUserSubscription, checkLimit } from '../services/supabaseService';
+import { getPPDTScenarios, getUserSubscription, checkLimit, TEST_RATES } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
 import CameraModal from './CameraModal';
 import SessionFeedback from './SessionFeedback';
@@ -307,6 +307,13 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
   };
 
   const finishTest = async () => {
+    // 1. BLOCK GUEST ON CUSTOM IMAGE
+    if (isGuest && customStimulus) {
+        setStep(PPDTStep.FINISHED);
+        // Do not trigger AI Evaluation
+        return;
+    }
+
     setStep(PPDTStep.FINISHED);
     setIsLoading(true);
     try {
@@ -389,9 +396,12 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                     <div className="w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                         <Upload size={24} />
                     </div>
-                    <div className="absolute top-6 right-6 bg-green-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-md">Free Always</div>
+                    {/* Changed description and removed Free badge as requested */}
+                    <div className="absolute top-6 right-6 bg-slate-900 text-yellow-400 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-md flex items-center gap-1">
+                        <Coins size={8} /> {TEST_RATES.PPDT}
+                    </div>
                     <h4 className="text-xl font-black uppercase text-blue-900 mb-2 tracking-tight">Upload Custom Image</h4>
-                    <p className="text-xs text-blue-700/70 font-medium">Practice with your own pictures. Unlimited attempts. Does NOT consume credits.</p>
+                    <p className="text-xs text-blue-700/70 font-medium">Practice with your own pictures. Standard assessment rates apply.</p>
                 </button>
                 <input 
                     type="file" 
@@ -627,6 +637,52 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
         );
 
       case PPDTStep.FINISHED:
+        // Guest using Custom Image -> Locked View
+        if (isGuest && customStimulus) {
+            return (
+                <div className="fixed inset-0 z-[200] bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
+                    <div className="bg-white w-full max-w-md p-8 md:p-12 rounded-[3rem] shadow-2xl text-center space-y-8 relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500"></div>
+                        
+                        <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-900 shadow-inner mb-2 relative">
+                            <ImageIcon size={40} className="text-slate-300 absolute" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/10 rounded-full backdrop-blur-[1px]">
+                                <Lock size={32} className="text-slate-900" />
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                            <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Assessment Locked</h3>
+                            <p className="text-slate-500 font-medium text-sm leading-relaxed px-4">
+                                Custom Image Assessment is a premium feature. <br/>
+                                <span className="text-blue-600 font-bold">Sign Up / Login</span> to get your AI Evaluation.
+                            </p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <button 
+                                onClick={onLoginRedirect}
+                                className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl hover:-translate-y-1 flex items-center justify-center gap-3"
+                            >
+                                <LogIn size={16} /> Sign Up to Evaluate
+                            </button>
+                            
+                            <button 
+                                onClick={() => window.location.reload()} 
+                                className="w-full py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-xs hover:border-slate-300 hover:text-slate-600 transition-all"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                        
+                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em]">
+                            Restricted Feature
+                        </p>
+                    </div>
+                </div>
+            );
+        }
+
         if (isLoading) {
           return (
             <div className="flex flex-col items-center justify-center py-24 md:py-40 space-y-8 md:space-y-12">
