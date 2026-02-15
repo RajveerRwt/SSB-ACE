@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio, MapPin, Filter, Star, Coins, Lock } from 'lucide-react';
+import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio, MapPin, Filter, Star, Coins } from 'lucide-react';
 import { generateLecturette, evaluateLecturette } from '../services/geminiService';
 import { getLecturetteContent, saveLecturetteContent, TEST_RATES } from '../services/supabaseService';
 
@@ -234,11 +234,9 @@ const LECTURETTE_TOPICS = [
 
 interface LecturetteTestProps {
   onConsumeCoins?: (cost: number) => Promise<boolean>;
-  isGuest?: boolean;
-  onLoginRedirect?: () => void;
 }
 
-const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, isGuest = false, onLoginRedirect }) => {
+const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins }) => {
   const [selectedLecturette, setSelectedLecturette] = useState<string | null>(null);
   const [lecturetteContent, setLecturetteContent] = useState<any>(null);
   const [loadingLecturette, setLoadingLecturette] = useState(false);
@@ -318,16 +316,8 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, isGuest
   const handleLecturetteClick = async (topicData: any) => {
       if (processingPayment) return;
 
-      // GUEST RESTRICTION LOGIC
-      if (isGuest) {
-          if (topicData.title !== "My inspiration in life") {
-              if (onLoginRedirect) onLoginRedirect();
-              return;
-          }
-          // If it IS "My inspiration in life", allow free access - skip payment logic
-      } 
-      // REGISTERED USER LOGIC
-      else if (onConsumeCoins) {
+      // Handle Coin Deduction for Topic Access
+      if (onConsumeCoins) {
           setProcessingPayment(true);
           const success = await onConsumeCoins(TEST_RATES.LECTURETTE);
           setProcessingPayment(false);
@@ -566,16 +556,10 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, isGuest
                                   <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${topic.difficulty === 'High' ? 'bg-red-100 text-red-700' : topic.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
                                       {topic.difficulty}
                                   </span>
-                                  {isGuest && topic.title !== "My inspiration in life" ? (
-                                      <span className="bg-slate-200 text-slate-500 px-2 py-1 rounded text-[9px] font-black flex items-center gap-1">
-                                          <Lock size={8} /> Locked
+                                  {onConsumeCoins && (
+                                      <span className="bg-slate-900 text-yellow-400 px-2 py-1 rounded text-[9px] font-black flex items-center gap-1">
+                                          <Coins size={8} /> {TEST_RATES.LECTURETTE}
                                       </span>
-                                  ) : (
-                                      onConsumeCoins && (
-                                          <span className="bg-slate-900 text-yellow-400 px-2 py-1 rounded text-[9px] font-black flex items-center gap-1">
-                                              {topic.title === "My inspiration in life" && isGuest ? "FREE" : <><Coins size={8} /> {TEST_RATES.LECTURETTE}</>}
-                                          </span>
-                                      )
                                   )}
                               </div>
                           </div>
