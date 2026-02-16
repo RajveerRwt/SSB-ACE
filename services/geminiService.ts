@@ -249,7 +249,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
         const wordCount = combinedTextForFallback.split(/\s+/).length;
 
         // GUARDRAIL: Short PPDT
-        if (wordCount < 20) {
+        if (wordCount < 5) {
             return generateFallbackEvaluation(testType, combinedTextForFallback);
         }
 
@@ -271,7 +271,9 @@ export async function evaluatePerformance(testType: string, userData: any) {
            - Are OLQs (Initiative, Planning, Empathy) visible?
            
         3. EXPRESSION (Max 2 Marks):
-           - Narration clarity and story flow.
+           - Evaluate the provided "Candidate's Narration" transcript.
+           - CRITICAL RULE: If the "Candidate's Narration" is empty, blank, "N/A", or contains less than 5 meaningful words, the Expression score MUST be 0. Do not give participation points for silence.
+           - If narration exists: Fluency, clarity, and confidence determine the score.
            
         *** IMPORTANT ***
         - The 'score' MUST match your text assessment.

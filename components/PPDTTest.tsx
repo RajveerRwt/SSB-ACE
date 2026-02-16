@@ -1,11 +1,22 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star, Camera, LogIn, Lock, Coins, Activity } from 'lucide-react';
+import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star, Camera, LogIn, Lock, Coins, Activity, Headset } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
 import { getPPDTScenarios, getUserSubscription, checkLimit, TEST_RATES } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
 import CameraModal from './CameraModal';
 import SessionFeedback from './SessionFeedback';
+
+const PPDT_TIPS = [
+  "Identify the main character (Hero) clearly in the first sentence.",
+  "The story should have a Past (What led to this?), Present (What is happening?), and Future (Outcome).",
+  "Ensure the mood of the story aligns with the picture shown.",
+  "The Hero should take initiative. Avoid supernatural solutions.",
+  "Narrate confidently. Fluency matters as much as content.",
+  "Don't describe the picture. Narrate the story BEHIND the picture.",
+  "Keep the outcome positive and realistic.",
+  "If the picture is hazy, use your imagination constructively, but stay logical."
+];
 
 enum PPDTStep {
   IDLE,
@@ -47,6 +58,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
   const [showScoreHelp, setShowScoreHelp] = useState(false);
   const [verifyingLimit, setVerifyingLimit] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [currentTipIndex, setCurrentTipIndex] = useState(0);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -218,6 +230,16 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [timeLeft, step, isTranscribing, isRecording]);
+
+  // Cycle tips effect
+  useEffect(() => {
+    if (isLoading) {
+      const interval = setInterval(() => {
+        setCurrentTipIndex(prev => (prev + 1) % PPDT_TIPS.length);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isLoading]);
 
   const startNarration = () => {
     initAudio();
@@ -602,10 +624,24 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
 
       case PPDTStep.NARRATION:
         return (
-            <div className="max-w-4xl mx-auto text-center py-8 md:py-12 space-y-8 md:space-y-12">
+            <div className="max-w-4xl mx-auto text-center py-8 md:py-12 space-y-8 md:space-y-12 animate-in fade-in">
             <div className={`relative w-32 h-32 md:w-48 md:h-48 rounded-full flex items-center justify-center mx-auto transition-all duration-700 border-8 ${isRecording ? 'bg-red-50 border-red-500 scale-110 shadow-[0_0_80px_rgba(239,68,68,0.4)] ring-8 ring-red-500/10' : 'bg-slate-50 border-slate-200 shadow-inner'}`}>
                 {isRecording ? <Volume2 className="w-12 h-12 md:w-20 md:h-20 text-red-600 animate-pulse" /> : <MicOff className="w-12 h-12 md:w-20 md:h-20 text-slate-300" />}
             </div>
+            
+            {/* Instructions Box */}
+            <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-2xl max-w-2xl mx-auto text-left space-y-3 shadow-sm">
+                <h4 className="text-yellow-800 font-black uppercase text-xs tracking-widest flex items-center gap-2">
+                    <Headset size={16} /> Audio Environment Protocol
+                </h4>
+                <ul className="text-yellow-900/80 text-xs font-bold space-y-2 list-disc pl-4">
+                    <li>Use <b>ANC (Active Noise Cancellation)</b> Earbuds/Headphones for best results.</li>
+                    <li>Ensure you are in a <b>Quiet Environment</b> with zero background noise.</li>
+                    <li>Speak <b>LOUD & CLEAR</b>. The AI analyzes confidence and fluency.</li>
+                    <li>If you stay silent, your Expression Score will be penalized (0 Marks).</li>
+                </ul>
+            </div>
+
             <div className={`text-7xl md:text-9xl font-mono font-black tabular-nums transition-colors duration-500 ${timeLeft < 10 ? 'text-red-600 animate-pulse' : 'text-slate-900'}`}>
                 {timeLeft}s
             </div>
@@ -690,7 +726,12 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                 <Loader2 className="w-16 h-16 md:w-24 md:h-24 text-slate-900 animate-spin" />
                 <ShieldCheck className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 text-blue-500" />
               </div>
-              <p className="text-slate-900 font-black uppercase tracking-[0.5em] text-xs md:text-sm">Psychologist Assessment in Progress...</p>
+              <div className="text-center space-y-4 max-w-lg px-6">
+                  <p className="text-slate-900 font-black uppercase tracking-[0.5em] text-xs md:text-sm">Assessing Performance...</p>
+                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 transition-all duration-500">
+                      <p className="text-blue-800 font-bold text-sm italic">"Tip: {PPDT_TIPS[currentTipIndex]}"</p>
+                  </div>
+              </div>
             </div>
           );
         }
