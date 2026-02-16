@@ -18,7 +18,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Form State
-  const [oirAnswer, setOirAnswer] = useState(''); // Replaces ppdtStory
+  const [oirAnswer, setOirAnswer] = useState(''); 
   const [watAnswer, setWatAnswer] = useState('');
   const [srtAnswer, setSrtAnswer] = useState('');
   const [interviewAnswer, setInterviewAnswer] = useState('');
@@ -70,15 +70,13 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
         return;
     }
     
-    // Allow partial submission
     if (!oirAnswer.trim() && !watAnswer.trim() && !srtAnswer.trim() && !interviewAnswer.trim()) {
-        alert("Please complete at least one section (OIR, WAT, SRT, or Interview) before submitting.");
+        alert("Please complete at least one section before submitting.");
         return;
     }
 
     setIsSubmitting(true);
     try {
-      // Pass oirAnswer as the first argument (mapped to ppdt_story in backend)
       await submitDailyEntry(challenge.id, oirAnswer, watAnswer, srtAnswer, interviewAnswer);
       const subs = await getDailySubmissions(challenge.id);
       setSubmissions(subs);
@@ -113,12 +111,31 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       await toggleLike(subId);
   };
 
+  // Name Resolver Helper
+  const getDisplayName = (sub: any) => {
+      // 1. Try Joined Profile
+      if (sub.aspirants?.full_name) return sub.aspirants.full_name;
+      
+      // 2. Try Session Metadata (Only works for the current user)
+      if (user && sub.user_id === user.id && user.user_metadata?.full_name) {
+          return user.user_metadata.full_name;
+      }
+      
+      // 3. Check for array structure (Supabase join quirk)
+      if (Array.isArray(sub.aspirants) && sub.aspirants[0]?.full_name) {
+          return sub.aspirants[0].full_name;
+      }
+      
+      // 4. Default
+      return 'Cadet';
+  };
+
   const getBadges = (submissionIndex: number, sub: any) => {
       const badges = [];
       if (sub.likes_count >= 5) badges.push({ icon: Star, color: 'text-yellow-400', label: 'Popular' });
-      // Logic check for long text now applies to OIR answer mainly
       if (sub.ppdt_story && sub.ppdt_story.length > 100) badges.push({ icon: PenTool, color: 'text-purple-400', label: 'Detailed' });
-      if (sub.aspirants?.streak_count > 3) badges.push({ icon: Flame, color: 'text-orange-500', label: 'Consistent' });
+      const streak = sub.aspirants?.streak_count || (Array.isArray(sub.aspirants) ? sub.aspirants[0]?.streak_count : 0);
+      if (streak > 3) badges.push({ icon: Flame, color: 'text-orange-500', label: 'Consistent' });
       if (submissionIndex === 0) badges.push({ icon: Trophy, color: 'text-yellow-500', label: 'Top Cadet' });
       if (submissionIndex === 1) badges.push({ icon: Medal, color: 'text-slate-400', label: 'Runner Up' });
       if (submissionIndex === 2) badges.push({ icon: Medal, color: 'text-orange-700', label: 'Bronze' });
@@ -135,11 +152,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
           <button onClick={loadData} className="flex items-center gap-2 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold uppercase text-xs tracking-widest transition-all">
               <RefreshCw size={14} /> Refresh Check
           </button>
-          {errorMsg && (
-              <div className="flex items-center gap-2 text-red-500 bg-red-50 px-4 py-2 rounded-lg text-xs font-bold mt-4">
-                  <AlertTriangle size={14} /> {errorMsg}
-              </div>
-          )}
       </div>
   );
 
@@ -171,11 +183,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       {submissions.length > 0 && (
           <div className="grid grid-cols-3 gap-2 md:gap-4 max-w-3xl mx-auto">
               {submissions.slice(0, 3).map((sub, i) => {
-                  const isCurrentUser = user && sub.user_id === user.id;
-                  // Priority: Joined Aspirant Name > Current User Metadata > 'Cadet'
-                  const displayName = sub.aspirants?.full_name 
-                      || (isCurrentUser ? user.user_metadata?.full_name : null) 
-                      || 'Cadet';
+                  const displayName = getDisplayName(sub);
                   
                   return (
                     <div key={sub.id} className={`relative p-4 rounded-2xl border text-center flex flex-col items-center gap-2 ${i === 0 ? 'bg-yellow-50 border-yellow-400 order-2 scale-110 shadow-xl' : i === 1 ? 'bg-slate-50 border-slate-200 order-1' : 'bg-orange-50 border-orange-200 order-3'}`}>
@@ -195,10 +203,8 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
           </div>
       )}
 
-      {/* CHALLENGE WORKSPACE - 4 BLOCKS */}
+      {/* CHALLENGE WORKSPACE */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          {/* 1. OIR Question */}
           <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg md:col-span-2 flex flex-col md:flex-row gap-6">
               <div className="w-full md:w-1/3 min-h-[200px] bg-slate-50 rounded-2xl overflow-hidden border border-slate-200 shrink-0 flex flex-col items-center justify-center p-4">
                   {challenge.ppdt_image_url && (
@@ -224,7 +230,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
               </div>
           </div>
 
-          {/* 2. WAT */}
           <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg">
               <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <FileText size={18} className="text-green-600" /> 2. Word Association
@@ -242,7 +247,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
               </div>
           </div>
 
-          {/* 3. SRT */}
           <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg">
               <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <Zap size={18} className="text-orange-600" /> 3. Situation Reaction
@@ -260,14 +264,13 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
               </div>
           </div>
 
-          {/* 4. Interview */}
           <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg md:col-span-2">
               <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <Mic size={18} className="text-purple-600" /> 4. Interview Question
               </h3>
               <div className="flex flex-col md:flex-row gap-6">
                   <div className="md:w-1/3 p-4 bg-purple-50 rounded-xl border border-purple-100 flex items-center justify-center text-center">
-                      <p className="text-sm font-black text-purple-900 italic">"{challenge.interview_question || "Why do you want to join?"}"</p>
+                      <p className="text-sm font-black text-purple-900 italic">"{challenge.interview_question || "Question..."}"</p>
                   </div>
                   <textarea 
                       value={interviewAnswer}
@@ -281,18 +284,11 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
 
       <div className="flex justify-center">
           {!user ? (
-              <button 
-                  onClick={onLoginRedirect}
-                  className="px-12 py-4 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-yellow-300 transition-all shadow-xl hover:-translate-y-1"
-              >
+              <button onClick={onLoginRedirect} className="px-12 py-4 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-yellow-300 transition-all shadow-xl hover:-translate-y-1">
                   <User size={16} /> Login to Submit
               </button>
           ) : (
-              <button 
-                  onClick={handleSubmit}
-                  disabled={isSubmitting || hasSubmitted}
-                  className="px-12 py-4 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-black transition-all shadow-xl disabled:opacity-50"
-              >
+              <button onClick={handleSubmit} disabled={isSubmitting || hasSubmitted} className="px-12 py-4 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-black transition-all shadow-xl disabled:opacity-50">
                   {isSubmitting ? <Loader2 className="animate-spin" /> : hasSubmitted ? <CheckCircle size={16} /> : <Send size={16} />} 
                   {hasSubmitted ? 'Already Submitted' : 'Submit Entry'}
               </button>
@@ -312,15 +308,11 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
           ) : (
               <div className="grid grid-cols-1 gap-6">
                   {submissions.map((sub, idx) => {
-                      const isCurrentUser = user && sub.user_id === user.id;
-                      // Priority: Joined Aspirant Name > Current User Metadata > 'Cadet'
-                      const displayName = sub.aspirants?.full_name 
-                          || (isCurrentUser ? user.user_metadata?.full_name : null) 
-                          || 'Cadet';
+                      const displayName = getDisplayName(sub);
+                      const streak = sub.aspirants?.streak_count || (Array.isArray(sub.aspirants) ? sub.aspirants[0]?.streak_count : 0);
 
                       return (
                       <div key={sub.id} className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-md hover:shadow-xl transition-all relative overflow-hidden">
-                          {/* Badges Bar */}
                           <div className="absolute top-0 right-0 p-4 flex gap-2">
                               {getBadges(idx, sub).map((badge, bIdx) => (
                                   <div key={bIdx} title={badge.label} className={`p-1.5 bg-slate-50 rounded-lg ${badge.color}`}>
@@ -336,9 +328,9 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                               <div>
                                   <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                                       {displayName}
-                                      {sub.aspirants?.streak_count > 0 && (
+                                      {streak > 0 && (
                                           <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                              <Flame size={10} fill="currentColor" /> {sub.aspirants.streak_count}
+                                              <Flame size={10} fill="currentColor" /> {streak}
                                           </span>
                                       )}
                                   </h4>
@@ -368,7 +360,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                               <div className="space-y-4">
                                   {sub.wat_answers?.[0] && (
                                     <div>
-                                        <span className="text-[9px] font-black text-green-600 uppercase tracking-widest block mb-2 bg-green-50 px-2 py-1 rounded w-fit">WAT: {challenge.wat_words?.[0]}</span>
+                                        <span className="text-[9px] font-black text-green-600 uppercase tracking-widest block mb-2 bg-green-50 px-2 py-1 rounded w-fit">WAT Response</span>
                                         <p className="text-xs text-slate-700 font-bold pl-4 border-l-2 border-green-100">
                                             {sub.wat_answers[0]}
                                         </p>
@@ -385,7 +377,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                               </div>
                           </div>
 
-                          {/* Action Bar */}
                           <div className="mt-6 pt-4 border-t border-slate-50 flex items-center justify-between">
                               <button 
                                 onClick={() => handleLike(sub.id)}

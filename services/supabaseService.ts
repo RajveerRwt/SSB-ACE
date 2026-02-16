@@ -1,5 +1,4 @@
 
-// ... existing imports
 import { createClient } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
 
@@ -9,17 +8,16 @@ const supabaseAnonKey = process.env.REACT_APP_SUPABASE_KEY || 'placeholder';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// ... (Keep all existing constants and caching functions as is) ...
 // --- COIN RATES CONFIGURATION ---
 export const TEST_RATES = {
     PPDT: 5,
     SRT: 5,
     WAT: 5,
-    LECTURETTE: 3, // Updated to 3 Coins
+    LECTURETTE: 3, 
     SDT: 5,
     TAT: 10,
-    INTERVIEW_TRIAL: 10, // 5 Mins
-    INTERVIEW_FULL: 50   // Full Session
+    INTERVIEW_TRIAL: 10, 
+    INTERVIEW_FULL: 50   
 };
 
 // --- CACHING SERVICE ---
@@ -194,11 +192,10 @@ export const syncUserProfile = async (user: any) => {
     .maybeSingle(); 
     
   if (!sub) {
-      // NEW USER DEFAULT: 50 COINS FREE
       const { error: subError } = await supabase.from('user_subscriptions').insert({
           user_id: user.id,
           tier: 'FREE',
-          coins: 50, // Default Bonus
+          coins: 50, 
           usage: {
             interview_used: 0, interview_limit: 1, 
             ppdt_used: 0, ppdt_limit: 10,          
@@ -268,7 +265,6 @@ export const saveTestAttempt = async (userId: string, testType: string, resultDa
     });
 };
 
-// Update an existing test attempt (Used for retrying failed analysis)
 export const updateTestAttempt = async (id: string, resultData: any) => {
     await supabase
       .from('test_history')
@@ -279,9 +275,7 @@ export const updateTestAttempt = async (id: string, resultData: any) => {
       .eq('id', id);
 };
 
-// UPDATED: Now fetches FULL test history for insights
 export const getAllUsers = async () => {
-  // 1. Fetch Aspirants
   const { data: aspirants, error: aspError } = await supabase
     .from('aspirants')
     .select('*')
@@ -289,14 +283,10 @@ export const getAllUsers = async () => {
 
   if (aspError) return [];
 
-  // 2. Fetch Subscriptions
   const { data: subs } = await supabase
     .from('user_subscriptions')
     .select('*');
 
-  // 3. Fetch Test History Summary (Lightweight if possible, or full fetch)
-  // We fetch last 5000 records to generate stats. 
-  // Ideally, use a view or RPC for large scale, but fine for now.
   const { data: history } = await supabase
     .from('test_history')
     .select('user_id, test_type, created_at, score')
@@ -324,7 +314,6 @@ export const deleteUserProfile = async (userId: string) => {
     await supabase.from('aspirants').delete().eq('user_id', userId);
 };
 
-// ... (Keep existing Subscription, Payment, and Content functions as is) ...
 export const getUserSubscription = async (userId: string): Promise<UserSubscription> => {
   let { data: sub, error } = await supabase
     .from('user_subscriptions')
@@ -496,7 +485,6 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
     }
 };
 
-// ... (Keep existing Content Management functions) ...
 export const getPPDTScenarios = async () => { const { data } = await supabase.from('ppdt_scenarios').select('*'); return data || []; };
 export const uploadPPDTScenario = async (file: File, description: string) => { const fileName = `ppdt-${Date.now()}-${file.name}`; await supabase.storage.from('scenarios').upload(fileName, file); const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName); await supabase.from('ppdt_scenarios').insert({ image_url: publicUrl, description }); };
 export const deletePPDTScenario = async (id: string, url: string) => { const fileName = url.split('/').pop(); if (fileName) await supabase.storage.from('scenarios').remove([fileName]); await supabase.from('ppdt_scenarios').delete().eq('id', id); };
@@ -548,22 +536,49 @@ export const submitDailyEntry = async (challengeId: string, oirAnswer: string, w
   });
 };
 
+/**
+ * Robust fetch for daily submissions.
+ * Manually fetches and merges user profiles if the standard join fails.
+ */
 export const getDailySubmissions = async (challengeId: string) => {
+  // 1. Try Standard Join
   const { data, error } = await supabase
     .from('daily_submissions')
     .select('*, aspirants(full_name, streak_count)') 
     .eq('challenge_id', challengeId)
     .order('created_at', { ascending: false });
 
-  if (!error && data) return data;
+  // Check if join returned profiles correctly
+  if (!error && data && data.length > 0 && data[0].aspirants) {
+      return data;
+  }
   
-  const { data: rawData } = await supabase
+  // 2. Fallback: Manual Join (Fetch submissions then fetch profiles)
+  const { data: rawData, error: rawError } = await supabase
     .from('daily_submissions')
     .select('*')
     .eq('challenge_id', challengeId)
     .order('created_at', { ascending: false });
     
-  return rawData || [];
+  if (rawError || !rawData || rawData.length === 0) return [];
+
+  // Extract unique user IDs
+  const userIds = [...new Set(rawData.map(r => r.user_id))];
+  
+  // Fetch profiles for all these users
+  const { data: profiles } = await supabase
+      .from('aspirants')
+      .select('user_id, full_name, streak_count')
+      .in('user_id', userIds);
+      
+  // Merge profiles back into submissions
+  return rawData.map(sub => {
+      const profile = profiles?.find(p => p.user_id === sub.user_id);
+      return {
+          ...sub,
+          aspirants: profile || { full_name: 'Cadet', streak_count: 0 }
+      };
+  });
 };
 
 export const toggleLike = async (submissionId: string) => { const { data: sub } = await supabase.from('daily_submissions').select('likes_count').eq('id', submissionId).single(); if (sub) { await supabase.from('daily_submissions').update({ likes_count: (sub.likes_count || 0) + 1 }).eq('id', submissionId); } };
