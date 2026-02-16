@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward, HelpCircle, ChevronDown, ChevronUp, AlertTriangle, Play, LogIn, IndianRupee, Coins } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
@@ -26,6 +25,7 @@ const GUEST_PIQ: PIQData = {
     previousAttempts: []
 };
 
+// ... (Keep helper functions decode, encode, decodeAudioData, createBlob, blobToBase64 exactly as they are) ...
 function decode(base64: string) {
   const binaryString = atob(base64);
   const len = binaryString.length;
@@ -51,7 +51,6 @@ async function decodeAudioData(
   sampleRate: number,
   numChannels: number,
 ): Promise<AudioBuffer> {
-  // SAFE DECODING: Use byteOffset to ensure correct memory alignment
   const dataInt16 = new Int16Array(data.buffer, data.byteOffset, data.byteLength / 2);
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
@@ -101,7 +100,6 @@ interface InterviewProps {
 
 const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId, isGuest = false, onLoginRedirect, onConsumeCoins }) => {
   const [sessionMode, setSessionMode] = useState<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
-  // Ref to track session mode synchronously across callbacks to prevent race conditions during termination
   const sessionModeRef = useRef<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
   
   const [connectionStatus, setConnectionStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'RECONNECTING'>('DISCONNECTED');
@@ -110,9 +108,9 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
   const [error, setError] = useState<string | null>(null);
   const [finalAnalysis, setFinalAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(2400); // Default max, actual set in startSession
-  const [totalDuration, setTotalDuration] = useState(2400); // To track total time for progress/logic
-  const timeLeftRef = useRef(2400); // Ref to track time for callbacks
+  const [timeLeft, setTimeLeft] = useState(2400); 
+  const [totalDuration, setTotalDuration] = useState(2400);
+  const timeLeftRef = useRef(2400);
   const [showScoreHelp, setShowScoreHelp] = useState(false);
   const [showEarlyExitWarning, setShowEarlyExitWarning] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -120,17 +118,14 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
 
   const activePIQ = isGuest ? GUEST_PIQ : piqData;
 
-  // Sync ref
   useEffect(() => {
     timeLeftRef.current = timeLeft;
   }, [timeLeft]);
   
-  // Persist transcript across re-renders and re-connects
   const conversationHistoryRef = useRef<string[]>([]); 
   const currentTranscriptBufferRef = useRef<string>("");
-  const currentAiTranscriptBufferRef = useRef<string>(""); // New Ref for AI speech
+  const currentAiTranscriptBufferRef = useRef<string>(""); 
 
-  // Refs for stability
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
   const inputAudioContextRef = useRef<AudioContext | null>(null);
   const outputAudioContextRef = useRef<AudioContext | null>(null);
@@ -140,14 +135,12 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const retryCountRef = useRef(0);
   const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const frameIntervalRef = useRef<number | null>(null); // To manage video loop
+  const frameIntervalRef = useRef<number | null>(null);
   const isSocketOpenRef = useRef(false);
   
-  // Video Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Timer Effect
   useEffect(() => {
     let interval: any;
     if (connectionStatus === 'CONNECTED' && timeLeft > 0) {
@@ -155,7 +148,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
         setTimeLeft(prev => prev - 1);
       }, 1000);
     } else if (timeLeft === 0 && sessionMode === 'SESSION') {
-      endSession(true); // Force end if time runs out
+      endSession(true);
     }
     return () => clearInterval(interval);
   }, [connectionStatus, timeLeft, sessionMode]);
@@ -201,17 +194,14 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
   }, [cleanupAudio]);
 
   const handleStartSession = async (type: 'FULL' | 'TRIAL', isRetry = false) => {
-      // Logic for deducting coins
       if (!isGuest && !isRetry && onConsumeCoins) {
           setIsProcessingPayment(true);
           const cost = type === 'FULL' ? TEST_RATES.INTERVIEW_FULL : TEST_RATES.INTERVIEW_TRIAL;
           const success = await onConsumeCoins(cost);
           setIsProcessingPayment(false);
           
-          if (!success) return; // Stop if payment failed
+          if (!success) return; 
       }
-
-      // Proceed to start
       startBoardSession(type, isRetry);
   };
 
@@ -220,11 +210,8 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
       setSessionMode('SESSION');
       sessionModeRef.current = 'SESSION';
       retryCountRef.current = 0;
-      conversationHistoryRef.current = []; // Only clear history on fresh start
+      conversationHistoryRef.current = []; 
       
-      // VARIABLE DURATION LOGIC:
-      // Guest/Trial: 5 Minutes (300s) fixed
-      // Full: 30-40 Minutes
       const duration = (isGuest || type === 'TRIAL') ? 300 : Math.floor(Math.random() * (2400 - 1800 + 1)) + 1800;
       setTimeLeft(duration);
       setTotalDuration(duration);
@@ -237,24 +224,17 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
     await cleanupSession(); 
 
     try {
-      // 1. SETUP AUDIO CONTEXTS IMMEDIATELY (Before Async calls)
-      // Input: Try 16k, fallback to default if browser refuses
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       try {
         inputAudioContextRef.current = new AudioContextClass({ sampleRate: 16000 });
       } catch (e) {
         inputAudioContextRef.current = new AudioContextClass();
       }
-      
-      // Output: Use system default (Fix for 'No Voice' on mobile/safari)
       outputAudioContextRef.current = new AudioContextClass();
 
-      // Resume immediately to unlock audio on mobile
       await inputAudioContextRef.current.resume();
       await outputAudioContextRef.current.resume();
 
-      // 2. Request Media
-      // Request video with specific low-res constraints to save bandwidth but sufficient for AI analysis
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -270,7 +250,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
       });
       streamRef.current = stream;
       
-      // Connect stream to video element for self-view and capture
       if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().catch(e => console.error("Video play failed", e));
@@ -278,7 +257,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
       
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      // Dynamic System Instruction Generation
       const baseInstruction = `You are Col. Arjun Singh, President of 1 AFSB.
           CONTEXT: A rigorous, formal Personal Interview for the Indian Armed Forces.
           PIQ DATA: ${JSON.stringify(activePIQ)}.
@@ -324,12 +302,12 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         config: {
-          responseModalities: [Modality.AUDIO], // Audio Output
+          responseModalities: [Modality.AUDIO], 
           inputAudioTranscription: {}, 
-          outputAudioTranscription: {}, // ENABLED: Capture AI Speech for Transcript
+          outputAudioTranscription: {}, 
           systemInstruction: finalInstruction,
           speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } }, // Using Charon for deeper, authoritative tone
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } }, 
           },
         },
         callbacks: {
@@ -338,7 +316,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
             isSocketOpenRef.current = true;
             retryCountRef.current = 0; 
 
-            // 1. Audio Input Pipeline
             if (inputAudioContextRef.current && streamRef.current) {
               const source = inputAudioContextRef.current.createMediaStreamSource(streamRef.current);
               const scriptProcessor = inputAudioContextRef.current.createScriptProcessor(4096, 1, 1);
@@ -362,7 +339,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
               scriptProcessor.connect(inputAudioContextRef.current.destination);
             }
 
-            // 2. Video Input Pipeline (1 FPS for bandwidth/cost optimization)
             const FRAME_RATE = 0.2; 
             if (videoRef.current && canvasRef.current) {
                 frameIntervalRef.current = window.setInterval(() => {
@@ -373,14 +349,11 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
                     const ctx = canvasEl.getContext('2d');
                     if (!ctx) return;
 
-                    // Match capture resolution
                     canvasEl.width = videoEl.videoWidth;
                     canvasEl.height = videoEl.videoHeight;
                     
-                    // Draw video frame
                     ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
                     
-                    // Convert to Blob and Send
                     canvasEl.toBlob(async (blob) => {
                         if (blob && isSocketOpenRef.current && sessionPromiseRef.current) {
                             try {
@@ -394,31 +367,26 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
                                 console.warn("Frame capture error", e);
                             }
                         }
-                    }, 'image/jpeg', 0.6); // 0.6 Quality JPEG
+                    }, 'image/jpeg', 0.6); 
                 }, 1000 / FRAME_RATE);
             }
           },
           onmessage: async (message: LiveServerMessage) => {
-            // A. Handle User Input Transcription
             if (message.serverContent?.inputTranscription) {
               const text = message.serverContent.inputTranscription.text;
               currentTranscriptBufferRef.current += text;
             }
 
-            // B. Handle Model (AI) Output Transcription
             if (message.serverContent?.outputTranscription) {
               const text = message.serverContent.outputTranscription.text;
               currentAiTranscriptBufferRef.current += text;
             }
             
-            // C. Turn Completion (Commit transcripts to history)
             if (message.serverContent?.turnComplete) {
-               // Commit User Buffer
                if (currentTranscriptBufferRef.current.trim()) {
                  conversationHistoryRef.current.push(`Candidate: ${currentTranscriptBufferRef.current}`);
                  currentTranscriptBufferRef.current = "";
                }
-               // Commit AI Buffer
                if (currentAiTranscriptBufferRef.current.trim()) {
                  conversationHistoryRef.current.push(`IO: ${currentAiTranscriptBufferRef.current}`);
                  currentAiTranscriptBufferRef.current = "";
@@ -434,11 +402,9 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
 
             const audioData = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
             if (audioData && outputAudioContextRef.current) {
-              // Only set speaking if we have valid audio context
               setIsAiSpeaking(true);
               
               try {
-                // Decode 24k output into system rate (e.g. 48k)
                 const audioBuffer = await decodeAudioData(decode(audioData), outputAudioContextRef.current, 24000, 1);
                 const source = outputAudioContextRef.current.createBufferSource();
                 source.buffer = audioBuffer;
@@ -483,12 +449,11 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
     isSocketOpenRef.current = false;
     if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
     
-    // Faster retry for seamless feeling
     if (retryCountRef.current < 10) {
        const delay = 1000 + (retryCountRef.current * 500); 
        retryCountRef.current += 1;
        setConnectionStatus('RECONNECTING');
-       setTimeout(() => startBoardSession('FULL', true), delay); // Default to full context if reconnecting
+       setTimeout(() => startBoardSession('FULL', true), delay); 
     } else {
        setConnectionStatus('DISCONNECTED');
        setError("Network link unstable. Session terminated for security.");
@@ -497,7 +462,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
 
   const handleEndCallRequest = () => {
       const durationSeconds = totalDuration - timeLeft;
-      // If interview is less than 10 minutes (600 seconds)
       if (durationSeconds < 600 && !isGuest && totalDuration > 600) {
           setShowEarlyExitWarning(true);
       } else {
@@ -506,17 +470,14 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
   };
 
   const endSession = async (force = false) => {
-    // CRITICAL: Set intention to RESULT mode BEFORE cleanup to prevent auto-reconnect logic
     sessionModeRef.current = 'RESULT';
     setSessionMode('RESULT');
     setShowEarlyExitWarning(false);
     
-    // Flush any pending transcript that wasn't committed by turnComplete
     if (currentTranscriptBufferRef.current.trim()) {
        conversationHistoryRef.current.push(`Candidate (Last words): ${currentTranscriptBufferRef.current}`);
        currentTranscriptBufferRef.current = "";
     }
-    // Flush AI pending transcript
     if (currentAiTranscriptBufferRef.current.trim()) {
        conversationHistoryRef.current.push(`IO (Last words): ${currentAiTranscriptBufferRef.current}`);
        currentAiTranscriptBufferRef.current = "";
@@ -531,34 +492,38 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
         piq: activePIQ, 
         duration: totalDuration - timeLeft, 
         transcript: fullTranscript || "No verbal response captured.",
-        testType: 'Interview' // Ensure service knows this is an Interview
+        testType: 'Interview' 
       });
       setFinalAnalysis(results);
       if (onSave && !isGuest) {
-        // Await onSave to ensure data is written to DB/storage before UI allows exit
         await onSave(results);
       }
     } catch (e) {
       console.error(e);
-      // Fallback in case of critical failure
-      setFinalAnalysis({
+      // Fallback: Save RAW TRANSCRIPT so data is not lost
+      const fullTranscript = conversationHistoryRef.current.join("\n");
+      const fallbackResult = {
          score: 0,
          verdict: "Technical Failure",
-         recommendations: "Assessment could not be generated due to network issues or API failure. Your session has been archived.",
-         strengths: ["Determination"],
-         weaknesses: ["Technical Interruption"],
-         factorAnalysis: {
-            factor1_planning: "N/A",
-            factor2_social: "N/A",
-            factor3_effectiveness: "N/A",
-            factor4_dynamic: "N/A"
-         }
-      });
+         recommendations: "Assessment queued. Processing will resume when server is available.",
+         strengths: ["Persistence"],
+         weaknesses: ["Network Interruption"],
+         transcript: fullTranscript || "Audio capture error or silence.",
+         piq: activePIQ,
+         testType: 'Interview',
+         error: true
+      };
+      
+      setFinalAnalysis(fallbackResult);
+      if (onSave && !isGuest) {
+          await onSave(fallbackResult);
+      }
     } finally { 
       setIsAnalyzing(false); 
     }
   };
 
+  // ... (Rest of UI rendering remains unchanged) ...
   if (sessionMode === 'DASHBOARD') {
     return (
       <div className="max-w-4xl mx-auto py-6 md:py-10 animate-in fade-in duration-700">
@@ -614,10 +579,8 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-4 md:space-y-6 pb-32 md:pb-40">
-      {/* Hidden Canvas for Frame Capture */}
       <canvas ref={canvasRef} className="hidden" />
       
-      {/* Admin Skip Button */}
       {isAdmin && sessionMode === 'SESSION' && timeLeft > 0 && (
          <button 
              onClick={() => setTimeLeft(0)}
@@ -689,9 +652,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8 h-auto md:h-[55vh]">
-        {/* AVATAR & SELF VIEW */}
         <div className="xl:col-span-8 bg-slate-950 rounded-[2.5rem] md:rounded-[4rem] border-4 border-slate-900 relative overflow-hidden flex flex-col items-center justify-center shadow-2xl min-h-[400px]">
-           {/* Self View (PIP) */}
            <div className="absolute top-6 right-6 w-32 h-24 md:w-48 md:h-36 bg-black rounded-2xl overflow-hidden border-2 border-slate-700 shadow-xl z-30">
               <video 
                  ref={videoRef} 
@@ -702,7 +663,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
               <div className="absolute bottom-2 left-2 bg-green-600 w-2 h-2 rounded-full animate-pulse shadow-sm"></div>
            </div>
 
-           {/* IO AVATAR - REALISTIC IMAGE REPLACEMENT */}
            <div className={`relative z-10 transition-all duration-300 ${isAiSpeaking ? 'scale-105' : 'scale-100'}`}>
               <div className="relative w-48 h-48 md:w-72 md:h-72 lg:w-[320px] lg:h-[320px] rounded-[2.5rem] overflow-hidden border-4 border-slate-700 shadow-2xl bg-slate-800 flex items-center justify-center">
                   {!imgError ? (
@@ -718,19 +678,14 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
                         <span className="text-[10px] font-black uppercase tracking-widest">Video Feed</span>
                     </div>
                   )}
-                  
-                  {/* Realistic Video Call Overlay (Vignette) */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
                   
-                  {/* Speaking Indicator Badge (Realistic) */}
                   {isAiSpeaking && (
                       <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-blue-600/90 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md shadow-lg animate-pulse">
                         <Mic size={12} /> Speaking
                       </div>
                   )}
               </div>
-              
-              {/* Subtle Active Ring */}
               <div className={`absolute -inset-2 rounded-[2.8rem] border-2 border-blue-500/30 transition-all duration-500 ${isAiSpeaking ? 'opacity-100 scale-[1.02]' : 'opacity-0 scale-100'}`} />
            </div>
 
@@ -739,7 +694,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
              <p className="text-blue-500 font-black uppercase tracking-[0.4em] text-[8px] md:text-[10px] mt-2">President, 1 AFSB</p>
            </div>
            
-           {/* Waveform Background Effect - Subtle */}
            {isAiSpeaking && (
              <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-blue-900/10 to-transparent flex items-end justify-center gap-1 opacity-50">
                 {[...Array(20)].map((_, i) => (
@@ -749,7 +703,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
            )}
         </div>
 
-        {/* SIDEBAR INFO */}
         <div className="xl:col-span-4 flex flex-col gap-4 md:gap-6">
            <div className="flex-1 bg-white rounded-[2.5rem] md:rounded-[3.5rem] p-6 md:p-10 flex flex-col items-center justify-center text-center space-y-6 md:space-y-8 shadow-xl border-2 border-slate-50">
               <div className="w-16 h-16 md:w-20 md:h-20 bg-blue-50 rounded-3xl flex items-center justify-center text-blue-600"><FileText size={24} className="md:w-8 md:h-8" /></div>
@@ -774,7 +727,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
         </div>
       </div>
 
-      {/* CONTROLS - Fixed Bottom Bar */}
       <div className="fixed bottom-6 md:bottom-12 left-1/2 -translate-x-1/2 z-40 w-full px-4 md:px-0 md:w-auto flex justify-center">
         <div className="flex justify-center items-center gap-4 md:gap-6 bg-white/90 backdrop-blur-xl p-3 md:p-4 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-white/50 ring-1 ring-slate-200">
            <button 
@@ -794,7 +746,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
         </div>
       </div>
 
-      {/* EARLY EXIT WARNING MODAL */}
       {showEarlyExitWarning && (
         <div className="fixed inset-0 z-[250] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
            <div className="bg-white p-8 rounded-[2.5rem] max-w-sm w-full shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-200">
@@ -825,7 +776,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
         </div>
       )}
 
-      {/* ANALYSIS LOADER */}
       {isAnalyzing && (
         <div className="fixed inset-0 z-[200] bg-slate-950/95 flex flex-col items-center justify-center space-y-8 md:space-y-10 animate-in fade-in">
            <Loader2 className="w-20 h-20 md:w-40 md:h-40 text-blue-600 animate-spin" />
@@ -836,143 +786,162 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
       {/* RESULT MODAL */}
       {finalAnalysis && !isAnalyzing && (
         <div className="fixed inset-0 z-[200] bg-white overflow-y-auto p-6 md:p-12 animate-in zoom-in">
-           <div className="max-w-6xl mx-auto space-y-12 md:space-y-16 py-12 md:py-20">
-              <div className="flex flex-col md:flex-row justify-between items-end border-b pb-12 md:pb-16 border-slate-100 gap-8">
-                 <div className="space-y-4 md:space-y-6 text-center md:text-left w-full md:w-auto">
-                    <span className="bg-blue-600 text-white px-6 md:px-8 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Stage 2 Result</span>
-                    <h2 className="text-6xl md:text-8xl font-black text-slate-900 uppercase tracking-tighter leading-none">The <span className="text-blue-600">Verdict</span></h2>
-                 </div>
-                 <div className="bg-slate-50 p-8 md:p-12 rounded-[3rem] md:rounded-[4rem] border-2 border-slate-100 text-center shadow-inner w-full md:w-auto flex flex-col items-center">
-                    <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.4em] opacity-40 mb-4">Board Grade</p>
-                    <div className="text-8xl md:text-[10rem] font-black text-slate-900 leading-none">{finalAnalysis.score}</div>
-                    
-                    {/* SCORE EXPLANATION BUTTON */}
-                    <button 
-                      onClick={() => setShowScoreHelp(!showScoreHelp)}
-                      className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 transition-colors"
-                    >
-                       <HelpCircle size={14} /> Understand Score {showScoreHelp ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
-                    </button>
-                 </div>
-              </div>
+           {finalAnalysis.error ? (
+               <div className="max-w-2xl mx-auto py-20 text-center">
+                   <div className="bg-red-50 p-8 rounded-[3rem] border border-red-100 shadow-xl">
+                       <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                           <AlertTriangle size={32} className="animate-pulse" />
+                       </div>
+                       <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">Assessment Pending</h3>
+                       <p className="text-slate-600 font-medium leading-relaxed mb-8">
+                           {finalAnalysis.recommendations || "Server Busy. Your interview transcript has been saved safely."}
+                       </p>
+                       <div className="flex justify-center gap-4">
+                           <button onClick={() => window.location.reload()} className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all">
+                               Return to Dashboard
+                           </button>
+                       </div>
+                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-6">
+                           Check "Mission Logs" later to check status.
+                       </p>
+                   </div>
+               </div>
+           ) : (
+               <div className="max-w-6xl mx-auto space-y-12 md:space-y-16 py-12 md:py-20">
+                  {/* ... Existing Success Result UI ... */}
+                  <div className="flex flex-col md:flex-row justify-between items-end border-b pb-12 md:pb-16 border-slate-100 gap-8">
+                     <div className="space-y-4 md:space-y-6 text-center md:text-left w-full md:w-auto">
+                        <span className="bg-blue-600 text-white px-6 md:px-8 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Stage 2 Result</span>
+                        <h2 className="text-6xl md:text-8xl font-black text-slate-900 uppercase tracking-tighter leading-none">The <span className="text-blue-600">Verdict</span></h2>
+                     </div>
+                     <div className="bg-slate-50 p-8 md:p-12 rounded-[3rem] md:rounded-[4rem] border-2 border-slate-100 text-center shadow-inner w-full md:w-auto flex flex-col items-center">
+                        <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.4em] opacity-40 mb-4">Board Grade</p>
+                        <div className="text-8xl md:text-[10rem] font-black text-slate-900 leading-none">{finalAnalysis.score}</div>
+                        <button 
+                          onClick={() => setShowScoreHelp(!showScoreHelp)}
+                          className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 transition-colors"
+                        >
+                           <HelpCircle size={14} /> Understand Score {showScoreHelp ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                        </button>
+                     </div>
+                  </div>
 
-              {/* SCORE INTERPRETATION GUIDE */}
-              {showScoreHelp && (
-                 <div className="bg-blue-50 border border-blue-100 p-6 md:p-8 rounded-[2rem] animate-in slide-in-from-top-4">
-                    <h4 className="text-sm font-black uppercase tracking-widest text-blue-800 mb-4">Board Grading Standard</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                       <div className="bg-white p-4 rounded-xl border-l-4 border-green-500 shadow-sm">
-                          <span className="block text-xl font-black text-slate-900">9.0 - 10</span>
-                          <span className="text-[10px] font-bold uppercase text-green-600 tracking-wider">Outstanding</span>
-                          <p className="text-[10px] text-slate-500 mt-1">Exceptional OLQ demonstration. Certain recommendation.</p>
-                       </div>
-                       <div className="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm">
-                          <span className="block text-xl font-black text-slate-900">7.0 - 8.9</span>
-                          <span className="text-[10px] font-bold uppercase text-blue-600 tracking-wider">High Potential</span>
-                          <p className="text-[10px] text-slate-500 mt-1">Clear pass. Good consistency in thought and expression.</p>
-                       </div>
-                       <div className="bg-white p-4 rounded-xl border-l-4 border-yellow-500 shadow-sm">
-                          <span className="block text-xl font-black text-slate-900">5.0 - 6.9</span>
-                          <span className="text-[10px] font-bold uppercase text-yellow-600 tracking-wider">Borderline</span>
-                          <p className="text-[10px] text-slate-500 mt-1">Average. Needs significant polish in planning or confidence.</p>
-                       </div>
-                       <div className="bg-white p-4 rounded-xl border-l-4 border-red-500 shadow-sm">
-                          <span className="block text-xl font-black text-slate-900">&lt; 5.0</span>
-                          <span className="text-[10px] font-bold uppercase text-red-600 tracking-wider">Below Average</span>
-                          <p className="text-[10px] text-slate-500 mt-1">Foundation weak. Requires introspection and practice.</p>
-                       </div>
-                    </div>
-                 </div>
-              )}
-              
-              <div className="bg-slate-50 p-6 md:p-16 rounded-[2.5rem] md:rounded-[4rem] border-2 border-white shadow-xl space-y-8 md:space-y-10">
-                 <p className="text-slate-600 font-medium italic text-lg md:text-2xl leading-relaxed">"{finalAnalysis.recommendations}"</p>
-                 
-                 {finalAnalysis.bodyLanguage && (
-                     <div className="bg-white p-8 rounded-[2rem] border-l-4 border-yellow-400 shadow-sm space-y-4">
-                        <div className="flex items-center gap-3 mb-2">
-                           <Eye className="text-yellow-500" size={24} />
-                           <h4 className="text-lg font-black uppercase tracking-tighter text-slate-900">Visual Observations</h4>
-                        </div>
-                        <div className="grid md:grid-cols-3 gap-6">
-                           <div>
-                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Posture</p>
-                              <p className="text-sm font-bold text-slate-700">{finalAnalysis.bodyLanguage.posture || "No remarks"}</p>
+                  {showScoreHelp && (
+                     <div className="bg-blue-50 border border-blue-100 p-6 md:p-8 rounded-[2rem] animate-in slide-in-from-top-4">
+                        <h4 className="text-sm font-black uppercase tracking-widest text-blue-800 mb-4">Board Grading Standard</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                           <div className="bg-white p-4 rounded-xl border-l-4 border-green-500 shadow-sm">
+                              <span className="block text-xl font-black text-slate-900">9.0 - 10</span>
+                              <span className="text-[10px] font-bold uppercase text-green-600 tracking-wider">Outstanding</span>
+                              <p className="text-[10px] text-slate-500 mt-1">Exceptional OLQ demonstration.</p>
                            </div>
-                           <div>
-                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Eye Contact</p>
-                              <p className="text-sm font-bold text-slate-700">{finalAnalysis.bodyLanguage.eyeContact || "No remarks"}</p>
+                           <div className="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm">
+                              <span className="block text-xl font-black text-slate-900">7.0 - 8.9</span>
+                              <span className="text-[10px] font-bold uppercase text-blue-600 tracking-wider">High Potential</span>
+                              <p className="text-[10px] text-slate-500 mt-1">Clear pass. Good consistency.</p>
                            </div>
-                           <div>
-                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Demeanor</p>
-                              <p className="text-sm font-bold text-slate-700">{finalAnalysis.bodyLanguage.gestures || "No remarks"}</p>
+                           <div className="bg-white p-4 rounded-xl border-l-4 border-yellow-500 shadow-sm">
+                              <span className="block text-xl font-black text-slate-900">5.0 - 6.9</span>
+                              <span className="text-[10px] font-bold uppercase text-yellow-600 tracking-wider">Borderline</span>
+                              <p className="text-[10px] text-slate-500 mt-1">Average. Needs polish.</p>
+                           </div>
+                           <div className="bg-white p-4 rounded-xl border-l-4 border-red-500 shadow-sm">
+                              <span className="block text-xl font-black text-slate-900">&lt; 5.0</span>
+                              <span className="text-[10px] font-bold uppercase text-red-600 tracking-wider">Below Average</span>
+                              <p className="text-[10px] text-slate-500 mt-1">Weak foundation.</p>
                            </div>
                         </div>
                      </div>
-                 )}
+                  )}
+                  
+                  <div className="bg-slate-50 p-6 md:p-16 rounded-[2.5rem] md:rounded-[4rem] border-2 border-white shadow-xl space-y-8 md:space-y-10">
+                     <p className="text-slate-600 font-medium italic text-lg md:text-2xl leading-relaxed">"{finalAnalysis.recommendations}"</p>
+                     
+                     {finalAnalysis.bodyLanguage && (
+                         <div className="bg-white p-8 rounded-[2rem] border-l-4 border-yellow-400 shadow-sm space-y-4">
+                            <div className="flex items-center gap-3 mb-2">
+                               <Eye className="text-yellow-500" size={24} />
+                               <h4 className="text-lg font-black uppercase tracking-tighter text-slate-900">Visual Observations</h4>
+                            </div>
+                            <div className="grid md:grid-cols-3 gap-6">
+                               <div>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Posture</p>
+                                  <p className="text-sm font-bold text-slate-700">{finalAnalysis.bodyLanguage.posture || "No remarks"}</p>
+                               </div>
+                               <div>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Eye Contact</p>
+                                  <p className="text-sm font-bold text-slate-700">{finalAnalysis.bodyLanguage.eyeContact || "No remarks"}</p>
+                               </div>
+                               <div>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Demeanor</p>
+                                  <p className="text-sm font-bold text-slate-700">{finalAnalysis.bodyLanguage.gestures || "No remarks"}</p>
+                               </div>
+                            </div>
+                         </div>
+                     )}
 
-                 {finalAnalysis.factorAnalysis && (
-                   <div className="grid md:grid-cols-2 gap-6 md:gap-8 mb-8">
-                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2 text-blue-600">
-                          <Brain size={18} />
-                          <h5 className="font-black uppercase text-xs tracking-widest">Factor I: Planning</h5>
-                        </div>
-                        <p className="text-sm font-medium text-slate-600">{finalAnalysis.factorAnalysis.factor1_planning}</p>
-                      </div>
-                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2 text-purple-600">
-                          <Users size={18} />
-                          <h5 className="font-black uppercase text-xs tracking-widest">Factor II: Social</h5>
-                        </div>
-                        <p className="text-sm font-medium text-slate-600">{finalAnalysis.factorAnalysis.factor2_social}</p>
-                      </div>
-                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2 text-green-600">
-                          <Zap size={18} />
-                          <h5 className="font-black uppercase text-xs tracking-widest">Factor III: Effectiveness</h5>
-                        </div>
-                        <p className="text-sm font-medium text-slate-600">{finalAnalysis.factorAnalysis.factor3_effectiveness}</p>
-                      </div>
-                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2 text-red-600">
-                          <ShieldCheck size={18} />
-                          <h5 className="font-black uppercase text-xs tracking-widest">Factor IV: Dynamic</h5>
-                        </div>
-                        <p className="text-sm font-medium text-slate-600">{finalAnalysis.factorAnalysis.factor4_dynamic}</p>
-                      </div>
-                   </div>
-                 )}
+                     {finalAnalysis.factorAnalysis && (
+                       <div className="grid md:grid-cols-2 gap-6 md:gap-8 mb-8">
+                          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-3 mb-2 text-blue-600">
+                              <Brain size={18} />
+                              <h5 className="font-black uppercase text-xs tracking-widest">Factor I: Planning</h5>
+                            </div>
+                            <p className="text-sm font-medium text-slate-600">{finalAnalysis.factorAnalysis.factor1_planning}</p>
+                          </div>
+                          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-3 mb-2 text-purple-600">
+                              <Users size={18} />
+                              <h5 className="font-black uppercase text-xs tracking-widest">Factor II: Social</h5>
+                            </div>
+                            <p className="text-sm font-medium text-slate-600">{finalAnalysis.factorAnalysis.factor2_social}</p>
+                          </div>
+                          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-3 mb-2 text-green-600">
+                              <Zap size={18} />
+                              <h5 className="font-black uppercase text-xs tracking-widest">Factor III: Effectiveness</h5>
+                            </div>
+                            <p className="text-sm font-medium text-slate-600">{finalAnalysis.factorAnalysis.factor3_effectiveness}</p>
+                          </div>
+                          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-3 mb-2 text-red-600">
+                              <ShieldCheck size={18} />
+                              <h5 className="font-black uppercase text-xs tracking-widest">Factor IV: Dynamic</h5>
+                            </div>
+                            <p className="text-sm font-medium text-slate-600">{finalAnalysis.factorAnalysis.factor4_dynamic}</p>
+                          </div>
+                       </div>
+                     )}
 
-                 <div className="grid md:grid-cols-2 gap-6 md:gap-10">
-                    <div className="p-8 md:p-10 bg-blue-50 rounded-3xl border border-blue-100">
-                       <p className="text-blue-600 font-black uppercase text-[10px] tracking-[0.5em] mb-6 md:mb-8 border-b pb-4 border-blue-200">Key Strengths</p>
-                       <ul className="space-y-4 text-slate-700 text-sm font-bold">
-                          {finalAnalysis.strengths?.map((s:any, i:any) => <li key={i} className="flex gap-4"><CheckCircle className="text-green-500 shrink-0" size={18} /> {s}</li>)}
-                       </ul>
-                    </div>
-                    <div className="p-8 md:p-10 bg-red-50 rounded-3xl border border-red-100">
-                       <p className="text-red-600 font-black uppercase text-[10px] tracking-[0.5em] mb-6 md:mb-8 border-b pb-4 border-red-200">OLQ Gaps</p>
-                       <ul className="space-y-4 text-slate-700 text-sm font-bold">
-                          {finalAnalysis.weaknesses?.map((w:any, i:any) => <li key={i} className="flex gap-4"><AlertCircle className="text-red-500 shrink-0" size={18} /> {w}</li>)}
-                       </ul>
-                    </div>
-                 </div>
-              </div>
-              
-              {/* FEEDBACK INTEGRATION */}
-              {userId && (
-                  <SessionFeedback testType="Interview" userId={userId} />
-              )}
+                     <div className="grid md:grid-cols-2 gap-6 md:gap-10">
+                        <div className="p-8 md:p-10 bg-blue-50 rounded-3xl border border-blue-100">
+                           <p className="text-blue-600 font-black uppercase text-[10px] tracking-[0.5em] mb-6 md:mb-8 border-b pb-4 border-blue-200">Key Strengths</p>
+                           <ul className="space-y-4 text-slate-700 text-sm font-bold">
+                              {finalAnalysis.strengths?.map((s:any, i:any) => <li key={i} className="flex gap-4"><CheckCircle className="text-green-500 shrink-0" size={18} /> {s}</li>)}
+                           </ul>
+                        </div>
+                        <div className="p-8 md:p-10 bg-red-50 rounded-3xl border border-red-100">
+                           <p className="text-red-600 font-black uppercase text-[10px] tracking-[0.5em] mb-6 md:mb-8 border-b pb-4 border-red-200">OLQ Gaps</p>
+                           <ul className="space-y-4 text-slate-700 text-sm font-bold">
+                              {finalAnalysis.weaknesses?.map((w:any, i:any) => <li key={i} className="flex gap-4"><AlertCircle className="text-red-500 shrink-0" size={18} /> {w}</li>)}
+                           </ul>
+                        </div>
+                     </div>
+                  </div>
+                  
+                  {userId && (
+                      <SessionFeedback testType="Interview" userId={userId} />
+                  )}
 
-              {isGuest ? (
-                  <button onClick={onLoginRedirect} className="w-full py-6 md:py-8 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all hover:bg-yellow-300 flex items-center justify-center gap-3">
-                      <LogIn size={16} /> Sign Up to Save & Continue
-                  </button>
-              ) : (
-                  <button onClick={() => window.location.reload()} className="w-full py-6 md:py-8 bg-slate-900 hover:bg-black text-white rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all">Archive Dossier & Exit</button>
-              )}
-           </div>
+                  {isGuest ? (
+                      <button onClick={onLoginRedirect} className="w-full py-6 md:py-8 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all hover:bg-yellow-300 flex items-center justify-center gap-3">
+                          <LogIn size={16} /> Sign Up to Save & Continue
+                      </button>
+                  ) : (
+                      <button onClick={() => window.location.reload()} className="w-full py-6 md:py-8 bg-slate-900 hover:bg-black text-white rounded-full font-black uppercase tracking-widest text-xs shadow-2xl transition-all">Archive Dossier & Exit</button>
+                  )}
+               </div>
+           )}
         </div>
       )}
     </div>

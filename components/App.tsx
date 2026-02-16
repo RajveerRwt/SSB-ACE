@@ -18,9 +18,10 @@ import DailyPractice from './DailyPractice';
 import ResourceCenter from './ResourceCenter';
 import LecturetteTest from './LecturetteTest';
 import Footer from './Footer';
+import ReportModal from './ReportModal';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Eye } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // Helper Component for Progress Ring
@@ -64,8 +65,9 @@ const Dashboard: React.FC<{
   user: string,
   onOpenPayment: () => void,
   subscription: UserSubscription | null,
-  onShowGuestWarning: () => void
-}> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user, onOpenPayment, subscription, onShowGuestWarning }) => {
+  onShowGuestWarning: () => void,
+  onViewReport: (item: any) => void
+}> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user, onOpenPayment, subscription, onShowGuestWarning, onViewReport }) => {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -328,9 +330,18 @@ const Dashboard: React.FC<{
                                         <p className="text-[9px] text-slate-400 font-bold">{new Date(h.timestamp).toLocaleDateString()}</p>
                                     </div>
                                     </div>
-                                    <div className="text-right flex md:block w-full md:w-auto justify-between items-center">
-                                    <p className="text-xs font-black text-slate-900">Score: {h.score}</p>
-                                    <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Logged</p>
+                                    <div className="flex items-center gap-4 w-full md:w-auto justify-between">
+                                        <div className="text-right">
+                                            <span className="block text-lg font-black text-slate-900">{h.score}</span>
+                                            <span className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Score</span>
+                                        </div>
+                                        <button 
+                                            onClick={() => onViewReport(h)}
+                                            className="p-2 bg-white border border-slate-200 rounded-xl hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all text-slate-500"
+                                            title="View Full Report"
+                                        >
+                                            <Eye size={16} />
+                                        </button>
                                     </div>
                                 </div>
                             ))
@@ -485,7 +496,7 @@ const App: React.FC = () => {
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentOpen, setPaymentOpen] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<any>(null);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -509,8 +520,6 @@ const App: React.FC = () => {
       setUserEmail(u.email || '');
       getUserData(u.id).then((d: any) => d && setPiqData(d));
       getUserSubscription(u.id).then((sub: any) => setSubscription(sub));
-      const hasSeenWelcome = localStorage.getItem(`ssb_welcome_seen_${u.id}`);
-      if (!hasSeenWelcome) setShowWelcome(true);
   };
 
   const handleLogin = (uid: string, email?: string) => {
@@ -538,7 +547,7 @@ const App: React.FC = () => {
 
      // 2. COIN CHECK (for generic test types)
      if (user && params?.cost > 0) {
-         const { allowed, balance, shortfall } = await checkBalance(user, params.cost);
+         const { allowed, balance } = await checkBalance(user, params.cost);
          if (!allowed) {
              const proceed = window.confirm(`Insufficient Coins!\nRequired: ${params.cost}\nAvailable: ${balance}\n\nDo you want to add coins now?`);
              if (proceed) setPaymentOpen(true);
@@ -610,14 +619,14 @@ const App: React.FC = () => {
       case TestType.CONTACT: return <ContactForm piqData={piqData || undefined} />;
       case TestType.STAGES: return <SSBStages />;
       case TestType.AI_BOT: return <SSBBot />;
-      case TestType.ADMIN: return isUserAdmin(userEmail) ? <AdminPanel /> : <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} />;
+      case TestType.ADMIN: return isUserAdmin(userEmail) ? <AdminPanel /> : <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} onViewReport={setSelectedReport} />;
       case TestType.TERMS: case TestType.PRIVACY: case TestType.REFUND: return <LegalPages type={activeTest} onBack={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.GUIDE: return <HowToUse onNavigate={navigateTo} />;
       case TestType.CURRENT_AFFAIRS: return <CurrentAffairs />;
       case TestType.DAILY_PRACTICE: return <DailyPractice onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.RESOURCES: return <ResourceCenter />;
       case TestType.LECTURETTE: return <LecturetteTest onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      default: return <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} />;
+      default: return <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} onViewReport={setSelectedReport} />;
     }
   };
 
@@ -634,13 +643,24 @@ const App: React.FC = () => {
       onOpenPayment={() => setPaymentOpen(true)}
     >
       {renderContent()}
+      
+      {/* GLOBAL MODALS */}
       {user && (
-        <PaymentModal 
-            userId={user} 
-            isOpen={isPaymentOpen} 
-            onClose={() => setPaymentOpen(false)} 
-            onSuccess={() => { getUserSubscription(user).then((sub: any) => setSubscription(sub)); }}
-        />
+        <>
+            <PaymentModal 
+                userId={user} 
+                isOpen={isPaymentOpen} 
+                onClose={() => setPaymentOpen(false)} 
+                onSuccess={() => { getUserSubscription(user).then((sub: any) => setSubscription(sub)); }}
+            />
+            
+            <ReportModal 
+                isOpen={!!selectedReport}
+                onClose={() => setSelectedReport(null)}
+                data={selectedReport?.result || {}}
+                testType={selectedReport?.type || "Test Report"}
+            />
+        </>
       )}
     </Layout>
   );

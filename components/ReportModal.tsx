@@ -1,0 +1,214 @@
+import React, { useState, useEffect } from 'react';
+import { X, FileText, CheckCircle, AlertTriangle, Activity, Brain, Target, Mic, Download, Loader2, RefreshCw } from 'lucide-react';
+import { evaluatePerformance } from '../services/geminiService';
+import { updateTestAttempt } from '../services/supabaseService';
+
+interface ReportModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  data: any;
+  testType: string;
+}
+
+const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testType }) => {
+  const [localData, setLocalData] = useState(data);
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  useEffect(() => {
+      setLocalData(data);
+  }, [data]);
+
+  if (!isOpen || !localData) return null;
+
+  const result = localData.result_data || localData; 
+  const isError = result.score === 0 && (result.verdict === "Technical Failure" || result.error);
+
+  // Auto-Retry on Open if Error State
+  useEffect(() => {
+      if (isOpen && isError && !isRetrying) {
+          attemptRetry();
+      }
+  }, [isOpen]);
+
+  const attemptRetry = async () => {
+      if (isRetrying) return;
+      setIsRetrying(true);
+      try {
+          // Re-evaluate using saved raw inputs
+          const newResult = await evaluatePerformance(testType, result);
+          
+          if (newResult && newResult.score > 0) {
+              // Merge inputs back to preserve them
+              const merged = { ...result, ...newResult, error: false };
+              
+              // Update DB
+              if (localData.id) {
+                  await updateTestAttempt(localData.id, merged);
+              }
+              
+              // Update View
+              setLocalData({ ...localData, result_data: merged, score: merged.score });
+          }
+      } catch (e) {
+          console.log("Retry failed, still pending");
+      } finally {
+          setIsRetrying(false);
+      }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[300] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+        
+        {/* Header */}
+        <div className={`p-6 md:p-8 flex justify-between items-center shrink-0 ${isError ? 'bg-red-50' : 'bg-slate-50'}`}>
+           <div className="flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${isError ? 'bg-red-100 text-red-600' : 'bg-white text-blue-600'}`}>
+                 <FileText size={24} />
+              </div>
+              <div>
+                 <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Mission Report</h3>
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{testType} • {new Date(localData.created_at || Date.now()).toLocaleDateString()}</p>
+              </div>
+           </div>
+           <button onClick={onClose} className="p-2 bg-white hover:bg-slate-200 rounded-full transition-colors text-slate-500">
+             <X size={20} />
+           </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar space-y-8">
+            
+            {/* Verdict Banner */}
+            <div className={`p-6 rounded-[2rem] border-2 ${isError ? 'bg-yellow-50 border-yellow-200' : 'bg-slate-900 text-white border-slate-800'} flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden`}>
+                {isError && isRetrying && (
+                    <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center z-10">
+                        <Loader2 className="animate-spin text-blue-600" size={32} />
+                    </div>
+                )}
+                
+                <div className="space-y-2 text-center md:text-left relative z-0">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isError ? 'bg-red-200 text-red-800' : 'bg-yellow-400 text-black'}`}>
+                        {isError ? 'Pending Analysis' : 'Assessment Status'}
+                    </span>
+                    <h2 className={`text-3xl md:text-4xl font-black uppercase tracking-tighter ${isError ? 'text-slate-900' : 'text-white'}`}>
+                        {isError ? 'In Queue' : `Score: ${result.score}/10`}
+                    </h2>
+                    <p className={`text-sm font-medium ${isError ? 'text-slate-600' : 'text-slate-400'}`}>
+                        {isError ? "Assessment generation in progress. Please wait..." : (result.verdict || "Assessment Complete")}
+                    </p>
+                </div>
+                {!isError && (
+                    <div className="flex gap-4">
+                       <div className="text-center">
+                          <Activity size={24} className="mx-auto mb-1 text-green-400" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Performance</span>
+                       </div>
+                    </div>
+                )}
+                {isError && !isRetrying && (
+                    <button 
+                        onClick={attemptRetry}
+                        className="px-6 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 z-10"
+                    >
+                        <RefreshCw size={14} /> Retry Generation
+                    </button>
+                )}
+            </div>
+
+            {/* Analysis Content (If Available) */}
+            {!isError && result.recommendations && (
+                <div className="space-y-6">
+                    <div className="bg-blue-50 p-6 rounded-[2rem] border border-blue-100">
+                        <h4 className="text-blue-800 font-black uppercase text-xs tracking-widest mb-3">Psychologist's Remarks</h4>
+                        <p className="text-slate-700 font-medium italic leading-relaxed">"{result.recommendations}"</p>
+                    </div>
+                    
+                    <div className="grid md:grid-cols-2 gap-6">
+                        <div className="p-6 rounded-[2rem] border border-green-100 bg-green-50/50">
+                            <h4 className="text-green-700 font-black uppercase text-xs tracking-widest mb-4 flex items-center gap-2"><CheckCircle size={14}/> Strengths</h4>
+                            <ul className="space-y-2">
+                                {result.strengths?.map((s: string, i: number) => (
+                                    <li key={i} className="text-xs font-bold text-slate-700 flex gap-2">• {s}</li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div className="p-6 rounded-[2rem] border border-red-100 bg-red-50/50">
+                            <h4 className="text-red-700 font-black uppercase text-xs tracking-widest mb-4 flex items-center gap-2"><AlertTriangle size={14}/> Improvements</h4>
+                            <ul className="space-y-2">
+                                {result.weaknesses?.map((w: string, i: number) => (
+                                    <li key={i} className="text-xs font-bold text-slate-700 flex gap-2">• {w}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* USER INPUTS (Raw Data) - Always Show */}
+            <div className="border-t border-slate-100 pt-8 space-y-6">
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                    <Target size={20} className="text-slate-400"/> Your Dossier Inputs
+                </h3>
+
+                {/* PPDT / TAT Inputs */}
+                {(testType.includes('PPDT') || testType.includes('TAT')) && (
+                    <div className="space-y-6">
+                        {/* Single PPDT Story */}
+                        {result.story && (
+                            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Written Story</span>
+                                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{result.story}</p>
+                            </div>
+                        )}
+                        {/* TAT Stories */}
+                        {result.tatPairs && result.tatPairs.map((pair: any, i: number) => (
+                            <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Story {pair.storyIndex}</span>
+                                <div className="flex gap-4">
+                                    {pair.userStoryImage && (
+                                        <img src={`data:image/jpeg;base64,${pair.userStoryImage}`} className="w-24 h-24 object-cover rounded-xl border border-slate-100" />
+                                    )}
+                                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed flex-1">
+                                        {pair.userStoryText || "Handwritten response uploaded."}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* WAT / SRT Inputs */}
+                {(testType.includes('WAT') || testType.includes('SRT')) && (
+                    <div className="grid grid-cols-1 gap-3">
+                        {(result.watResponses || result.srtResponses)?.map((item: any, i: number) => (
+                            <div key={i} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex gap-4">
+                                <span className="text-xs font-black text-slate-400 w-6">{(i+1).toString().padStart(2, '0')}</span>
+                                <div className="flex-1">
+                                    <p className="text-xs font-bold text-slate-900 mb-1">{item.word || item.situation}</p>
+                                    <p className="text-xs text-blue-700 font-medium">{item.response || "No response"}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Interview Transcript */}
+                {testType.includes('Interview') && result.transcript && (
+                    <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-4">Transcript Log</span>
+                        <div className="space-y-4 text-xs font-mono text-slate-700 max-h-60 overflow-y-auto custom-scrollbar">
+                            {result.transcript.split('\n').map((line: string, i: number) => (
+                                <p key={i} className={line.startsWith('IO:') ? 'text-red-600 font-bold' : 'text-blue-700'}>{line}</p>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ReportModal;
