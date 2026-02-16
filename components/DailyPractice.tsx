@@ -111,22 +111,30 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       await toggleLike(subId);
   };
 
-  // Name Resolver Helper
+  /**
+   * Enhanced Name Resolver
+   * Tries Profile -> Metadata -> Session -> Default
+   */
   const getDisplayName = (sub: any) => {
-      // 1. Try Joined Profile
-      if (sub.aspirants?.full_name) return sub.aspirants.full_name;
-      
-      // 2. Try Session Metadata (Only works for the current user)
-      if (user && sub.user_id === user.id && user.user_metadata?.full_name) {
-          return user.user_metadata.full_name;
+      // 1. Check direct profile field
+      const profile = sub.aspirants;
+      if (profile) {
+          const name = profile.full_name || profile.name;
+          if (name && name !== 'Cadet') return name;
       }
       
-      // 3. Check for array structure (Supabase join quirk)
-      if (Array.isArray(sub.aspirants) && sub.aspirants[0]?.full_name) {
-          return sub.aspirants[0].full_name;
+      // 2. Check current session if it's the current user
+      if (user && sub.user_id === user.id) {
+          const metaName = user.user_metadata?.full_name || user.user_metadata?.name;
+          if (metaName) return metaName;
       }
       
-      // 4. Default
+      // 3. Check for array quirk
+      if (Array.isArray(profile) && profile.length > 0) {
+          const arrName = profile[0].full_name || profile[0].name;
+          if (arrName) return arrName;
+      }
+      
       return 'Cadet';
   };
 
@@ -134,7 +142,10 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       const badges = [];
       if (sub.likes_count >= 5) badges.push({ icon: Star, color: 'text-yellow-400', label: 'Popular' });
       if (sub.ppdt_story && sub.ppdt_story.length > 100) badges.push({ icon: PenTool, color: 'text-purple-400', label: 'Detailed' });
-      const streak = sub.aspirants?.streak_count || (Array.isArray(sub.aspirants) ? sub.aspirants[0]?.streak_count : 0);
+      
+      const profile = sub.aspirants;
+      const streak = Array.isArray(profile) ? profile[0]?.streak_count : profile?.streak_count;
+      
       if (streak > 3) badges.push({ icon: Flame, color: 'text-orange-500', label: 'Consistent' });
       if (submissionIndex === 0) badges.push({ icon: Trophy, color: 'text-yellow-500', label: 'Top Cadet' });
       if (submissionIndex === 1) badges.push({ icon: Medal, color: 'text-slate-400', label: 'Runner Up' });
@@ -309,7 +320,8 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
               <div className="grid grid-cols-1 gap-6">
                   {submissions.map((sub, idx) => {
                       const displayName = getDisplayName(sub);
-                      const streak = sub.aspirants?.streak_count || (Array.isArray(sub.aspirants) ? sub.aspirants[0]?.streak_count : 0);
+                      const profile = sub.aspirants;
+                      const streak = Array.isArray(profile) ? profile[0]?.streak_count : profile?.streak_count;
 
                       return (
                       <div key={sub.id} className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-md hover:shadow-xl transition-all relative overflow-hidden">

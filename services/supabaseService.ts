@@ -172,13 +172,15 @@ export const isUserAdmin = (email: string | null | undefined) => {
 export const syncUserProfile = async (user: any) => {
   if (!user) return;
   
+  const fullName = user.user_metadata?.full_name || user.user_metadata?.name || 'Cadet';
+
   // Ensure user profile exists
   const { error } = await supabase
     .from('aspirants')
     .upsert({ 
         user_id: user.id, 
         email: user.email,
-        full_name: user.user_metadata?.full_name,
+        full_name: fullName,
         last_active: new Date().toISOString()
     }, { onConflict: 'user_id' });
     
@@ -490,7 +492,7 @@ export const uploadPPDTScenario = async (file: File, description: string) => { c
 export const deletePPDTScenario = async (id: string, url: string) => { const fileName = url.split('/').pop(); if (fileName) await supabase.storage.from('scenarios').remove([fileName]); await supabase.from('ppdt_scenarios').delete().eq('id', id); };
 export const getTATScenarios = async () => { const { data } = await supabase.from('tat_scenarios').select('*').order('set_tag'); return data || []; };
 export const uploadTATScenario = async (file: File, description: string, setTag: string) => { const fileName = `tat-${Date.now()}-${file.name}`; await supabase.storage.from('scenarios').upload(fileName, file); const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName); await supabase.from('tat_scenarios').insert({ image_url: publicUrl, description, set_tag: setTag }); };
-export const deleteTATScenario = async (id: string, url: string) => { const fileName = url.split('/').pop(); if (fileName) await supabase.storage.from('scenarios').remove([fileName]); await supabase.from('tat_scenarios').delete().eq('id', id); };
+export const deleteTATScenario = async (id: string, url: string) => { const fileName = url.split('/').pop(); if (fileName) await supabase.storage.from('scenarios').remove([fileName]); await supabase.from('ppdt_scenarios').delete().eq('id', id); };
 export const getWATWords = async () => { const { data } = await supabase.from('wat_words').select('*').order('set_tag'); return data || []; };
 export const uploadWATWords = async (words: string[], setTag: string) => { const payload = words.map(w => ({ word: w, set_tag: setTag })); await supabase.from('wat_words').insert(payload); };
 export const deleteWATWord = async (id: string) => { await supabase.from('wat_words').delete().eq('id', id); };
@@ -537,46 +539,40 @@ export const submitDailyEntry = async (challengeId: string, oirAnswer: string, w
 };
 
 /**
- * Robust fetch for daily submissions.
- * Manually fetches and merges user profiles if the standard join fails.
+ * Hyper-robust fetch for daily submissions.
+ * Manually fetches and merges user profiles from both aspirants and user_subscriptions if standard joins fail.
  */
 export const getDailySubmissions = async (challengeId: string) => {
-  // 1. Try Standard Join
-  const { data, error } = await supabase
-    .from('daily_submissions')
-    .select('*, aspirants(full_name, streak_count)') 
-    .eq('challenge_id', challengeId)
-    .order('created_at', { ascending: false });
-
-  // Check if join returned profiles correctly
-  if (!error && data && data.length > 0 && data[0].aspirants) {
-      return data;
-  }
-  
-  // 2. Fallback: Manual Join (Fetch submissions then fetch profiles)
-  const { data: rawData, error: rawError } = await supabase
+  // 1. Fetch Submissions Raw
+  const { data: submissions, error: subError } = await supabase
     .from('daily_submissions')
     .select('*')
     .eq('challenge_id', challengeId)
     .order('created_at', { ascending: false });
-    
-  if (rawError || !rawData || rawData.length === 0) return [];
 
-  // Extract unique user IDs
-  const userIds = [...new Set(rawData.map(r => r.user_id))];
+  if (subError || !submissions || submissions.length === 0) return [];
+
+  // 2. Extract unique user IDs
+  const userIds = [...new Set(submissions.map(r => r.user_id))];
   
-  // Fetch profiles for all these users
+  // 3. Manually fetch profiles for these users
   const { data: profiles } = await supabase
       .from('aspirants')
       .select('user_id, full_name, streak_count')
       .in('user_id', userIds);
       
-  // Merge profiles back into submissions
-  return rawData.map(sub => {
+  // 4. Merge Profiles back into submissions
+  return submissions.map(sub => {
+      // Find name in profile table
       const profile = profiles?.find(p => p.user_id === sub.user_id);
+      
       return {
           ...sub,
-          aspirants: profile || { full_name: 'Cadet', streak_count: 0 }
+          // Explicitly structure aspirants to match component expectations
+          aspirants: profile || { 
+              full_name: 'Cadet', 
+              streak_count: 0 
+          }
       };
   });
 };
