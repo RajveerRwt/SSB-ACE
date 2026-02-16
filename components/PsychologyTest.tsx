@@ -28,6 +28,37 @@ enum PsychologyPhase {
   COMPLETED
 }
 
+const WAT_TIPS = [
+  "Avoid 'I', 'Me', 'My'. Make sentences universal.",
+  "Showcase OLQs: Courage, Cooperation, Responsibility.",
+  "Avoid giving advice (should/could/must). Observation > Instruction.",
+  "Turn negative words into positive outcomes.",
+  "Spontaneity is your best friend. Don't overthink.",
+  "Keep sentences grammatical but concise."
+];
+
+const SRT_TIPS = [
+  "Action is key. Do not just plan, execute.",
+  "Prioritize: Save Life > Protect Property > Social Duty.",
+  "Be the hero of your own situation. Don't rely on others.",
+  "Keep responses telegraphic (short & meaningful).",
+  "Address the root cause, not just the symptoms.",
+  "Maintain a calm and composed mindset in crisis."
+];
+
+const TAT_TIPS = [
+    "Identify the Hero clearly.",
+    "Ensure the story has a Past, Present, and Future.",
+    "The outcome should be positive and realistic.",
+    "Reflect OLQs through the main character's actions."
+];
+
+const SDT_TIPS = [
+    "Be honest about your strengths and weaknesses.",
+    "Ensure consistency with your PIQ form.",
+    "Focus on self-improvement in the 'Self Opinion' section."
+];
+
 const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
   const [items, setItems] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
@@ -74,6 +105,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
   const [feedback, setFeedback] = useState<any>(null);
   const [showScoreHelp, setShowScoreHelp] = useState(false);
+  const [currentTipIndex, setCurrentTipIndex] = useState(0);
   
   // Camera State
   const [showCamera, setShowCamera] = useState(false);
@@ -323,6 +355,16 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     if (type === TestType.TAT) { setTimeLeft(30); setPhase(PsychologyPhase.VIEWING); }
     else if (type === TestType.WAT) { setTimeLeft(15); setPhase(PsychologyPhase.WRITING); }
   };
+
+  // Cycle tips during Evaluation Phase
+  useEffect(() => {
+    if (phase === PsychologyPhase.EVALUATING) {
+      const interval = setInterval(() => {
+        setCurrentTipIndex(prev => prev + 1);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [phase]);
 
   useEffect(() => {
     const isTimedPhase = phase === PsychologyPhase.VIEWING || phase === PsychologyPhase.WRITING;
@@ -933,7 +975,21 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   }
 
   if (phase === PsychologyPhase.EVALUATING) {
-    return <div className="flex flex-col items-center justify-center py-40 space-y-12 animate-in fade-in"><Loader2 className="w-24 h-24 text-blue-600 animate-spin" /><div className="text-center"><p className="text-slate-900 font-black uppercase tracking-[0.5em] text-sm mb-4">Psychologist Assessment</p><p className="text-slate-400 text-xs font-bold">Analyzing OLQs, projective patterns, and personality consistencies...</p></div></div>;
+    const tips = type === TestType.WAT ? WAT_TIPS : type === TestType.SRT ? SRT_TIPS : type === TestType.TAT ? TAT_TIPS : SDT_TIPS;
+    const currentTip = tips[currentTipIndex % tips.length];
+
+    return (
+        <div className="flex flex-col items-center justify-center py-40 space-y-12 animate-in fade-in">
+            <Loader2 className="w-24 h-24 text-blue-600 animate-spin" />
+            <div className="text-center space-y-4 max-w-lg px-6">
+                <p className="text-slate-900 font-black uppercase tracking-[0.5em] text-sm mb-4">Psychologist Assessment</p>
+                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 shadow-sm transition-all duration-500 min-h-[100px] flex items-center justify-center">
+                    <p className="text-blue-800 font-bold text-sm italic">"Tip: {currentTip}"</p>
+                </div>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-4">Analyzing personality patterns...</p>
+            </div>
+        </div>
+    );
   }
 
   if (phase === PsychologyPhase.COMPLETED) {
