@@ -42,6 +42,20 @@ function generateFallbackEvaluation(testType: string, text: string) {
     };
 }
 
+function generateErrorEvaluation() {
+    return {
+        score: 0,
+        verdict: "Server Busy",
+        strengths: ["Persistance"],
+        weaknesses: ["Network/Server Issue"],
+        recommendations: "The AI evaluator is currently overloaded or the network request timed out. Please try submitting again in a few moments.",
+        perception: { heroAge: "-", heroSex: "-", heroMood: "-", mainTheme: "-" },
+        storyAnalysis: { action: "-", outcome: "-", coherence: "-" },
+        observationAnalysis: "Analysis unavailable due to technical interruption.",
+        scoreDetails: { perception: 0, content: 0, expression: 0 }
+    };
+}
+
 export async function generateTestContent(testType: string) {
   if (testType === 'SRT') {
       /* fix: use gemini-3-flash-preview for basic text tasks */
@@ -111,341 +125,339 @@ export async function evaluateLecturette(topic: string, transcript: string, dura
                 }
             }
         });
-        return safeJSONParse(response.text || "");
+        return safeJSONParse(response.text || "") || generateErrorEvaluation();
     } catch (e) {
         console.error("Lecturette Eval Failed", e);
-        return null;
+        return generateErrorEvaluation();
     }
 }
 
 export async function evaluatePerformance(testType: string, userData: any) {
-    let combinedTextForFallback = "";
+    try {
+        let combinedTextForFallback = "";
 
-    // 1. INTERVIEW EVALUATION
-    if (testType.includes('Interview') || userData.testType === 'Interview') {
-        const prompt = `Evaluate Candidate for Indian Army Officer Role based on Personal Interview.
-        PIQ Data: ${JSON.stringify(userData.piq)}
-        Interview Duration: ${Math.floor(userData.duration / 60)} minutes.
-        Transcript: "${userData.transcript}"
-        
-        Task: Assess Officer Like Qualities (OLQs).
-        Return JSON with:
-        - score (0-10)
-        - recommendations (Detailed feedback)
-        - strengths (List of 3-5)
-        - weaknesses (List of 3-5)
-        - bodyLanguage: { posture, eyeContact, gestures } (Infer from transcript context if possible or give general advice)
-        - factorAnalysis: { factor1_planning, factor2_social, factor3_effectiveness, factor4_dynamic } (Short assessment for each)
-        `;
+        // 1. INTERVIEW EVALUATION
+        if (testType.includes('Interview') || userData.testType === 'Interview') {
+            const prompt = `Evaluate Candidate for Indian Army Officer Role based on Personal Interview.
+            PIQ Data: ${JSON.stringify(userData.piq)}
+            Interview Duration: ${Math.floor(userData.duration / 60)} minutes.
+            Transcript: "${userData.transcript}"
+            
+            Task: Assess Officer Like Qualities (OLQs).
+            Return JSON with:
+            - score (0-10)
+            - recommendations (Detailed feedback)
+            - strengths (List of 3-5)
+            - weaknesses (List of 3-5)
+            - bodyLanguage: { posture, eyeContact, gestures } (Infer from transcript context if possible or give general advice)
+            - factorAnalysis: { factor1_planning, factor2_social, factor3_effectiveness, factor4_dynamic } (Short assessment for each)
+            `;
 
-        /* fix: use gemini-3-pro-preview for complex evaluation tasks */
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
-            contents: prompt,
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        score: { type: Type.NUMBER },
-                        recommendations: { type: Type.STRING },
-                        strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        bodyLanguage: {
-                            type: Type.OBJECT,
-                            properties: {
-                                posture: { type: Type.STRING },
-                                eyeContact: { type: Type.STRING },
-                                gestures: { type: Type.STRING }
-                            }
-                        },
-                        factorAnalysis: {
-                            type: Type.OBJECT,
-                            properties: {
-                                factor1_planning: { type: Type.STRING },
-                                factor2_social: { type: Type.STRING },
-                                factor3_effectiveness: { type: Type.STRING },
-                                factor4_dynamic: { type: Type.STRING }
+            /* fix: use gemini-3-pro-preview for complex evaluation tasks */
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-pro-preview',
+                contents: prompt,
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            score: { type: Type.NUMBER },
+                            recommendations: { type: Type.STRING },
+                            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            bodyLanguage: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    posture: { type: Type.STRING },
+                                    eyeContact: { type: Type.STRING },
+                                    gestures: { type: Type.STRING }
+                                }
+                            },
+                            factorAnalysis: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    factor1_planning: { type: Type.STRING },
+                                    factor2_social: { type: Type.STRING },
+                                    factor3_effectiveness: { type: Type.STRING },
+                                    factor4_dynamic: { type: Type.STRING }
+                                }
                             }
                         }
                     }
                 }
-            }
-        });
-        return safeJSONParse(response.text || "");
-    }
-
-    // 2. WAT / SRT EVALUATION
-    else if (testType === 'WAT' || testType === 'SRT') {
-        const isWAT = testType === 'WAT';
-        const items = isWAT ? userData.watResponses : userData.srtResponses;
-        const promptText = isWAT 
-            ? "Evaluate Word Association Test responses. Check for OLQs, positivity, and spontaneity." 
-            : "Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness.";
-
-        const parts: Part[] = [{ text: promptText }];
-        
-        // Add sheet images if available
-        const images = isWAT ? userData.watSheetImages : userData.srtSheetImages;
-        if (images && images.length > 0) {
-            images.forEach((img: string, i: number) => {
-                parts.push({ inlineData: { data: img, mimeType: 'image/jpeg' } });
-                parts.push({ text: `Page ${i+1} of handwritten responses.` });
             });
+            return safeJSONParse(response.text || "") || generateErrorEvaluation();
         }
 
-        // Add text responses
-        parts.push({ text: `Candidate Responses: ${JSON.stringify(items)}` });
+        // 2. WAT / SRT EVALUATION
+        else if (testType === 'WAT' || testType === 'SRT') {
+            const isWAT = testType === 'WAT';
+            const items = isWAT ? userData.watResponses : userData.srtResponses;
+            const promptText = isWAT 
+                ? "Evaluate Word Association Test responses. Check for OLQs, positivity, and spontaneity." 
+                : "Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness.";
 
-        /* fix: use gemini-3-pro-preview for complex evaluation tasks */
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
-            contents: { parts },
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        score: { type: Type.NUMBER },
-                        attemptedCount: { type: Type.INTEGER },
-                        generalFeedback: { type: Type.STRING },
-                        qualityStats: {
-                            type: Type.OBJECT,
-                            properties: {
-                                positive: { type: Type.INTEGER },
-                                neutral: { type: Type.INTEGER },
-                                negative: { type: Type.INTEGER },
-                                effective: { type: Type.INTEGER }, // For SRT
-                                partial: { type: Type.INTEGER },   // For SRT
-                                passive: { type: Type.INTEGER }    // For SRT
-                            }
-                        },
-                        detailedAnalysis: {
-                            type: Type.ARRAY,
-                            items: {
+            const parts: Part[] = [{ text: promptText }];
+            
+            // Add sheet images if available
+            const images = isWAT ? userData.watSheetImages : userData.srtSheetImages;
+            if (images && images.length > 0) {
+                images.forEach((img: string, i: number) => {
+                    parts.push({ inlineData: { data: img, mimeType: 'image/jpeg' } });
+                    parts.push({ text: `Page ${i+1} of handwritten responses.` });
+                });
+            }
+
+            // Add text responses
+            parts.push({ text: `Candidate Responses: ${JSON.stringify(items)}` });
+
+            /* fix: use gemini-3-pro-preview for complex evaluation tasks */
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-pro-preview',
+                contents: { parts },
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            score: { type: Type.NUMBER },
+                            attemptedCount: { type: Type.INTEGER },
+                            generalFeedback: { type: Type.STRING },
+                            qualityStats: {
                                 type: Type.OBJECT,
                                 properties: {
-                                    word: { type: Type.STRING },      // For WAT
-                                    situation: { type: Type.STRING }, // For SRT
-                                    userResponse: { type: Type.STRING },
-                                    assessment: { type: Type.STRING },
-                                    idealResponse: { type: Type.STRING }
+                                    positive: { type: Type.INTEGER },
+                                    neutral: { type: Type.INTEGER },
+                                    negative: { type: Type.INTEGER },
+                                    effective: { type: Type.INTEGER }, // For SRT
+                                    partial: { type: Type.INTEGER },   // For SRT
+                                    passive: { type: Type.INTEGER }    // For SRT
                                 }
-                            }
-                        },
-                        strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        recommendations: { type: Type.STRING }
-                    }
-                }
-            }
-        });
-        return safeJSONParse(response.text || "");
-    }
-
-    // 3. PPDT EVALUATION
-    else if (testType.includes('PPDT')) {
-        combinedTextForFallback = (userData.story || "") + " " + (userData.narration || "");
-        const wordCount = combinedTextForFallback.split(/\s+/).length;
-
-        // GUARDRAIL: Short PPDT
-        if (wordCount < 5) {
-            return generateFallbackEvaluation(testType, combinedTextForFallback);
-        }
-
-        const parts: Part[] = [];
-        parts.push({ text: `
-        Act as an Expert Psychologist at the Services Selection Board (SSB). Evaluate this PPDT (Screening) attempt.
-        
-        *** STRICT SCORING RUBRIC (0-10) ***
-        Calculate the 'score' by summing these 3 factors. BE CRITICAL.
-        
-        1. PERCEPTION (Max 3 Marks): 
-           - Did the candidate identify the characters, mood, and setting accurately based on the STIMULUS IMAGE?
-           - If the story contradicts the image (hallucination), Perception = 0.
-           
-        2. CONTENT & ACTION (Max 5 Marks):
-           - Is there a clear Hero? 
-           - Is there a defined problem/challenge?
-           - Is the solution logical, practical, and positive?
-           - Are OLQs (Initiative, Planning, Empathy) visible?
-           
-        3. EXPRESSION (Max 2 Marks):
-           - Evaluate the provided "Candidate's Narration" transcript.
-           - CRITICAL RULE: If the "Candidate's Narration" is empty, blank, "N/A", or contains less than 5 meaningful words, the Expression score MUST be 0. Do not give participation points for silence.
-           - If narration exists: Fluency, clarity, and confidence determine the score.
-           
-        *** IMPORTANT ***
-        - The 'score' MUST match your text assessment.
-        - If the score is < 5, the 'verdict' must be 'Screened Out / Borderline'.
-        - If the story is completely unrelated to the image, the total score CANNOT exceed 3.0.
-        
-        Return JSON.
-        ` });
-
-        if (userData.stimulusImage) {
-             parts.push({ inlineData: { data: userData.stimulusImage, mimeType: 'image/jpeg' } });
-             parts.push({ text: `Stimulus Image (What the candidate saw).` });
-        }
-        
-        parts.push({ text: `Candidate's Story: "${userData.story}"` });
-        parts.push({ text: `Candidate's Narration: "${userData.narration}"` });
-        
-        /* fix: use gemini-3-pro-preview for complex evaluation tasks */
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-pro-preview',
-          contents: { parts: parts },
-          config: {
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                score: { type: Type.NUMBER },
-                scoreDetails: {
-                    type: Type.OBJECT,
-                    properties: {
-                        perception: { type: Type.NUMBER, description: "Score out of 3 for accuracy of observation" },
-                        content: { type: Type.NUMBER, description: "Score out of 5 for story quality and OLQs" },
-                        expression: { type: Type.NUMBER, description: "Score out of 2 for narration flow" }
-                    }
-                },
-                verdict: { type: Type.STRING },
-                perception: {
-                  type: Type.OBJECT,
-                  properties: {
-                    heroAge: { type: Type.STRING },
-                    heroSex: { type: Type.STRING },
-                    heroMood: { type: Type.STRING },
-                    mainTheme: { type: Type.STRING }
-                  }
-                },
-                storyAnalysis: {
-                  type: Type.OBJECT,
-                  properties: {
-                    action: { type: Type.STRING },
-                    outcome: { type: Type.STRING },
-                    coherence: { type: Type.STRING }
-                  }
-                },
-                observationAnalysis: { type: Type.STRING, description: "Detailed feedback on whether the story matched the image provided. Mention missed details." },
-                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                recommendations: { type: Type.STRING, description: "Final verdict explanation consistent with the calculated score." },
-                idealStory: { type: Type.STRING, description: "A short, high-scoring example story based on the same image." }
-              }
-            }
-          }
-        });
-        return safeJSONParse(response.text || "");
-    }
-
-    // 4. TAT EVALUATION
-    else if (testType === 'TAT') {
-        const parts: Part[] = [{ text: "Evaluate TAT Dossier. Analyze each story for OLQs (Officer Like Qualities). Check consistency across stories." }];
-        if (userData.tatPairs) {
-            for (const pair of userData.tatPairs) {
-                if (pair.stimulusImage) {
-                    parts.push({ inlineData: { data: pair.stimulusImage, mimeType: 'image/jpeg' } });
-                    parts.push({ text: `Stimulus for Story ${pair.storyIndex}` });
-                }
-                if (pair.userStoryImage) {
-                     parts.push({ inlineData: { data: pair.userStoryImage, mimeType: 'image/jpeg' } });
-                     parts.push({ text: `Handwritten Story ${pair.storyIndex}` });
-                }
-                if (pair.userStoryText) {
-                    parts.push({ text: `Transcribed Story ${pair.storyIndex}: ${pair.userStoryText}` });
-                }
-            }
-        }
-        
-        /* fix: use gemini-3-pro-preview for complex evaluation tasks */
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
-            contents: { parts },
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        score: { type: Type.NUMBER },
-                        verdict: { type: Type.STRING },
-                        individualStories: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    storyIndex: { type: Type.INTEGER },
-                                    theme: { type: Type.STRING },
-                                    analysis: { type: Type.STRING },
-                                    olqProjected: { type: Type.STRING },
-                                    perceivedAccurately: { type: Type.BOOLEAN }
+                            },
+                            detailedAnalysis: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        word: { type: Type.STRING },      // For WAT
+                                        situation: { type: Type.STRING }, // For SRT
+                                        userResponse: { type: Type.STRING },
+                                        assessment: { type: Type.STRING },
+                                        idealResponse: { type: Type.STRING }
+                                    }
                                 }
-                            }
-                        },
-                        strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        recommendations: { type: Type.STRING }
+                            },
+                            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            recommendations: { type: Type.STRING }
+                        }
                     }
-                }
-            }
-        });
-        return safeJSONParse(response.text || "");
-    }
-
-    // 5. SDT EVALUATION
-    else if (testType === 'SDT') {
-        const prompt = `Evaluate Self Description Test (SDT).
-        Candidate Inputs:
-        Parents: ${userData.sdtData?.parents}
-        Teachers: ${userData.sdtData?.teachers}
-        Friends: ${userData.sdtData?.friends}
-        Self: ${userData.sdtData?.self}
-        Aim: ${userData.sdtData?.aim}
-        
-        Check for consistency, honesty, and OLQs.`;
-
-        const parts: Part[] = [{ text: prompt }];
-        // Add images if any
-        if (userData.sdtImages) {
-            Object.keys(userData.sdtImages).forEach(key => {
-                const img = userData.sdtImages[key];
-                if (img) {
-                    parts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
-                    parts.push({ text: `Handwritten ${key} paragraph` });
                 }
             });
+            return safeJSONParse(response.text || "") || generateErrorEvaluation();
         }
 
-        /* fix: use gemini-3-pro-preview for complex evaluation tasks */
-        const response = await ai.models.generateContent({
+        // 3. PPDT EVALUATION
+        else if (testType.includes('PPDT')) {
+            combinedTextForFallback = (userData.story || "") + " " + (userData.narration || "");
+            const wordCount = combinedTextForFallback.split(/\s+/).length;
+
+            // GUARDRAIL: Short PPDT
+            if (wordCount < 5) {
+                return generateFallbackEvaluation(testType, combinedTextForFallback);
+            }
+
+            const parts: Part[] = [];
+            parts.push({ text: `
+            Act as an Expert Psychologist at the Services Selection Board (SSB). Evaluate this PPDT (Screening) attempt.
+            
+            *** STRICT SCORING RUBRIC (0-10) ***
+            Calculate the 'score' by summing these 3 factors. BE CRITICAL.
+            
+            1. PERCEPTION (Max 3 Marks): 
+            - Did the candidate identify the characters, mood, and setting accurately based on the STIMULUS IMAGE?
+            - If the story contradicts the image (hallucination), Perception = 0.
+            
+            2. CONTENT & ACTION (Max 5 Marks):
+            - Is there a clear Hero? 
+            - Is there a defined problem/challenge?
+            - Is the solution logical, practical, and positive?
+            - Are OLQs (Initiative, Planning, Empathy) visible?
+            
+            3. EXPRESSION (Max 2 Marks):
+            - Evaluate the provided "Candidate's Narration" transcript.
+            - CRITICAL RULE: If the "Candidate's Narration" is empty, blank, "N/A", or contains less than 5 meaningful words, the Expression score MUST be 0. Do not give participation points for silence.
+            - If narration exists: Fluency, clarity, and confidence determine the score.
+            
+            *** IMPORTANT ***
+            - The 'score' MUST match your text assessment.
+            - If the score is < 5, the 'verdict' must be 'Screened Out / Borderline'.
+            - If the story is completely unrelated to the image, the total score CANNOT exceed 3.0.
+            
+            Return JSON.
+            ` });
+
+            if (userData.stimulusImage) {
+                parts.push({ inlineData: { data: userData.stimulusImage, mimeType: 'image/jpeg' } });
+                parts.push({ text: `Stimulus Image (What the candidate saw).` });
+            }
+            
+            parts.push({ text: `Candidate's Story: "${userData.story}"` });
+            parts.push({ text: `Candidate's Narration: "${userData.narration}"` });
+            
+            /* fix: use gemini-3-pro-preview for complex evaluation tasks */
+            const response = await ai.models.generateContent({
             model: 'gemini-3-pro-preview',
-            contents: { parts },
+            contents: { parts: parts },
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    score: { type: Type.NUMBER },
+                    scoreDetails: {
+                        type: Type.OBJECT,
+                        properties: {
+                            perception: { type: Type.NUMBER, description: "Score out of 3 for accuracy of observation" },
+                            content: { type: Type.NUMBER, description: "Score out of 5 for story quality and OLQs" },
+                            expression: { type: Type.NUMBER, description: "Score out of 2 for narration flow" }
+                        }
+                    },
+                    verdict: { type: Type.STRING },
+                    perception: {
                     type: Type.OBJECT,
                     properties: {
-                        score: { type: Type.NUMBER },
-                        verdict: { type: Type.STRING },
-                        consistencyAnalysis: { type: Type.STRING },
-                        strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        recommendations: { type: Type.STRING }
+                        heroAge: { type: Type.STRING },
+                        heroSex: { type: Type.STRING },
+                        heroMood: { type: Type.STRING },
+                        mainTheme: { type: Type.STRING }
+                    }
+                    },
+                    storyAnalysis: {
+                    type: Type.OBJECT,
+                    properties: {
+                        action: { type: Type.STRING },
+                        outcome: { type: Type.STRING },
+                        coherence: { type: Type.STRING }
+                    }
+                    },
+                    observationAnalysis: { type: Type.STRING, description: "Detailed feedback on whether the story matched the image provided. Mention missed details." },
+                    strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    recommendations: { type: Type.STRING, description: "Final verdict explanation consistent with the calculated score." },
+                    idealStory: { type: Type.STRING, description: "A short, high-scoring example story based on the same image." }
+                }
+                }
+            }
+            });
+            return safeJSONParse(response.text || "") || generateErrorEvaluation();
+        }
+
+        // 4. TAT EVALUATION
+        else if (testType === 'TAT') {
+            const parts: Part[] = [{ text: "Evaluate TAT Dossier. Analyze each story for OLQs (Officer Like Qualities). Check consistency across stories." }];
+            if (userData.tatPairs) {
+                for (const pair of userData.tatPairs) {
+                    if (pair.stimulusImage) {
+                        parts.push({ inlineData: { data: pair.stimulusImage, mimeType: 'image/jpeg' } });
+                        parts.push({ text: `Stimulus for Story ${pair.storyIndex}` });
+                    }
+                    if (pair.userStoryImage) {
+                        parts.push({ inlineData: { data: pair.userStoryImage, mimeType: 'image/jpeg' } });
+                        parts.push({ text: `Handwritten Story ${pair.storyIndex}` });
+                    }
+                    if (pair.userStoryText) {
+                        parts.push({ text: `Transcribed Story ${pair.storyIndex}: ${pair.userStoryText}` });
                     }
                 }
             }
-        });
-        return safeJSONParse(response.text || "");
-    }
+            
+            /* fix: use gemini-3-pro-preview for complex evaluation tasks */
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-pro-preview',
+                contents: { parts },
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            score: { type: Type.NUMBER },
+                            verdict: { type: Type.STRING },
+                            individualStories: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        storyIndex: { type: Type.INTEGER },
+                                        theme: { type: Type.STRING },
+                                        analysis: { type: Type.STRING },
+                                        olqProjected: { type: Type.STRING },
+                                        perceivedAccurately: { type: Type.BOOLEAN }
+                                    }
+                                }
+                            },
+                            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            recommendations: { type: Type.STRING }
+                        }
+                    }
+                }
+            });
+            return safeJSONParse(response.text || "") || generateErrorEvaluation();
+        }
 
-    // Default Fallback
-    return { 
-        score: 0, 
-        verdict: "Evaluation Error", 
-        strengths: ["Attempted"], 
-        weaknesses: ["System could not process"], 
-        recommendations: "Please try again." 
-    };
+        // 5. SDT EVALUATION
+        else if (testType === 'SDT') {
+            const prompt = `Evaluate Self Description Test (SDT).
+            Candidate Inputs:
+            Parents: ${userData.sdtData?.parents}
+            Teachers: ${userData.sdtData?.teachers}
+            Friends: ${userData.sdtData?.friends}
+            Self: ${userData.sdtData?.self}
+            Aim: ${userData.sdtData?.aim}
+            
+            Check for consistency, honesty, and OLQs.`;
+
+            const parts: Part[] = [{ text: prompt }];
+            // Add images if any
+            if (userData.sdtImages) {
+                Object.keys(userData.sdtImages).forEach(key => {
+                    const img = userData.sdtImages[key];
+                    if (img) {
+                        parts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
+                        parts.push({ text: `Handwritten ${key} paragraph` });
+                    }
+                });
+            }
+
+            /* fix: use gemini-3-pro-preview for complex evaluation tasks */
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-pro-preview',
+                contents: { parts },
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            score: { type: Type.NUMBER },
+                            verdict: { type: Type.STRING },
+                            consistencyAnalysis: { type: Type.STRING },
+                            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            recommendations: { type: Type.STRING }
+                        }
+                    }
+                }
+            });
+            return safeJSONParse(response.text || "") || generateErrorEvaluation();
+        }
+
+        return generateErrorEvaluation();
+    } catch (e) {
+        console.error("Evaluation API Error:", e);
+        return generateErrorEvaluation();
+    }
 }
 
 export async function transcribeHandwrittenStory(base64: string, mimeType: string) {

@@ -328,6 +328,20 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
     setIsTranscribing(false);
   };
 
+  // Helper to fetch with timeout
+  const fetchWithTimeout = async (url: string, timeout = 5000) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+          const response = await fetch(url, { signal: controller.signal });
+          clearTimeout(id);
+          return response;
+      } catch (error) {
+          clearTimeout(id);
+          throw error;
+      }
+  };
+
   const finishTest = async () => {
     // 1. BLOCK GUEST ON CUSTOM IMAGE
     if (isGuest && customStimulus) {
@@ -345,14 +359,18 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
               stimulusBase64 = currentImageUrl.split(',')[1];
           } else {
               try {
-                  const response = await fetch(currentImageUrl);
+                  // Use 5s timeout to prevent hanging on external images
+                  const response = await fetchWithTimeout(currentImageUrl, 5000);
                   const blob = await response.blob();
                   stimulusBase64 = await new Promise<string>((resolve) => {
                       const reader = new FileReader();
                       reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
                       reader.readAsDataURL(blob);
                   });
-              } catch (err) { console.warn("Failed to fetch stimulus:", err); }
+              } catch (err) { 
+                  console.warn("Failed to fetch stimulus within timeout:", err); 
+                  // Proceed without image if fetch fails
+              }
           }
       }
 
@@ -369,6 +387,14 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
       if (onSave && !isGuest) onSave({ ...result, uploadedStoryImage: uploadedImageBase64, isCustomAttempt: !!customStimulus });
     } catch (e) {
       console.error(e);
+      // Fallback feedback on critical error
+      setFeedback({
+          score: 0,
+          recommendations: "Evaluation failed due to network or server error. Please try again.",
+          strengths: ["Persistence"],
+          weaknesses: ["Connection Issue"],
+          scoreDetails: { perception: 0, content: 0, expression: 0 }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -742,11 +768,11 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                   <div className="text-center md:text-left space-y-6">
                      <span className="bg-yellow-400 text-black px-6 py-2 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] shadow-lg">Stage 1 Verdict</span>
                      <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter leading-none">The Board's <br/><span className="text-yellow-400">Verdict</span></h2>
-                     <p className="text-slate-400 font-medium max-w-lg leading-relaxed text-sm md:text-lg italic opacity-80">"{feedback?.recommendations}"</p>
+                     <p className="text-slate-400 font-medium max-w-lg leading-relaxed text-sm md:text-lg italic opacity-80">"{feedback?.recommendations || 'Recommendation unavailable.'}"</p>
                   </div>
                   <div className="flex flex-col items-center bg-white/5 p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border border-white/10 backdrop-blur-3xl shadow-2xl">
                      <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.4em] opacity-40 mb-4">Board Score</span>
-                     <div className="text-7xl md:text-9xl font-black text-yellow-400">{feedback?.score}</div>
+                     <div className="text-7xl md:text-9xl font-black text-yellow-400">{feedback?.score || 0}</div>
                      
                      <button 
                         onClick={() => setShowScoreHelp(!showScoreHelp)}
@@ -914,7 +940,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                <div className="bg-white p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-50 shadow-2xl">
                   <h4 className="font-black text-xs uppercase tracking-[0.3em] text-green-600 mb-8 md:mb-10 flex items-center gap-4"><CheckCircle className="w-6 h-6" /> Key Strengths</h4>
                   <div className="space-y-4 md:space-y-5">
-                    {feedback?.strengths.map((s: string, i: number) => (
+                    {feedback?.strengths?.map((s: string, i: number) => (
                       <div key={i} className="flex gap-4 md:gap-5 p-4 md:p-5 bg-green-50 rounded-2xl md:rounded-3xl border border-green-100 text-slate-800 text-sm font-bold">
                         <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-green-500 shrink-0" /> {s}
                       </div>
@@ -924,7 +950,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                <div className="bg-white p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-50 shadow-2xl">
                   <h4 className="font-black text-xs uppercase tracking-[0.3em] text-red-500 mb-8 md:mb-10 flex items-center gap-4"><AlertCircle className="w-6 h-6" /> OLQ Gaps</h4>
                   <div className="space-y-4 md:space-y-5">
-                    {feedback?.weaknesses.map((w: string, i: number) => (
+                    {feedback?.weaknesses?.map((w: string, i: number) => (
                       <div key={i} className="flex gap-4 md:gap-5 p-4 md:p-5 bg-red-50 rounded-2xl md:rounded-3xl border border-red-100 text-slate-800 text-sm font-bold">
                         <AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-red-500 shrink-0" /> {w}
                       </div>
