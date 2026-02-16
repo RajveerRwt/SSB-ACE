@@ -195,8 +195,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
             const isWAT = testType === 'WAT';
             const items = isWAT ? userData.watResponses : userData.srtResponses;
             const promptText = isWAT 
-                ? "Evaluate Word Association Test responses. Check for OLQs, positivity, and spontaneity. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Words by ID or Content. IMPORTANT: You MUST return the corresponding 'id' for each analyzed item. If a word has no response, mark as 'Not Attempted'. Return 'detailedAnalysis' array."
-                : "Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Situations by ID or Content. IMPORTANT: You MUST return the corresponding 'id' for each analyzed item. If a situation has no response, mark as 'Not Attempted'. Return 'detailedAnalysis' array.";
+                ? "Evaluate Word Association Test responses. Check for OLQs, positivity, and spontaneity. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Words by ID or Content. IMPORTANT: Return analysis for ALL items. If a word has no response, mark 'userResponse' as empty or 'Not Attempted', but YOU MUST PROVIDE an 'idealResponse' for it."
+                : "Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Situations by ID or Content. IMPORTANT: Return analysis for ALL items. If a situation has no response, mark 'userResponse' as empty or 'Not Attempted', but YOU MUST PROVIDE an 'idealResponse' for it.";
 
             const parts: Part[] = [{ text: promptText }];
             

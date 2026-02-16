@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, FileText, CheckCircle, AlertTriangle, Activity, Brain, Target, Mic, Download, Loader2, RefreshCw, Printer } from 'lucide-react';
+import { X, FileText, CheckCircle, AlertTriangle, Activity, Brain, Target, Mic, Download, Loader2, RefreshCw, Printer, ThumbsUp, ThumbsDown, MinusCircle } from 'lucide-react';
 import { evaluatePerformance } from '../services/geminiService';
 import { updateTestAttempt } from '../services/supabaseService';
 
@@ -60,6 +60,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testTy
   const handleDownload = () => {
     window.print();
   };
+
+  // Helper to determine status for unattempted items
+  const isUnattempted = (response: string) => !response || response.trim() === "";
 
   return (
     <div className="fixed inset-0 z-[300] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300 print:bg-white print:p-0 print:static">
@@ -193,66 +196,120 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testTy
                 </div>
             )}
 
-            {/* USER INPUTS (Raw Data) - Always Show */}
-            <div className="border-t border-slate-100 pt-8 space-y-6 print:break-before-auto">
-                <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                    <Target size={20} className="text-slate-400"/> Your Dossier Inputs
-                </h3>
+            {/* WAT / SRT Detailed Log with Unattempted Handling */}
+            {((testType.includes('WAT') || testType.includes('SRT')) && result.detailedAnalysis) ? (
+                <div className="border-t border-slate-100 pt-8 space-y-6 print:break-before-auto">
+                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                        <Target size={20} className="text-slate-400"/> Detailed Assessment Log
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4">
+                        {(result.watResponses || result.srtResponses)?.map((item: any, i: number) => {
+                            const itemId = i + 1;
+                            // Match Analysis
+                            const analysis = result.detailedAnalysis?.find((a: any) => 
+                                a.id === itemId || 
+                                (a.word === item.word) || 
+                                (a.situation === item.situation)
+                            );
+                            
+                            const unattempted = isUnattempted(item.response);
 
-                {/* PPDT / TAT Inputs */}
-                {(testType.includes('PPDT') || testType.includes('TAT')) && (
-                    <div className="space-y-6">
-                        {/* Single PPDT Story */}
-                        {result.story && (
-                            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm print:border-slate-300">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Written Story</span>
-                                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{result.story}</p>
-                            </div>
-                        )}
-                        {/* TAT Stories */}
-                        {result.tatPairs && result.tatPairs.map((pair: any, i: number) => (
-                            <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm print:border-slate-300 print:break-inside-avoid">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Story {pair.storyIndex}</span>
-                                <div className="flex gap-4">
-                                    {pair.userStoryImage && (
-                                        <img src={`data:image/jpeg;base64,${pair.userStoryImage}`} className="w-24 h-24 object-cover rounded-xl border border-slate-100 print:w-20 print:h-20" />
-                                    )}
-                                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed flex-1">
-                                        {pair.userStoryText || "Handwritten response uploaded."}
-                                    </p>
+                            return (
+                                <div key={i} className={`p-6 rounded-3xl border transition-all flex flex-col md:flex-row gap-6 mb-4 print:break-inside-avoid ${unattempted ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100'}`}>
+                                    <div className="md:w-1/4 shrink-0 flex items-center gap-4">
+                                        <span className="text-2xl font-black text-slate-300">{(i + 1).toString().padStart(2, '0')}</span>
+                                        <p className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-wide leading-tight">{item.word || item.situation}</p>
+                                    </div>
+                                    <div className="md:w-3/4 grid md:grid-cols-2 gap-6">
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between">
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Your Response</span>
+                                                {unattempted ? (
+                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-red-500">Missed</span>
+                                                ) : (
+                                                    <span className={`text-[9px] font-bold uppercase tracking-widest ${
+                                                        analysis?.assessment?.toLowerCase().includes('positive') ? 'text-green-600' : 'text-blue-600'
+                                                    }`}>{analysis?.assessment || "Pending"}</span>
+                                                )}
+                                            </div>
+                                            <p className={`p-3 rounded-xl text-sm font-medium ${unattempted ? 'bg-white text-red-400 border border-red-100 italic' : 'bg-white border border-slate-200 text-slate-700'}`}>
+                                                {unattempted ? "Not Attempted" : (item.response)}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <span className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Ideal Response</span>
+                                            <p className="p-3 bg-green-50 border border-green-100 rounded-xl text-sm font-medium text-slate-700">
+                                                {analysis?.idealResponse || "See general recommendations for improvement."}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
-                )}
+                </div>
+            ) : (
+                /* Standard Inputs for other tests (PPDT, etc) or Fallback if no detailed analysis */
+                <div className="border-t border-slate-100 pt-8 space-y-6 print:break-before-auto">
+                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                        <Target size={20} className="text-slate-400"/> Your Dossier Inputs
+                    </h3>
 
-                {/* WAT / SRT Inputs */}
-                {(testType.includes('WAT') || testType.includes('SRT')) && (
-                    <div className="grid grid-cols-1 gap-3">
-                        {(result.watResponses || result.srtResponses)?.map((item: any, i: number) => (
-                            <div key={i} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex gap-4 print:border-slate-300 print:break-inside-avoid">
-                                <span className="text-xs font-black text-slate-400 w-6">{(i+1).toString().padStart(2, '0')}</span>
-                                <div className="flex-1">
-                                    <p className="text-xs font-bold text-slate-900 mb-1">{item.word || item.situation}</p>
-                                    <p className="text-xs text-blue-700 font-medium print:text-black">{item.response || "No response"}</p>
+                    {/* PPDT / TAT Inputs */}
+                    {(testType.includes('PPDT') || testType.includes('TAT')) && (
+                        <div className="space-y-6">
+                            {/* Single PPDT Story */}
+                            {result.story && (
+                                <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm print:border-slate-300">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Written Story</span>
+                                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{result.story}</p>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Interview Transcript */}
-                {testType.includes('Interview') && result.transcript && (
-                    <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 print:border-slate-300">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-4">Transcript Log</span>
-                        <div className="space-y-4 text-xs font-mono text-slate-700 max-h-60 overflow-y-auto custom-scrollbar print:max-h-none">
-                            {result.transcript.split('\n').map((line: string, i: number) => (
-                                <p key={i} className={line.startsWith('IO:') ? 'text-red-600 font-bold print:text-black' : 'text-blue-700 print:text-black'}>{line}</p>
+                            )}
+                            {/* TAT Stories */}
+                            {result.tatPairs && result.tatPairs.map((pair: any, i: number) => (
+                                <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm print:border-slate-300 print:break-inside-avoid">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Story {pair.storyIndex}</span>
+                                    <div className="flex gap-4">
+                                        {pair.userStoryImage && (
+                                            <img src={`data:image/jpeg;base64,${pair.userStoryImage}`} className="w-24 h-24 object-cover rounded-xl border border-slate-100 print:w-20 print:h-20" />
+                                        )}
+                                        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed flex-1">
+                                            {pair.userStoryText || "Handwritten response uploaded."}
+                                        </p>
+                                    </div>
+                                </div>
                             ))}
                         </div>
-                    </div>
-                )}
-            </div>
+                    )}
+
+                    {/* Fallback View for WAT/SRT if detailedAnalysis is missing (e.g. older records) */}
+                    {(testType.includes('WAT') || testType.includes('SRT')) && !result.detailedAnalysis && (
+                        <div className="grid grid-cols-1 gap-3">
+                            {(result.watResponses || result.srtResponses)?.map((item: any, i: number) => (
+                                <div key={i} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex gap-4 print:border-slate-300 print:break-inside-avoid">
+                                    <span className="text-xs font-black text-slate-400 w-6">{(i+1).toString().padStart(2, '0')}</span>
+                                    <div className="flex-1">
+                                        <p className="text-xs font-bold text-slate-900 mb-1">{item.word || item.situation}</p>
+                                        <p className="text-xs text-blue-700 font-medium print:text-black">{item.response || "No response"}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Interview Transcript */}
+                    {testType.includes('Interview') && result.transcript && (
+                        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 print:border-slate-300">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-4">Transcript Log</span>
+                            <div className="space-y-4 text-xs font-mono text-slate-700 max-h-60 overflow-y-auto custom-scrollbar print:max-h-none">
+                                {result.transcript.split('\n').map((line: string, i: number) => (
+                                    <p key={i} className={line.startsWith('IO:') ? 'text-red-600 font-bold print:text-black' : 'text-blue-700 print:text-black'}>{line}</p>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
         </div>
       </div>
