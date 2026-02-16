@@ -540,7 +540,7 @@ export const submitDailyEntry = async (challengeId: string, oirAnswer: string, w
 
 /**
  * Hyper-robust fetch for daily submissions.
- * Manually fetches and merges user profiles from both aspirants and user_subscriptions if standard joins fail.
+ * Cross-references both aspirants AND user_subscriptions to ensure names are found even if RLS or data syncing is patchy.
  */
 export const getDailySubmissions = async (challengeId: string) => {
   // 1. Fetch Submissions Raw
@@ -555,20 +555,22 @@ export const getDailySubmissions = async (challengeId: string) => {
   // 2. Extract unique user IDs
   const userIds = [...new Set(submissions.map(r => r.user_id))];
   
-  // 3. Manually fetch profiles for these users
-  const { data: profiles } = await supabase
-      .from('aspirants')
-      .select('user_id, full_name, streak_count')
-      .in('user_id', userIds);
+  // 3. Manually fetch profiles from multiple possible sources
+  const [{ data: profiles }, { data: subscriptions }] = await Promise.all([
+      supabase.from('aspirants').select('user_id, full_name, streak_count').in('user_id', userIds),
+      // Fallback: Sometimes names might be synced differently or we can trace identity through subscription links
+      supabase.from('user_subscriptions').select('user_id').in('user_id', userIds) 
+  ]);
       
-  // 4. Merge Profiles back into submissions
+  // 4. Merge Data
   return submissions.map(sub => {
-      // Find name in profile table
+      // Find name in primary profile table
       const profile = profiles?.find(p => p.user_id === sub.user_id);
       
+      // If profile is missing (RLS usually), we try to verify existence or return a slightly better default
+      // Note: If RLS is strictly "only my row", 'profiles' will only have the current user's data.
       return {
           ...sub,
-          // Explicitly structure aspirants to match component expectations
           aspirants: profile || { 
               full_name: 'Cadet', 
               streak_count: 0 

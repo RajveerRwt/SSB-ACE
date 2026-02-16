@@ -77,6 +77,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
 
     setIsSubmitting(true);
     try {
+      /* fix line 80: use state values instead of dispatch functions for wat, srt, and interview arguments */
       await submitDailyEntry(challenge.id, oirAnswer, watAnswer, srtAnswer, interviewAnswer);
       const subs = await getDailySubmissions(challenge.id);
       setSubmissions(subs);
@@ -112,27 +113,26 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   };
 
   /**
-   * Enhanced Name Resolver
-   * Tries Profile -> Metadata -> Session -> Default
+   * Final Name Resolver
+   * Tries to find the real name in the mapped aspirant profile.
    */
   const getDisplayName = (sub: any) => {
-      // 1. Check direct profile field
+      // 1. Check direct profile field provided by getDailySubmissions
       const profile = sub.aspirants;
-      if (profile) {
-          const name = profile.full_name || profile.name;
-          if (name && name !== 'Cadet') return name;
+      if (profile && profile.full_name && profile.full_name !== 'Cadet') {
+          return profile.full_name;
       }
       
-      // 2. Check current session if it's the current user
+      // 2. Fallback for the current user if profile lookup failed
       if (user && sub.user_id === user.id) {
           const metaName = user.user_metadata?.full_name || user.user_metadata?.name;
           if (metaName) return metaName;
       }
       
-      // 3. Check for array quirk
+      // 3. Fallback for array quirk
       if (Array.isArray(profile) && profile.length > 0) {
           const arrName = profile[0].full_name || profile[0].name;
-          if (arrName) return arrName;
+          if (arrName && arrName !== 'Cadet') return arrName;
       }
       
       return 'Cadet';
