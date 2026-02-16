@@ -195,8 +195,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
             const isWAT = testType === 'WAT';
             const items = isWAT ? userData.watResponses : userData.srtResponses;
             const promptText = isWAT 
-                ? "Evaluate Word Association Test responses. Check for OLQs, positivity, and spontaneity. Map the user's responses (from typed JSON or transcripts) to the provided Words. If a word has no matching response, mark assessment as 'Not Attempted'. Return 'detailedAnalysis' array."
-                : "Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness. Map the user's responses (from typed JSON or transcripts) to the provided Situations. If a situation has no matching response, mark assessment as 'Not Attempted'. Return 'detailedAnalysis' array.";
+                ? "Evaluate Word Association Test responses. Check for OLQs, positivity, and spontaneity. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Words by ID or Content. IMPORTANT: You MUST return the corresponding 'id' for each analyzed item. If a word has no response, mark as 'Not Attempted'. Return 'detailedAnalysis' array."
+                : "Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Situations by ID or Content. IMPORTANT: You MUST return the corresponding 'id' for each analyzed item. If a situation has no response, mark as 'Not Attempted'. Return 'detailedAnalysis' array.";
 
             const parts: Part[] = [{ text: promptText }];
             
@@ -213,7 +213,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
             if (!isWAT && userData.srtSheetTranscripts && userData.srtSheetTranscripts.length > 0) {
                  const combinedTranscript = userData.srtSheetTranscripts.filter((t: string) => t).join('\n\n--- PAGE BREAK ---\n\n');
                  if (combinedTranscript.trim()) {
-                    parts.push({ text: `[Handwritten Transcripts Provided by User]:\n${combinedTranscript}\n\nNote: Use these transcripts if the structured JSON responses are empty.` });
+                    parts.push({ text: `[Handwritten Transcripts Provided by User]:\n${combinedTranscript}\n\nNote: Use these transcripts if the structured JSON responses are empty. Match answers to questions sequentially or by context.` });
                  }
             }
 
@@ -221,12 +221,12 @@ export async function evaluatePerformance(testType: string, userData: any) {
             if (isWAT && userData.watSheetTranscripts && userData.watSheetTranscripts.length > 0) {
                  const combinedTranscript = userData.watSheetTranscripts.filter((t: string) => t).join('\n\n--- PAGE BREAK ---\n\n');
                  if (combinedTranscript.trim()) {
-                    parts.push({ text: `[Handwritten Transcripts Provided by User]:\n${combinedTranscript}\n\nNote: Use these transcripts if the structured JSON responses are empty. Map them to the provided Words.` });
+                    parts.push({ text: `[Handwritten Transcripts Provided by User]:\n${combinedTranscript}\n\nNote: Use these transcripts if the structured JSON responses are empty. Match answers to words sequentially or by context.` });
                  }
             }
 
             // Add text responses
-            parts.push({ text: `Candidate Typed Responses: ${JSON.stringify(items)}` });
+            parts.push({ text: `Candidate Typed Responses (Reference for IDs): ${JSON.stringify(items)}` });
 
             /* fix: use gemini-3-pro-preview for complex evaluation tasks */
             const response = await ai.models.generateContent({
@@ -256,6 +256,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
                                 items: {
                                     type: Type.OBJECT,
                                     properties: {
+                                        id: { type: Type.INTEGER, description: "The original Question ID from the input list." },
                                         word: { type: Type.STRING },      // For WAT
                                         situation: { type: Type.STRING }, // For SRT
                                         userResponse: { type: Type.STRING },

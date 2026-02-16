@@ -1060,10 +1060,19 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                     <div className="grid grid-cols-1 gap-4">
                         {/* Map through ITEMS to ensure we show all 60, not just what AI returned */}
                         {items.map((item, i) => {
-                            // Find corresponding analysis
-                            const analysis = feedback?.detailedAnalysis?.find((a: any) => 
-                                a.situation?.includes(item.content.substring(0, 10)) || a.word === item.content
-                            ) || feedback?.detailedAnalysis?.[i];
+                            const itemId = i + 1;
+                            
+                            // 1. Try to find analysis strictly by ID (Best Case)
+                            const analysisById = feedback?.detailedAnalysis?.find((a: any) => a.id === itemId);
+                            
+                            // 2. Try to find analysis by exact text match (Fallback if AI dropped ID)
+                            const analysisByContent = !analysisById ? feedback?.detailedAnalysis?.find((a: any) => 
+                                (a.situation && a.situation === item.content) || 
+                                (a.word && a.word === item.content)
+                            ) : null;
+
+                            // 3. Final Analysis Object
+                            const analysis = analysisById || analysisByContent;
 
                             const isUnattempted = !analysis || !analysis.userResponse || analysis.userResponse === "Not Attempted" || analysis.userResponse.trim() === "";
                             
