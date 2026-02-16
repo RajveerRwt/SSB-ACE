@@ -1,12 +1,5 @@
+import { GoogleGenAI, Type, Chat, Part, Schema } from "@google/genai";
 
-import { GoogleGenAI, Type, Chat, Part } from "@google/genai";
-
-/* 
- * Guidelines: 
- * Basic Text Tasks: 'gemini-3-flash-preview'
- * Complex Text Tasks: 'gemini-3-pro-preview'
- * Image Generation: 'gemini-2.5-flash-image'
- */
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const STANDARD_WAT_SET = [
@@ -43,9 +36,8 @@ function generateFallbackEvaluation(testType: string, text: string) {
 
 export async function generateTestContent(testType: string) {
   if (testType === 'SRT') {
-      /* fix: use gemini-3-flash-preview for basic text tasks */
       const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-2.5-flash',
           contents: 'Generate 60 varied Situation Reaction Test (SRT) questions for SSB interview. Return as a JSON array of strings.',
           config: {
               responseMimeType: 'application/json',
@@ -90,9 +82,8 @@ export async function evaluateLecturette(topic: string, transcript: string, dura
     `;
 
     try {
-        /* fix: use gemini-3-pro-preview for complex evaluation tasks */
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
                 responseMimeType: 'application/json',
@@ -137,9 +128,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
         - factorAnalysis: { factor1_planning, factor2_social, factor3_effectiveness, factor4_dynamic } (Short assessment for each)
         `;
 
-        /* fix: use gemini-3-pro-preview for complex evaluation tasks */
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
                 responseMimeType: 'application/json',
@@ -196,9 +186,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
         // Add text responses
         parts.push({ text: `Candidate Responses: ${JSON.stringify(items)}` });
 
-        /* fix: use gemini-3-pro-preview for complex evaluation tasks */
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-2.5-flash',
             contents: { parts },
             config: {
                 responseMimeType: 'application/json',
@@ -270,9 +259,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
         parts.push({ text: `Candidate's Story: "${userData.story}"` });
         parts.push({ text: `Candidate's Narration: "${userData.narration}"` });
         
-        /* fix: use gemini-3-pro-preview for complex evaluation tasks */
         const response = await ai.models.generateContent({
-          model: 'gemini-3-pro-preview',
+          model: 'gemini-2.5-flash',
           contents: { parts: parts },
           config: {
             responseMimeType: 'application/json',
@@ -328,9 +316,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
             }
         }
         
-        /* fix: use gemini-3-pro-preview for complex evaluation tasks */
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-2.5-flash',
             contents: { parts },
             config: {
                 responseMimeType: 'application/json',
@@ -386,9 +373,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
             });
         }
 
-        /* fix: use gemini-3-pro-preview for complex evaluation tasks */
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-2.5-flash',
             contents: { parts },
             config: {
                 responseMimeType: 'application/json',
@@ -420,9 +406,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
 
 export async function transcribeHandwrittenStory(base64: string, mimeType: string) {
     try {
-        /* fix: use gemini-3-flash-preview for basic multimodal tasks */
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-2.5-flash',
             contents: {
                 parts: [
                     { inlineData: { data: base64, mimeType } },
@@ -439,9 +424,8 @@ export async function transcribeHandwrittenStory(base64: string, mimeType: strin
 
 export async function extractPIQFromImage(base64: string, mimeType: string) {
     try {
-        /* fix: use gemini-3-flash-preview for basic multimodal tasks */
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-2.5-flash',
             contents: {
                 parts: [
                     { inlineData: { data: base64, mimeType } },
@@ -461,9 +445,8 @@ export async function extractPIQFromImage(base64: string, mimeType: string) {
 
 export async function fetchDailyNews() {
     try {
-        /* fix: use gemini-3-flash-preview for basic text tasks with search tool */
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-2.5-flash',
             contents: 'Provide 5 latest defense and geopolitical news items relevant to India for SSB aspirants. Format with HEADLINE, TAG, SUMMARY, SSB_RELEVANCE. Separate items with ---NEWS_BLOCK---',
             config: {
                 tools: [{ googleSearch: {} }]
@@ -477,9 +460,8 @@ export async function fetchDailyNews() {
 }
 
 export function createSSBChat(): Chat {
-    /* fix: use gemini-3-flash-preview for basic chat tasks */
     return ai.chats.create({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.5-flash',
         config: {
             systemInstruction: "You are Major Veer, an expert SSB mentor. Guide the candidate on SSB procedure, OLQs, and mindset."
         }
@@ -488,9 +470,8 @@ export function createSSBChat(): Chat {
 
 export async function generateLecturette(topic: string) {
     try {
-        /* fix: use gemini-3-flash-preview for basic text generation tasks */
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-2.5-flash',
             contents: `Generate a lecturette outline for the topic: ${topic}. Structure: Introduction, Key Points (3), Conclusion.`,
             config: {
                 responseMimeType: 'application/json',
