@@ -170,20 +170,28 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       {/* LEADERBOARD (Top 3) */}
       {submissions.length > 0 && (
           <div className="grid grid-cols-3 gap-2 md:gap-4 max-w-3xl mx-auto">
-              {submissions.slice(0, 3).map((sub, i) => (
-                  <div key={sub.id} className={`relative p-4 rounded-2xl border text-center flex flex-col items-center gap-2 ${i === 0 ? 'bg-yellow-50 border-yellow-400 order-2 scale-110 shadow-xl' : i === 1 ? 'bg-slate-50 border-slate-200 order-1' : 'bg-orange-50 border-orange-200 order-3'}`}>
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                          {i === 0 ? <Trophy size={24} className="text-yellow-500 fill-yellow-500" /> : <Medal size={20} className={i === 1 ? "text-slate-400" : "text-orange-700"} />}
-                      </div>
-                      <div className="w-10 h-10 md:w-12 md:h-12 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-xs md:text-sm mt-2">
-                          {sub.aspirants?.full_name?.[0] || 'U'}
-                      </div>
-                      <p className="text-[10px] md:text-xs font-black uppercase tracking-widest truncate w-full">{sub.aspirants?.full_name?.split(' ')[0] || 'Cadet'}</p>
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500">
-                          <Heart size={10} className="text-red-500 fill-red-500" /> {sub.likes_count}
-                      </div>
-                  </div>
-              ))}
+              {submissions.slice(0, 3).map((sub, i) => {
+                  const isCurrentUser = user && sub.user_id === user.id;
+                  // Priority: Joined Aspirant Name > Current User Metadata > 'Cadet'
+                  const displayName = sub.aspirants?.full_name 
+                      || (isCurrentUser ? user.user_metadata?.full_name : null) 
+                      || 'Cadet';
+                  
+                  return (
+                    <div key={sub.id} className={`relative p-4 rounded-2xl border text-center flex flex-col items-center gap-2 ${i === 0 ? 'bg-yellow-50 border-yellow-400 order-2 scale-110 shadow-xl' : i === 1 ? 'bg-slate-50 border-slate-200 order-1' : 'bg-orange-50 border-orange-200 order-3'}`}>
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                            {i === 0 ? <Trophy size={24} className="text-yellow-500 fill-yellow-500" /> : <Medal size={20} className={i === 1 ? "text-slate-400" : "text-orange-700"} />}
+                        </div>
+                        <div className="w-10 h-10 md:w-12 md:h-12 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-xs md:text-sm mt-2">
+                            {displayName?.[0] || 'U'}
+                        </div>
+                        <p className="text-[10px] md:text-xs font-black uppercase tracking-widest truncate w-full">{displayName?.split(' ')[0]}</p>
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500">
+                            <Heart size={10} className="text-red-500 fill-red-500" /> {sub.likes_count}
+                        </div>
+                    </div>
+                  );
+              })}
           </div>
       )}
 
@@ -303,7 +311,14 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
               </div>
           ) : (
               <div className="grid grid-cols-1 gap-6">
-                  {submissions.map((sub, idx) => (
+                  {submissions.map((sub, idx) => {
+                      const isCurrentUser = user && sub.user_id === user.id;
+                      // Priority: Joined Aspirant Name > Current User Metadata > 'Cadet'
+                      const displayName = sub.aspirants?.full_name 
+                          || (isCurrentUser ? user.user_metadata?.full_name : null) 
+                          || 'Cadet';
+
+                      return (
                       <div key={sub.id} className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-md hover:shadow-xl transition-all relative overflow-hidden">
                           {/* Badges Bar */}
                           <div className="absolute top-0 right-0 p-4 flex gap-2">
@@ -316,11 +331,11 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
 
                           <div className="flex items-center gap-4 mb-6 border-b border-slate-50 pb-4">
                               <div className="w-12 h-12 bg-slate-900 text-yellow-400 rounded-full flex items-center justify-center font-black text-sm border-4 border-slate-100">
-                                  {sub.aspirants?.full_name?.[0] || 'U'}
+                                  {displayName?.[0] || 'U'}
                               </div>
                               <div>
                                   <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                                      {sub.aspirants?.full_name || 'Cadet'}
+                                      {displayName}
                                       {sub.aspirants?.streak_count > 0 && (
                                           <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full flex items-center gap-1">
                                               <Flame size={10} fill="currentColor" /> {sub.aspirants.streak_count}
@@ -381,7 +396,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                               </button>
                           </div>
                       </div>
-                  ))}
+                  )})}
               </div>
           )}
       </div>
