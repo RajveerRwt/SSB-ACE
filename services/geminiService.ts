@@ -195,8 +195,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
             const isWAT = testType === 'WAT';
             const items = isWAT ? userData.watResponses : userData.srtResponses;
             const promptText = isWAT 
-                ? "Evaluate Word Association Test responses. Check for OLQs, positivity, and spontaneity." 
-                : "Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness.";
+                ? "Evaluate Word Association Test responses. Check for OLQs, positivity, and spontaneity. Map the user's responses (from typed JSON or transcripts) to the provided Words. If a word has no matching response, mark assessment as 'Not Attempted'. Return 'detailedAnalysis' array."
+                : "Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness. Map the user's responses (from typed JSON or transcripts) to the provided Situations. If a situation has no matching response, mark assessment as 'Not Attempted'. Return 'detailedAnalysis' array.";
 
             const parts: Part[] = [{ text: promptText }];
             
@@ -209,8 +209,24 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 });
             }
 
+            // Add transcripts if available (Priority for SRT)
+            if (!isWAT && userData.srtSheetTranscripts && userData.srtSheetTranscripts.length > 0) {
+                 const combinedTranscript = userData.srtSheetTranscripts.filter((t: string) => t).join('\n\n--- PAGE BREAK ---\n\n');
+                 if (combinedTranscript.trim()) {
+                    parts.push({ text: `[Handwritten Transcripts Provided by User]:\n${combinedTranscript}\n\nNote: Use these transcripts if the structured JSON responses are empty.` });
+                 }
+            }
+
+            // Add transcripts if available (Priority for WAT)
+            if (isWAT && userData.watSheetTranscripts && userData.watSheetTranscripts.length > 0) {
+                 const combinedTranscript = userData.watSheetTranscripts.filter((t: string) => t).join('\n\n--- PAGE BREAK ---\n\n');
+                 if (combinedTranscript.trim()) {
+                    parts.push({ text: `[Handwritten Transcripts Provided by User]:\n${combinedTranscript}\n\nNote: Use these transcripts if the structured JSON responses are empty. Map them to the provided Words.` });
+                 }
+            }
+
             // Add text responses
-            parts.push({ text: `Candidate Responses: ${JSON.stringify(items)}` });
+            parts.push({ text: `Candidate Typed Responses: ${JSON.stringify(items)}` });
 
             /* fix: use gemini-3-pro-preview for complex evaluation tasks */
             const response = await ai.models.generateContent({

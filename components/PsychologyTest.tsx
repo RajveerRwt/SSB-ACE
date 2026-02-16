@@ -45,10 +45,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   // SRT States
   const [srtResponses, setSrtResponses] = useState<string[]>([]);
   const [srtSheetUploads, setSrtSheetUploads] = useState<string[]>([]);
+  const [srtSheetTexts, setSrtSheetTexts] = useState<string[]>([]); // New: Store transcribed text
+  const [srtTranscribingIndices, setSrtTranscribingIndices] = useState<number[]>([]); // New: Loading state for SRT OCR
 
   // WAT States
   const [watResponses, setWatResponses] = useState<string[]>([]);
   const [watSheetUploads, setWatSheetUploads] = useState<string[]>([]);
+  const [watSheetTexts, setWatSheetTexts] = useState<string[]>([]); // New: Store transcribed text for WAT
+  const [watTranscribingIndices, setWatTranscribingIndices] = useState<number[]>([]); // New: Loading state for WAT OCR
 
   // SDT States
   const [sdtData, setSdtData] = useState({
@@ -124,7 +128,9 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     setIsLoading(true);
     setFeedback(null);
     setWatSheetUploads([]);
+    setWatSheetTexts([]);
     setSrtSheetUploads([]);
+    setSrtSheetTexts([]);
     
     // SDT Logic Flow
     if (type === TestType.SDT) {
@@ -408,40 +414,117 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       }
   };
 
-  const handleWatSheetUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files) {
-          const files = Array.from(e.target.files);
-          files.forEach(file => {
+  const handleWatSheetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files) return;
+      
+      const files = Array.from(e.target.files);
+      const startIdx = watSheetUploads.length;
+      
+      // 1. Process files to Base64 in parallel
+      const fileProcessingPromises = files.map(file => {
+          return new Promise<{base64: string, type: string}>((resolve) => {
               const reader = new FileReader();
               reader.onloadend = () => {
-                  const base64 = (reader.result as string).split(',')[1];
-                  setWatSheetUploads(prev => [...prev, base64]);
+                  resolve({
+                      base64: (reader.result as string).split(',')[1],
+                      type: file.type
+                  });
               };
               reader.readAsDataURL(file);
           });
-      }
+      });
+
+      const processedFiles = await Promise.all(fileProcessingPromises);
+      
+      // 2. Update Images State
+      setWatSheetUploads(prev => [...prev, ...processedFiles.map(f => f.base64)]);
+      
+      // 3. Initialize Text State placeholders
+      setWatSheetTexts(prev => [...prev, ...new Array(processedFiles.length).fill('')]);
+      
+      // 4. Trigger Transcription
+      processedFiles.forEach(async (fileData, i) => {
+          const globalIndex = startIdx + i;
+          
+          setWatTranscribingIndices(prev => [...prev, globalIndex]);
+          
+          try {
+              const text = await transcribeHandwrittenStory(fileData.base64, fileData.type);
+              
+              setWatSheetTexts(prev => {
+                  const newArr = [...prev];
+                  newArr[globalIndex] = text;
+                  return newArr;
+              });
+          } catch (e) {
+              console.error("WAT OCR Failed for index " + globalIndex, e);
+          } finally {
+              setWatTranscribingIndices(prev => prev.filter(idx => idx !== globalIndex));
+          }
+      });
   };
 
   const removeWatSheet = (index: number) => {
       setWatSheetUploads(prev => prev.filter((_, i) => i !== index));
+      setWatSheetTexts(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSrtSheetUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files) {
-          const files = Array.from(e.target.files);
-          files.forEach(file => {
+  const handleSrtSheetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files) return;
+      
+      const files = Array.from(e.target.files);
+      const startIdx = srtSheetUploads.length;
+      
+      // 1. Process files to Base64 in parallel
+      const fileProcessingPromises = files.map(file => {
+          return new Promise<{base64: string, type: string}>((resolve) => {
               const reader = new FileReader();
               reader.onloadend = () => {
-                  const base64 = (reader.result as string).split(',')[1];
-                  setSrtSheetUploads(prev => [...prev, base64]);
+                  resolve({
+                      base64: (reader.result as string).split(',')[1],
+                      type: file.type
+                  });
               };
               reader.readAsDataURL(file);
           });
-      }
+      });
+
+      const processedFiles = await Promise.all(fileProcessingPromises);
+      
+      // 2. Update Images State (Sync)
+      setSrtSheetUploads(prev => [...prev, ...processedFiles.map(f => f.base64)]);
+      
+      // 3. Initialize Text State placeholders (Sync)
+      setSrtSheetTexts(prev => [...prev, ...new Array(processedFiles.length).fill('')]);
+      
+      // 4. Trigger Transcription (Async per file)
+      processedFiles.forEach(async (fileData, i) => {
+          const globalIndex = startIdx + i;
+          
+          // Mark as Transcribing
+          setSrtTranscribingIndices(prev => [...prev, globalIndex]);
+          
+          try {
+              const text = await transcribeHandwrittenStory(fileData.base64, fileData.type);
+              
+              // Update Specific Index in Text Array
+              setSrtSheetTexts(prev => {
+                  const newArr = [...prev];
+                  newArr[globalIndex] = text;
+                  return newArr;
+              });
+          } catch (e) {
+              console.error("SRT OCR Failed for index " + globalIndex, e);
+          } finally {
+              // Remove from loading state
+              setSrtTranscribingIndices(prev => prev.filter(idx => idx !== globalIndex));
+          }
+      });
   };
 
   const removeSrtSheet = (index: number) => {
       setSrtSheetUploads(prev => prev.filter((_, i) => i !== index));
+      setSrtSheetTexts(prev => prev.filter((_, i) => i !== index));
   };
 
   const submitSDT = async () => {
@@ -463,11 +546,12 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           const payload = { 
               testType: 'SRT', 
               srtResponses: items.map((item, i) => ({ id: i + 1, situation: item.content, response: srtResponses[i] || "" })),
-              srtSheetImages: srtSheetUploads 
+              srtSheetImages: srtSheetUploads,
+              srtSheetTranscripts: srtSheetTexts // Pass transcribed text for better evaluation
           };
           const result = await evaluatePerformance(type, payload);
           setFeedback(result);
-          if (onSave && !isGuest) onSave({ ...result, srtResponses, srtSheetImages: srtSheetUploads });
+          if (onSave && !isGuest) onSave({ ...result, srtResponses, srtSheetImages: srtSheetUploads, srtSheetTranscripts: srtSheetTexts });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { console.error("SRT Eval Error", err); setPhase(PsychologyPhase.COMPLETED); }
   };
@@ -478,11 +562,12 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           const payload = { 
               testType: 'WAT', 
               watResponses: items.map((item, i) => ({ id: i + 1, word: item.content, response: watResponses[i] || "" })),
-              watSheetImages: watSheetUploads
+              watSheetImages: watSheetUploads,
+              watSheetTranscripts: watSheetTexts // Pass transcribed text
           };
           const result = await evaluatePerformance(type, payload);
           setFeedback(result);
-          if (onSave && !isGuest) onSave({ ...result, watResponses, watSheetImages: watSheetUploads });
+          if (onSave && !isGuest) onSave({ ...result, watResponses, watSheetImages: watSheetUploads, watSheetTranscripts: watSheetTexts });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { console.error("WAT Eval Error", err); setPhase(PsychologyPhase.COMPLETED); }
   };
@@ -650,37 +735,69 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                    <CheckCircle size={32} />
                </div>
                <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">WAT Completed</h2>
-               <p className="text-slate-500 font-medium italic">"Submit your responses. You may skip this upload if you have typed your answers."</p>
+               <p className="text-slate-500 font-medium italic">"Review your answers. If you uploaded photos, please verify the transcribed text below."</p>
             </div>
             
             {/* Upload Section */}
             <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
                 <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3">
-                   <Upload className="text-blue-600" size={24}/> Handwritten WAT Response Upload (Optional)
+                   <Upload className="text-blue-600" size={24}/> Handwritten Response Verification
                 </h3>
                 <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-sm text-blue-900 font-medium mb-8 space-y-3">
-                    <p className="font-bold flex items-center gap-2 uppercase tracking-widest text-xs"><Info size={16}/> Instructions:</p>
+                    <p className="font-bold flex items-center gap-2 uppercase tracking-widest text-xs"><Info size={16}/> Protocol:</p>
                     <ul className="list-disc pl-5 space-y-2 text-blue-800/80">
-                        <li><strong>Option A (Digital):</strong> Submit the text you typed during the test.</li>
-                        <li><strong>Option B (Paper):</strong> Upload photos of your handwritten sheet. Ensure serial numbers (1-60) match.</li>
-                        <li>Photos must be clear for AI to transcribe.</li>
+                        <li>Upload clear photos of your answer sheet.</li>
+                        <li><strong>AI will auto-transcribe</strong> your handwriting into the text box below.</li>
+                        <li><strong>Correction is Mandatory:</strong> If the AI misread your handwriting, edit the text box manually. The text in the box is what will be graded.</li>
                     </ul>
                 </div>
                 
-                {/* Image Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                {/* Image & Transcript Grid */}
+                <div className="space-y-6 mb-8">
                     {watSheetUploads.map((img, idx) => (
-                        <div key={idx} className="relative rounded-2xl overflow-hidden aspect-[3/4] border-2 border-slate-100 shadow-sm group">
-                            <img src={`data:image/jpeg;base64,${img}`} className="w-full h-full object-cover" alt={`Sheet ${idx + 1}`} />
-                            <button onClick={() => removeWatSheet(idx)} className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110 shadow-lg">
-                                <Trash2 size={14} />
-                            </button>
-                            <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[9px] font-black px-2 py-1 rounded backdrop-blur-sm">Page {idx + 1}</div>
+                        <div key={idx} className="flex flex-col md:flex-row gap-6 p-4 rounded-3xl border border-slate-100 bg-slate-50/50">
+                            {/* Image Preview */}
+                            <div className="w-full md:w-1/3 relative rounded-2xl overflow-hidden aspect-[3/4] border-2 border-slate-200 shadow-sm group shrink-0">
+                                <img src={`data:image/jpeg;base64,${img}`} className="w-full h-full object-cover" alt={`Sheet ${idx + 1}`} />
+                                <button onClick={() => removeWatSheet(idx)} className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110 shadow-lg">
+                                    <Trash2 size={14} />
+                                </button>
+                                <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[9px] font-black px-2 py-1 rounded backdrop-blur-sm">Page {idx + 1}</div>
+                            </div>
+                            
+                            {/* Transcript Editor */}
+                            <div className="w-full md:w-2/3 flex flex-col">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">AI Transcript (Editable)</span>
+                                    {watTranscribingIndices.includes(idx) && (
+                                        <span className="text-[10px] font-bold text-blue-600 flex items-center gap-2 bg-blue-50 px-2 py-1 rounded-lg">
+                                            <Loader2 size={12} className="animate-spin" /> Reading Handwriting...
+                                        </span>
+                                    )}
+                                </div>
+                                <textarea 
+                                    value={watSheetTexts[idx] || ""}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setWatSheetTexts(prev => {
+                                            const next = [...prev];
+                                            next[idx] = val;
+                                            return next;
+                                        });
+                                    }}
+                                    placeholder={watTranscribingIndices.includes(idx) ? "AI is reading your handwriting..." : "Transcription will appear here. Edit if necessary."}
+                                    className="flex-1 w-full p-4 bg-white border border-slate-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-mono text-xs md:text-sm text-slate-700 resize-none min-h-[200px]"
+                                />
+                            </div>
                         </div>
                     ))}
-                    <label className="flex flex-col items-center justify-center bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer hover:bg-slate-100 hover:border-slate-400 transition-all aspect-[3/4] group">
-                        <Camera size={32} className="text-slate-300 group-hover:text-slate-500 mb-2 transition-colors"/>
-                        <span className="text-[10px] font-black uppercase text-slate-400 group-hover:text-slate-600 tracking-widest">Add Photo</span>
+                    
+                    {/* Add Button */}
+                    <label className="flex flex-col items-center justify-center bg-white border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer hover:bg-slate-50 hover:border-slate-400 transition-all p-8 group">
+                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-slate-200 transition-colors">
+                            <Camera size={24} className="text-slate-400 group-hover:text-slate-600"/>
+                        </div>
+                        <span className="text-xs font-black uppercase text-slate-400 group-hover:text-slate-600 tracking-widest">Add Page Photo</span>
                         <input type="file" multiple accept="image/*" className="hidden" onChange={handleWatSheetUpload} />
                     </label>
                 </div>
@@ -707,37 +824,69 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                    <CheckCircle size={32} />
                </div>
                <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">SRT Completed</h2>
-               <p className="text-slate-500 font-medium italic">"Submit your responses. You may skip this upload if you have typed your answers."</p>
+               <p className="text-slate-500 font-medium italic">"Review your answers. If you uploaded photos, please verify the transcribed text below."</p>
             </div>
             
             {/* Upload Section */}
             <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
                 <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3">
-                   <Upload className="text-blue-600" size={24}/> Handwritten SRT Response Upload (Optional)
+                   <Upload className="text-blue-600" size={24}/> Handwritten Response Verification
                 </h3>
                 <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-sm text-blue-900 font-medium mb-8 space-y-3">
-                    <p className="font-bold flex items-center gap-2 uppercase tracking-widest text-xs"><Info size={16}/> Instructions:</p>
+                    <p className="font-bold flex items-center gap-2 uppercase tracking-widest text-xs"><Info size={16}/> Protocol:</p>
                     <ul className="list-disc pl-5 space-y-2 text-blue-800/80">
-                        <li><strong>Option A (Digital):</strong> Submit the text you typed during the test.</li>
-                        <li><strong>Option B (Paper):</strong> Upload photos of your handwritten answer sheet.</li>
-                        <li>Ensure responses are numbered serially to match the question set.</li>
+                        <li>Upload clear photos of your answer sheet.</li>
+                        <li><strong>AI will auto-transcribe</strong> your handwriting into the text box below.</li>
+                        <li><strong>Correction is Mandatory:</strong> If the AI misread your handwriting, edit the text box manually. The text in the box is what will be graded.</li>
                     </ul>
                 </div>
                 
-                {/* Image Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                {/* Image & Transcript Grid */}
+                <div className="space-y-6 mb-8">
                     {srtSheetUploads.map((img, idx) => (
-                        <div key={idx} className="relative rounded-2xl overflow-hidden aspect-[3/4] border-2 border-slate-100 shadow-sm group">
-                            <img src={`data:image/jpeg;base64,${img}`} className="w-full h-full object-cover" alt={`Sheet ${idx + 1}`} />
-                            <button onClick={() => removeSrtSheet(idx)} className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110 shadow-lg">
-                                <Trash2 size={14} />
-                            </button>
-                            <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[9px] font-black px-2 py-1 rounded backdrop-blur-sm">Page {idx + 1}</div>
+                        <div key={idx} className="flex flex-col md:flex-row gap-6 p-4 rounded-3xl border border-slate-100 bg-slate-50/50">
+                            {/* Image Preview */}
+                            <div className="w-full md:w-1/3 relative rounded-2xl overflow-hidden aspect-[3/4] border-2 border-slate-200 shadow-sm group shrink-0">
+                                <img src={`data:image/jpeg;base64,${img}`} className="w-full h-full object-cover" alt={`Sheet ${idx + 1}`} />
+                                <button onClick={() => removeSrtSheet(idx)} className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110 shadow-lg">
+                                    <Trash2 size={14} />
+                                </button>
+                                <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[9px] font-black px-2 py-1 rounded backdrop-blur-sm">Page {idx + 1}</div>
+                            </div>
+                            
+                            {/* Transcript Editor */}
+                            <div className="w-full md:w-2/3 flex flex-col">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">AI Transcript (Editable)</span>
+                                    {srtTranscribingIndices.includes(idx) && (
+                                        <span className="text-[10px] font-bold text-blue-600 flex items-center gap-2 bg-blue-50 px-2 py-1 rounded-lg">
+                                            <Loader2 size={12} className="animate-spin" /> Reading Handwriting...
+                                        </span>
+                                    )}
+                                </div>
+                                <textarea 
+                                    value={srtSheetTexts[idx] || ""}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setSrtSheetTexts(prev => {
+                                            const next = [...prev];
+                                            next[idx] = val;
+                                            return next;
+                                        });
+                                    }}
+                                    placeholder={srtTranscribingIndices.includes(idx) ? "AI is reading your handwriting..." : "Transcription will appear here. Edit if necessary."}
+                                    className="flex-1 w-full p-4 bg-white border border-slate-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-mono text-xs md:text-sm text-slate-700 resize-none min-h-[200px]"
+                                />
+                            </div>
                         </div>
                     ))}
-                    <label className="flex flex-col items-center justify-center bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer hover:bg-slate-100 hover:border-slate-400 transition-all aspect-[3/4] group">
-                        <Camera size={32} className="text-slate-300 group-hover:text-slate-500 mb-2 transition-colors"/>
-                        <span className="text-[10px] font-black uppercase text-slate-400 group-hover:text-slate-600 tracking-widest">Add Photo</span>
+                    
+                    {/* Add Button */}
+                    <label className="flex flex-col items-center justify-center bg-white border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer hover:bg-slate-50 hover:border-slate-400 transition-all p-8 group">
+                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-slate-200 transition-colors">
+                            <Camera size={24} className="text-slate-400 group-hover:text-slate-600"/>
+                        </div>
+                        <span className="text-xs font-black uppercase text-slate-400 group-hover:text-slate-600 tracking-widest">Add Page Photo</span>
                         <input type="file" multiple accept="image/*" className="hidden" onChange={handleSrtSheetUpload} />
                     </label>
                 </div>
@@ -903,40 +1052,55 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 </div>
             )}
 
-            {(type === TestType.WAT || type === TestType.SRT) && feedback?.detailedAnalysis && (
+            {(type === TestType.WAT || type === TestType.SRT) && (
                 <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">
                     <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                         <Activity size={24} className="text-purple-600" /> Detailed Assessment Log
                     </h3>
                     <div className="grid grid-cols-1 gap-4">
-                        {feedback.detailedAnalysis.map((item: any, i: number) => {
-                            const isUnattempted = !item.userResponse || item.userResponse === "Not Attempted" || item.userResponse === "" || item.assessment?.includes("Unattempted");
+                        {/* Map through ITEMS to ensure we show all 60, not just what AI returned */}
+                        {items.map((item, i) => {
+                            // Find corresponding analysis
+                            const analysis = feedback?.detailedAnalysis?.find((a: any) => 
+                                a.situation?.includes(item.content.substring(0, 10)) || a.word === item.content
+                            ) || feedback?.detailedAnalysis?.[i];
+
+                            const isUnattempted = !analysis || !analysis.userResponse || analysis.userResponse === "Not Attempted" || analysis.userResponse.trim() === "";
                             
                             return (
-                                <div key={i} className={`p-6 rounded-3xl border transition-all flex flex-col md:flex-row gap-6 ${isUnattempted ? 'bg-slate-100 border-slate-200 opacity-90' : 'bg-slate-50 border-slate-100 hover:bg-white hover:shadow-md'}`}>
+                                <div key={i} className={`p-6 rounded-3xl border transition-all flex flex-col md:flex-row gap-6 ${isUnattempted ? 'bg-slate-50 border-slate-200 opacity-80' : 'bg-slate-50 border-slate-100 hover:bg-white hover:shadow-md'}`}>
                                     <div className="md:w-1/4 shrink-0 flex items-center gap-4">
                                         <span className="text-2xl font-black text-slate-300">{(i + 1).toString().padStart(2, '0')}</span>
-                                        <p className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-wide leading-tight">{item.word || item.situation}</p>
+                                        <p className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-wide leading-tight">{item.content}</p>
                                     </div>
                                     <div className="md:w-3/4 grid md:grid-cols-2 gap-6">
                                         <div className="space-y-1">
                                             <div className="flex justify-between">
                                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Your Response</span>
-                                                <span className={`text-[9px] font-bold uppercase tracking-widest ${
-                                                    isUnattempted ? 'text-red-500' :
-                                                    item.assessment?.toLowerCase().includes('positive') || item.assessment?.toLowerCase().includes('effective') ? 'text-green-600' : 
-                                                    item.assessment?.toLowerCase().includes('negative') || item.assessment?.toLowerCase().includes('passive') ? 'text-red-600' : 'text-blue-600'
-                                                }`}>{isUnattempted ? "Not Attempted" : item.assessment}</span>
+                                                {isUnattempted ? (
+                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-red-500">Not Attempted</span>
+                                                ) : (
+                                                    <span className={`text-[9px] font-bold uppercase tracking-widest ${
+                                                        analysis.assessment?.toLowerCase().includes('positive') || analysis.assessment?.toLowerCase().includes('effective') ? 'text-green-600' : 
+                                                        analysis.assessment?.toLowerCase().includes('negative') || analysis.assessment?.toLowerCase().includes('passive') ? 'text-red-600' : 'text-blue-600'
+                                                    }`}>{analysis.assessment}</span>
+                                                )}
                                             </div>
-                                            <p className={`p-3 rounded-xl text-sm font-medium ${!isUnattempted ? 'bg-white border border-slate-200 text-slate-700' : 'bg-red-50 text-red-400 border border-red-100 italic'}`}>
-                                                {isUnattempted ? "Skipped" : item.userResponse}
+                                            <p className={`p-3 rounded-xl text-sm font-medium ${isUnattempted ? 'bg-red-50 text-red-400 border border-red-100 italic' : 'bg-white border border-slate-200 text-slate-700'}`}>
+                                                {isUnattempted ? "Skipped" : analysis.userResponse}
                                             </p>
                                         </div>
                                         <div className="space-y-1">
                                             <span className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Ideal Response</span>
-                                            <p className="p-3 bg-green-50 border border-green-100 rounded-xl text-sm font-medium text-slate-700">
-                                                {item.idealResponse}
-                                            </p>
+                                            {isUnattempted ? (
+                                                <p className="p-3 bg-slate-100 border border-slate-200 rounded-xl text-sm font-medium text-slate-400 italic">
+                                                    Analysis skipped
+                                                </p>
+                                            ) : (
+                                                <p className="p-3 bg-green-50 border border-green-100 rounded-xl text-sm font-medium text-slate-700">
+                                                    {analysis.idealResponse}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
