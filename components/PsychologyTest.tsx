@@ -573,95 +573,51 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       setPhase(PsychologyPhase.EVALUATING);
       try {
           const result = await evaluatePerformance(type, { sdtData, sdtImages });
-          if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) {
-              throw new Error("AI Busy");
-          }
           setFeedback(result);
           if (onSave && !isGuest) onSave({ ...result, sdtData, sdtImages });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) {
           console.error("SDT Eval Error", err);
-          const fallback = {
-              score: 0,
-              verdict: "Technical Failure",
-              recommendations: "Assessment Pending. Your responses have been saved.",
-              error: true,
-              sdtData,
-              sdtImages
-          };
-          setFeedback(fallback);
-          if (onSave && !isGuest) onSave(fallback);
           setPhase(PsychologyPhase.COMPLETED);
       }
   };
 
   const submitSRT = async () => {
       setPhase(PsychologyPhase.EVALUATING);
-      const payload = { 
-          testType: 'SRT', 
-          srtResponses: items.map((item, i) => ({ id: i + 1, situation: item.content, response: srtResponses[i] || "" })),
-          srtSheetImages: srtSheetUploads,
-          srtSheetTranscripts: srtSheetTexts 
-      };
       try {
+          const payload = { 
+              testType: 'SRT', 
+              srtResponses: items.map((item, i) => ({ id: i + 1, situation: item.content, response: srtResponses[i] || "" })),
+              srtSheetImages: srtSheetUploads,
+              srtSheetTranscripts: srtSheetTexts // Pass transcribed text for better evaluation
+          };
           const result = await evaluatePerformance(type, payload);
-          if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) {
-              throw new Error("AI Busy");
-          }
           setFeedback(result);
           if (onSave && !isGuest) onSave({ ...result, srtResponses, srtSheetImages: srtSheetUploads, srtSheetTranscripts: srtSheetTexts });
           setPhase(PsychologyPhase.COMPLETED);
-      } catch (err) { 
-          console.error("SRT Eval Error", err); 
-          const fallback = {
-              score: 0,
-              verdict: "Technical Failure",
-              recommendations: "Assessment Pending. Your responses have been saved.",
-              error: true,
-              srtResponses: payload.srtResponses
-          };
-          setFeedback(fallback);
-          if (onSave && !isGuest) onSave(fallback);
-          setPhase(PsychologyPhase.COMPLETED);
-      }
+      } catch (err) { console.error("SRT Eval Error", err); setPhase(PsychologyPhase.COMPLETED); }
   };
 
   const submitWAT = async () => {
       setPhase(PsychologyPhase.EVALUATING);
-      const payload = { 
-          testType: 'WAT', 
-          watResponses: items.map((item, i) => ({ id: i + 1, word: item.content, response: watResponses[i] || "" })),
-          watSheetImages: watSheetUploads,
-          watSheetTranscripts: watSheetTexts 
-      };
       try {
+          const payload = { 
+              testType: 'WAT', 
+              watResponses: items.map((item, i) => ({ id: i + 1, word: item.content, response: watResponses[i] || "" })),
+              watSheetImages: watSheetUploads,
+              watSheetTranscripts: watSheetTexts // Pass transcribed text
+          };
           const result = await evaluatePerformance(type, payload);
-          if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) {
-              throw new Error("AI Busy");
-          }
           setFeedback(result);
           if (onSave && !isGuest) onSave({ ...result, watResponses, watSheetImages: watSheetUploads, watSheetTranscripts: watSheetTexts });
           setPhase(PsychologyPhase.COMPLETED);
-      } catch (err) { 
-          console.error("WAT Eval Error", err); 
-          const fallback = {
-              score: 0,
-              verdict: "Technical Failure",
-              recommendations: "Assessment Pending. Your responses have been saved.",
-              error: true,
-              watResponses: payload.watResponses
-          };
-          setFeedback(fallback);
-          if (onSave && !isGuest) onSave(fallback);
-          setPhase(PsychologyPhase.COMPLETED);
-      }
+      } catch (err) { console.error("WAT Eval Error", err); setPhase(PsychologyPhase.COMPLETED); }
   };
 
   const submitDossier = async () => {
     setPhase(PsychologyPhase.EVALUATING);
-    let tatPairs: any[] = [];
     try {
-      tatPairs = await Promise.all(items.map(async (item, index) => {
+      const tatPairs = await Promise.all(items.map(async (item, index) => {
         const userStoryImage = tatUploads[index];
         if (!userStoryImage) return null;
         let stimulusBase64: string | undefined = undefined;
@@ -680,27 +636,11 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
         return { storyIndex: index + 1, stimulusImage: stimulusBase64, stimulusDesc: item.content, userStoryImage: userStoryImage, userStoryText: tatTexts[index] };
       }));
       const validPairs = tatPairs.filter(p => p !== null);
-      
       const result = await evaluatePerformance(type, { tatPairs: validPairs, testType: type, itemCount: items.length });
-      if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) {
-          throw new Error("AI Busy");
-      }
       setFeedback(result);
-      if (onSave && !isGuest) onSave({ ...result, tatImages: tatUploads, tatPairs: validPairs });
+      if (onSave && !isGuest) onSave({ ...result, tatImages: tatUploads });
       setPhase(PsychologyPhase.COMPLETED);
-    } catch (err) { 
-        console.error("Evaluation error:", err); 
-        const fallback = {
-            score: 0,
-            verdict: "Technical Failure",
-            recommendations: "Assessment Pending. Your responses have been saved.",
-            error: true,
-            tatPairs: tatPairs.filter(p => p !== null)
-        };
-        setFeedback(fallback);
-        if (onSave && !isGuest) onSave(fallback);
-        setPhase(PsychologyPhase.COMPLETED); 
-    }
+    } catch (err) { console.error("Evaluation error:", err); setPhase(PsychologyPhase.UPLOADING_STORIES); }
   };
 
   const formatTime = (seconds: number) => {
@@ -1093,31 +1033,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                     
                     <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em]">
                         Restricted Access
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
-    // ERROR STATE UI (Saving Fallback)
-    if (feedback?.error) {
-        return (
-            <div className="max-w-2xl mx-auto py-20 text-center animate-in fade-in slide-in-from-bottom-8">
-                <div className="bg-red-50 p-8 rounded-[3rem] border border-red-100 shadow-xl">
-                    <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <Activity size={32} className="animate-pulse" />
-                    </div>
-                    <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">Assessment Pending</h3>
-                    <p className="text-slate-600 font-medium leading-relaxed mb-8">
-                        {feedback.recommendations || "Server Busy. Your inputs have been saved safely."}
-                    </p>
-                    <div className="flex justify-center gap-4">
-                        <button onClick={() => window.location.reload()} className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all">
-                            Return to Dashboard
-                        </button>
-                    </div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-6">
-                        Check "Mission Logs" later to view your raw response.
                     </p>
                 </div>
             </div>

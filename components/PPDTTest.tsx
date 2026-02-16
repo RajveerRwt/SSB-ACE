@@ -352,7 +352,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
 
     setStep(PPDTStep.FINISHED);
     setIsLoading(true);
-    
     try {
       let stimulusBase64 = null;
       if (currentImageUrl) {
@@ -360,6 +359,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
               stimulusBase64 = currentImageUrl.split(',')[1];
           } else {
               try {
+                  // Use 5s timeout to prevent hanging on external images
                   const response = await fetchWithTimeout(currentImageUrl, 5000);
                   const blob = await response.blob();
                   stimulusBase64 = await new Promise<string>((resolve) => {
@@ -369,6 +369,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                   });
               } catch (err) { 
                   console.warn("Failed to fetch stimulus within timeout:", err); 
+                  // Proceed without image if fetch fails
               }
           }
       }
@@ -380,34 +381,20 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
         uploadedStoryImage: uploadedImageBase64,
         stimulusImage: stimulusBase64 
       });
-      
-      // If AI returns a default/error verdict (score 0 + verdict mismatch)
-      if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) {
-          throw new Error("AI Busy");
-      }
-
       setFeedback(result);
-      if (onSave && !isGuest) onSave({ ...result, uploadedStoryImage: uploadedImageBase64, story, narration: narrationText, isCustomAttempt: !!customStimulus });
-
-    } catch (e) {
-      console.error("PPDT Error:", e);
-      // Fallback: Save RAW Inputs
-      const fallbackResult = {
-          score: 0,
-          verdict: "Technical Failure",
-          recommendations: "The AI Assessor was unavailable. Your raw responses have been securely saved to your dossier. You can review them in the Dashboard.",
-          strengths: ["Persistence"],
-          weaknesses: ["Server Timeout"],
-          scoreDetails: { perception: 0, content: 0, expression: 0 },
-          // Save User Inputs
-          story: story,
-          narration: narrationText,
-          uploadedStoryImage: uploadedImageBase64,
-          error: true
-      };
       
-      setFeedback(fallbackResult);
-      if (onSave && !isGuest) onSave(fallbackResult);
+      // Pass isCustomAttempt flag to prevent usage increment in App.tsx
+      if (onSave && !isGuest) onSave({ ...result, uploadedStoryImage: uploadedImageBase64, isCustomAttempt: !!customStimulus });
+    } catch (e) {
+      console.error(e);
+      // Fallback feedback on critical error
+      setFeedback({
+          score: 0,
+          recommendations: "Evaluation failed due to network or server error. Please try again.",
+          strengths: ["Persistence"],
+          weaknesses: ["Connection Issue"],
+          scoreDetails: { perception: 0, content: 0, expression: 0 }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -774,32 +761,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
             </div>
           );
         }
-
-        // ERROR STATE UI (Saving Fallback)
-        if (feedback?.error) {
-            return (
-                <div className="max-w-2xl mx-auto py-20 text-center animate-in fade-in slide-in-from-bottom-8">
-                    <div className="bg-red-50 p-8 rounded-[3rem] border border-red-100 shadow-xl">
-                        <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Activity size={32} className="animate-pulse" />
-                        </div>
-                        <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">Assessment Pending</h3>
-                        <p className="text-slate-600 font-medium leading-relaxed mb-8">
-                            {feedback.recommendations || "Server Busy. Your inputs have been saved safely."}
-                        </p>
-                        <div className="flex justify-center gap-4">
-                            <button onClick={() => window.location.reload()} className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all">
-                                Return to Dashboard
-                            </button>
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-6">
-                            Check "Mission Logs" later to view your raw response.
-                        </p>
-                    </div>
-                </div>
-            );
-        }
-
         return (
           <div className="max-w-6xl mx-auto space-y-8 md:space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-12 duration-1000">
             <div className="bg-slate-950 p-8 md:p-16 rounded-[3rem] md:rounded-[4rem] text-white relative overflow-hidden shadow-2xl">
