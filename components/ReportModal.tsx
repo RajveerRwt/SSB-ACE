@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { X, FileText, CheckCircle, AlertTriangle, Activity, Brain, Target, Mic, Download, Loader2, RefreshCw } from 'lucide-react';
-import { evaluatePerformance } from '../services/geminiService';
-import { updateTestAttempt } from '../services/supabaseService';
+
+import React from 'react';
+import { X, FileText, CheckCircle, AlertTriangle, Activity, Brain, Target, Mic, Download } from 'lucide-react';
 
 interface ReportModalProps {
   isOpen: boolean;
@@ -11,50 +10,10 @@ interface ReportModalProps {
 }
 
 const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testType }) => {
-  const [localData, setLocalData] = useState(data);
-  const [isRetrying, setIsRetrying] = useState(false);
+  if (!isOpen || !data) return null;
 
-  useEffect(() => {
-      setLocalData(data);
-  }, [data]);
-
-  if (!isOpen || !localData) return null;
-
-  const result = localData.result_data || localData; 
-  const isError = result.score === 0 && (result.verdict === "Technical Failure" || result.error);
-
-  // Auto-Retry on Open if Error State
-  useEffect(() => {
-      if (isOpen && isError && !isRetrying) {
-          attemptRetry();
-      }
-  }, [isOpen]);
-
-  const attemptRetry = async () => {
-      if (isRetrying) return;
-      setIsRetrying(true);
-      try {
-          // Re-evaluate using saved raw inputs
-          const newResult = await evaluatePerformance(testType, result);
-          
-          if (newResult && newResult.score > 0) {
-              // Merge inputs back to preserve them
-              const merged = { ...result, ...newResult, error: false };
-              
-              // Update DB
-              if (localData.id) {
-                  await updateTestAttempt(localData.id, merged);
-              }
-              
-              // Update View
-              setLocalData({ ...localData, result_data: merged, score: merged.score });
-          }
-      } catch (e) {
-          console.log("Retry failed, still pending");
-      } finally {
-          setIsRetrying(false);
-      }
-  };
+  const isError = data.score === 0 && (data.verdict === "Technical Failure" || data.error);
+  const result = data.result_data || data; // Handle wrapping if coming from DB vs direct
 
   return (
     <div className="fixed inset-0 z-[300] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
@@ -68,7 +27,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testTy
               </div>
               <div>
                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Mission Report</h3>
-                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{testType} • {new Date(localData.created_at || Date.now()).toLocaleDateString()}</p>
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{testType} • {new Date(data.created_at || Date.now()).toLocaleDateString()}</p>
               </div>
            </div>
            <button onClick={onClose} className="p-2 bg-white hover:bg-slate-200 rounded-full transition-colors text-slate-500">
@@ -79,22 +38,16 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testTy
         <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar space-y-8">
             
             {/* Verdict Banner */}
-            <div className={`p-6 rounded-[2rem] border-2 ${isError ? 'bg-yellow-50 border-yellow-200' : 'bg-slate-900 text-white border-slate-800'} flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden`}>
-                {isError && isRetrying && (
-                    <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center z-10">
-                        <Loader2 className="animate-spin text-blue-600" size={32} />
-                    </div>
-                )}
-                
-                <div className="space-y-2 text-center md:text-left relative z-0">
+            <div className={`p-6 rounded-[2rem] border-2 ${isError ? 'bg-red-50 border-red-100' : 'bg-slate-900 text-white border-slate-800'} flex flex-col md:flex-row justify-between items-center gap-6`}>
+                <div className="space-y-2 text-center md:text-left">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isError ? 'bg-red-200 text-red-800' : 'bg-yellow-400 text-black'}`}>
-                        {isError ? 'Pending Analysis' : 'Assessment Status'}
+                        {isError ? 'System Alert' : 'Assessment Status'}
                     </span>
-                    <h2 className={`text-3xl md:text-4xl font-black uppercase tracking-tighter ${isError ? 'text-slate-900' : 'text-white'}`}>
-                        {isError ? 'In Queue' : `Score: ${result.score}/10`}
+                    <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter">
+                        {isError ? 'Evaluation Pending' : `Score: ${result.score}/10`}
                     </h2>
-                    <p className={`text-sm font-medium ${isError ? 'text-slate-600' : 'text-slate-400'}`}>
-                        {isError ? "Assessment generation in progress. Please wait..." : (result.verdict || "Assessment Complete")}
+                    <p className={`text-sm font-medium ${isError ? 'text-red-700' : 'text-slate-400'}`}>
+                        {isError ? "AI Analysis unavailable at time of submission. Your raw inputs are saved below." : (result.verdict || "Assessment Complete")}
                     </p>
                 </div>
                 {!isError && (
@@ -104,14 +57,6 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testTy
                           <span className="text-[10px] font-black uppercase tracking-widest">Performance</span>
                        </div>
                     </div>
-                )}
-                {isError && !isRetrying && (
-                    <button 
-                        onClick={attemptRetry}
-                        className="px-6 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 z-10"
-                    >
-                        <RefreshCw size={14} /> Retry Generation
-                    </button>
                 )}
             </div>
 
