@@ -37,7 +37,8 @@ function generateFallbackEvaluation(testType: string, text: string) {
         recommendations: "Please write a more detailed response to allow for proper AI assessment.",
         perception: { heroAge: "N/A", heroSex: "N/A", heroMood: "N/A", mainTheme: "N/A" },
         storyAnalysis: { action: "N/A", outcome: "N/A", coherence: "Low" },
-        observationAnalysis: "Content insufficient for analysis."
+        observationAnalysis: "Content insufficient for analysis.",
+        scoreDetails: { perception: 0, content: 0, expression: 0 }
     };
 }
 
@@ -253,14 +254,32 @@ export async function evaluatePerformance(testType: string, userData: any) {
         }
 
         const parts: Part[] = [];
-        parts.push({ text: `Evaluate PPDT Performance. 
-        CRITICAL: Analyze the 'Stimulus Image' vs the 'Candidate's Story'.
-        1. Check 'relevance': Is the story physically grounded in the image provided? (e.g. number of characters, gender, mood, setting).
-        2. If the story is completely unrelated to the image (hallucinated), mark it as poor perception and penalize the score significantly.
-        3. Fill 'observationAnalysis': Provide specific feedback on what they missed in the image or if they imagined things not present.
-        4. Assess Perception, Action, Outcome.
+        parts.push({ text: `
+        Act as an Expert Psychologist at the Services Selection Board (SSB). Evaluate this PPDT (Screening) attempt.
         
-        Return JSON.` });
+        *** STRICT SCORING RUBRIC (0-10) ***
+        Calculate the 'score' by summing these 3 factors. BE CRITICAL.
+        
+        1. PERCEPTION (Max 3 Marks): 
+           - Did the candidate identify the characters, mood, and setting accurately based on the STIMULUS IMAGE?
+           - If the story contradicts the image (hallucination), Perception = 0.
+           
+        2. CONTENT & ACTION (Max 5 Marks):
+           - Is there a clear Hero? 
+           - Is there a defined problem/challenge?
+           - Is the solution logical, practical, and positive?
+           - Are OLQs (Initiative, Planning, Empathy) visible?
+           
+        3. EXPRESSION (Max 2 Marks):
+           - Narration clarity and story flow.
+           
+        *** IMPORTANT ***
+        - The 'score' MUST match your text assessment.
+        - If the score is < 5, the 'verdict' must be 'Screened Out / Borderline'.
+        - If the story is completely unrelated to the image, the total score CANNOT exceed 3.0.
+        
+        Return JSON.
+        ` });
 
         if (userData.stimulusImage) {
              parts.push({ inlineData: { data: userData.stimulusImage, mimeType: 'image/jpeg' } });
@@ -280,6 +299,14 @@ export async function evaluatePerformance(testType: string, userData: any) {
               type: Type.OBJECT,
               properties: {
                 score: { type: Type.NUMBER },
+                scoreDetails: {
+                    type: Type.OBJECT,
+                    properties: {
+                        perception: { type: Type.NUMBER, description: "Score out of 3 for accuracy of observation" },
+                        content: { type: Type.NUMBER, description: "Score out of 5 for story quality and OLQs" },
+                        expression: { type: Type.NUMBER, description: "Score out of 2 for narration flow" }
+                    }
+                },
                 verdict: { type: Type.STRING },
                 perception: {
                   type: Type.OBJECT,
@@ -298,10 +325,11 @@ export async function evaluatePerformance(testType: string, userData: any) {
                     coherence: { type: Type.STRING }
                   }
                 },
-                observationAnalysis: { type: Type.STRING, description: "Feedback on whether the story was related to the image and observation accuracy." },
+                observationAnalysis: { type: Type.STRING, description: "Detailed feedback on whether the story matched the image provided. Mention missed details." },
                 strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
                 weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                recommendations: { type: Type.STRING }
+                recommendations: { type: Type.STRING, description: "Final verdict explanation consistent with the calculated score." },
+                idealStory: { type: Type.STRING, description: "A short, high-scoring example story based on the same image." }
               }
             }
           }

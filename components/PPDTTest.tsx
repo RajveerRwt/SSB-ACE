@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star, Camera, LogIn, Lock, Coins } from 'lucide-react';
+import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star, Camera, LogIn, Lock, Coins, Activity } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
 import { getPPDTScenarios, getUserSubscription, checkLimit, TEST_RATES } from '../services/supabaseService';
 import { SSBLogo } from './Logo';
@@ -758,6 +758,50 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                        </div>
                     </div>
                  </div>
+            )}
+
+            {/* DETAILED SCORE BREAKDOWN - NEW ADDITION */}
+            {feedback?.scoreDetails && (
+                <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 mb-8">
+                    <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-6 flex items-center gap-3">
+                        <Activity size={24} className="text-blue-600" /> Assessment Matrix
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100">
+                            <div className="flex justify-between items-start mb-4">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Perception</span>
+                                <Eye size={18} className="text-blue-500" />
+                            </div>
+                            <div className="flex items-end gap-2">
+                                <span className="text-4xl font-black text-slate-900">{feedback.scoreDetails.perception || 0}</span>
+                                <span className="text-sm font-bold text-slate-400 mb-1">/ 3</span>
+                            </div>
+                            <p className="text-[10px] font-bold text-slate-500 mt-2">Congruency & Observation</p>
+                        </div>
+                        <div className="bg-purple-50 p-6 rounded-3xl border border-purple-100">
+                            <div className="flex justify-between items-start mb-4">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-purple-600">Story Content</span>
+                                <BookOpen size={18} className="text-purple-500" />
+                            </div>
+                            <div className="flex items-end gap-2">
+                                <span className="text-4xl font-black text-slate-900">{feedback.scoreDetails.content || 0}</span>
+                                <span className="text-sm font-bold text-slate-400 mb-1">/ 5</span>
+                            </div>
+                            <p className="text-[10px] font-bold text-slate-500 mt-2">Action, Plot & OLQs</p>
+                        </div>
+                        <div className="bg-green-50 p-6 rounded-3xl border border-green-100">
+                            <div className="flex justify-between items-start mb-4">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-green-600">Expression</span>
+                                <Volume2 size={18} className="text-green-500" />
+                            </div>
+                            <div className="flex items-end gap-2">
+                                <span className="text-4xl font-black text-slate-900">{feedback.scoreDetails.expression || 0}</span>
+                                <span className="text-sm font-bold text-slate-400 mb-1">/ 2</span>
+                            </div>
+                            <p className="text-[10px] font-bold text-slate-500 mt-2">Narration Fluency</p>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* IDEAL STORY SECTION */}
