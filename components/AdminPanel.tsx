@@ -22,6 +22,7 @@ const AdminPanel: React.FC = () => {
   const [currentChallenge, setCurrentChallenge] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // OIR States
   const [oirSets, setOirSets] = useState<any[]>([]);
@@ -65,9 +66,6 @@ const AdminPanel: React.FC = () => {
   const [isTickerActive, setIsTickerActive] = useState(false);
   const [tickerSpeed, setTickerSpeed] = useState(25); 
 
-  // User Management
-  const [searchQuery, setSearchQuery] = useState('');
-  
   // Confirmation Modal State
   const [confirmAction, setConfirmAction] = useState<{
       id: string, 
@@ -83,7 +81,6 @@ const AdminPanel: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK' | 'OIR'>('PAYMENTS');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchData = async () => {
@@ -304,6 +301,21 @@ const AdminPanel: React.FC = () => {
       return acc;
   }, {});
 
+  // NAV ITEMS CONFIG
+  const tabs = [
+      { id: 'PAYMENTS', label: 'Payments', icon: IndianRupee, color: 'bg-yellow-400 text-black', count: payments.length },
+      { id: 'USERS', label: 'Cadets', icon: User, color: 'bg-indigo-600 text-white' },
+      { id: 'OIR', label: 'OIR Test', icon: Lightbulb, color: 'bg-teal-600 text-white' },
+      { id: 'PPDT', label: 'PPDT', icon: ImageIcon, color: 'bg-slate-900 text-white' },
+      { id: 'TAT', label: 'TAT', icon: Layers, color: 'bg-slate-900 text-white' },
+      { id: 'WAT', label: 'WAT', icon: Zap, color: 'bg-slate-900 text-white' },
+      { id: 'SRT', label: 'SRT', icon: Brain, color: 'bg-slate-900 text-white' },
+      { id: 'DAILY', label: 'Daily', icon: Clock, color: 'bg-rose-600 text-white' },
+      { id: 'COUPONS', label: 'Coupons', icon: Tag, color: 'bg-pink-600 text-white' },
+      { id: 'BROADCAST', label: 'Broadcast', icon: Megaphone, color: 'bg-red-600 text-white' },
+      { id: 'FEEDBACK', label: 'Feedback', icon: MessageSquare, color: 'bg-orange-600 text-white' },
+  ];
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700">
       {/* HEADER */}
@@ -340,25 +352,31 @@ const AdminPanel: React.FC = () => {
           {showSqlHelp && (
               <div className="text-blue-900">
                   <h4 className="font-black uppercase text-xs tracking-widest mb-2">Supabase SQL Setup Required</h4>
-                  <p className="text-sm mb-2">Run the provided SQL in your Supabase SQL Editor to enable all features.</p>
+                  <p className="text-sm mb-2">Run the provided SQL in your Supabase SQL Editor to enable all features. This fixes "relation not found" errors.</p>
               </div>
           )}
         </div>
       )}
 
-      {/* TABS */}
-      <div className="flex flex-wrap justify-center md:justify-start gap-4">
-         <button onClick={() => setActiveTab('PAYMENTS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PAYMENTS' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><IndianRupee size={16} /> Payments {payments.length > 0 && `(${payments.length})`}</button>
-         <button onClick={() => setActiveTab('USERS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'USERS' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><User size={16} /> Cadets</button>
-         <button onClick={() => setActiveTab('OIR')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'OIR' ? 'bg-teal-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Lightbulb size={16} /> OIR Test</button>
-         <button onClick={() => setActiveTab('PPDT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'PPDT' ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><ImageIcon size={16} /> PPDT</button>
-         <button onClick={() => setActiveTab('TAT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'TAT' ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Layers size={16} /> TAT</button>
-         <button onClick={() => setActiveTab('WAT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'WAT' ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Zap size={16} /> WAT</button>
-         <button onClick={() => setActiveTab('SRT')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'SRT' ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Brain size={16} /> SRT</button>
-         <button onClick={() => setActiveTab('DAILY')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'DAILY' ? 'bg-teal-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Clock size={16} /> Daily Challenge</button>
-         <button onClick={() => setActiveTab('COUPONS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'COUPONS' ? 'bg-pink-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Tag size={16} /> Coupons</button>
-         <button onClick={() => setActiveTab('BROADCAST')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'BROADCAST' ? 'bg-red-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Megaphone size={16} /> Broadcast</button>
-         <button onClick={() => setActiveTab('FEEDBACK')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'FEEDBACK' ? 'bg-orange-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><MessageSquare size={16} /> Feedback</button>
+      {/* TABS - Restored High Quality UI */}
+      <div className="flex flex-wrap justify-center md:justify-start gap-3 md:gap-4">
+         {tabs.map((tab) => (
+             <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${
+                    activeTab === tab.id 
+                    ? `${tab.color} shadow-lg scale-105` 
+                    : 'bg-white text-slate-400 border border-slate-200 hover:bg-slate-50'
+                }`}
+             >
+                 <tab.icon size={16} />
+                 {tab.label}
+                 {tab.count !== undefined && tab.count > 0 && (
+                     <span className="ml-1 bg-white text-black text-[9px] px-1.5 py-0.5 rounded-md shadow-sm">{tab.count}</span>
+                 )}
+             </button>
+         ))}
       </div>
 
       {/* OIR TAB */}
