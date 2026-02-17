@@ -43,6 +43,39 @@ export const getOIRQuestions = async (setId: string) => {
   return data || [];
 };
 
+// NEW: Fetch random pool for Sudden Death
+export const getAllOIRQuestionsRandom = async (limit: number = 50) => {
+  // Supabase doesn't have native random() in JS client easily without RPC, 
+  // so we fetch a batch and shuffle client side for this demo, or use a view.
+  // For efficiency in this demo, we fetch the first 100 and shuffle.
+  const { data } = await supabase.from('oir_questions').select('*').limit(100);
+  if (!data) return [];
+  return data.sort(() => Math.random() - 0.5).slice(0, limit);
+};
+
+export const getOIRLeaderboard = async () => {
+  const { data, error } = await supabase
+    .from('test_history')
+    .select('score, created_at, result_data, aspirants(full_name, user_id)')
+    .eq('test_type', 'OIR')
+    .order('score', { ascending: false })
+    .limit(20);
+
+  if (error) {
+      console.error("Leaderboard fetch error:", error);
+      return [];
+  }
+  
+  // Filter distinct users (keep best score) if needed, or just show top attempts
+  // Here we return top attempts
+  return data.map((entry: any) => ({
+      name: entry.aspirants?.full_name || 'Unknown Cadet',
+      score: entry.score,
+      date: entry.created_at,
+      oirRating: entry.result_data?.oir || 5
+  }));
+};
+
 export const addOIRQuestion = async (setId: string, text: string, imageUrl: string | null, options: string[], correctIndex: number) => {
   await supabase.from('oir_questions').insert({
     set_id: setId,

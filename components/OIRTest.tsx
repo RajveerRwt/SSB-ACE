@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, CheckCircle, AlertTriangle, ChevronRight, ChevronLeft, Flag, HelpCircle, Loader2, Play, Lock, RefreshCw, Send, MessageSquare, Lightbulb, X, Coins, Maximize2 } from 'lucide-react';
-import { getOIRSets, getOIRQuestions, getOIRDoubts, postOIRDoubt, checkAuthSession, TEST_RATES } from '../services/supabaseService';
+import { Clock, CheckCircle, AlertTriangle, ChevronRight, ChevronLeft, Flag, HelpCircle, Loader2, Play, Lock, RefreshCw, Send, MessageSquare, Lightbulb, X, Coins, Maximize2, Trophy, Flame, Timer, Skull, Crown, Medal } from 'lucide-react';
+import { getOIRSets, getOIRQuestions, getOIRDoubts, postOIRDoubt, checkAuthSession, TEST_RATES, getOIRLeaderboard, getAllOIRQuestionsRandom, saveTestAttempt } from '../services/supabaseService';
 
 interface OIRTestProps {
   onConsumeCoins?: (cost: number) => Promise<boolean>;
@@ -17,13 +17,21 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<number[]>([]);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [mode, setMode] = useState<'LOBBY' | 'TEST' | 'RESULT'>('LOBBY');
+  const [mode, setMode] = useState<'LOBBY' | 'TEST' | 'SUDDEN_DEATH' | 'RESULT' | 'LEADERBOARD'>('LOBBY');
   const [isLoading, setIsLoading] = useState(true);
   const [doubts, setDoubts] = useState<any[]>([]);
   const [doubtInput, setDoubtInput] = useState('');
   const [isSubmittingDoubt, setIsSubmittingDoubt] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  
+  // Leaderboard State
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'SETS' | 'SUDDEN_DEATH' | 'LEADERBOARD'>('SETS');
+
+  // Sudden Death State
+  const [suddenDeathScore, setSuddenDeathScore] = useState(0);
+  const [suddenDeathLife, setSuddenDeathLife] = useState(true);
 
   useEffect(() => {
     loadSets();
@@ -40,6 +48,19 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
       setIsLoading(false);
     }
   };
+
+  const loadLeaderboard = async () => {
+      setIsLoading(true);
+      const data = await getOIRLeaderboard();
+      setLeaderboard(data);
+      setIsLoading(false);
+  };
+
+  useEffect(() => {
+      if (activeTab === 'LEADERBOARD') {
+          loadLeaderboard();
+      }
+  }, [activeTab]);
 
   const startTest = async (set: any) => {
     if (isGuest) {
@@ -67,8 +88,38 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
     }
   };
 
+  const startSuddenDeath = async () => {
+      if (isGuest) {
+          onLoginRedirect?.();
+          return;
+      }
+      setIsLoading(true);
+      try {
+          const qs = await getAllOIRQuestionsRandom(50); // Get 50 random Qs
+          if (qs.length === 0) {
+              alert("Not enough questions for Sudden Death mode.");
+              setIsLoading(false);
+              return;
+          }
+          setQuestions(qs);
+          setUserAnswers([]); // Not needed for SD logic, we track score directly
+          setSuddenDeathScore(0);
+          setSuddenDeathLife(true);
+          setCurrentQIndex(0);
+          setActiveSet({ title: "Sudden Death Protocol" });
+          setTimeLeft(10); // 10 seconds per question
+          setMode('SUDDEN_DEATH');
+      } catch (e) {
+          alert("Failed to init Sudden Death");
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
   useEffect(() => {
     let timer: any;
+    
+    // STANDARD TEST TIMER
     if (mode === 'TEST' && timeLeft > 0) {
         timer = setInterval(() => {
             setTimeLeft(prev => {
@@ -79,17 +130,80 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                 return prev - 1;
             });
         }, 1000);
+    } 
+    // SUDDEN DEATH TIMER (Per Question)
+    else if (mode === 'SUDDEN_DEATH' && timeLeft > 0 && suddenDeathLife) {
+        timer = setInterval(() => {
+            setTimeLeft(prev => {
+                if (prev <= 1) {
+                    // Time run out in SD = Game Over
+                    handleSuddenDeathOver();
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
     }
-    return () => clearInterval(timer);
-  }, [mode, timeLeft]);
 
-  const submitTest = () => {
+    return () => clearInterval(timer);
+  }, [mode, timeLeft, suddenDeathLife]);
+
+  const submitTest = async () => {
       setMode('RESULT');
+      // Save Result if not guest
+      if (currentUser) {
+          const res = calculateResults();
+          const resultData = {
+              oir: res.oir,
+              percentage: res.percentage,
+              totalQuestions: questions.length,
+              correct: res.score
+          };
+          await saveTestAttempt(currentUser.id, 'OIR', { score: res.score, ...resultData });
+      }
+      
       // Load doubts for first question immediately
       if (questions.length > 0) loadDoubts(questions[0].id);
   };
 
+  const handleSuddenDeathAnswer = (optionIndex: number) => {
+      const currentQ = questions[currentQIndex];
+      if (optionIndex === currentQ.correct_index) {
+          // Correct
+          setSuddenDeathScore(prev => prev + 1);
+          if (currentQIndex + 1 < questions.length) {
+              setCurrentQIndex(prev => prev + 1);
+              setTimeLeft(10); // Reset timer for next Q
+          } else {
+              // Finished all available questions
+              handleSuddenDeathOver(true);
+          }
+      } else {
+          // Wrong
+          handleSuddenDeathOver();
+      }
+  };
+
+  const handleSuddenDeathOver = async (completed = false) => {
+      setSuddenDeathLife(false);
+      setMode('RESULT'); // Reuse result screen but customize
+      // Save Score
+      if (currentUser) {
+          await saveTestAttempt(currentUser.id, 'OIR_SUDDEN_DEATH', { score: suddenDeathScore, completed });
+      }
+  };
+
   const calculateResults = () => {
+      if (mode === 'SUDDEN_DEATH' || !suddenDeathLife) {
+          // Determine OIR for SD based on score thresholds (arbitrary for fun)
+          let oir = 5;
+          if (suddenDeathScore > 20) oir = 1;
+          else if (suddenDeathScore > 15) oir = 2;
+          else if (suddenDeathScore > 10) oir = 3;
+          else if (suddenDeathScore > 5) oir = 4;
+          return { score: suddenDeathScore, percentage: 0, oir, isSuddenDeath: true };
+      }
+
       let score = 0;
       questions.forEach((q, i) => {
           if (userAnswers[i] === q.correct_index) score++;
@@ -101,7 +215,7 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
       else if (percentage >= 60) oir = 3;
       else if (percentage >= 40) oir = 4;
       
-      return { score, percentage, oir };
+      return { score, percentage, oir, isSuddenDeath: false };
   };
 
   const loadDoubts = async (qid: string) => {
@@ -142,34 +256,151 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                     </span>
                     <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">OIR <span className="text-yellow-400">Testing</span></h1>
                     <p className="text-slate-400 max-w-2xl font-medium leading-relaxed text-sm md:text-base">
-                       Officer Intelligence Rating. A test of speed and logic. OIR 1 is the goal.
+                       Officer Intelligence Rating. Speed, logic, and accuracy determine your screening fate.
                     </p>
                  </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {sets.map(set => (
-                      <div key={set.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl relative overflow-hidden group hover:scale-[1.02] transition-all">
-                          <h3 className="text-xl font-black text-slate-900 uppercase mb-2">{set.title}</h3>
-                          <div className="flex items-center gap-4 text-xs font-bold text-slate-500 mb-6">
-                              <span className="flex items-center gap-1"><Clock size={14}/> {Math.floor(set.time_limit_seconds/60)} Mins</span>
-                          </div>
-                          <button 
-                            onClick={() => startTest(set)}
-                            className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all flex items-center justify-center gap-2"
-                          >
-                              {isGuest ? <Lock size={14}/> : <Play size={14}/>} Start Test 
-                              {!isGuest && TEST_RATES.OIR > 0 && <span className="ml-2 bg-yellow-400 text-black px-2 py-0.5 rounded text-[9px] flex items-center gap-1"><Coins size={8}/> {TEST_RATES.OIR}</span>}
-                              {!isGuest && TEST_RATES.OIR === 0 && <span className="ml-2 bg-green-500 text-white px-2 py-0.5 rounded text-[9px] font-bold">FREE</span>}
-                          </button>
-                      </div>
-                  ))}
+              {/* LOBBY TABS */}
+              <div className="flex justify-center gap-4">
+                  <button onClick={() => setActiveTab('SETS')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${activeTab === 'SETS' ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>Standard Sets</button>
+                  <button onClick={() => setActiveTab('SUDDEN_DEATH')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${activeTab === 'SUDDEN_DEATH' ? 'bg-red-600 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-red-50 hover:text-red-500'}`}>Sudden Death</button>
+                  <button onClick={() => setActiveTab('LEADERBOARD')} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${activeTab === 'LEADERBOARD' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-white text-slate-500 hover:bg-yellow-50 hover:text-yellow-600'}`}>Leaderboard</button>
               </div>
+
+              {activeTab === 'SETS' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4">
+                      {sets.map(set => (
+                          <div key={set.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl relative overflow-hidden group hover:scale-[1.02] transition-all">
+                              <h3 className="text-xl font-black text-slate-900 uppercase mb-2">{set.title}</h3>
+                              <div className="flex items-center gap-4 text-xs font-bold text-slate-500 mb-6">
+                                  <span className="flex items-center gap-1"><Clock size={14}/> {Math.floor(set.time_limit_seconds/60)} Mins</span>
+                              </div>
+                              <button 
+                                onClick={() => startTest(set)}
+                                className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all flex items-center justify-center gap-2"
+                              >
+                                  {isGuest ? <Lock size={14}/> : <Play size={14}/>} Start Test 
+                                  {!isGuest && TEST_RATES.OIR > 0 && <span className="ml-2 bg-yellow-400 text-black px-2 py-0.5 rounded text-[9px] flex items-center gap-1"><Coins size={8}/> {TEST_RATES.OIR}</span>}
+                                  {!isGuest && TEST_RATES.OIR === 0 && <span className="ml-2 bg-green-500 text-white px-2 py-0.5 rounded text-[9px] font-bold">FREE</span>}
+                              </button>
+                          </div>
+                      ))}
+                  </div>
+              )}
+
+              {activeTab === 'SUDDEN_DEATH' && (
+                  <div className="bg-red-50 p-8 rounded-[2.5rem] border border-red-100 text-center animate-in zoom-in duration-300">
+                      <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner animate-pulse">
+                          <Skull size={40} />
+                      </div>
+                      <h3 className="text-3xl font-black text-red-900 uppercase tracking-tighter mb-4">Sudden Death Mode</h3>
+                      <p className="text-red-700 font-medium max-w-md mx-auto mb-8">
+                          High Stakes. 10 Seconds per Question. One wrong answer and it's Game Over. How long can you survive?
+                      </p>
+                      <button 
+                        onClick={startSuddenDeath}
+                        className="px-12 py-5 bg-red-600 text-white rounded-full font-black uppercase tracking-[0.2em] shadow-xl hover:bg-red-700 hover:scale-105 transition-all flex items-center justify-center gap-3 mx-auto"
+                      >
+                          <Flame size={20} /> Enter The Arena
+                      </button>
+                  </div>
+              )}
+
+              {activeTab === 'LEADERBOARD' && (
+                  <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-4">
+                      <div className="p-6 bg-slate-900 text-white text-center">
+                          <h3 className="text-xl font-black uppercase tracking-widest flex items-center justify-center gap-3">
+                              <Trophy className="text-yellow-400" /> Top Performers
+                          </h3>
+                      </div>
+                      <div className="p-6">
+                          {leaderboard.length === 0 ? (
+                              <div className="text-center py-10 text-slate-400 font-bold uppercase text-xs">No records found. Be the first!</div>
+                          ) : (
+                              <div className="space-y-4">
+                                  {leaderboard.map((entry, i) => (
+                                      <div key={i} className={`flex items-center justify-between p-4 rounded-2xl border-2 ${i === 0 ? 'bg-yellow-50 border-yellow-400' : i === 1 ? 'bg-slate-50 border-slate-300' : i === 2 ? 'bg-orange-50 border-orange-300' : 'bg-white border-slate-100'}`}>
+                                          <div className="flex items-center gap-4">
+                                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg ${i === 0 ? 'bg-yellow-400 text-black shadow-lg' : i === 1 ? 'bg-slate-300 text-slate-800' : i === 2 ? 'bg-orange-400 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                                  {i + 1}
+                                              </div>
+                                              <div>
+                                                  <h4 className="font-bold text-slate-900 text-sm">{entry.name}</h4>
+                                                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{new Date(entry.date).toLocaleDateString()}</p>
+                                              </div>
+                                          </div>
+                                          <div className="text-right">
+                                              <span className="block text-2xl font-black text-slate-900">{entry.score}</span>
+                                              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${entry.oirRating === 1 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>OIR {entry.oirRating}</span>
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                          )}
+                      </div>
+                  </div>
+              )}
+
               <button onClick={onExit} className="mx-auto block text-slate-400 font-bold uppercase text-xs tracking-widest hover:text-slate-600 mt-8">Back to Dashboard</button>
           </div>
       );
   }
 
+  // --- SUDDEN DEATH INTERFACE ---
+  if (mode === 'SUDDEN_DEATH') {
+      const currentQ = questions[currentQIndex];
+      return (
+          <div className="max-w-2xl mx-auto py-12 md:py-20 animate-in zoom-in duration-300">
+              <div className="bg-red-600 text-white p-4 rounded-t-3xl flex justify-between items-center shadow-lg relative z-10">
+                  <div className="flex items-center gap-2">
+                      <Skull size={20} className="animate-pulse" />
+                      <span className="font-black uppercase tracking-widest text-xs">Sudden Death</span>
+                  </div>
+                  <div className="font-mono font-black text-2xl">{timeLeft}s</div>
+              </div>
+              
+              <div className="bg-white p-8 rounded-b-[2.5rem] rounded-tr-[2.5rem] shadow-2xl border-4 border-red-600 relative overflow-hidden">
+                  <div className="absolute top-4 right-6 flex flex-col items-center">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Streak</span>
+                      <span className="text-3xl font-black text-red-600">{suddenDeathScore}</span>
+                  </div>
+
+                  {currentQ.image_url && (
+                      <div className="mb-6 flex justify-center">
+                          <img src={currentQ.image_url} className="max-h-48 object-contain rounded-xl border border-slate-200" alt="Question" />
+                      </div>
+                  )}
+                  {currentQ.question_text && (
+                      <h3 className="text-lg font-bold text-slate-800 mb-8 leading-relaxed pr-16">{currentQ.question_text}</h3>
+                  )}
+
+                  <div className="grid grid-cols-1 gap-3">
+                      {currentQ.options.map((opt: string, idx: number) => (
+                          <button
+                            key={idx}
+                            onClick={() => handleSuddenDeathAnswer(idx)}
+                            className="p-4 rounded-xl text-left font-bold text-sm transition-all border-2 border-slate-100 hover:border-red-200 hover:bg-red-50 active:scale-95"
+                          >
+                              <span className="mr-3 font-black text-slate-400">{String.fromCharCode(65 + idx)}.</span>
+                              {opt}
+                          </button>
+                      ))}
+                  </div>
+                  
+                  {/* Progress Bar for Timer */}
+                  <div className="absolute bottom-0 left-0 h-2 bg-red-100 w-full">
+                      <div 
+                        className="h-full bg-red-600 transition-all duration-1000 ease-linear" 
+                        style={{ width: `${(timeLeft / 10) * 100}%` }}
+                      />
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
+  // STANDARD TEST INTERFACE
   if (mode === 'TEST') {
       const currentQ = questions[currentQIndex];
       return (
@@ -286,6 +517,31 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
 
   // RESULT MODE
   const results = calculateResults();
+  
+  if (results.isSuddenDeath) {
+      return (
+          <div className="max-w-xl mx-auto py-20 text-center animate-in zoom-in duration-500">
+              <div className="bg-slate-900 text-white p-12 rounded-[3rem] shadow-2xl border-4 border-slate-800 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-red-600/10 animate-pulse pointer-events-none"></div>
+                  <div className="relative z-10">
+                      <Skull size={64} className="mx-auto text-red-500 mb-6" />
+                      <h2 className="text-4xl font-black uppercase tracking-tighter mb-2">Game Over</h2>
+                      <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mb-8">You survived {results.score} rounds</p>
+                      
+                      <div className="bg-white/10 p-6 rounded-2xl border border-white/10 mb-8">
+                          <span className="block text-6xl font-black text-yellow-400">{results.score}</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-white/50">Score Streak</span>
+                      </div>
+
+                      <button onClick={() => setMode('LOBBY')} className="w-full py-4 bg-white text-slate-900 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-all">
+                          Return to Lobby
+                      </button>
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
   const currentReviewQ = questions[currentQIndex];
 
   return (
