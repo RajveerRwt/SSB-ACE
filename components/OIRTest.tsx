@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, CheckCircle, AlertTriangle, ChevronRight, ChevronLeft, Flag, HelpCircle, Loader2, Play, Lock, RefreshCw, Send, MessageSquare, Lightbulb, X, Coins } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, ChevronRight, ChevronLeft, Flag, HelpCircle, Loader2, Play, Lock, RefreshCw, Send, MessageSquare, Lightbulb, X, Coins, Maximize2 } from 'lucide-react';
 import { getOIRSets, getOIRQuestions, getOIRDoubts, postOIRDoubt, checkAuthSession, TEST_RATES } from '../services/supabaseService';
 
 interface OIRTestProps {
@@ -23,6 +23,7 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
   const [doubtInput, setDoubtInput] = useState('');
   const [isSubmittingDoubt, setIsSubmittingDoubt] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   useEffect(() => {
     loadSets();
@@ -187,8 +188,14 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
               {/* Question Area */}
               <div className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-xl border border-slate-100 min-h-[400px] flex flex-col">
                   {currentQ.image_url && (
-                      <div className="mb-6 flex justify-center">
+                      <div 
+                        className="mb-6 flex justify-center relative group cursor-zoom-in"
+                        onClick={() => setZoomedImage(currentQ.image_url)}
+                      >
                           <img src={currentQ.image_url} className="max-h-64 object-contain rounded-xl border border-slate-200" alt="Question" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-all rounded-xl">
+                              <Maximize2 className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" size={32} />
+                          </div>
                       </div>
                   )}
                   {currentQ.question_text && (
@@ -246,6 +253,33 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                       </button>
                   )}
               </div>
+
+              {/* Zoom Modal */}
+              {zoomedImage && (
+                  <div 
+                    className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    onClick={() => setZoomedImage(null)}
+                  >
+                      <button 
+                        onClick={() => setZoomedImage(null)} 
+                        className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
+                      >
+                          <X size={24} />
+                      </button>
+                      
+                      <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                         <img 
+                            src={zoomedImage} 
+                            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl cursor-default" 
+                            onClick={(e) => e.stopPropagation()} 
+                            alt="Zoomed Question"
+                         />
+                         <p className="absolute bottom-6 text-white/50 text-xs font-bold uppercase tracking-widest pointer-events-none">
+                            Click outside to close
+                         </p>
+                      </div>
+                  </div>
+              )}
           </div>
       );
   }
@@ -288,7 +322,17 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                       </div>
                   </div>
 
-                  {currentReviewQ.image_url && <img src={currentReviewQ.image_url} className="max-h-48 object-contain rounded-xl border border-slate-200 mb-6 mx-auto" />}
+                  {currentReviewQ.image_url && (
+                      <div 
+                        className="mb-6 flex justify-center relative group cursor-zoom-in"
+                        onClick={() => setZoomedImage(currentReviewQ.image_url)}
+                      >
+                        <img src={currentReviewQ.image_url} className="max-h-48 object-contain rounded-xl border border-slate-200 mx-auto" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-all rounded-xl">
+                              <Maximize2 className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" size={24} />
+                        </div>
+                      </div>
+                  )}
                   <p className="font-bold text-lg text-slate-800 mb-6">{currentReviewQ.question_text}</p>
 
                   <div className="grid grid-cols-2 gap-4 mb-8">
@@ -362,6 +406,33 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                   </button>
               </div>
           </div>
+
+          {/* Zoom Modal - Reused from Test Mode */}
+          {zoomedImage && (
+              <div 
+                className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+                onClick={() => setZoomedImage(null)}
+              >
+                  <button 
+                    onClick={() => setZoomedImage(null)} 
+                    className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
+                  >
+                      <X size={24} />
+                  </button>
+                  
+                  <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                      <img 
+                        src={zoomedImage} 
+                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl cursor-default" 
+                        onClick={(e) => e.stopPropagation()} 
+                        alt="Zoomed Question"
+                      />
+                      <p className="absolute bottom-6 text-white/50 text-xs font-bold uppercase tracking-widest pointer-events-none">
+                        Click outside to close
+                      </p>
+                  </div>
+              </div>
+          )}
       </div>
   );
 };
