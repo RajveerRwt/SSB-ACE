@@ -16,7 +16,7 @@ export const TEST_RATES = {
     LECTURETTE: 3, 
     SDT: 5,
     TAT: 10,
-    OIR: 15,
+    OIR: 0, // Free
     INTERVIEW_TRIAL: 20, 
     INTERVIEW_FULL: 100   
 };

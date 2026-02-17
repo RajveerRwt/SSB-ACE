@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText, Gauge, Coins, Wallet, History, X, Lightbulb, ChevronDown, ChevronRight, LogOut } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText, Gauge, Coins, Wallet, History, X, Lightbulb, ChevronDown, ChevronRight, LogOut, MoreHorizontal, ShieldAlert, BadgeCheck } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
@@ -10,7 +10,7 @@ import {
   getAllUsers, deleteUserProfile, getCoupons, createCoupon, deleteCoupon,
   uploadDailyChallenge, sendAnnouncement, getAllFeedback, deleteFeedback,
   getLatestDailyChallenge, getTickerConfig, updateTickerConfig,
-  getOIRSets, createOIRSet, deleteOIRSet, getOIRQuestions, addOIRQuestion, deleteOIRQuestion, supabase
+  getOIRSets, createOIRSet, deleteOIRSet, getOIRQuestions, addOIRQuestion, deleteOIRQuestion, activatePlanForUser, supabase
 } from '../services/supabaseService';
 
 const AdminPanel: React.FC = () => {
@@ -23,6 +23,7 @@ const AdminPanel: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
   
   // OIR States
   const [oirSets, setOirSets] = useState<any[]>([]);
@@ -65,6 +66,9 @@ const AdminPanel: React.FC = () => {
   const [tickerMsg, setTickerMsg] = useState('');
   const [isTickerActive, setIsTickerActive] = useState(false);
   const [tickerSpeed, setTickerSpeed] = useState(25); 
+
+  // Coin Adjustment
+  const [adjustCoins, setAdjustCoins] = useState<number>(0);
 
   // Confirmation Modal State
   const [confirmAction, setConfirmAction] = useState<{
@@ -273,12 +277,29 @@ const AdminPanel: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
-      if (!window.confirm("CRITICAL: Delete User and History?")) return;
+      if (!window.confirm("CRITICAL: Delete User, History and Subscriptions? This cannot be undone.")) return;
       try {
           await deleteUserProfile(userId);
           setUsers(users.filter(u => u.user_id !== userId));
+          setSelectedUser(null);
       } catch (e: any) {
           setErrorMsg(e.message || "Failed to delete user.");
+      }
+  };
+
+  const handleAdjustCoins = async (userId: string) => {
+      if (adjustCoins === 0) return;
+      if (!window.confirm(`${adjustCoins > 0 ? 'Credit' : 'Debit'} ${Math.abs(adjustCoins)} Coins for this user?`)) return;
+      
+      try {
+          // Re-use activatePlan logic for custom coin adjustment
+          await activatePlanForUser(userId, 'ADMIN_ADJUST', 0, adjustCoins);
+          alert("Wallet Updated!");
+          setAdjustCoins(0);
+          fetchData(); // Refresh user list
+          setSelectedUser(null);
+      } catch(e: any) {
+          setErrorMsg(e.message || "Failed to adjust coins");
       }
   };
 
@@ -317,7 +338,7 @@ const AdminPanel: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700">
+    <div className="max-w-7xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700">
       {/* HEADER */}
       <div className="bg-slate-900 rounded-[2rem] p-8 md:p-12 text-white shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
         <div>
@@ -359,24 +380,26 @@ const AdminPanel: React.FC = () => {
       )}
 
       {/* TABS - Restored High Quality UI */}
-      <div className="flex flex-wrap justify-center md:justify-start gap-3 md:gap-4">
-         {tabs.map((tab) => (
-             <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${
-                    activeTab === tab.id 
-                    ? `${tab.color} shadow-lg scale-105` 
-                    : 'bg-white text-slate-400 border border-slate-200 hover:bg-slate-50'
-                }`}
-             >
-                 <tab.icon size={16} />
-                 {tab.label}
-                 {tab.count !== undefined && tab.count > 0 && (
-                     <span className="ml-1 bg-white text-black text-[9px] px-1.5 py-0.5 rounded-md shadow-sm">{tab.count}</span>
-                 )}
-             </button>
-         ))}
+      <div className="sticky top-0 z-20 bg-slate-50/95 backdrop-blur-md py-4 -mx-4 px-4 border-b border-slate-200/50">
+        <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+            {tabs.map((tab) => (
+                <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`px-5 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 transition-all shrink-0 ${
+                        activeTab === tab.id 
+                        ? `${tab.color} shadow-lg scale-105` 
+                        : 'bg-white text-slate-400 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                >
+                    <tab.icon size={14} />
+                    {tab.label}
+                    {tab.count !== undefined && tab.count > 0 && (
+                        <span className="ml-1 bg-white text-black text-[9px] px-1.5 py-0.5 rounded-md shadow-sm">{tab.count}</span>
+                    )}
+                </button>
+            ))}
+        </div>
       </div>
 
       {/* OIR TAB */}
@@ -553,26 +576,98 @@ const AdminPanel: React.FC = () => {
           </div>
       )}
 
+      {/* --- REVAMPED CADET USER TAB --- */}
       {activeTab === 'USERS' && (
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
-              <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-black text-slate-900 uppercase">Cadet Roster ({users.length})</h3>
-                  <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search..." className="p-3 bg-slate-50 rounded-xl text-xs font-bold" />
+          <div className="space-y-8">
+              {/* TOP STATS BAR */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-xl border border-slate-800 flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-yellow-400"><Users size={24} /></div>
+                      <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Cadets</p>
+                          <h4 className="text-3xl font-black">{users.length}</h4>
+                      </div>
+                  </div>
+                  <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 flex items-center gap-4">
+                      <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600"><Crown size={24} /></div>
+                      <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pro Users</p>
+                          <h4 className="text-3xl font-black text-slate-900">{users.filter(u => u.subscription_data?.tier === 'PRO').length}</h4>
+                      </div>
+                  </div>
+                  <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 flex items-center gap-4">
+                      <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center text-green-600"><Zap size={24} /></div>
+                      <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Active Today</p>
+                          <h4 className="text-3xl font-black text-slate-900">{users.filter(u => new Date(u.last_active).toDateString() === new Date().toDateString()).length}</h4>
+                      </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-[2rem] shadow-xl border border-slate-100 flex items-center gap-2">
+                      <input 
+                        value={searchQuery} 
+                        onChange={e => setSearchQuery(e.target.value)} 
+                        placeholder="Search Name / Email..." 
+                        className="w-full h-full px-4 bg-slate-50 rounded-xl outline-none font-bold text-sm text-slate-700"
+                      />
+                      <div className="p-3 bg-slate-900 text-white rounded-xl"><Search size={16} /></div>
+                  </div>
               </div>
-              <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                  {users.filter(u => u.email?.toLowerCase().includes(searchQuery.toLowerCase()) || u.full_name?.toLowerCase().includes(searchQuery.toLowerCase())).map(u => (
-                      <div key={u.user_id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
-                          <div>
-                              <h4 className="font-bold text-slate-900 text-sm">{u.full_name || 'Cadet'}</h4>
-                              <p className="text-[10px] text-slate-500">{u.email}</p>
-                              <div className="flex gap-2 mt-1">
-                                  <span className="text-[9px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold">{u.subscription_data?.tier}</span>
-                                  <span className="text-[9px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded font-bold">{u.subscription_data?.coins} Coins</span>
+
+              {/* USER GRID */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {users.filter(u => u.email?.toLowerCase().includes(searchQuery.toLowerCase()) || u.full_name?.toLowerCase().includes(searchQuery.toLowerCase())).map(u => {
+                      const testsTaken = u.test_history?.length || 0;
+                      return (
+                      <div key={u.user_id} className="bg-white rounded-[2.5rem] border border-slate-100 hover:border-blue-200 shadow-lg hover:shadow-xl transition-all overflow-hidden group">
+                          {/* Header */}
+                          <div className="p-6 pb-4 flex justify-between items-start">
+                              <div className="flex gap-3">
+                                  <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-black text-sm">
+                                      {u.full_name?.[0] || 'U'}
+                                  </div>
+                                  <div>
+                                      <h4 className="font-bold text-slate-900 leading-tight">{u.full_name || 'Cadet'}</h4>
+                                      <p className="text-[10px] text-slate-400 font-medium truncate max-w-[150px]">{u.email}</p>
+                                      <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${u.subscription_data?.tier === 'PRO' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+                                          {u.subscription_data?.tier || 'FREE'}
+                                      </span>
+                                  </div>
+                              </div>
+                              <div className="text-right">
+                                  <span className="block text-2xl font-black text-yellow-500">{u.subscription_data?.coins || 0}</span>
+                                  <span className="text-[9px] font-black text-slate-300 uppercase">Coins</span>
                               </div>
                           </div>
-                          <button onClick={() => handleDeleteUser(u.user_id)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
+
+                          {/* Stats Body */}
+                          <div className="px-6 py-4 bg-slate-50/50 border-t border-b border-slate-100 grid grid-cols-2 gap-4">
+                              <div>
+                                  <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">History</p>
+                                  <p className="text-sm font-bold text-slate-700 flex items-center gap-1"><History size={12}/> {testsTaken} Tests</p>
+                              </div>
+                              <div>
+                                  <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Last Active</p>
+                                  <p className="text-sm font-bold text-slate-700 truncate">{new Date(u.last_active).toLocaleDateString()}</p>
+                              </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="p-4 flex gap-2">
+                              <button 
+                                onClick={() => setSelectedUser(u)}
+                                className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2"
+                              >
+                                  <Eye size={12} /> Inspect Dossier
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteUser(u.user_id)}
+                                className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all"
+                              >
+                                  <Trash2 size={16} />
+                              </button>
+                          </div>
                       </div>
-                  ))}
+                  )})}
               </div>
           </div>
       )}
@@ -674,6 +769,91 @@ const AdminPanel: React.FC = () => {
                       <button onClick={() => handleDelete(f.id)} className="text-red-400 hover:text-red-600 p-2"><Trash2 size={16}/></button>
                   </div>
               ))}
+          </div>
+      )}
+
+      {/* USER DETAIL MODAL (INSPECTOR) */}
+      {selectedUser && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative">
+                  <button onClick={() => setSelectedUser(null)} className="absolute top-6 right-6 p-2 bg-slate-100 hover:bg-slate-200 rounded-full z-50"><X size={20}/></button>
+                  
+                  {/* Header */}
+                  <div className="bg-slate-950 p-8 text-white shrink-0">
+                      <div className="flex items-center gap-6">
+                          <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center text-3xl font-black">{selectedUser.full_name?.[0] || 'U'}</div>
+                          <div>
+                              <h3 className="text-3xl font-black uppercase tracking-tighter">{selectedUser.full_name}</h3>
+                              <p className="text-slate-400 font-mono text-sm">{selectedUser.email}</p>
+                              <div className="flex gap-2 mt-2">
+                                  <span className="px-2 py-0.5 bg-yellow-400 text-black rounded text-[10px] font-black uppercase tracking-widest">{selectedUser.subscription_data?.tier}</span>
+                                  <span className="px-2 py-0.5 bg-slate-800 text-slate-300 rounded text-[10px] font-black uppercase tracking-widest">ID: {selectedUser.user_id.split('-')[0]}...</span>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Body */}
+                  <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-8">
+                      {/* PIQ Data */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <div className="space-y-4">
+                              <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 border-b pb-2">PIQ Summary</h4>
+                              {selectedUser.piq_data ? (
+                                  <div className="space-y-2 text-sm font-bold text-slate-700">
+                                      <p className="flex justify-between"><span>Chest No:</span> <span className="text-slate-900">{selectedUser.piq_data.chestNo || '-'}</span></p>
+                                      <p className="flex justify-between"><span>Batch:</span> <span className="text-slate-900">{selectedUser.piq_data.batchNo || '-'}</span></p>
+                                      <p className="flex justify-between"><span>Board:</span> <span className="text-slate-900">{selectedUser.piq_data.selectionBoard || '-'}</span></p>
+                                      <p className="flex justify-between"><span>DOB:</span> <span className="text-slate-900">{selectedUser.piq_data.details?.dob || '-'}</span></p>
+                                  </div>
+                              ) : (
+                                  <p className="text-slate-400 italic text-sm">PIQ Form not filled yet.</p>
+                              )}
+                          </div>
+                          
+                          {/* Wallet Control */}
+                          <div className="space-y-4">
+                              <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 border-b pb-2">Wallet & Billing</h4>
+                              <div className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100">
+                                  <div>
+                                      <span className="block text-2xl font-black text-slate-900">{selectedUser.subscription_data?.coins || 0}</span>
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase">Current Balance</span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                      <input 
+                                        type="number" 
+                                        placeholder="+/-" 
+                                        className="w-16 p-2 rounded-lg border text-sm font-bold"
+                                        onChange={(e) => setAdjustCoins(parseInt(e.target.value))}
+                                      />
+                                      <button 
+                                        onClick={() => handleAdjustCoins(selectedUser.user_id)}
+                                        className="bg-slate-900 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase"
+                                      >
+                                          Update
+                                      </button>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* History */}
+                      <div>
+                          <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 border-b pb-2 mb-4">Service Record</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              {['INTERVIEW', 'PPDT', 'TAT', 'WAT'].map(t => {
+                                  const count = selectedUser.test_history?.filter((h: any) => h.test_type.includes(t)).length || 0;
+                                  return (
+                                      <div key={t} className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm text-center">
+                                          <span className="block text-xl font-black text-slate-900">{count}</span>
+                                          <span className="text-[10px] font-bold text-slate-400 uppercase">{t}</span>
+                                      </div>
+                                  )
+                              })}
+                          </div>
+                      </div>
+                  </div>
+              </div>
           </div>
       )}
 

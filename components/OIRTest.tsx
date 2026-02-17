@@ -46,7 +46,7 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
        return;
     }
 
-    if (onConsumeCoins) {
+    if (onConsumeCoins && TEST_RATES.OIR > 0) {
         const success = await onConsumeCoins(TEST_RATES.OIR);
         if (!success) return;
     }
@@ -158,7 +158,8 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                             className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all flex items-center justify-center gap-2"
                           >
                               {isGuest ? <Lock size={14}/> : <Play size={14}/>} Start Test 
-                              {!isGuest && <span className="ml-2 bg-yellow-400 text-black px-2 py-0.5 rounded text-[9px] flex items-center gap-1"><Coins size={8}/> {TEST_RATES.OIR}</span>}
+                              {!isGuest && TEST_RATES.OIR > 0 && <span className="ml-2 bg-yellow-400 text-black px-2 py-0.5 rounded text-[9px] flex items-center gap-1"><Coins size={8}/> {TEST_RATES.OIR}</span>}
+                              {!isGuest && TEST_RATES.OIR === 0 && <span className="ml-2 bg-green-500 text-white px-2 py-0.5 rounded text-[9px] font-bold">FREE</span>}
                           </button>
                       </div>
                   ))}
