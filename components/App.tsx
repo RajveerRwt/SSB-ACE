@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Layout from './Layout';
 import Login from './Login';
 import PPDTTest from './PPDTTest';
@@ -20,40 +20,126 @@ import LecturetteTest from './LecturetteTest';
 import Footer from './Footer';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
-// Helper Component for Progress Ring
-const ProgressRing: React.FC<{ score: number, color: string, label: string, icon: any, subtext: string }> = ({ score, color, label, icon: Icon, subtext }) => {
-  const radius = 36;
-  const circumference = 2 * Math.PI * radius;
-  const normalizedScore = Math.min(Math.max(score, 0), 10);
-  const progress = (normalizedScore / 10) * circumference;
+// --- GAMIFICATION COMPONENTS ---
+
+const RadarChart: React.FC<{ stats: any }> = ({ stats }) => {
+  // Stats mapping: 0-10 scale
+  // 1. Planning (PPDT)
+  // 2. Social (Interview)
+  // 3. Dynamic (SRT/TAT Speed - Simulated by activity count)
+  // 4. Expression (Lecturette/Interview)
+  // 5. Stability (Psych Avg)
+  // 6. Determination (Streak/Total Tests)
+
+  const normalized = {
+    planning: Math.min(Math.max(stats.ppdtAvg || 2, 2), 10),
+    social: Math.min(Math.max(stats.interviewAvg || 2, 2), 10),
+    dynamic: Math.min(Math.max((stats.totalTests / 5) * 2, 2), 10), // Scale total tests to score
+    expression: Math.min(Math.max(stats.interviewAvg || 2, 2), 10),
+    stability: Math.min(Math.max(stats.psychAvg || 2, 2), 10),
+    determination: Math.min(Math.max((stats.totalTests / 10) * 3, 2), 10)
+  };
+
+  // Helper to calculate polygon points
+  const getPoint = (value: number, angle: number, radius: number = 80, center: number = 100) => {
+    const r = (value / 10) * radius;
+    const x = center + r * Math.cos(angle);
+    const y = center + r * Math.sin(angle);
+    return `${x},${y}`;
+  };
+
+  const angles = [0, 60, 120, 180, 240, 300].map(d => (d - 90) * (Math.PI / 180));
   
+  const polyPoints = [
+    getPoint(normalized.planning, angles[0]),
+    getPoint(normalized.social, angles[1]),
+    getPoint(normalized.dynamic, angles[2]),
+    getPoint(normalized.expression, angles[3]),
+    getPoint(normalized.stability, angles[4]),
+    getPoint(normalized.determination, angles[5]),
+  ].join(" ");
+
+  const bgPoints = [
+    getPoint(10, angles[0]),
+    getPoint(10, angles[1]),
+    getPoint(10, angles[2]),
+    getPoint(10, angles[3]),
+    getPoint(10, angles[4]),
+    getPoint(10, angles[5]),
+  ].join(" ");
+
   return (
-    <div className="flex flex-col items-center gap-3 relative group">
-      <div className="relative w-24 h-24 md:w-28 md:h-28 flex items-center justify-center">
-        <svg className="w-full h-full transform -rotate-90">
-          <circle cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100" />
-          <circle cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="8" fill="transparent" 
-            strokeDasharray={circumference} 
-            strokeDashoffset={circumference - progress} 
-            className={`${color} transition-all duration-1000 ease-out`} 
-            strokeLinecap="round"
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-           <Icon size={20} className={`${color} mb-1 opacity-80`} />
-           <span className="text-2xl font-black text-slate-800 leading-none">{normalizedScore.toFixed(1)}</span>
-        </div>
-      </div>
-      <div className="text-center">
-        <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</span>
-        <span className="block text-[9px] font-bold text-slate-400 mt-0.5">{subtext}</span>
-      </div>
+    <div className="relative w-full h-64 flex items-center justify-center">
+      <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-xl">
+        {/* Background Web */}
+        {[2, 4, 6, 8, 10].map(level => (
+           <polygon 
+             key={level}
+             points={[0,1,2,3,4,5].map(i => getPoint(level, angles[i])).join(" ")}
+             fill="none"
+             stroke="#e2e8f0"
+             strokeWidth="1"
+           />
+        ))}
+        {/* Axis Lines */}
+        {angles.map((a, i) => (
+           <line 
+             key={i} 
+             x1="100" y1="100" 
+             x2={100 + 80 * Math.cos(a)} 
+             y2={100 + 80 * Math.sin(a)} 
+             stroke="#e2e8f0" 
+             strokeWidth="1" 
+           />
+        ))}
+        {/* Data Polygon */}
+        <polygon points={polyPoints} fill="rgba(59, 130, 246, 0.2)" stroke="#2563eb" strokeWidth="2" className="drop-shadow-sm transition-all duration-1000 ease-out" />
+        
+        {/* Labels */}
+        <text x="100" y="15" textAnchor="middle" className="text-[8px] font-black uppercase fill-slate-500">Planning</text>
+        <text x="180" y="60" textAnchor="middle" className="text-[8px] font-black uppercase fill-slate-500">Social</text>
+        <text x="180" y="150" textAnchor="middle" className="text-[8px] font-black uppercase fill-slate-500">Dynamic</text>
+        <text x="100" y="195" textAnchor="middle" className="text-[8px] font-black uppercase fill-slate-500">Expression</text>
+        <text x="20" y="150" textAnchor="middle" className="text-[8px] font-black uppercase fill-slate-500">Stability</text>
+        <text x="20" y="60" textAnchor="middle" className="text-[8px] font-black uppercase fill-slate-500">Grit</text>
+      </svg>
     </div>
-  )
-}
+  );
+};
+
+const MedalRibbon: React.FC<{ 
+  title: string, 
+  desc: string, 
+  earned: boolean, 
+  colors: string[], 
+  icon?: any 
+}> = ({ title, desc, earned, colors, icon: Icon }) => (
+  <div className="group relative flex flex-col items-center">
+    {/* Ribbon Bar */}
+    <div className={`w-16 h-5 md:w-20 md:h-6 rounded-sm shadow-sm flex overflow-hidden border border-black/10 transition-all duration-300 ${earned ? 'opacity-100 scale-100' : 'opacity-30 grayscale scale-95'}`}>
+       {colors.map((c, i) => (
+         <div key={i} className={`h-full flex-1 ${c}`} />
+       ))}
+       {/* Texture Overlay */}
+       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/fabric-of-squares.png')] opacity-20"></div>
+    </div>
+    
+    {/* Medal Suspension (Visual Connector) */}
+    {earned && <div className="w-6 h-6 -mt-1 z-10 bg-yellow-400 rounded-full border-2 border-yellow-600 shadow-md flex items-center justify-center text-[10px] text-yellow-900">
+        {Icon ? <Icon size={12} fill="currentColor" /> : <Star size={12} fill="currentColor" />}
+    </div>}
+
+    {/* Tooltip */}
+    <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[10px] p-2 rounded-lg w-32 text-center pointer-events-none z-20">
+       <p className="font-bold text-yellow-400 uppercase">{title}</p>
+       <p className="text-slate-300 leading-tight mt-1">{desc}</p>
+       <p className={`mt-1 font-bold ${earned ? 'text-green-400' : 'text-red-400'}`}>{earned ? 'EARNED' : 'LOCKED'}</p>
+    </div>
+  </div>
+);
 
 // Dashboard Component
 const Dashboard: React.FC<{ 
@@ -72,6 +158,7 @@ const Dashboard: React.FC<{
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [showFullHistory, setShowFullHistory] = useState(false);
+  const [isEarlyRiser, setIsEarlyRiser] = useState(false);
   
   const [stats, setStats] = useState({
       ppdtAvg: 0,
@@ -106,7 +193,7 @@ const Dashboard: React.FC<{
     { id: TestType.SRT, label: 'SRT', sub: 'Psychology', icon: Brain, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100', cost: TEST_RATES.SRT },
     { id: TestType.SDT, label: 'SDT', sub: 'Self Desc.', icon: FileSignature, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100', cost: TEST_RATES.SDT },
     { id: TestType.LECTURETTE, label: 'Lecturette', sub: 'Topics', icon: BookOpen, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100', cost: TEST_RATES.LECTURETTE },
-    { id: TestType.INTERVIEW, label: '1:1 Interview', sub: 'Virtual IO', icon: Mic, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', cost: 0 }, // Cost set to 0 here to hide badge/skip immediate charge
+    { id: TestType.INTERVIEW, label: '1:1 Interview', sub: 'Virtual IO', icon: Mic, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', cost: 0 },
     { id: TestType.DAILY_PRACTICE, label: 'Daily Dose', sub: 'Practice', icon: Clock, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-100', cost: 0 },
     { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', sub: 'Updates', icon: Globe, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100', cost: 0 },
     { id: TestType.AI_BOT, label: 'AI Guide', sub: 'ChatBot', icon: Bot, color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-100', cost: 0 },
@@ -126,6 +213,14 @@ const Dashboard: React.FC<{
     }, 5000);
     return () => clearInterval(timer);
   }, [testimonials.length]);
+
+  // Check for Early Riser (0500 - 0800)
+  useEffect(() => {
+      const hours = new Date().getHours();
+      if (hours >= 5 && hours < 8) {
+          setIsEarlyRiser(true);
+      }
+  }, []);
 
   useEffect(() => {
     if (isLoggedIn && user && !user.startsWith('demo')) {
@@ -173,6 +268,17 @@ const Dashboard: React.FC<{
   return (
     <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-0">
       
+      {/* EARLY RISER BONUS TOAST */}
+      {isLoggedIn && isEarlyRiser && (
+          <div className="fixed top-24 right-4 z-50 bg-orange-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-1000 border-2 border-orange-400">
+              <Sun className="animate-spin-slow" size={24} />
+              <div>
+                  <p className="text-xs font-black uppercase tracking-widest">Morning Drill Bonus</p>
+                  <p className="text-[10px] font-bold opacity-90">Discipline Detected. Carry On!</p>
+              </div>
+          </div>
+      )}
+
       {/* HERO SECTION */}
       <div className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl border-b-8 border-yellow-500">
          <div className="relative z-10 grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
@@ -181,7 +287,7 @@ const Dashboard: React.FC<{
                <span className="px-3 py-1 bg-yellow-400 text-black text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg animate-bounce">Officer Potential</span>
                <span className="text-slate-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">Board Simulation v4.0</span>
              </div>
-             <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Master Your SSB <br/><span className="text-yellow-400">1:1 PI with Col. Arjun Singh (Virtual IO)</span></h1>
+             <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Master Your SSB <br/><span className="text-yellow-400">1:1 PI with Col. Arjun Singh</span></h1>
              <p className="text-slate-300 text-sm md:text-lg leading-relaxed font-medium opacity-90 max-w-2xl">
                Practice exactly like real SSB with full detailed and personalised assessment. Use Coins to unlock tests.
              </p>
@@ -283,7 +389,7 @@ const Dashboard: React.FC<{
                         <Trophy size={24} className="text-yellow-400" />
                     </div>
                     <div>
-                        <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tighter">Soldier Profile</h3>
+                        <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tighter">Service Dossier</h3>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                             Current Rank: <span className="text-blue-600">{stats.rank}</span>
                         </p>
@@ -295,11 +401,54 @@ const Dashboard: React.FC<{
                 </div>
               </div>
               
-              <div className="grid grid-cols-3 gap-2 md:gap-8 mb-8 relative z-10">
-                  <ProgressRing score={stats.ppdtAvg} color="text-blue-500" label="PPDT" icon={Target} subtext="Screening Avg" />
-                  <ProgressRing score={stats.psychAvg} color="text-purple-500" label="Psychology" icon={Brain} subtext="TAT/WAT/SRT" />
-                  <ProgressRing score={stats.interviewAvg} color="text-yellow-500" label="Interview" icon={Mic} subtext="IO Score" />
+              {/* GAMIFICATION SECTION: OLQ RADAR & MEDALS */}
+              <div className="grid md:grid-cols-2 gap-8 mb-8">
+                  {/* Left: OLQ Hexagon */}
+                  <div className="bg-slate-50 rounded-3xl p-4 border border-slate-100 flex flex-col items-center">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-2">
+                          <Target size={12} /> OLQ Profile
+                      </h4>
+                      <RadarChart stats={stats} />
+                  </div>
+
+                  {/* Right: Medal Case */}
+                  <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                          <Award size={12} /> Decorations
+                      </h4>
+                      <div className="grid grid-cols-4 gap-4 place-items-center">
+                          <MedalRibbon 
+                             title="Early Bird" 
+                             desc="Logged in before 0800 Hours" 
+                             earned={isEarlyRiser} 
+                             colors={['bg-orange-400', 'bg-blue-800', 'bg-orange-400']} 
+                             icon={Sun}
+                          />
+                          <MedalRibbon 
+                             title="Veteran" 
+                             desc="Completed 20+ Tests" 
+                             earned={stats.totalTests >= 20} 
+                             colors={['bg-red-800', 'bg-white', 'bg-red-800']} 
+                             icon={Star}
+                          />
+                          <MedalRibbon 
+                             title="Marksman" 
+                             desc="Avg Score > 8.0" 
+                             earned={stats.psychAvg > 8 || stats.interviewAvg > 8} 
+                             colors={['bg-green-700', 'bg-yellow-400', 'bg-green-700']} 
+                             icon={Crosshair}
+                          />
+                          <MedalRibbon 
+                             title="Navigator" 
+                             desc="Visited All Sections" 
+                             earned={stats.totalTests > 5} 
+                             colors={['bg-blue-600', 'bg-white', 'bg-blue-600']} 
+                             icon={Map}
+                          />
+                      </div>
+                  </div>
               </div>
+
               <div className="border-t border-slate-100 pt-4">
                   <button 
                     onClick={() => setShowFullHistory(!showFullHistory)}
