@@ -75,50 +75,6 @@ export async function generateTestContent(testType: string) {
   return { items: [] };
 }
 
-export async function generateOIRQuestions() {
-    try {
-        const prompt = `Generate 25 structured Verbal Reasoning questions for an Officer Intelligence Rating (OIR) test.
-        Mix the following types:
-        1. Number Series
-        2. Coding-Decoding
-        3. Antonyms / Synonyms
-        4. Blood Relations
-        5. Direction Sense
-        6. Analogies
-        
-        Difficulty: Moderate to High.
-        
-        Return JSON format strictly:
-        [
-          { "id": 1, "question": "...", "options": ["A", "B", "C", "D"], "correctAnswer": "The option string exactly" }
-        ]`;
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            id: { type: Type.INTEGER },
-                            question: { type: Type.STRING },
-                            options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            correctAnswer: { type: Type.STRING }
-                        }
-                    }
-                }
-            }
-        });
-        return safeJSONParse(response.text || "") || [];
-    } catch (e) {
-        console.error("OIR Generation Failed", e);
-        return [];
-    }
-}
-
 export async function evaluateLecturette(topic: string, transcript: string, durationSeconds: number) {
     const prompt = `
     Act as a GTO (Group Testing Officer) in SSB. Evaluate the candidate's Lecturette performance.

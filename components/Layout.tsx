@@ -36,8 +36,7 @@ import {
   BookOpen,
   Zap,
   Coins,
-  Plus,
-  Brain
+  Plus
 } from 'lucide-react';
 import { getRecentAnnouncements, subscribeToAnnouncements, getTickerConfig, subscribeToTicker, TEST_RATES } from '../services/supabaseService';
 
@@ -167,7 +166,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', icon: Globe },
     { id: TestType.RESOURCES, label: 'Free Resources', icon: Library }, 
     { id: TestType.PIQ, label: 'PIQ Form', icon: ClipboardList },
-    { id: TestType.OIR, label: 'OIR Test (Reasoning)', icon: Brain },
     { id: TestType.PPDT, label: 'PPDT Round', icon: ImageIcon },
     { id: TestType.TAT, label: 'TAT (Psychology)', icon: PenTool },
     { id: TestType.WAT, label: 'WAT (Psychology)', icon: HelpCircle },
@@ -182,15 +180,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
   const handleNavClick = (id: TestType) => {
     let cost = 0;
     
-    // Apply costs specifically for tests that deduct on entry
+    // Apply costs specifically for tests that deduct on entry, consistent with Dashboard
     if (id === TestType.PPDT) cost = TEST_RATES.PPDT;
     else if (id === TestType.TAT) cost = TEST_RATES.TAT;
     else if (id === TestType.WAT) cost = TEST_RATES.WAT;
     else if (id === TestType.SRT) cost = TEST_RATES.SRT;
     else if (id === TestType.SDT) cost = TEST_RATES.SDT;
     
-    // OIR is handled inside the component to prevent double deduction on reload
-    // Lecturette and Interview also deduct internally
+    // NOTE: Lecturette and Interview deduct internally or are 0 on navigation
+    // NOTE: Free resources, Guide, etc., default to 0
 
     onNavigate(id, { cost });
     if (isMobile) setSidebarOpen(false);
