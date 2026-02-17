@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Layout from './Layout';
 import Login from './Login';
 import PPDTTest from './PPDTTest';
+import OIRTest from './OIRTest';
 import PsychologyTest from './PsychologyTest';
 import Interview from './Interview';
 import PIQForm from './PIQForm';
@@ -187,6 +188,7 @@ const Dashboard: React.FC<{
   ];
 
   const quickActions = [
+    { id: TestType.OIR, label: 'OIR Test', sub: 'Reasoning', icon: Brain, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100', cost: TEST_RATES.OIR },
     { id: TestType.PPDT, label: 'PPDT', sub: 'Screening', icon: ImageIcon, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100', cost: TEST_RATES.PPDT },
     { id: TestType.TAT, label: 'TAT', sub: 'Psychology', icon: PenTool, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100', cost: TEST_RATES.TAT },
     { id: TestType.WAT, label: 'WAT', sub: 'Psychology', icon: Zap, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100', cost: TEST_RATES.WAT },
@@ -524,9 +526,9 @@ const Dashboard: React.FC<{
                                 return;
                             }
 
-                            // SPECIAL CASE FOR LECTURETTE
-                            // Don't deduct coins on entry, deduction happens per topic inside the module
-                            if (action.id === TestType.LECTURETTE) {
+                            // SPECIAL CASE FOR LECTURETTE AND OIR
+                            // Don't deduct coins on entry, deduction happens inside the module
+                            if (action.id === TestType.LECTURETTE || action.id === TestType.OIR) {
                                 onStartTest(action.id, { cost: 0 }); // Pass 0 so navigateTo skips deduction
                                 return;
                             }
@@ -750,6 +752,7 @@ const App: React.FC = () => {
       case TestType.LOGIN: return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.REGISTER: return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} initialIsSignUp={true} />;
       case TestType.PIQ: return <PIQForm onSave={async (data: PIQData) => { if(user) { await saveUserData(user, data); setPiqData(data); alert("PIQ Saved"); setActiveTest(TestType.DASHBOARD); } else { alert("Please login."); setActiveTest(TestType.LOGIN); } }} initialData={piqData || undefined} />;
+      case TestType.OIR: return <OIRTest onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
       case TestType.PPDT: return <PPDTTest onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.TAT: return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.WAT: return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;

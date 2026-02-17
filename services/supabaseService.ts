@@ -11,6 +11,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // --- COIN RATES CONFIGURATION ---
 export const TEST_RATES = {
     PPDT: 5,
+    OIR: 5,
     SRT: 5,
     WAT: 5,
     LECTURETTE: 3, 
