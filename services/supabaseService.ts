@@ -53,11 +53,13 @@ export const getAllOIRQuestionsRandom = async (limit: number = 50) => {
   return data.sort(() => Math.random() - 0.5).slice(0, limit);
 };
 
-export const getOIRLeaderboard = async () => {
+export const getOIRLeaderboard = async (type: 'STANDARD' | 'SUDDEN_DEATH' = 'STANDARD') => {
+  const dbTestType = type === 'SUDDEN_DEATH' ? 'OIR_SUDDEN_DEATH' : 'OIR';
+  
   const { data, error } = await supabase
     .from('test_history')
     .select('score, created_at, result_data, aspirants(full_name, user_id)')
-    .eq('test_type', 'OIR')
+    .eq('test_type', dbTestType)
     .order('score', { ascending: false })
     .limit(20);
 
@@ -72,7 +74,8 @@ export const getOIRLeaderboard = async () => {
       name: entry.aspirants?.full_name || 'Unknown Cadet',
       score: entry.score,
       date: entry.created_at,
-      oirRating: entry.result_data?.oir || 5
+      oirRating: entry.result_data?.oir || 5,
+      completed: entry.result_data?.completed // For Sudden Death completion status
   }));
 };
 

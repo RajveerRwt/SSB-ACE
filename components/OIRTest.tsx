@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, CheckCircle, AlertTriangle, ChevronRight, ChevronLeft, Flag, HelpCircle, Loader2, Play, Lock, RefreshCw, Send, MessageSquare, Lightbulb, X, Coins, Maximize2, Trophy, Flame, Timer, Skull, Crown, Medal } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, ChevronRight, ChevronLeft, Flag, HelpCircle, Loader2, Play, Lock, RefreshCw, Send, MessageSquare, Lightbulb, X, Coins, Maximize2, Trophy, Flame, Timer, Skull, Crown, Medal, Share2, Linkedin, Twitter } from 'lucide-react';
 import { getOIRSets, getOIRQuestions, getOIRDoubts, postOIRDoubt, checkAuthSession, TEST_RATES, getOIRLeaderboard, getAllOIRQuestionsRandom, saveTestAttempt } from '../services/supabaseService';
 
 interface OIRTestProps {
@@ -28,6 +28,7 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
   // Leaderboard State
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'SETS' | 'SUDDEN_DEATH' | 'LEADERBOARD'>('SETS');
+  const [leaderboardMode, setLeaderboardMode] = useState<'STANDARD' | 'SUDDEN_DEATH'>('STANDARD');
 
   // Sudden Death State
   const [suddenDeathScore, setSuddenDeathScore] = useState(0);
@@ -51,7 +52,7 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
 
   const loadLeaderboard = async () => {
       setIsLoading(true);
-      const data = await getOIRLeaderboard();
+      const data = await getOIRLeaderboard(leaderboardMode);
       setLeaderboard(data);
       setIsLoading(false);
   };
@@ -60,7 +61,23 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
       if (activeTab === 'LEADERBOARD') {
           loadLeaderboard();
       }
-  }, [activeTab]);
+  }, [activeTab, leaderboardMode]);
+
+  const handleShare = (score: number, total: number | string, modeText: string) => {
+      const text = `I just scored ${score}/${total} in ${modeText} on SSBPREP.ONLINE! Can you beat my rank? #SSB #OIR #Defense`;
+      const url = "https://ssbprep.online";
+      
+      // We will open a modal or simple links
+      // For simplicity, let's open Twitter share
+      const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+      window.open(twitterUrl, '_blank');
+  };
+
+  const handleWhatsAppShare = (score: number, total: number | string, modeText: string) => {
+      const text = `I just scored ${score}/${total} in ${modeText} on SSBPREP.ONLINE! Can you beat my rank?`;
+      const url = `https://wa.me/?text=${encodeURIComponent(text + " https://ssbprep.online")}`;
+      window.open(url, '_blank');
+  };
 
   const startTest = async (set: any) => {
     if (isGuest) {
@@ -309,10 +326,24 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
 
               {activeTab === 'LEADERBOARD' && (
                   <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-4">
-                      <div className="p-6 bg-slate-900 text-white text-center">
-                          <h3 className="text-xl font-black uppercase tracking-widest flex items-center justify-center gap-3">
-                              <Trophy className="text-yellow-400" /> Top Performers
+                      <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
+                          <h3 className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
+                              <Trophy className="text-yellow-400" /> Leaderboard
                           </h3>
+                          <div className="flex bg-slate-800 rounded-xl p-1">
+                              <button 
+                                onClick={() => setLeaderboardMode('STANDARD')}
+                                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${leaderboardMode === 'STANDARD' ? 'bg-yellow-400 text-black' : 'text-slate-400 hover:text-white'}`}
+                              >
+                                  Standard
+                              </button>
+                              <button 
+                                onClick={() => setLeaderboardMode('SUDDEN_DEATH')}
+                                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${leaderboardMode === 'SUDDEN_DEATH' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                              >
+                                  Sudden Death
+                              </button>
+                          </div>
                       </div>
                       <div className="p-6">
                           {leaderboard.length === 0 ? (
@@ -332,7 +363,11 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                                           </div>
                                           <div className="text-right">
                                               <span className="block text-2xl font-black text-slate-900">{entry.score}</span>
-                                              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${entry.oirRating === 1 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>OIR {entry.oirRating}</span>
+                                              {leaderboardMode === 'STANDARD' ? (
+                                                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${entry.oirRating === 1 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>OIR {entry.oirRating}</span>
+                                              ) : (
+                                                  <span className="text-[10px] font-bold uppercase text-red-500">Streak</span>
+                                              )}
                                           </div>
                                       </div>
                                   ))}
@@ -351,7 +386,7 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
   if (mode === 'SUDDEN_DEATH') {
       const currentQ = questions[currentQIndex];
       return (
-          <div className="max-w-2xl mx-auto py-12 md:py-20 animate-in zoom-in duration-300">
+          <div className="max-w-6xl mx-auto py-12 md:py-10 animate-in zoom-in duration-300">
               <div className="bg-red-600 text-white p-4 rounded-t-3xl flex justify-between items-center shadow-lg relative z-10">
                   <div className="flex items-center gap-2">
                       <Skull size={20} className="animate-pulse" />
@@ -361,31 +396,43 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
               </div>
               
               <div className="bg-white p-8 rounded-b-[2.5rem] rounded-tr-[2.5rem] shadow-2xl border-4 border-red-600 relative overflow-hidden">
-                  <div className="absolute top-4 right-6 flex flex-col items-center">
+                  <div className="absolute top-4 right-6 flex flex-col items-center z-10">
                       <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Streak</span>
                       <span className="text-3xl font-black text-red-600">{suddenDeathScore}</span>
                   </div>
 
-                  {currentQ.image_url && (
-                      <div className="mb-6 flex justify-center">
-                          <img src={currentQ.image_url} className="max-h-48 object-contain rounded-xl border border-slate-200" alt="Question" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                      {/* Left: Question/Image */}
+                      <div className="flex flex-col items-center md:items-start text-center md:text-left">
+                          {currentQ.image_url && (
+                              <div 
+                                className="mb-6 flex justify-center relative group cursor-zoom-in w-full"
+                                onClick={() => setZoomedImage(currentQ.image_url)}
+                              >
+                                  <img src={currentQ.image_url} className="max-h-64 md:max-h-80 object-contain rounded-xl border border-slate-200" alt="Question" />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-all rounded-xl">
+                                      <Maximize2 className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" size={32} />
+                                  </div>
+                              </div>
+                          )}
+                          {currentQ.question_text && (
+                              <h3 className="text-lg md:text-2xl font-bold text-slate-800 mb-8 leading-relaxed pr-16">{currentQ.question_text}</h3>
+                          )}
                       </div>
-                  )}
-                  {currentQ.question_text && (
-                      <h3 className="text-lg font-bold text-slate-800 mb-8 leading-relaxed pr-16">{currentQ.question_text}</h3>
-                  )}
 
-                  <div className="grid grid-cols-1 gap-3">
-                      {currentQ.options.map((opt: string, idx: number) => (
-                          <button
-                            key={idx}
-                            onClick={() => handleSuddenDeathAnswer(idx)}
-                            className="p-4 rounded-xl text-left font-bold text-sm transition-all border-2 border-slate-100 hover:border-red-200 hover:bg-red-50 active:scale-95"
-                          >
-                              <span className="mr-3 font-black text-slate-400">{String.fromCharCode(65 + idx)}.</span>
-                              {opt}
-                          </button>
-                      ))}
+                      {/* Right: Options */}
+                      <div className="grid grid-cols-1 gap-3">
+                          {currentQ.options.map((opt: string, idx: number) => (
+                              <button
+                                key={idx}
+                                onClick={() => handleSuddenDeathAnswer(idx)}
+                                className="p-4 md:p-6 rounded-xl text-left font-bold text-sm md:text-base transition-all border-2 border-slate-100 hover:border-red-200 hover:bg-red-50 active:scale-95 shadow-sm hover:shadow-md"
+                              >
+                                  <span className="mr-3 font-black text-slate-400">{String.fromCharCode(65 + idx)}.</span>
+                                  {opt}
+                              </button>
+                          ))}
+                      </div>
                   </div>
                   
                   {/* Progress Bar for Timer */}
@@ -396,6 +443,33 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                       />
                   </div>
               </div>
+
+              {/* Zoom Modal - Added for Sudden Death */}
+              {zoomedImage && (
+                  <div 
+                    className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    onClick={() => setZoomedImage(null)}
+                  >
+                      <button 
+                        onClick={() => setZoomedImage(null)} 
+                        className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
+                      >
+                          <X size={24} />
+                      </button>
+                      
+                      <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                         <img 
+                            src={zoomedImage} 
+                            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl cursor-default" 
+                            onClick={(e) => e.stopPropagation()} 
+                            alt="Zoomed Question"
+                         />
+                         <p className="absolute bottom-6 text-white/50 text-xs font-bold uppercase tracking-widest pointer-events-none">
+                            Click outside to close
+                         </p>
+                      </div>
+                  </div>
+              )}
           </div>
       );
   }
@@ -404,7 +478,7 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
   if (mode === 'TEST') {
       const currentQ = questions[currentQIndex];
       return (
-          <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in">
+          <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in">
               {/* Top Bar */}
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center sticky top-4 z-20">
                   <div>
@@ -423,7 +497,7 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                         className="mb-6 flex justify-center relative group cursor-zoom-in"
                         onClick={() => setZoomedImage(currentQ.image_url)}
                       >
-                          <img src={currentQ.image_url} className="max-h-64 object-contain rounded-xl border border-slate-200" alt="Question" />
+                          <img src={currentQ.image_url} className="max-h-64 md:max-h-96 object-contain rounded-xl border border-slate-200" alt="Question" />
                           <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-all rounded-xl">
                               <Maximize2 className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" size={32} />
                           </div>
@@ -533,6 +607,24 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                           <span className="text-[10px] font-black uppercase tracking-widest text-white/50">Score Streak</span>
                       </div>
 
+                      {/* SOCIAL SHARE */}
+                      <div className="flex gap-4 justify-center mb-8">
+                          <button 
+                            onClick={() => handleShare(results.score, 'Infinity', 'Sudden Death')}
+                            className="p-3 bg-[#1DA1F2] hover:bg-[#1a91da] text-white rounded-full transition-all hover:scale-110 shadow-lg"
+                            title="Share on Twitter"
+                          >
+                              <Twitter size={20} fill="currentColor" />
+                          </button>
+                          <button 
+                            onClick={() => handleWhatsAppShare(results.score, 'Infinity', 'Sudden Death')}
+                            className="p-3 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-full transition-all hover:scale-110 shadow-lg"
+                            title="Share on WhatsApp"
+                          >
+                              <Share2 size={20} />
+                          </button>
+                      </div>
+
                       <button onClick={() => setMode('LOBBY')} className="w-full py-4 bg-white text-slate-900 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-all">
                           Return to Lobby
                       </button>
@@ -560,6 +652,21 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                           <span className="block text-2xl font-black text-teal-400">OIR {results.oir}</span>
                           <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Rating</span>
                       </div>
+                  </div>
+                  {/* Share Buttons Standard */}
+                  <div className="flex gap-3 mt-6 justify-center md:justify-start">
+                      <button 
+                        onClick={() => handleShare(results.score, questions.length, 'OIR Test')}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#1DA1F2] hover:bg-[#1a91da] text-white rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all"
+                      >
+                          <Twitter size={14} fill="currentColor" /> Tweet Score
+                      </button>
+                      <button 
+                        onClick={() => handleWhatsAppShare(results.score, questions.length, 'OIR Test')}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all"
+                      >
+                          <Share2 size={14} /> WhatsApp
+                      </button>
                   </div>
               </div>
               <div className="relative z-10 w-32 h-32 flex items-center justify-center bg-white rounded-full text-slate-900 font-black text-3xl shadow-2xl border-4 border-slate-700">

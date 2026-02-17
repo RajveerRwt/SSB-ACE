@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Loader2, Send, MessageSquare, Clock, User, ImageIcon, FileText, Zap, PenTool, Flame, Trophy, Lock, Heart, Award, Medal, Star, CheckCircle, Mic, RefreshCw, AlertTriangle, Brain } from 'lucide-react';
+import { Loader2, Send, MessageSquare, Clock, User, ImageIcon, FileText, Zap, PenTool, Flame, Trophy, Lock, Heart, Award, Medal, Star, CheckCircle, Mic, RefreshCw, AlertTriangle, Brain, Maximize2, X } from 'lucide-react';
 import { getLatestDailyChallenge, submitDailyEntry, getDailySubmissions, checkAuthSession, toggleLike, getUserStreak } from '../services/supabaseService';
 
 interface DailyPracticeProps {
@@ -16,6 +16,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   const [userStreak, setUserStreak] = useState(0);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   // Form State
   const [oirAnswer, setOirAnswer] = useState(''); 
@@ -77,7 +78,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
 
     setIsSubmitting(true);
     try {
-      /* fix line 80: use state values instead of dispatch functions for wat, srt, and interview arguments */
       await submitDailyEntry(challenge.id, oirAnswer, watAnswer, srtAnswer, interviewAnswer);
       const subs = await getDailySubmissions(challenge.id);
       setSubmissions(subs);
@@ -217,12 +217,20 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       {/* CHALLENGE WORKSPACE */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg md:col-span-2 flex flex-col md:flex-row gap-6">
-              <div className="w-full md:w-1/3 min-h-[200px] bg-slate-50 rounded-2xl overflow-hidden border border-slate-200 shrink-0 flex flex-col items-center justify-center p-4">
+              <div className="w-full md:w-1/3 min-h-[200px] bg-slate-50 rounded-2xl overflow-hidden border border-slate-200 shrink-0 flex flex-col items-center justify-center p-4 relative group">
                   {challenge.ppdt_image_url && (
-                      <img src={challenge.ppdt_image_url} className="w-full h-auto object-contain rounded-lg mb-2" alt="OIR Question" />
+                      <div 
+                        className="relative w-full h-full cursor-zoom-in" 
+                        onClick={() => setZoomedImage(challenge.ppdt_image_url)}
+                      >
+                          <img src={challenge.ppdt_image_url} className="w-full h-auto object-contain rounded-lg mb-2" alt="OIR Question" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-all rounded-lg">
+                              <Maximize2 className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" size={32} />
+                          </div>
+                      </div>
                   )}
                   {challenge.oir_text && (
-                      <p className="text-sm font-bold text-slate-800 text-center leading-relaxed">{challenge.oir_text}</p>
+                      <p className="text-sm font-bold text-slate-800 text-center leading-relaxed mt-2">{challenge.oir_text}</p>
                   )}
                   {!challenge.ppdt_image_url && !challenge.oir_text && (
                       <p className="text-slate-400 text-xs font-bold uppercase">No OIR content loaded</p>
@@ -403,6 +411,33 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
               </div>
           )}
       </div>
+
+      {/* Zoom Modal */}
+      {zoomedImage && (
+          <div 
+            className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+            onClick={() => setZoomedImage(null)}
+          >
+              <button 
+                onClick={() => setZoomedImage(null)} 
+                className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
+              >
+                  <X size={24} />
+              </button>
+              
+              <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                  <img 
+                    src={zoomedImage} 
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl cursor-default" 
+                    onClick={(e) => e.stopPropagation()} 
+                    alt="Zoomed Question"
+                  />
+                  <p className="absolute bottom-6 text-white/50 text-xs font-bold uppercase tracking-widest pointer-events-none">
+                    Click outside to close
+                  </p>
+              </div>
+          </div>
+      )}
     </div>
   );
 };
