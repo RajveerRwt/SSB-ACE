@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, CheckCircle, AlertTriangle, ChevronRight, ChevronLeft, Flag, HelpCircle, Loader2, Play, Lock, RefreshCw, Send, MessageSquare, Lightbulb, X, Coins, Maximize2, Trophy, Flame, Timer, Skull, Crown, Medal, Share2, Linkedin, Twitter } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, ChevronRight, ChevronLeft, Flag, HelpCircle, Loader2, Play, Lock, RefreshCw, Send, MessageSquare, Lightbulb, X, Coins, Maximize2, Trophy, Flame, Timer, Skull, Crown, Medal, Share2, Linkedin, Twitter, Instagram, Filter, Target } from 'lucide-react';
 import { getOIRSets, getOIRQuestions, getOIRDoubts, postOIRDoubt, checkAuthSession, TEST_RATES, getOIRLeaderboard, getAllOIRQuestionsRandom, saveTestAttempt } from '../services/supabaseService';
 
 interface OIRTestProps {
@@ -29,6 +29,7 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'SETS' | 'SUDDEN_DEATH' | 'LEADERBOARD'>('SETS');
   const [leaderboardMode, setLeaderboardMode] = useState<'STANDARD' | 'SUDDEN_DEATH'>('STANDARD');
+  const [filterSetId, setFilterSetId] = useState<string>('ALL');
 
   // Sudden Death State
   const [suddenDeathScore, setSuddenDeathScore] = useState(0);
@@ -52,7 +53,8 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
 
   const loadLeaderboard = async () => {
       setIsLoading(true);
-      const data = await getOIRLeaderboard(leaderboardMode);
+      const setId = filterSetId !== 'ALL' ? filterSetId : undefined;
+      const data = await getOIRLeaderboard(leaderboardMode, setId);
       setLeaderboard(data);
       setIsLoading(false);
   };
@@ -61,16 +63,27 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
       if (activeTab === 'LEADERBOARD') {
           loadLeaderboard();
       }
-  }, [activeTab, leaderboardMode]);
+  }, [activeTab, leaderboardMode, filterSetId]);
 
-  const handleShare = (score: number, total: number | string, modeText: string) => {
+  const handleShare = async (score: number, total: number | string, modeText: string) => {
       const text = `I just scored ${score}/${total} in ${modeText} on SSBPREP.ONLINE! Can you beat my rank? #SSB #OIR #Defense`;
       const url = "https://ssbprep.online";
       
-      // We will open a modal or simple links
-      // For simplicity, let's open Twitter share
-      const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
-      window.open(twitterUrl, '_blank');
+      if (navigator.share) {
+          try {
+              await navigator.share({
+                  title: 'SSB OIR Score',
+                  text: text,
+                  url: url,
+              });
+          } catch (error) {
+              console.log('Error sharing', error);
+          }
+      } else {
+          // Fallback
+          alert("Sharing not supported on this browser. Link copied to clipboard!");
+          navigator.clipboard.writeText(`${text} ${url}`);
+      }
   };
 
   const handleWhatsAppShare = (score: number, total: number | string, modeText: string) => {
@@ -85,7 +98,8 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
        return;
     }
 
-    if (onConsumeCoins && TEST_RATES.OIR > 0) {
+    if (onConsumeCoins) {
+        // Standard OIR Cost: 10 Coins
         const success = await onConsumeCoins(TEST_RATES.OIR);
         if (!success) return;
     }
@@ -110,6 +124,13 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
           onLoginRedirect?.();
           return;
       }
+      
+      if (onConsumeCoins) {
+          // Sudden Death Cost: 5 Coins
+          const success = await onConsumeCoins(TEST_RATES.OIR_SUDDEN_DEATH);
+          if (!success) return;
+      }
+
       setIsLoading(true);
       try {
           const qs = await getAllOIRQuestionsRandom(50); // Get 50 random Qs
@@ -174,7 +195,8 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
               oir: res.oir,
               percentage: res.percentage,
               totalQuestions: questions.length,
-              correct: res.score
+              correct: res.score,
+              setId: activeSet?.id // IMPORTANT: Save Set ID for filtering
           };
           await saveTestAttempt(currentUser.id, 'OIR', { score: res.score, ...resultData });
       }
@@ -298,8 +320,7 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                                 className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all flex items-center justify-center gap-2"
                               >
                                   {isGuest ? <Lock size={14}/> : <Play size={14}/>} Start Test 
-                                  {!isGuest && TEST_RATES.OIR > 0 && <span className="ml-2 bg-yellow-400 text-black px-2 py-0.5 rounded text-[9px] flex items-center gap-1"><Coins size={8}/> {TEST_RATES.OIR}</span>}
-                                  {!isGuest && TEST_RATES.OIR === 0 && <span className="ml-2 bg-green-500 text-white px-2 py-0.5 rounded text-[9px] font-bold">FREE</span>}
+                                  {!isGuest && <span className="ml-2 bg-yellow-400 text-black px-2 py-0.5 rounded text-[9px] flex items-center gap-1"><Coins size={8}/> {TEST_RATES.OIR}</span>}
                               </button>
                           </div>
                       ))}
@@ -320,53 +341,84 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                         className="px-12 py-5 bg-red-600 text-white rounded-full font-black uppercase tracking-[0.2em] shadow-xl hover:bg-red-700 hover:scale-105 transition-all flex items-center justify-center gap-3 mx-auto"
                       >
                           <Flame size={20} /> Enter The Arena
+                          {!isGuest && <span className="ml-2 bg-white text-red-600 px-2 py-0.5 rounded text-[9px] flex items-center gap-1"><Coins size={8}/> {TEST_RATES.OIR_SUDDEN_DEATH}</span>}
                       </button>
                   </div>
               )}
 
               {activeTab === 'LEADERBOARD' && (
                   <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-4">
-                      <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
+                      <div className="p-6 bg-slate-900 text-white flex flex-col md:flex-row justify-between items-center gap-4">
                           <h3 className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
                               <Trophy className="text-yellow-400" /> Leaderboard
                           </h3>
-                          <div className="flex bg-slate-800 rounded-xl p-1">
-                              <button 
-                                onClick={() => setLeaderboardMode('STANDARD')}
-                                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${leaderboardMode === 'STANDARD' ? 'bg-yellow-400 text-black' : 'text-slate-400 hover:text-white'}`}
-                              >
-                                  Standard
-                              </button>
-                              <button 
-                                onClick={() => setLeaderboardMode('SUDDEN_DEATH')}
-                                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${leaderboardMode === 'SUDDEN_DEATH' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                              >
-                                  Sudden Death
-                              </button>
+                          
+                          <div className="flex gap-2">
+                              {/* MODE SWITCHER */}
+                              <div className="flex bg-slate-800 rounded-xl p-1">
+                                  <button 
+                                    onClick={() => { setLeaderboardMode('STANDARD'); setFilterSetId('ALL'); }}
+                                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${leaderboardMode === 'STANDARD' ? 'bg-yellow-400 text-black' : 'text-slate-400 hover:text-white'}`}
+                                  >
+                                      Standard
+                                  </button>
+                                  <button 
+                                    onClick={() => { setLeaderboardMode('SUDDEN_DEATH'); setFilterSetId('ALL'); }}
+                                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${leaderboardMode === 'SUDDEN_DEATH' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                                  >
+                                      Sudden Death
+                                  </button>
+                              </div>
+
+                              {/* SET SELECTOR (Only for Standard) */}
+                              {leaderboardMode === 'STANDARD' && (
+                                  <div className="relative">
+                                      <select 
+                                        value={filterSetId}
+                                        onChange={(e) => setFilterSetId(e.target.value)}
+                                        className="appearance-none bg-slate-800 text-white pl-4 pr-10 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none hover:bg-slate-700 transition-all border border-slate-700 cursor-pointer"
+                                      >
+                                          <option value="ALL">All Sets</option>
+                                          {sets.map(s => (
+                                              <option key={s.id} value={s.id}>{s.title}</option>
+                                          ))}
+                                      </select>
+                                      <Filter size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                  </div>
+                              )}
                           </div>
                       </div>
-                      <div className="p-6">
+                      
+                      <div className="p-0 md:p-6">
                           {leaderboard.length === 0 ? (
-                              <div className="text-center py-10 text-slate-400 font-bold uppercase text-xs">No records found. Be the first!</div>
+                              <div className="text-center py-20 bg-slate-50 rounded-3xl m-6 border border-slate-100">
+                                  <Trophy size={48} className="mx-auto text-slate-300 mb-4" />
+                                  <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">No rankings available for this filter.</p>
+                              </div>
                           ) : (
-                              <div className="space-y-4">
+                              <div className="space-y-3">
                                   {leaderboard.map((entry, i) => (
-                                      <div key={i} className={`flex items-center justify-between p-4 rounded-2xl border-2 ${i === 0 ? 'bg-yellow-50 border-yellow-400' : i === 1 ? 'bg-slate-50 border-slate-300' : i === 2 ? 'bg-orange-50 border-orange-300' : 'bg-white border-slate-100'}`}>
-                                          <div className="flex items-center gap-4">
-                                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg ${i === 0 ? 'bg-yellow-400 text-black shadow-lg' : i === 1 ? 'bg-slate-300 text-slate-800' : i === 2 ? 'bg-orange-400 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                      <div key={i} className={`flex items-center justify-between p-4 md:p-5 rounded-2xl md:rounded-3xl border-2 transition-all hover:scale-[1.01] ${i === 0 ? 'bg-yellow-50 border-yellow-400 shadow-lg' : i === 1 ? 'bg-slate-50 border-slate-300 shadow-md' : i === 2 ? 'bg-orange-50 border-orange-300 shadow-md' : 'bg-white border-slate-100 hover:shadow-md'}`}>
+                                          <div className="flex items-center gap-4 md:gap-6">
+                                              <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center font-black text-sm md:text-lg shrink-0 ${i === 0 ? 'bg-yellow-400 text-black shadow-lg' : i === 1 ? 'bg-slate-300 text-slate-800' : i === 2 ? 'bg-orange-400 text-white' : 'bg-slate-100 text-slate-500'}`}>
                                                   {i + 1}
                                               </div>
-                                              <div>
-                                                  <h4 className="font-bold text-slate-900 text-sm">{entry.name}</h4>
-                                                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{new Date(entry.date).toLocaleDateString()}</p>
+                                              <div className="flex items-center gap-3 md:gap-4">
+                                                  <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-xs font-bold text-white uppercase ${i === 0 ? 'bg-slate-900' : 'bg-slate-400'}`}>
+                                                      {entry.name?.[0] || 'U'}
+                                                  </div>
+                                                  <div>
+                                                      <h4 className={`font-bold text-sm md:text-base leading-tight ${i < 3 ? 'text-slate-900' : 'text-slate-700'}`}>{entry.name}</h4>
+                                                      <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{new Date(entry.date).toLocaleDateString()}</p>
+                                                  </div>
                                               </div>
                                           </div>
                                           <div className="text-right">
-                                              <span className="block text-2xl font-black text-slate-900">{entry.score}</span>
+                                              <span className={`block text-xl md:text-3xl font-black ${i === 0 ? 'text-yellow-600' : 'text-slate-900'}`}>{entry.score}</span>
                                               {leaderboardMode === 'STANDARD' ? (
-                                                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${entry.oirRating === 1 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>OIR {entry.oirRating}</span>
+                                                  <span className={`text-[8px] md:text-[9px] font-bold uppercase px-2 py-0.5 rounded ${entry.oirRating === 1 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>OIR {entry.oirRating}</span>
                                               ) : (
-                                                  <span className="text-[10px] font-bold uppercase text-red-500">Streak</span>
+                                                  <span className="text-[8px] md:text-[9px] font-bold uppercase text-red-500 tracking-widest">Streak</span>
                                               )}
                                           </div>
                                       </div>
@@ -444,7 +496,7 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                   </div>
               </div>
 
-              {/* Zoom Modal - Added for Sudden Death */}
+              {/* Zoom Modal */}
               {zoomedImage && (
                   <div 
                     className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
@@ -623,6 +675,13 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                           >
                               <Share2 size={20} />
                           </button>
+                          <button 
+                            onClick={() => handleShare(results.score, 'Infinity', 'Sudden Death')}
+                            className="p-3 bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-600 text-white rounded-full transition-all hover:scale-110 shadow-lg"
+                            title="Share via Instagram / More"
+                          >
+                              <Instagram size={20} />
+                          </button>
                       </div>
 
                       <button onClick={() => setMode('LOBBY')} className="w-full py-4 bg-white text-slate-900 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-all">
@@ -656,16 +715,16 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                   {/* Share Buttons Standard */}
                   <div className="flex gap-3 mt-6 justify-center md:justify-start">
                       <button 
-                        onClick={() => handleShare(results.score, questions.length, 'OIR Test')}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#1DA1F2] hover:bg-[#1a91da] text-white rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all"
-                      >
-                          <Twitter size={14} fill="currentColor" /> Tweet Score
-                      </button>
-                      <button 
                         onClick={() => handleWhatsAppShare(results.score, questions.length, 'OIR Test')}
                         className="flex items-center gap-2 px-4 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all"
                       >
                           <Share2 size={14} /> WhatsApp
+                      </button>
+                      <button 
+                        onClick={() => handleShare(results.score, questions.length, 'OIR Test')}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-600 text-white rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all"
+                      >
+                          <Instagram size={14} /> Share
                       </button>
                   </div>
               </div>

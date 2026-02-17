@@ -16,7 +16,8 @@ export const TEST_RATES = {
     LECTURETTE: 3, 
     SDT: 5,
     TAT: 10,
-    OIR: 0, // Free
+    OIR: 10, // Updated to 10 Coins
+    OIR_SUDDEN_DEATH: 5, // New Rate for Sudden Death
     INTERVIEW_TRIAL: 20, 
     INTERVIEW_FULL: 100   
 };
@@ -53,29 +54,35 @@ export const getAllOIRQuestionsRandom = async (limit: number = 50) => {
   return data.sort(() => Math.random() - 0.5).slice(0, limit);
 };
 
-export const getOIRLeaderboard = async (type: 'STANDARD' | 'SUDDEN_DEATH' = 'STANDARD') => {
+export const getOIRLeaderboard = async (type: 'STANDARD' | 'SUDDEN_DEATH' = 'STANDARD', setId?: string) => {
   const dbTestType = type === 'SUDDEN_DEATH' ? 'OIR_SUDDEN_DEATH' : 'OIR';
   
-  const { data, error } = await supabase
+  let query = supabase
     .from('test_history')
     .select('score, created_at, result_data, aspirants(full_name, user_id)')
     .eq('test_type', dbTestType)
     .order('score', { ascending: false })
-    .limit(20);
+    .limit(50);
+
+  // Filter by Set ID if provided for Standard tests
+  if (type === 'STANDARD' && setId) {
+      query = query.contains('result_data', { setId: setId });
+  }
+
+  const { data, error } = await query;
 
   if (error) {
       console.error("Leaderboard fetch error:", error);
       return [];
   }
   
-  // Filter distinct users (keep best score) if needed, or just show top attempts
-  // Here we return top attempts
   return data.map((entry: any) => ({
       name: entry.aspirants?.full_name || 'Unknown Cadet',
       score: entry.score,
       date: entry.created_at,
       oirRating: entry.result_data?.oir || 5,
-      completed: entry.result_data?.completed // For Sudden Death completion status
+      completed: entry.result_data?.completed, // For Sudden Death
+      setId: entry.result_data?.setId
   }));
 };
 
