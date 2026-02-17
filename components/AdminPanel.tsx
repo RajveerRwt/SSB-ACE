@@ -166,7 +166,7 @@ const AdminPanel: React.FC = () => {
               
               await addOIRQuestion(activeOirSetId, oirQText, imageUrl, oirOptions, oirCorrectIdx);
               setOirQText('');
-              setOirOptions(['', '', '', '']); // Reset to 4 default
+              setOirOptions(['', '', '', '']); 
               setOirCorrectIdx(0);
               if (fileInputRef.current) fileInputRef.current.value = '';
               fetchData();
@@ -222,7 +222,6 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  // ... (Keeping existing delete/approve logic same) ...
   const handleDelete = async (id: string, url?: string) => {
     if (!window.confirm("Delete this item permanently?")) return;
     setErrorMsg(null);
@@ -332,7 +331,6 @@ const AdminPanel: React.FC = () => {
       if (oirOptions.length <= 2) return; // Min 2 options
       const newOpts = oirOptions.filter((_, i) => i !== index);
       setOirOptions(newOpts);
-      // Reset correct index if it becomes out of bounds
       if (oirCorrectIdx >= newOpts.length) setOirCorrectIdx(0);
   };
 
@@ -398,7 +396,7 @@ const AdminPanel: React.FC = () => {
         </div>
       )}
 
-      {/* TABS - Restored High Quality UI */}
+      {/* TABS */}
       <div className="sticky top-0 z-20 bg-slate-50/95 backdrop-blur-md py-4 -mx-4 px-4 border-b border-slate-200/50">
         <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
             {tabs.map((tab) => (
@@ -536,10 +534,9 @@ const AdminPanel: React.FC = () => {
           </div>
       )}
 
-      {/* OTHER TABS */}
+      {/* PPDT/TAT */}
       {(activeTab === 'PPDT' || activeTab === 'TAT') && (
           <div className="space-y-8 animate-in fade-in">
-              {/* ... (Existing PPDT/TAT Logic) ... */}
               <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
                   <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Upload size={24}/> Upload Scenario</h3>
                   <div className="flex gap-4">
@@ -568,6 +565,7 @@ const AdminPanel: React.FC = () => {
           </div>
       )}
 
+      {/* WAT/SRT */}
       {(activeTab === 'WAT' || activeTab === 'SRT') && (
           <div className="space-y-8 animate-in fade-in">
               <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
@@ -595,7 +593,106 @@ const AdminPanel: React.FC = () => {
           </div>
       )}
 
-      {/* USERS, PAYMENTS, COUPONS, DAILY, BROADCAST, FEEDBACK - Restored */}
+      {/* DAILY CHALLENGE */}
+      {activeTab === 'DAILY' && (
+          <div className="space-y-8 animate-in fade-in">
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                  <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><Clock size={24} className="text-rose-600"/> Daily Challenge</h3>
+                      {currentChallenge && <p className="text-xs font-bold text-green-600">Active Challenge: {new Date(currentChallenge.created_at).toDateString()}</p>}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR Image</label>
+                          <div className="p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 hover:border-slate-400 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" />
+                              <div className="flex flex-col items-center gap-2 text-slate-400">
+                                  <ImageIcon size={24} />
+                                  <span className="text-xs font-bold uppercase">Upload OIR</span>
+                              </div>
+                          </div>
+                      </div>
+                      <div className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR Text (Optional)</label>
+                          <input value={dailyOirText} onChange={e => setDailyOirText(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Text question if no image..." />
+                      </div>
+                      <div className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WAT Word</label>
+                          <input value={dailyWat} onChange={e => setDailyWat(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Single Word" />
+                      </div>
+                      <div className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SRT Situation</label>
+                          <input value={dailySrt} onChange={e => setDailySrt(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Situation..." />
+                      </div>
+                      <div className="space-y-4 md:col-span-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Interview Question</label>
+                          <input value={dailyInterview} onChange={e => setDailyInterview(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Question..." />
+                      </div>
+                  </div>
+                  <button onClick={handleUpload} disabled={isUploading} className="w-full mt-6 py-4 bg-rose-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-rose-700 transition-all">
+                      {isUploading ? <Loader2 className="animate-spin" /> : 'Publish Daily Challenge'}
+                  </button>
+              </div>
+          </div>
+      )}
+
+      {/* BROADCAST & TICKER */}
+      {activeTab === 'BROADCAST' && (
+          <div className="space-y-8 animate-in fade-in">
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                  <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Megaphone size={24} className="text-red-600"/> Live Announcement</h3>
+                  <div className="flex gap-4 mb-4">
+                      {['INFO', 'WARNING', 'SUCCESS', 'URGENT'].map(t => (
+                          <button key={t} onClick={() => setBroadcastType(t as any)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border-2 ${broadcastType === t ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-400 border-slate-200'}`}>{t}</button>
+                      ))}
+                  </div>
+                  <textarea value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} className="w-full h-32 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm mb-4" placeholder="Announcement Message..." />
+                  <button onClick={handleUpload} disabled={isUploading} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-red-700 transition-all">Send Broadcast</button>
+              </div>
+
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                  <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><ScrollText size={24} className="text-blue-600"/> Scrolling Ticker</h3>
+                  <div className="space-y-4">
+                      <input value={tickerMsg} onChange={e => setTickerMsg(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Ticker Text..." />
+                      <div className="flex gap-4 items-center">
+                          <label className="flex items-center gap-2 cursor-pointer bg-slate-50 px-4 py-3 rounded-xl border border-slate-200">
+                              <div className={`w-10 h-5 rounded-full relative transition-colors ${isTickerActive ? 'bg-green-500' : 'bg-slate-300'}`} onClick={() => setIsTickerActive(!isTickerActive)}>
+                                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isTickerActive ? 'left-6' : 'left-1'}`} />
+                              </div>
+                              <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">Active</span>
+                          </label>
+                          <div className="flex-1 flex items-center gap-4 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200">
+                              <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">Speed ({tickerSpeed}s)</span>
+                              <input type="range" min="10" max="60" value={tickerSpeed} onChange={e => setTickerSpeed(parseInt(e.target.value))} className="flex-1 accent-slate-900" />
+                          </div>
+                      </div>
+                      <button onClick={handleUpdateTicker} disabled={isUploading} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all">Update Ticker</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* FEEDBACK */}
+      {activeTab === 'FEEDBACK' && (
+          <div className="space-y-6">
+              {feedbackList.map((f: any) => (
+                  <div key={f.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                      <div className="flex justify-between items-start mb-2">
+                          <div>
+                              <h4 className="font-bold text-slate-900 text-sm">{f.aspirants?.full_name || 'Anonymous'}</h4>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{f.test_type} • {new Date(f.created_at).toLocaleDateString()}</p>
+                          </div>
+                          <div className="flex gap-1 text-yellow-400">
+                              {[...Array(f.rating)].map((_, i) => <Star key={i} size={14} fill="currentColor" />)}
+                          </div>
+                      </div>
+                      <p className="text-sm font-medium text-slate-600 bg-slate-50 p-4 rounded-xl">{f.comments}</p>
+                      <button onClick={() => handleDelete(f.id)} className="mt-4 text-red-400 text-xs font-bold uppercase tracking-widest hover:text-red-600">Delete Feedback</button>
+                  </div>
+              ))}
+          </div>
+      )}
+
       {activeTab === 'PAYMENTS' && (
           <div className="space-y-6">
               {payments.length === 0 ? (
@@ -630,7 +727,6 @@ const AdminPanel: React.FC = () => {
           <div className="space-y-8">
               {/* TOP STATS BAR */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {/* ... (Stats content remains same) ... */}
                   <div className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-xl border border-slate-800 flex items-center gap-4">
                       <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-yellow-400"><Users size={24} /></div>
                       <div>
@@ -638,7 +734,7 @@ const AdminPanel: React.FC = () => {
                           <h4 className="text-3xl font-black">{users.length}</h4>
                       </div>
                   </div>
-                  {/* ... */}
+                  
                   <div className="bg-white p-4 rounded-[2rem] shadow-xl border border-slate-100 flex items-center gap-2">
                       <input 
                         value={searchQuery} 
@@ -735,10 +831,78 @@ const AdminPanel: React.FC = () => {
           </div>
       )}
 
-      {/* ... (Daily, Broadcast, Feedback, User Detail Modal, Confirm Modal - keeping existing) ... */}
-      
-      {/* Keeping previous render logic for other tabs same as before, just ensuring file integrity */}
-      {/* ... */}
+      {/* CONFIRMATION MODAL */}
+      {confirmAction && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl max-w-sm w-full text-center space-y-6">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${confirmAction.type === 'APPROVE' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                      {confirmAction.type === 'APPROVE' ? <CheckCircle size={32} /> : <XCircle size={32} />}
+                  </div>
+                  <div>
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Confirm {confirmAction.type === 'APPROVE' ? 'Approval' : 'Rejection'}</h3>
+                      <p className="text-slate-500 text-xs font-bold mt-2">{confirmAction.planType} for {confirmAction.fullName || 'User'}</p>
+                  </div>
+                  <div className="flex gap-4">
+                      <button onClick={() => setConfirmAction(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200">Cancel</button>
+                      <button onClick={executeConfirmAction} className={`flex-1 py-4 rounded-2xl text-white font-black uppercase text-xs tracking-widest ${confirmAction.type === 'APPROVE' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>Confirm</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* USER DETAIL MODAL */}
+      {selectedUser && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white w-full max-w-4xl h-[90vh] rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col relative">
+                  <button onClick={() => setSelectedUser(null)} className="absolute top-6 right-6 p-2 bg-slate-100 hover:bg-slate-200 rounded-full z-10"><X size={20} /></button>
+                  
+                  <div className="p-8 bg-slate-50 border-b border-slate-100 flex flex-col md:flex-row gap-6 items-center md:items-start">
+                      <div className="w-20 h-20 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center font-black text-3xl shadow-xl">{selectedUser.full_name?.[0]}</div>
+                      <div className="text-center md:text-left flex-1">
+                          <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">{selectedUser.full_name}</h2>
+                          <p className="text-slate-500 font-bold text-sm">{selectedUser.email}</p>
+                          <div className="flex flex-wrap gap-2 mt-3 justify-center md:justify-start">
+                              <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                                  {selectedUser.subscription_data?.tier}
+                              </span>
+                              <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                                  <Coins size={10} /> {selectedUser.subscription_data?.coins} Coins
+                              </span>
+                          </div>
+                      </div>
+                      
+                      {/* ADMIN ACTIONS */}
+                      <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+                              <button onClick={() => setAdjustCoins(prev => prev - 10)} className="p-2 hover:bg-red-50 text-red-500 rounded-lg"><Minus size={14} /></button>
+                              <span className="text-sm font-black w-8 text-center">{adjustCoins > 0 ? `+${adjustCoins}` : adjustCoins}</span>
+                              <button onClick={() => setAdjustCoins(prev => prev + 10)} className="p-2 hover:bg-green-50 text-green-500 rounded-lg"><Plus size={14} /></button>
+                          </div>
+                          <button onClick={() => handleAdjustCoins(selectedUser.user_id)} disabled={adjustCoins === 0} className="px-4 py-2 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-black disabled:opacity-50">Update Wallet</button>
+                      </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-8">
+                      {/* TEST HISTORY */}
+                      <div>
+                          <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2"><History size={16}/> Mission History</h4>
+                          <div className="space-y-3">
+                              {selectedUser.test_history?.length === 0 ? <p className="text-slate-400 text-xs italic">No tests taken yet.</p> : 
+                               selectedUser.test_history.map((h: any, i: number) => (
+                                  <div key={i} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                      <div>
+                                          <p className="font-bold text-slate-900 text-xs uppercase">{h.test_type}</p>
+                                          <p className="text-[10px] text-slate-400 font-bold">{new Date(h.created_at).toLocaleString()}</p>
+                                      </div>
+                                      <span className="text-sm font-black text-slate-900">Score: {h.score}</span>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };
