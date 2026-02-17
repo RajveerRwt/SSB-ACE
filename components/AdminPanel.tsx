@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText, Gauge, Coins, Wallet, History, X, Lightbulb, ChevronDown, ChevronRight, LogOut, MoreHorizontal, ShieldAlert, BadgeCheck, Minus } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText, Gauge, Coins, Wallet, History, X, Lightbulb, ChevronDown, ChevronRight, LogOut, MoreHorizontal, ShieldAlert, BadgeCheck, Minus, Copy } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
@@ -315,6 +315,11 @@ const AdminPanel: React.FC = () => {
       }
   };
 
+  const copyToClipboard = (text: string) => {
+      navigator.clipboard.writeText(text);
+      alert("SQL Copied to Clipboard!");
+  };
+
   const groupedItems = items.reduce((acc: any, item: any) => {
       const tag = item.set_tag || 'General';
       if (!acc[tag]) acc[tag] = [];
@@ -388,9 +393,58 @@ const AdminPanel: React.FC = () => {
               </div>
           )}
           {showSqlHelp && (
-              <div className="text-blue-900">
-                  <h4 className="font-black uppercase text-xs tracking-widest mb-2">Supabase SQL Setup Required</h4>
-                  <p className="text-sm mb-2">Run the provided SQL in your Supabase SQL Editor to enable all features. This fixes "relation not found" errors.</p>
+              <div className="text-blue-900 space-y-4">
+                  <h4 className="font-black uppercase text-xs tracking-widest flex items-center gap-2">
+                      <Database size={16} /> Supabase SQL Setup (Run in SQL Editor)
+                  </h4>
+                  
+                  {/* Leaderboard Fix Block */}
+                  <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+                      <div className="flex justify-between items-center mb-2">
+                          <p className="font-bold text-xs text-blue-800">1. Fix Leaderboard Visibility (Allow users to see others)</p>
+                          <button onClick={() => copyToClipboard(`-- Allow Public Read Access for Aspirant Profiles (Name/ID)
+create policy "Public read aspirants" on public.aspirants for select using (true);
+
+-- Allow Public Read Access for Test Scores
+create policy "Public read test_history" on public.test_history for select using (true);`)} className="flex items-center gap-1 text-[10px] font-black uppercase text-blue-500 hover:text-blue-700"><Copy size={12}/> Copy SQL</button>
+                      </div>
+                      <pre className="bg-slate-900 text-slate-300 p-3 rounded-lg text-[10px] font-mono overflow-x-auto">
+{`-- Allow Public Read Access for Aspirant Profiles (Name/ID)
+create policy "Public read aspirants" on public.aspirants for select using (true);
+
+-- Allow Public Read Access for Test Scores
+create policy "Public read test_history" on public.test_history for select using (true);`}
+                      </pre>
+                  </div>
+
+                  {/* General Fix Block */}
+                  <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+                      <div className="flex justify-between items-center mb-2">
+                          <p className="font-bold text-xs text-blue-800">2. General Tables (If "relation not found" error)</p>
+                          <button onClick={() => copyToClipboard(`create table if not exists public.ticker_config (
+  id uuid default gen_random_uuid() primary key,
+  message text,
+  is_active boolean default false,
+  speed integer default 25,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+alter table public.ticker_config enable row level security;
+create policy "Public read ticker" on public.ticker_config for select using (true);
+create policy "Admin insert ticker" on public.ticker_config for insert with check (true);`)} className="flex items-center gap-1 text-[10px] font-black uppercase text-blue-500 hover:text-blue-700"><Copy size={12}/> Copy SQL</button>
+                      </div>
+                      <pre className="bg-slate-900 text-slate-300 p-3 rounded-lg text-[10px] font-mono overflow-x-auto">
+{`create table if not exists public.ticker_config (
+  id uuid default gen_random_uuid() primary key,
+  message text,
+  is_active boolean default false,
+  speed integer default 25,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+alter table public.ticker_config enable row level security;
+create policy "Public read ticker" on public.ticker_config for select using (true);
+create policy "Admin insert ticker" on public.ticker_config for insert with check (true);`}
+                      </pre>
+                  </div>
               </div>
           )}
         </div>
