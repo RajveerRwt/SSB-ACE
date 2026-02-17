@@ -16,8 +16,59 @@ export const TEST_RATES = {
     LECTURETTE: 3, 
     SDT: 5,
     TAT: 10,
+    OIR: 15,
     INTERVIEW_TRIAL: 20, 
     INTERVIEW_FULL: 100   
+};
+
+// --- OIR SERVICES ---
+
+export const getOIRSets = async () => {
+  const { data } = await supabase.from('oir_sets').select('*').order('created_at', { ascending: false });
+  return data || [];
+};
+
+export const createOIRSet = async (title: string, timeLimit: number) => {
+  const { data, error } = await supabase.from('oir_sets').insert({ title, time_limit_seconds: timeLimit }).select().single();
+  if (error) throw error;
+  return data;
+};
+
+export const deleteOIRSet = async (setId: string) => {
+  await supabase.from('oir_sets').delete().eq('id', setId);
+};
+
+export const getOIRQuestions = async (setId: string) => {
+  const { data } = await supabase.from('oir_questions').select('*').eq('set_id', setId).order('created_at', { ascending: true });
+  return data || [];
+};
+
+export const addOIRQuestion = async (setId: string, text: string, imageUrl: string | null, options: string[], correctIndex: number) => {
+  await supabase.from('oir_questions').insert({
+    set_id: setId,
+    question_text: text,
+    image_url: imageUrl,
+    options,
+    correct_index: correctIndex
+  });
+};
+
+export const deleteOIRQuestion = async (id: string) => {
+  await supabase.from('oir_questions').delete().eq('id', id);
+};
+
+export const getOIRDoubts = async (questionId: string) => {
+  const { data } = await supabase.from('oir_doubts').select('*').eq('question_id', questionId).order('created_at', { ascending: false });
+  return data || [];
+};
+
+export const postOIRDoubt = async (questionId: string, userId: string, userName: string, comment: string) => {
+  await supabase.from('oir_doubts').insert({
+    question_id: questionId,
+    user_id: userId,
+    user_name: userName,
+    comment
+  });
 };
 
 // --- CACHING SERVICE ---

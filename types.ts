@@ -5,6 +5,7 @@ export enum TestType {
   LOGIN = 'LOGIN',
   REGISTER = 'REGISTER',
   PIQ = 'PIQ',
+  OIR = 'OIR',
   PPDT = 'PPDT',
   TAT = 'TAT',
   WAT = 'WAT',

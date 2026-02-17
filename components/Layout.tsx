@@ -36,7 +36,8 @@ import {
   BookOpen,
   Zap,
   Coins,
-  Plus
+  Plus,
+  Lightbulb
 } from 'lucide-react';
 import { getRecentAnnouncements, subscribeToAnnouncements, getTickerConfig, subscribeToTicker, TEST_RATES } from '../services/supabaseService';
 
@@ -166,6 +167,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', icon: Globe },
     { id: TestType.RESOURCES, label: 'Free Resources', icon: Library }, 
     { id: TestType.PIQ, label: 'PIQ Form', icon: ClipboardList },
+    { id: TestType.OIR, label: 'OIR Test', icon: Lightbulb },
     { id: TestType.PPDT, label: 'PPDT Round', icon: ImageIcon },
     { id: TestType.TAT, label: 'TAT (Psychology)', icon: PenTool },
     { id: TestType.WAT, label: 'WAT (Psychology)', icon: HelpCircle },
@@ -186,6 +188,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     else if (id === TestType.WAT) cost = TEST_RATES.WAT;
     else if (id === TestType.SRT) cost = TEST_RATES.SRT;
     else if (id === TestType.SDT) cost = TEST_RATES.SDT;
+    // OIR handles cost internally inside the component start action now
     
     // NOTE: Lecturette and Interview deduct internally or are 0 on navigation
     // NOTE: Free resources, Guide, etc., default to 0
@@ -361,7 +364,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                || (activeTest === TestType.CURRENT_AFFAIRS ? 'Intelligence Brief' : '')
                || (activeTest === TestType.DAILY_PRACTICE ? 'Daily Challenge' : '')
                || (activeTest === TestType.RESOURCES ? 'SSB Knowledge Bank' : '')
-               || (activeTest === TestType.LECTURETTE ? 'Lecturette Simulator' : '')}
+               || (activeTest === TestType.LECTURETTE ? 'Lecturette Simulator' : '')
+               || (activeTest === TestType.OIR ? 'OIR Test' : '')}
             </h2>
 
             {/* Back to Dashboard Button */}
