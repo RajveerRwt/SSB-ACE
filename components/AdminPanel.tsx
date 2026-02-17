@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText, Gauge, Coins, Wallet, History, X, Lightbulb, ChevronDown, ChevronRight } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText, Gauge, Coins, Wallet, History, X, Lightbulb, ChevronDown, ChevronRight, LogOut } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
@@ -67,9 +67,7 @@ const AdminPanel: React.FC = () => {
 
   // User Management
   const [searchQuery, setSearchQuery] = useState('');
-  const [userFilter, setUserFilter] = useState<'ALL' | 'ACTIVE_24H' | 'NEW_7D'>('ALL');
-  const [selectedUser, setSelectedUser] = useState<any | null>(null);
-
+  
   // Confirmation Modal State
   const [confirmAction, setConfirmAction] = useState<{
       id: string, 
@@ -139,9 +137,7 @@ const AdminPanel: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [activeTab, activeOirSetId]); // Add activeOirSetId to dep array
-
-  // ... (Keep existing helpers: timeAgo, handleUpdateTicker, handlePaymentAction, executeConfirmAction, etc.)
+  }, [activeTab, activeOirSetId]); 
 
   const handleUpload = async () => {
     setIsUploading(true);
@@ -153,38 +149,33 @@ const AdminPanel: React.FC = () => {
           setBroadcastMsg('');
           alert("Notification Sent to All Active Users.");
       } else if (activeTab === 'OIR') {
-          // If in Question Mode
           if (activeOirSetId) {
+              // Add Question
               const file = fileInputRef.current?.files?.[0];
               let imageUrl = null;
-              
               if (file) {
                   const fileName = `oir-${Date.now()}-${file.name}`;
                   await supabase.storage.from('scenarios').upload(fileName, file);
                   const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName);
                   imageUrl = data.publicUrl;
               }
-              
               if (!oirQText && !imageUrl) throw new Error("Question must have text or image.");
               if (oirOptions.some(o => !o.trim())) throw new Error("All options must be filled.");
               
               await addOIRQuestion(activeOirSetId, oirQText, imageUrl, oirOptions, oirCorrectIdx);
-              
-              // Reset Question Form
               setOirQText('');
               setOirOptions(['', '', '', '']);
               setOirCorrectIdx(0);
               if (fileInputRef.current) fileInputRef.current.value = '';
               fetchData();
           } else {
-              // Creating Set
+              // Create Set
               if (!newOirSetTitle) throw new Error("Title required.");
               await createOIRSet(newOirSetTitle, newOirSetTime);
               setNewOirSetTitle('');
               fetchData();
           }
       } else if (activeTab === 'DAILY') {
-          // ... (Existing daily logic)
           const file = fileInputRef.current?.files?.[0] || null;
           if ((!file && !dailyOirText.trim()) || !dailyWat.trim() || !dailySrt.trim() || !dailyInterview.trim()) {
               throw new Error("Please provide OIR Question (Image/Text), 1 WAT, 1 SRT, and 1 Interview Question.");
@@ -252,14 +243,13 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  // ... (Keep other handlers like handleDeleteSet, handlePaymentAction, etc.)
   const handlePaymentAction = (id: string, action: 'APPROVE' | 'REJECT', userId: string, planType: any, email?: string, fullName?: string) => {
       setConfirmAction({ id, type: action, userId, planType, email, fullName });
   };
 
   const executeConfirmAction = async () => {
       if (!confirmAction) return;
-      const { id, type, userId, planType, email, fullName } = confirmAction;
+      const { id, type, userId, planType } = confirmAction;
       setConfirmAction(null); 
       try {
           if (type === 'APPROVE') {
@@ -307,39 +297,12 @@ const AdminPanel: React.FC = () => {
       }
   };
 
-  const copySQL = (sql: string) => {
-    navigator.clipboard.writeText(sql);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const timeAgo = (dateString: string) => {
-    if (!dateString) return 'Never';
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-    if (seconds < 60) return 'Just now';
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
-  };
-
   const groupedItems = items.reduce((acc: any, item: any) => {
       const tag = item.set_tag || 'General';
       if (!acc[tag]) acc[tag] = [];
       acc[tag].push(item);
       return acc;
   }, {});
-
-  const userStats = React.useMemo(() => {
-      // ... same logic as before ...
-      return { total: 0, activeToday: 0, newCadets: 0, totalTests: 0, totalCoins: 0 };
-  }, [users]); // Simplified for brevity in this delta, use original logic if needed
-
-  const storageSQL = `... (existing sql) ...`;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700">
@@ -374,7 +337,12 @@ const AdminPanel: React.FC = () => {
                 <button onClick={() => setErrorMsg(null)} className="text-xs font-black uppercase p-2 hover:bg-red-100 rounded-lg">Dismiss</button>
               </div>
           )}
-          {/* SQL Display Logic Here (omitted for brevity) */}
+          {showSqlHelp && (
+              <div className="text-blue-900">
+                  <h4 className="font-black uppercase text-xs tracking-widest mb-2">Supabase SQL Setup Required</h4>
+                  <p className="text-sm mb-2">Run the provided SQL in your Supabase SQL Editor to enable all features.</p>
+              </div>
+          )}
         </div>
       )}
 
@@ -390,12 +358,12 @@ const AdminPanel: React.FC = () => {
          <button onClick={() => setActiveTab('DAILY')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'DAILY' ? 'bg-teal-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Clock size={16} /> Daily Challenge</button>
          <button onClick={() => setActiveTab('COUPONS')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'COUPONS' ? 'bg-pink-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Tag size={16} /> Coupons</button>
          <button onClick={() => setActiveTab('BROADCAST')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'BROADCAST' ? 'bg-red-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><Megaphone size={16} /> Broadcast</button>
+         <button onClick={() => setActiveTab('FEEDBACK')} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all ${activeTab === 'FEEDBACK' ? 'bg-orange-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}><MessageSquare size={16} /> Feedback</button>
       </div>
 
       {/* OIR TAB */}
       {activeTab === 'OIR' && (
           <div className="space-y-8 animate-in fade-in">
-              {/* If editing a set */}
               {activeOirSetId ? (
                   <div className="space-y-6">
                       <div className="flex items-center gap-4">
@@ -403,8 +371,6 @@ const AdminPanel: React.FC = () => {
                           <h3 className="text-xl font-black text-slate-900 uppercase">Editing Set: {oirSets.find(s => s.id === activeOirSetId)?.title}</h3>
                           <span className="bg-slate-100 px-3 py-1 rounded text-xs font-bold text-slate-500">{oirQuestions.length} Questions</span>
                       </div>
-
-                      {/* Add Question Form */}
                       <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
                           <h4 className="text-lg font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Plus size={20} className="text-teal-600"/> Add Question</h4>
                           <div className="space-y-4">
@@ -418,18 +384,8 @@ const AdminPanel: React.FC = () => {
                               <div className="grid grid-cols-2 gap-4">
                                   {oirOptions.map((opt, i) => (
                                       <div key={i} className="flex gap-2 items-center">
-                                          <input 
-                                            type="radio" 
-                                            checked={oirCorrectIdx === i} 
-                                            onChange={() => setOirCorrectIdx(i)}
-                                            className="w-4 h-4 accent-teal-600"
-                                          />
-                                          <input 
-                                            value={opt} 
-                                            onChange={e => { const newOpts = [...oirOptions]; newOpts[i] = e.target.value; setOirOptions(newOpts); }}
-                                            placeholder={`Option ${i+1}`}
-                                            className="w-full p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm"
-                                          />
+                                          <input type="radio" checked={oirCorrectIdx === i} onChange={() => setOirCorrectIdx(i)} className="w-4 h-4 accent-teal-600" />
+                                          <input value={opt} onChange={e => { const newOpts = [...oirOptions]; newOpts[i] = e.target.value; setOirOptions(newOpts); }} placeholder={`Option ${i+1}`} className="w-full p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm" />
                                       </div>
                                   ))}
                               </div>
@@ -438,8 +394,6 @@ const AdminPanel: React.FC = () => {
                               </button>
                           </div>
                       </div>
-
-                      {/* Question List */}
                       <div className="space-y-4">
                           {oirQuestions.map((q, i) => (
                               <div key={q.id} className="bg-white p-4 rounded-2xl border border-slate-100 flex justify-between items-start">
@@ -461,7 +415,6 @@ const AdminPanel: React.FC = () => {
                       </div>
                   </div>
               ) : (
-                  // Set List Mode
                   <>
                       <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
                           <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Layers size={24} className="text-teal-600"/> Create OIR Set</h3>
@@ -474,7 +427,6 @@ const AdminPanel: React.FC = () => {
                               <button onClick={handleUpload} disabled={isUploading} className="px-8 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-teal-700 transition-all">Create</button>
                           </div>
                       </div>
-                      
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                           {oirSets.map(set => (
                               <div key={set.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg relative hover:shadow-xl transition-all">
@@ -495,9 +447,65 @@ const AdminPanel: React.FC = () => {
           </div>
       )}
 
-      {/* ... (Other Tabs remain similar) ... */}
-      
-      {/* PAYMENTS TAB (Preserved from existing) */}
+      {/* OTHER TABS */}
+      {(activeTab === 'PPDT' || activeTab === 'TAT') && (
+          <div className="space-y-8 animate-in fade-in">
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                  <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Upload size={24}/> Upload Scenario</h3>
+                  <div className="flex gap-4">
+                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleUpload} />
+                      <button onClick={() => fileInputRef.current?.click()} className="px-8 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200">Select Image</button>
+                      <input value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Description..." className="flex-1 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
+                      {activeTab === 'TAT' && <input value={setTag} onChange={e => setSetTag(e.target.value)} placeholder="Set Tag" className="w-32 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />}
+                      <button onClick={handleUpload} disabled={isUploading} className="px-8 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black">{isUploading ? <Loader2 className="animate-spin" /> : 'Upload'}</button>
+                  </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  {Object.keys(groupedItems).map(tag => (
+                      <div key={tag} className="contents">
+                          {groupedItems[tag].map((item: any) => (
+                              <div key={item.id} className="relative group rounded-2xl overflow-hidden border-2 border-slate-100 aspect-square">
+                                  <img src={item.image_url} className="w-full h-full object-cover" />
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      <button onClick={() => handleDelete(item.id, item.image_url)} className="p-3 bg-red-600 text-white rounded-full"><Trash2 size={16} /></button>
+                                  </div>
+                                  <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded">{item.set_tag || 'General'}</div>
+                              </div>
+                          ))}
+                      </div>
+                  ))}
+              </div>
+          </div>
+      )}
+
+      {(activeTab === 'WAT' || activeTab === 'SRT') && (
+          <div className="space-y-8 animate-in fade-in">
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                  <div className="flex justify-between mb-4">
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest">{activeTab} Bulk Upload</h3>
+                      <button onClick={() => handleDeleteSet(activeTab === 'WAT' ? watSetTag : srtSetTag)} className="text-red-500 font-bold text-xs hover:underline">Delete Entire Set</button>
+                  </div>
+                  <textarea value={activeTab === 'WAT' ? watBulkInput : srtBulkInput} onChange={e => activeTab === 'WAT' ? setWatBulkInput(e.target.value) : setSrtBulkInput(e.target.value)} placeholder={`Paste ${activeTab} items here...`} className="w-full h-32 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm mb-4" />
+                  <div className="flex gap-4">
+                      <input value={activeTab === 'WAT' ? watSetTag : srtSetTag} onChange={e => activeTab === 'WAT' ? setWatSetTag(e.target.value) : setSrtSetTag(e.target.value)} placeholder="Set Tag" className="flex-1 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
+                      <button onClick={handleUpload} disabled={isUploading} className="px-8 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black">Upload</button>
+                  </div>
+              </div>
+              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100">
+                  <h4 className="font-black text-slate-900 uppercase text-sm tracking-widest mb-4">Existing Items</h4>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {items.map(item => (
+                          <div key={item.id} className="flex justify-between p-3 bg-slate-50 rounded-xl">
+                              <span className="font-bold text-sm text-slate-700">{item.word || item.question} <span className="text-slate-400 text-[10px] ml-2">({item.set_tag})</span></span>
+                              <button onClick={() => handleDelete(item.id)} className="text-red-400 hover:text-red-600"><X size={14}/></button>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* USERS, PAYMENTS, COUPONS, DAILY, BROADCAST, FEEDBACK - Restored */}
       {activeTab === 'PAYMENTS' && (
           <div className="space-y-6">
               {payments.length === 0 ? (
@@ -508,36 +516,146 @@ const AdminPanel: React.FC = () => {
                   </div>
               ) : (
                   payments.map(req => (
-                      <div key={req.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-bottom-2">
+                      <div key={req.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
                           <div className="flex items-center gap-6 w-full md:w-auto">
-                              <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-2xl flex items-center justify-center shrink-0">
-                                  <IndianRupee size={24} />
-                              </div>
+                              <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-2xl flex items-center justify-center shrink-0"><IndianRupee size={24} /></div>
                               <div className="space-y-1">
                                   <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{new Date(req.created_at).toLocaleString()}</p>
                                   <h4 className="font-bold text-slate-900 text-lg">UTR: <span className="font-mono bg-slate-100 px-2 rounded">{req.utr}</span></h4>
-                                  <p className="text-xs font-medium text-slate-600">
-                                      {req.aspirants?.full_name || 'Unknown User'} • {req.plan_type.replace(/_/g, ' ')} • ₹{req.amount}
-                                  </p>
+                                  <p className="text-xs font-medium text-slate-600">{req.aspirants?.full_name || 'Unknown'} • {req.plan_type} • ₹{req.amount}</p>
                               </div>
                           </div>
                           <div className="flex gap-4 w-full md:w-auto">
-                              <button 
-                                onClick={() => handlePaymentAction(req.id, 'REJECT', req.user_id, req.plan_type)}
-                                className="flex-1 md:flex-none px-6 py-3 bg-red-50 text-red-600 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
-                              >
-                                  <XCircle size={16} /> Reject
-                              </button>
-                              <button 
-                                onClick={() => handlePaymentAction(req.id, 'APPROVE', req.user_id, req.plan_type, req.aspirants?.email, req.aspirants?.full_name)}
-                                className="flex-1 md:flex-none px-6 py-3 bg-green-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-lg"
-                              >
-                                  <CheckCircle size={16} /> Approve
-                              </button>
+                              <button onClick={() => handlePaymentAction(req.id, 'REJECT', req.user_id, req.plan_type)} className="flex-1 md:flex-none px-6 py-3 bg-red-50 text-red-600 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-red-100"><XCircle size={16} /> Reject</button>
+                              <button onClick={() => handlePaymentAction(req.id, 'APPROVE', req.user_id, req.plan_type, req.aspirants?.email, req.aspirants?.full_name)} className="flex-1 md:flex-none px-6 py-3 bg-green-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-green-700"><CheckCircle size={16} /> Approve</button>
                           </div>
                       </div>
                   ))
               )}
+          </div>
+      )}
+
+      {activeTab === 'USERS' && (
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
+              <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-black text-slate-900 uppercase">Cadet Roster ({users.length})</h3>
+                  <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search..." className="p-3 bg-slate-50 rounded-xl text-xs font-bold" />
+              </div>
+              <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                  {users.filter(u => u.email?.toLowerCase().includes(searchQuery.toLowerCase()) || u.full_name?.toLowerCase().includes(searchQuery.toLowerCase())).map(u => (
+                      <div key={u.user_id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
+                          <div>
+                              <h4 className="font-bold text-slate-900 text-sm">{u.full_name || 'Cadet'}</h4>
+                              <p className="text-[10px] text-slate-500">{u.email}</p>
+                              <div className="flex gap-2 mt-1">
+                                  <span className="text-[9px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold">{u.subscription_data?.tier}</span>
+                                  <span className="text-[9px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded font-bold">{u.subscription_data?.coins} Coins</span>
+                              </div>
+                          </div>
+                          <button onClick={() => handleDeleteUser(u.user_id)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
+                      </div>
+                  ))}
+              </div>
+          </div>
+      )}
+
+      {activeTab === 'COUPONS' && (
+          <div className="space-y-8">
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                  <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2"><Tag size={24} className="text-pink-600"/> Create Coupon</h3>
+                  <div className="flex gap-4">
+                      <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} placeholder="CODE" className="flex-1 p-4 bg-slate-50 rounded-2xl font-bold text-sm" />
+                      <input type="number" value={couponDiscount} onChange={e => setCouponDiscount(e.target.value)} placeholder="%" className="w-24 p-4 bg-slate-50 rounded-2xl font-bold text-sm" />
+                      <input value={influencerName} onChange={e => setInfluencerName(e.target.value)} placeholder="Influencer Name" className="flex-1 p-4 bg-slate-50 rounded-2xl font-bold text-sm" />
+                      <button onClick={handleUpload} className="px-8 bg-pink-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-pink-700">Create</button>
+                  </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {coupons.map(c => (
+                      <div key={c.id} className="bg-white p-6 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm">
+                          <div>
+                              <h4 className="font-black text-slate-900 text-lg">{c.code}</h4>
+                              <p className="text-xs text-slate-500 font-bold">{c.discount_percent}% OFF • {c.influencer_name}</p>
+                              <p className="text-[10px] text-slate-400 mt-1">Used: {c.usage_count || 0} times</p>
+                          </div>
+                          <button onClick={() => handleDelete(c.id)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
+                      </div>
+                  ))}
+              </div>
+          </div>
+      )}
+
+      {activeTab === 'DAILY' && (
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-6">
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest">Publish Daily Challenge</h3>
+              <div className="space-y-4">
+                  <div>
+                      <label className="text-[10px] font-black uppercase text-slate-400">OIR Question</label>
+                      <input type="file" ref={fileInputRef} className="mb-2 block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                      <input value={dailyOirText} onChange={e => setDailyOirText(e.target.value)} placeholder="Text (Optional)" className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-sm" />
+                  </div>
+                  <div>
+                      <label className="text-[10px] font-black uppercase text-slate-400">WAT Word</label>
+                      <input value={dailyWat} onChange={e => setDailyWat(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-sm" />
+                  </div>
+                  <div>
+                      <label className="text-[10px] font-black uppercase text-slate-400">SRT Situation</label>
+                      <input value={dailySrt} onChange={e => setDailySrt(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-sm" />
+                  </div>
+                  <div>
+                      <label className="text-[10px] font-black uppercase text-slate-400">Interview Question</label>
+                      <input value={dailyInterview} onChange={e => setDailyInterview(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-sm" />
+                  </div>
+                  <button onClick={handleUpload} disabled={isUploading} className="w-full py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-teal-700">Publish Challenge</button>
+              </div>
+          </div>
+      )}
+
+      {activeTab === 'BROADCAST' && (
+          <div className="space-y-8">
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                  <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2"><Megaphone size={24} className="text-red-600"/> Push Notification</h3>
+                  <div className="flex gap-4 mb-4">
+                      {['INFO', 'WARNING', 'SUCCESS', 'URGENT'].map(t => (
+                          <button key={t} onClick={() => setBroadcastType(t as any)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${broadcastType === t ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>{t}</button>
+                      ))}
+                  </div>
+                  <div className="flex gap-4">
+                      <input value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} placeholder="Message..." className="flex-1 p-4 bg-slate-50 rounded-2xl font-bold text-sm" />
+                      <button onClick={handleUpload} className="px-8 bg-red-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-red-700">Send</button>
+                  </div>
+              </div>
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                  <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2"><ScrollText size={24} className="text-blue-600"/> Update Ticker</h3>
+                  <div className="space-y-4">
+                      <input value={tickerMsg} onChange={e => setTickerMsg(e.target.value)} placeholder="Scrolling Message..." className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-sm" />
+                      <div className="flex gap-4 items-center">
+                          <label className="flex items-center gap-2 text-xs font-bold text-slate-600"><input type="checkbox" checked={isTickerActive} onChange={e => setIsTickerActive(e.target.checked)} /> Active</label>
+                          <input type="range" min="10" max="60" value={tickerSpeed} onChange={e => setTickerSpeed(parseInt(e.target.value))} className="w-32" />
+                          <span className="text-xs font-bold text-slate-400">{tickerSpeed}s</span>
+                      </div>
+                      <button onClick={handleUpdateTicker} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700">Update Ticker</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {activeTab === 'FEEDBACK' && (
+          <div className="space-y-4">
+              {feedbackList.map((f: any) => (
+                  <div key={f.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-start">
+                      <div>
+                          <div className="flex items-center gap-2 mb-2">
+                              <Star className="fill-yellow-400 text-yellow-400" size={16} />
+                              <span className="font-black text-slate-900">{f.rating}/5</span>
+                              <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-bold uppercase">{f.test_type}</span>
+                          </div>
+                          <p className="text-sm font-medium text-slate-700 italic">"{f.comments}"</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">{f.aspirants?.full_name || 'User'} • {new Date(f.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <button onClick={() => handleDelete(f.id)} className="text-red-400 hover:text-red-600 p-2"><Trash2 size={16}/></button>
+                  </div>
+              ))}
           </div>
       )}
 
@@ -550,7 +668,7 @@ const AdminPanel: React.FC = () => {
                   <div>
                       <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Confirm {confirmAction.type}</h3>
                       <p className="text-slate-500 font-bold text-xs mt-2">
-                          Are you sure you want to {confirmAction.type.toLowerCase()} this transaction for {confirmAction.fullName || 'User'}?
+                          Are you sure you want to {confirmAction.type.toLowerCase()} this transaction?
                       </p>
                   </div>
                   <div className="flex gap-4">
