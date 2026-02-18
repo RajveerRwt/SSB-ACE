@@ -99,37 +99,39 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
 
   const handleLike = async (subId: string) => {
       if (!user) return;
+      
+      let isLiking = true;
       setSubmissions(prev => prev.map(s => {
           if (s.id === subId) {
+              isLiking = !s.isLiked; // Toggle
               return {
                   ...s,
-                  isLiked: !s.isLiked,
-                  likes_count: s.isLiked ? s.likes_count - 1 : s.likes_count + 1
+                  isLiked: isLiking,
+                  likes_count: (s.likes_count || 0) + (isLiking ? 1 : -1)
               };
           }
           return s;
       }));
-      await toggleLike(subId);
+      await toggleLike(subId, isLiking);
   };
 
   /**
    * Final Name Resolver
-   * Tries to find the real name in the mapped aspirant profile.
    */
   const getDisplayName = (sub: any) => {
-      // 1. Check direct profile field provided by getDailySubmissions
       const profile = sub.aspirants;
+      // 1. Direct profile match
       if (profile && profile.full_name && profile.full_name !== 'Cadet') {
           return profile.full_name;
       }
       
-      // 2. Fallback for the current user if profile lookup failed
+      // 2. User match
       if (user && sub.user_id === user.id) {
           const metaName = user.user_metadata?.full_name || user.user_metadata?.name;
           if (metaName) return metaName;
       }
       
-      // 3. Fallback for array quirk
+      // 3. Array Fallback
       if (Array.isArray(profile) && profile.length > 0) {
           const arrName = profile[0].full_name || profile[0].name;
           if (arrName && arrName !== 'Cadet') return arrName;
@@ -147,11 +149,16 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       const streak = Array.isArray(profile) ? profile[0]?.streak_count : profile?.streak_count;
       
       if (streak > 3) badges.push({ icon: Flame, color: 'text-orange-500', label: 'Consistent' });
-      if (submissionIndex === 0) badges.push({ icon: Trophy, color: 'text-yellow-500', label: 'Top Cadet' });
-      if (submissionIndex === 1) badges.push({ icon: Medal, color: 'text-slate-400', label: 'Runner Up' });
-      if (submissionIndex === 2) badges.push({ icon: Medal, color: 'text-orange-700', label: 'Bronze' });
+      
+      // Rank badges based on likes, not date order
+      if (submissionIndex === 0 && sub.likes_count > 0) badges.push({ icon: Trophy, color: 'text-yellow-500', label: 'Top Cadet' });
+      if (submissionIndex === 1 && sub.likes_count > 0) badges.push({ icon: Medal, color: 'text-slate-400', label: 'Runner Up' });
+      if (submissionIndex === 2 && sub.likes_count > 0) badges.push({ icon: Medal, color: 'text-orange-700', label: 'Bronze' });
       return badges;
   };
+
+  // Sort submissions by likes for leaderboard
+  const topSubmissions = [...submissions].sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0)).slice(0, 3);
 
   if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-slate-900" size={32}/></div>;
 
@@ -190,12 +197,11 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
          <Flame className="absolute -bottom-10 -right-10 w-64 h-64 text-orange-500/10 rotate-12 pointer-events-none" />
       </div>
 
-      {/* LEADERBOARD (Top 3) */}
-      {submissions.length > 0 && (
+      {/* LEADERBOARD (Top 3 by Likes) */}
+      {topSubmissions.length > 0 && (
           <div className="grid grid-cols-3 gap-2 md:gap-4 max-w-3xl mx-auto">
-              {submissions.slice(0, 3).map((sub, i) => {
+              {topSubmissions.map((sub, i) => {
                   const displayName = getDisplayName(sub);
-                  
                   return (
                     <div key={sub.id} className={`relative p-4 rounded-2xl border text-center flex flex-col items-center gap-2 ${i === 0 ? 'bg-yellow-50 border-yellow-400 order-2 scale-110 shadow-xl' : i === 1 ? 'bg-slate-50 border-slate-200 order-1' : 'bg-orange-50 border-orange-200 order-3'}`}>
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -206,7 +212,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                         </div>
                         <p className="text-[10px] md:text-xs font-black uppercase tracking-widest truncate w-full">{displayName?.split(' ')[0]}</p>
                         <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500">
-                            <Heart size={10} className="text-red-500 fill-red-500" /> {sub.likes_count}
+                            <Heart size={10} className="text-red-500 fill-red-500" /> {sub.likes_count || 0}
                         </div>
                     </div>
                   );
@@ -330,11 +336,14 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                       const displayName = getDisplayName(sub);
                       const profile = sub.aspirants;
                       const streak = Array.isArray(profile) ? profile[0]?.streak_count : profile?.streak_count;
+                      
+                      // Calculate rank index based on sorted likes
+                      const rankIndex = topSubmissions.findIndex(s => s.id === sub.id);
 
                       return (
                       <div key={sub.id} className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-md hover:shadow-xl transition-all relative overflow-hidden">
                           <div className="absolute top-0 right-0 p-4 flex gap-2">
-                              {getBadges(idx, sub).map((badge, bIdx) => (
+                              {getBadges(rankIndex, sub).map((badge, bIdx) => (
                                   <div key={bIdx} title={badge.label} className={`p-1.5 bg-slate-50 rounded-lg ${badge.color}`}>
                                       <badge.icon size={14} fill="currentColor" />
                                   </div>

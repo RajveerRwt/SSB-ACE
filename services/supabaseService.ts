@@ -46,9 +46,6 @@ export const getOIRQuestions = async (setId: string) => {
 
 // NEW: Fetch random pool for Sudden Death
 export const getAllOIRQuestionsRandom = async (limit: number = 50) => {
-  // Supabase doesn't have native random() in JS client easily without RPC, 
-  // so we fetch a batch and shuffle client side for this demo, or use a view.
-  // For efficiency in this demo, we fetch the first 100 and shuffle.
   const { data } = await supabase.from('oir_questions').select('*').limit(100);
   if (!data) return [];
   return data.sort(() => Math.random() - 0.5).slice(0, limit);
@@ -650,10 +647,8 @@ export const getDailySubmissions = async (challengeId: string) => {
   const userIds = [...new Set(submissions.map(r => r.user_id))];
   
   // 3. Manually fetch profiles from multiple possible sources
-  const [{ data: profiles }, { data: subscriptions }] = await Promise.all([
-      supabase.from('aspirants').select('user_id, full_name, streak_count').in('user_id', userIds),
-      // Fallback: Sometimes names might be synced differently or we can trace identity through subscription links
-      supabase.from('user_subscriptions').select('user_id').in('user_id', userIds) 
+  const [{ data: profiles }] = await Promise.all([
+      supabase.from('aspirants').select('user_id, full_name, streak_count').in('user_id', userIds)
   ]);
       
   // 4. Merge Data
@@ -673,7 +668,15 @@ export const getDailySubmissions = async (challengeId: string) => {
   });
 };
 
-export const toggleLike = async (submissionId: string) => { const { data: sub } = await supabase.from('daily_submissions').select('likes_count').eq('id', submissionId).single(); if (sub) { await supabase.from('daily_submissions').update({ likes_count: (sub.likes_count || 0) + 1 }).eq('id', submissionId); } };
+export const toggleLike = async (submissionId: string, isLike: boolean) => {
+    const { data: sub } = await supabase.from('daily_submissions').select('likes_count').eq('id', submissionId).single();
+    if (sub) {
+        let newCount = (sub.likes_count || 0) + (isLike ? 1 : -1);
+        if (newCount < 0) newCount = 0;
+        await supabase.from('daily_submissions').update({ likes_count: newCount }).eq('id', submissionId);
+    }
+};
+
 export const getRecentAnnouncements = async (): Promise<Announcement[]> => { const { data } = await supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(5); return data || []; };
 export const subscribeToAnnouncements = (callback: (a: Announcement) => void) => { const channel = supabase.channel('public:announcements').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, payload => { callback(payload.new as Announcement); }).subscribe(); return () => { supabase.removeChannel(channel); }; };
 export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING' | 'SUCCESS' | 'URGENT') => { await supabase.from('announcements').insert({ message, type, is_active: true }); };
