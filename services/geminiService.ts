@@ -33,10 +33,10 @@ async function generateWithRetry(
     retries = 2
 ): Promise<GenerateContentResponse> {
     try {
-        // Race API call against a 40s timeout (Increased to reduce timeout errors)
+        // Race API call against a 60s timeout (Increased for heavy WAT/SRT/TAT loads)
         return await Promise.race([
             ai.models.generateContent({ ...params, model }),
-            timeoutPromise(40000)
+            timeoutPromise(60000)
         ]) as GenerateContentResponse;
     } catch (e: any) {
         // Extensive Error Parsing for 503/Overloaded/Unavailable/Timeout
@@ -69,10 +69,10 @@ async function generateWithRetry(
             if (fallbackModel && fallbackModel !== model) {
                 console.warn(`Switching to fallback model: ${fallbackModel}`);
                 try {
-                    // Try fallback immediately
+                    // Try fallback immediately with same 60s timeout
                     return await Promise.race([
                         ai.models.generateContent({ ...params, model: fallbackModel }),
-                        timeoutPromise(40000)
+                        timeoutPromise(60000)
                     ]) as GenerateContentResponse;
                 } catch (fallbackError: any) {
                     console.error(`Fallback ${fallbackModel} also failed:`, fallbackError);
@@ -83,7 +83,7 @@ async function generateWithRetry(
                          try {
                             return await Promise.race([
                                 ai.models.generateContent({ ...params, model: 'gemini-flash-latest' }),
-                                timeoutPromise(40000)
+                                timeoutPromise(60000)
                             ]) as GenerateContentResponse;
                          } catch (finalError) {
                              console.error("All models exhausted.");
@@ -278,7 +278,9 @@ export async function evaluatePerformance(testType: string, userData: any) {
                     }
                 }
             );
-            return safeJSONParse(response.text || "") || generateErrorEvaluation();
+            // MERGE USERDATA ON FAILURE
+            const parsed = safeJSONParse(response.text || "");
+            return parsed || { ...generateErrorEvaluation(), ...userData };
         }
 
         // 2. WAT / SRT EVALUATION
@@ -360,7 +362,9 @@ export async function evaluatePerformance(testType: string, userData: any) {
                     }
                 }
             );
-            return safeJSONParse(response.text || "") || generateErrorEvaluation();
+            // MERGE USERDATA ON FAILURE
+            const parsed = safeJSONParse(response.text || "");
+            return parsed || { ...generateErrorEvaluation(), ...userData };
         }
 
         // 3. PPDT EVALUATION
@@ -456,7 +460,9 @@ export async function evaluatePerformance(testType: string, userData: any) {
                     }
                 }
             );
-            return safeJSONParse(response.text || "") || generateErrorEvaluation();
+            // MERGE USERDATA ON FAILURE
+            const parsed = safeJSONParse(response.text || "");
+            return parsed || { ...generateErrorEvaluation(), ...userData };
         }
 
         // 4. TAT EVALUATION
@@ -510,7 +516,9 @@ export async function evaluatePerformance(testType: string, userData: any) {
                     }
                 }
             );
-            return safeJSONParse(response.text || "") || generateErrorEvaluation();
+            // MERGE USERDATA ON FAILURE
+            const parsed = safeJSONParse(response.text || "");
+            return parsed || { ...generateErrorEvaluation(), ...userData };
         }
 
         // 5. SDT EVALUATION
@@ -556,7 +564,9 @@ export async function evaluatePerformance(testType: string, userData: any) {
                     }
                 }
             );
-            return safeJSONParse(response.text || "") || generateErrorEvaluation();
+            // MERGE USERDATA ON FAILURE
+            const parsed = safeJSONParse(response.text || "");
+            return parsed || { ...generateErrorEvaluation(), ...userData };
         }
 
         return generateErrorEvaluation();

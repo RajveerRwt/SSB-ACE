@@ -59,6 +59,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
   const [verifyingLimit, setVerifyingLimit] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -155,31 +156,23 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
     } else {
         setStep(PPDTStep.LOADING_IMAGE);
         try {
-          // Fetch from Database for BOTH Guest and Logged In users
           const dbImages = await getPPDTScenarios();
           
           if (dbImages && dbImages.length > 0) {
             let selectedImage;
-            
             if (isGuest) {
-                // GUEST MODE: Always pick the first image from DB to ensure a fixed set
                 selectedImage = dbImages[0];
             } else if (userId) {
-                // LOGGED IN: Rotate based on usage
                 const subscription = await getUserSubscription(userId);
                 const count = subscription.usage.ppdt_used;
                 const index = count % dbImages.length;
                 selectedImage = dbImages[index];
             } else {
-                // FALLBACK: Random
                 selectedImage = dbImages[Math.floor(Math.random() * dbImages.length)];
             }
-
             setCurrentImageUrl(selectedImage.image_url);
             setImageDescription(selectedImage.description || "Database Scenario");
           } else {
-            // FALLBACK IF DB EMPTY (or Network Error)
-            // Use specific fixed image for guest if DB fails
             if (isGuest) {
                  setCurrentImageUrl("https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80");
                  setImageDescription("Guest Trial Image: Group Discussion");
@@ -195,7 +188,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                 setCurrentImageUrl(aiImage);
             }
           }
-
           setStep(PPDTStep.IMAGE);
           setTimeLeft(30); 
         } catch (e) {
@@ -231,15 +223,14 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [timeLeft, step, isTranscribing, isRecording]);
 
-  // Cycle tips effect
   useEffect(() => {
-    if (isLoading) {
+    if (isLoading || isRetrying) {
       const interval = setInterval(() => {
         setCurrentTipIndex(prev => (prev + 1) % PPDT_TIPS.length);
       }, 3000);
       return () => clearInterval(interval);
     }
-  }, [isLoading]);
+  }, [isLoading, isRetrying]);
 
   const startNarration = () => {
     initAudio();
@@ -275,7 +266,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
       recognition.onerror = (event: any) => {
         if (event.error === 'no-speech') return;
         if (event.error === 'aborted') return;
-        console.error("Speech Recognition Error:", event.error);
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           setIsRecording(false);
           isRecordingRef.current = false;
@@ -328,7 +318,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
     setIsTranscribing(false);
   };
 
-  // Helper to fetch with timeout
   const fetchWithTimeout = async (url: string, timeout = 5000) => {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeout);
@@ -342,15 +331,19 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
       }
   };
 
-  const finishTest = async () => {
-    // 1. BLOCK GUEST ON CUSTOM IMAGE
-    if (isGuest && customStimulus) {
+  const handleRetry = async () => {
+      setIsRetrying(true);
+      await finishTest(true);
+      setIsRetrying(false);
+  };
+
+  const finishTest = async (isRetry = false) => {
+    if (isGuest && customStimulus && !isRetry) {
         setStep(PPDTStep.FINISHED);
-        // Do not trigger AI Evaluation
         return;
     }
 
-    setStep(PPDTStep.FINISHED);
+    if (!isRetry) setStep(PPDTStep.FINISHED);
     setIsLoading(true);
     try {
       let stimulusBase64 = null;
@@ -359,7 +352,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
               stimulusBase64 = currentImageUrl.split(',')[1];
           } else {
               try {
-                  // Use 5s timeout to prevent hanging on external images
                   const response = await fetchWithTimeout(currentImageUrl, 5000);
                   const blob = await response.blob();
                   stimulusBase64 = await new Promise<string>((resolve) => {
@@ -368,8 +360,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                       reader.readAsDataURL(blob);
                   });
               } catch (err) { 
-                  console.warn("Failed to fetch stimulus within timeout:", err); 
-                  // Proceed without image if fetch fails
+                  console.warn("Failed to fetch stimulus:", err); 
               }
           }
       }
@@ -383,17 +374,16 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
       });
       setFeedback(result);
       
-      // Pass isCustomAttempt flag to prevent usage increment in App.tsx
       if (onSave && !isGuest) onSave({ ...result, uploadedStoryImage: uploadedImageBase64, isCustomAttempt: !!customStimulus });
     } catch (e) {
       console.error(e);
-      // Fallback feedback on critical error
       setFeedback({
           score: 0,
           recommendations: "Evaluation failed due to network or server error. Please try again.",
           strengths: ["Persistence"],
           weaknesses: ["Connection Issue"],
-          scoreDetails: { perception: 0, content: 0, expression: 0 }
+          scoreDetails: { perception: 0, content: 0, expression: 0 },
+          error: true
       });
     } finally {
       setIsLoading(false);
@@ -403,7 +393,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
   // Render logic...
   const renderContent = () => {
     switch (step) {
-      // ... (Previous steps remain the same) ...
+      // ... (Phases IDLE -> NARRATION remain the same) ...
       case PPDTStep.IDLE:
         return (
           <div className="max-w-4xl mx-auto text-center py-20 md:py-28 space-y-12 animate-in fade-in zoom-in duration-500">
@@ -444,7 +434,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                     <div className="w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                         <Upload size={24} />
                     </div>
-                    {/* Changed description and removed Free badge as requested */}
                     <div className="absolute top-6 right-6 bg-slate-900 text-yellow-400 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-md flex items-center gap-1">
                         <Coins size={8} /> {TEST_RATES.PPDT}
                     </div>
@@ -541,7 +530,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
          const isTimeUp = step === PPDTStep.UPLOAD_GRACE_PERIOD;
          return (
             <div className="max-w-7xl mx-auto space-y-6 md:space-y-10">
-                {/* ... (Existing Content for WRITING phase) ... */}
                 <div className="flex justify-between items-end border-b pb-4 md:pb-6 border-slate-100">
                 <div>
                     <h3 className="text-2xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter">Story Writing Phase</h3>
@@ -620,7 +608,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                 </div>
                 </div>
                 
-                {/* Camera Modal Integration */}
                 <CameraModal 
                     isOpen={showCamera} 
                     onClose={() => setShowCamera(false)} 
@@ -655,7 +642,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                 {isRecording ? <Volume2 className="w-12 h-12 md:w-20 md:h-20 text-red-600 animate-pulse" /> : <MicOff className="w-12 h-12 md:w-20 md:h-20 text-slate-300" />}
             </div>
             
-            {/* Instructions Box */}
             <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-2xl max-w-2xl mx-auto text-left space-y-3 shadow-sm">
                 <h4 className="text-yellow-800 font-black uppercase text-xs tracking-widest flex items-center gap-2">
                     <Headset size={16} /> Audio Environment Protocol
@@ -699,20 +685,17 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
         );
 
       case PPDTStep.FINISHED:
-        // Guest using Custom Image -> Locked View
-        if (isGuest && customStimulus) {
+        if (isGuest && customStimulus && !isRetrying) {
             return (
                 <div className="fixed inset-0 z-[200] bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
                     <div className="bg-white w-full max-w-md p-8 md:p-12 rounded-[3rem] shadow-2xl text-center space-y-8 relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500"></div>
-                        
                         <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-900 shadow-inner mb-2 relative">
                             <ImageIcon size={40} className="text-slate-300 absolute" />
                             <div className="absolute inset-0 flex items-center justify-center bg-slate-900/10 rounded-full backdrop-blur-[1px]">
                                 <Lock size={32} className="text-slate-900" />
                             </div>
                         </div>
-                        
                         <div className="space-y-3">
                             <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Assessment Locked</h3>
                             <p className="text-slate-500 font-medium text-sm leading-relaxed px-4">
@@ -720,32 +703,21 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                                 <span className="text-blue-600 font-bold">Sign Up / Login</span> to get your AI Evaluation.
                             </p>
                         </div>
-
                         <div className="space-y-4">
-                            <button 
-                                onClick={onLoginRedirect}
-                                className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl hover:-translate-y-1 flex items-center justify-center gap-3"
-                            >
+                            <button onClick={onLoginRedirect} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl hover:-translate-y-1 flex items-center justify-center gap-3">
                                 <LogIn size={16} /> Sign Up to Evaluate
                             </button>
-                            
-                            <button 
-                                onClick={() => window.location.reload()} 
-                                className="w-full py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-xs hover:border-slate-300 hover:text-slate-600 transition-all"
-                            >
+                            <button onClick={() => window.location.reload()} className="w-full py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-xs hover:border-slate-300 hover:text-slate-600 transition-all">
                                 Cancel
                             </button>
                         </div>
-                        
-                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em]">
-                            Restricted Feature
-                        </p>
+                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em]">Restricted Feature</p>
                     </div>
                 </div>
             );
         }
 
-        if (isLoading) {
+        if (isLoading || isRetrying) {
           return (
             <div className="flex flex-col items-center justify-center py-24 md:py-40 space-y-8 md:space-y-12">
               <div className="relative">
@@ -753,7 +725,9 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                 <ShieldCheck className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 text-blue-500" />
               </div>
               <div className="text-center space-y-4 max-w-lg px-6">
-                  <p className="text-slate-900 font-black uppercase tracking-[0.5em] text-xs md:text-sm">Assessing Performance...</p>
+                  <p className="text-slate-900 font-black uppercase tracking-[0.5em] text-xs md:text-sm">
+                      {isRetrying ? "Retrying Analysis..." : "Assessing Performance..."}
+                  </p>
                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 transition-all duration-500">
                       <p className="text-blue-800 font-bold text-sm italic">"Tip: {PPDT_TIPS[currentTipIndex]}"</p>
                   </div>
@@ -761,8 +735,41 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
             </div>
           );
         }
+
+        // --- ERROR STATE WITH RETRY ---
+        if (feedback?.error) {
+            return (
+                <div className="max-w-2xl mx-auto py-20 text-center animate-in fade-in slide-in-from-bottom-8">
+                    <div className="bg-red-50 p-8 rounded-[3rem] border border-red-100 shadow-xl">
+                        <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Activity size={32} className="animate-pulse" />
+                        </div>
+                        <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">Assessment Pending</h3>
+                        <p className="text-slate-600 font-medium leading-relaxed mb-8">
+                            {feedback.recommendations || "Server Busy. Your inputs have been saved safely."}
+                        </p>
+                        <div className="flex flex-col gap-4">
+                            <button 
+                                onClick={handleRetry}
+                                className="px-8 py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-red-700 transition-all flex items-center justify-center gap-2 shadow-lg"
+                            >
+                                <RefreshCw size={16} /> Retry Analysis Now
+                            </button>
+                            <button onClick={() => window.location.reload()} className="px-8 py-4 bg-white border-2 border-slate-200 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-50 transition-all">
+                                Return to Dashboard
+                            </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-6">
+                            If retrying fails, you can try again later from Mission Logs.
+                        </p>
+                    </div>
+                </div>
+            );
+        }
+
         return (
           <div className="max-w-6xl mx-auto space-y-8 md:space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-12 duration-1000">
+            {/* ... (Standard Result Display Code Remains unchanged) ... */}
             <div className="bg-slate-950 p-8 md:p-16 rounded-[3rem] md:rounded-[4rem] text-white relative overflow-hidden shadow-2xl">
                <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-12 md:gap-16">
                   <div className="text-center md:text-left space-y-6">
@@ -773,123 +780,62 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                   <div className="flex flex-col items-center bg-white/5 p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border border-white/10 backdrop-blur-3xl shadow-2xl">
                      <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.4em] opacity-40 mb-4">Board Score</span>
                      <div className="text-7xl md:text-9xl font-black text-yellow-400">{feedback?.score || 0}</div>
-                     
-                     <button 
-                        onClick={() => setShowScoreHelp(!showScoreHelp)}
-                        className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/70 hover:text-white transition-colors"
-                      >
+                     <button onClick={() => setShowScoreHelp(!showScoreHelp)} className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/70 hover:text-white transition-colors">
                          <HelpCircle size={14} /> Understand Score {showScoreHelp ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
                       </button>
                   </div>
                </div>
             </div>
 
-            {/* Stimulus Image Preview - Added for user reference */}
             {currentImageUrl && (
                 <div className="flex justify-center -mt-6 mb-8 relative z-20">
                     <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-100 transform hover:scale-105 transition-transform duration-300">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center mb-2">Stimulus Reference</p>
-                        <img
-                            src={currentImageUrl}
-                            alt="PPDT Stimulus"
-                            className="h-40 md:h-56 w-auto object-contain rounded-xl bg-slate-50"
-                        />
+                        <img src={currentImageUrl} alt="PPDT Stimulus" className="h-40 md:h-56 w-auto object-contain rounded-xl bg-slate-50" />
                     </div>
                 </div>
             )}
 
-            {/* SCORE EXPLANATION */}
             {showScoreHelp && (
                  <div className="bg-blue-50 border border-blue-100 p-6 md:p-8 rounded-[2rem] animate-in slide-in-from-top-4">
                     <h4 className="text-sm font-black uppercase tracking-widest text-blue-800 mb-4">Board Grading Standard</h4>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                       <div className="bg-white p-4 rounded-xl border-l-4 border-green-500 shadow-sm">
-                          <span className="block text-xl font-black text-slate-900">9.0 - 10</span>
-                          <span className="text-[10px] font-bold uppercase text-green-600 tracking-wider">Outstanding</span>
-                          <p className="text-[10px] text-slate-500 mt-1">Exceptional OLQ demonstration. Certain recommendation.</p>
-                       </div>
-                       <div className="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm">
-                          <span className="block text-xl font-black text-slate-900">7.0 - 8.9</span>
-                          <span className="text-[10px] font-bold uppercase text-blue-600 tracking-wider">High Potential</span>
-                          <p className="text-[10px] text-slate-500 mt-1">Clear pass. Good consistency in thought and expression.</p>
-                       </div>
-                       <div className="bg-white p-4 rounded-xl border-l-4 border-yellow-500 shadow-sm">
-                          <span className="block text-xl font-black text-slate-900">5.0 - 6.9</span>
-                          <span className="text-[10px] font-bold uppercase text-yellow-600 tracking-wider">Borderline</span>
-                          <p className="text-[10px] text-slate-500 mt-1">Average. Needs significant polish in planning or confidence.</p>
-                       </div>
-                       <div className="bg-white p-4 rounded-xl border-l-4 border-red-500 shadow-sm">
-                          <span className="block text-xl font-black text-slate-900">&lt; 5.0</span>
-                          <span className="text-[10px] font-bold uppercase text-red-600 tracking-wider">Below Average</span>
-                          <p className="text-[10px] text-slate-500 mt-1">Foundation weak. Requires introspection and practice.</p>
-                       </div>
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-green-500 shadow-sm"><span className="block text-xl font-black text-slate-900">9.0 - 10</span><span className="text-[10px] font-bold uppercase text-green-600 tracking-wider">Outstanding</span></div>
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm"><span className="block text-xl font-black text-slate-900">7.0 - 8.9</span><span className="text-[10px] font-bold uppercase text-blue-600 tracking-wider">High Potential</span></div>
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-yellow-500 shadow-sm"><span className="block text-xl font-black text-slate-900">5.0 - 6.9</span><span className="text-[10px] font-bold uppercase text-yellow-600 tracking-wider">Borderline</span></div>
+                       <div className="bg-white p-4 rounded-xl border-l-4 border-red-500 shadow-sm"><span className="block text-xl font-black text-slate-900">&lt; 5.0</span><span className="text-[10px] font-bold uppercase text-red-600 tracking-wider">Below Average</span></div>
                     </div>
                  </div>
             )}
 
-            {/* DETAILED SCORE BREAKDOWN - NEW ADDITION */}
+            {/* DETAILED SCORE BREAKDOWN */}
             {feedback?.scoreDetails && (
                 <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 mb-8">
-                    <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-6 flex items-center gap-3">
-                        <Activity size={24} className="text-blue-600" /> Assessment Matrix
-                    </h4>
+                    <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-6 flex items-center gap-3"><Activity size={24} className="text-blue-600" /> Assessment Matrix</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100">
-                            <div className="flex justify-between items-start mb-4">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Perception</span>
-                                <Eye size={18} className="text-blue-500" />
-                            </div>
-                            <div className="flex items-end gap-2">
-                                <span className="text-4xl font-black text-slate-900">{feedback.scoreDetails.perception || 0}</span>
-                                <span className="text-sm font-bold text-slate-400 mb-1">/ 3</span>
-                            </div>
-                            <p className="text-[10px] font-bold text-slate-500 mt-2">Congruency & Observation</p>
+                            <div className="flex justify-between items-start mb-4"><span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Perception</span><Eye size={18} className="text-blue-500" /></div>
+                            <div className="flex items-end gap-2"><span className="text-4xl font-black text-slate-900">{feedback.scoreDetails.perception || 0}</span><span className="text-sm font-bold text-slate-400 mb-1">/ 3</span></div>
                         </div>
                         <div className="bg-purple-50 p-6 rounded-3xl border border-purple-100">
-                            <div className="flex justify-between items-start mb-4">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-purple-600">Story Content</span>
-                                <BookOpen size={18} className="text-purple-500" />
-                            </div>
-                            <div className="flex items-end gap-2">
-                                <span className="text-4xl font-black text-slate-900">{feedback.scoreDetails.content || 0}</span>
-                                <span className="text-sm font-bold text-slate-400 mb-1">/ 5</span>
-                            </div>
-                            <p className="text-[10px] font-bold text-slate-500 mt-2">Action, Plot & OLQs</p>
+                            <div className="flex justify-between items-start mb-4"><span className="text-[10px] font-black uppercase tracking-widest text-purple-600">Story Content</span><BookOpen size={18} className="text-purple-500" /></div>
+                            <div className="flex items-end gap-2"><span className="text-4xl font-black text-slate-900">{feedback.scoreDetails.content || 0}</span><span className="text-sm font-bold text-slate-400 mb-1">/ 5</span></div>
                         </div>
                         <div className="bg-green-50 p-6 rounded-3xl border border-green-100">
-                            <div className="flex justify-between items-start mb-4">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-green-600">Expression</span>
-                                <Volume2 size={18} className="text-green-500" />
-                            </div>
-                            <div className="flex items-end gap-2">
-                                <span className="text-4xl font-black text-slate-900">{feedback.scoreDetails.expression || 0}</span>
-                                <span className="text-sm font-bold text-slate-400 mb-1">/ 2</span>
-                            </div>
-                            <p className="text-[10px] font-bold text-slate-500 mt-2">Narration Fluency</p>
+                            <div className="flex justify-between items-start mb-4"><span className="text-[10px] font-black uppercase tracking-widest text-green-600">Expression</span><Volume2 size={18} className="text-green-500" /></div>
+                            <div className="flex items-end gap-2"><span className="text-4xl font-black text-slate-900">{feedback.scoreDetails.expression || 0}</span><span className="text-sm font-bold text-slate-400 mb-1">/ 2</span></div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* IDEAL STORY SECTION */}
+            {/* IDEAL STORY */}
             {feedback?.idealStory && (
                 <div className="bg-slate-900 p-8 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] shadow-xl relative overflow-hidden mt-8">
-                    <div className="absolute top-0 right-0 p-6 opacity-10">
-                        <BookOpen size={120} className="text-white" />
-                    </div>
+                    <div className="absolute top-0 right-0 p-6 opacity-10"><BookOpen size={120} className="text-white" /></div>
                     <div className="relative z-10 space-y-4">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-yellow-400 rounded-lg text-black">
-                                <Star size={20} fill="currentColor" />
-                            </div>
-                            <h4 className="text-xl font-black uppercase tracking-widest text-white">Board's Recommended Story</h4>
-                        </div>
-                        <p className="text-slate-300 font-medium leading-relaxed text-sm md:text-base italic p-6 bg-white/5 rounded-2xl border border-white/10">
-                            "{feedback.idealStory}"
-                        </p>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-right">
-                            * Example of logical perception & positive action
-                        </p>
+                        <div className="flex items-center gap-3 mb-2"><div className="p-2 bg-yellow-400 rounded-lg text-black"><Star size={20} fill="currentColor" /></div><h4 className="text-xl font-black uppercase tracking-widest text-white">Board's Recommended Story</h4></div>
+                        <p className="text-slate-300 font-medium leading-relaxed text-sm md:text-base italic p-6 bg-white/5 rounded-2xl border border-white/10">"{feedback.idealStory}"</p>
                     </div>
                 </div>
             )}
@@ -897,13 +843,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
             {feedback?.observationAnalysis && (
                 <div className="bg-yellow-50 border-l-4 border-yellow-500 p-6 md:p-8 rounded-[2rem] shadow-md animate-in slide-in-from-left-4">
                     <div className="flex items-start gap-4">
-                        <div className="p-3 bg-yellow-100 rounded-full text-yellow-600 shrink-0">
-                            <ScanEye size={24} />
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-2">Observation Accuracy</h4>
-                            <p className="text-slate-700 font-medium leading-relaxed text-sm">{feedback.observationAnalysis}</p>
-                        </div>
+                        <div className="p-3 bg-yellow-100 rounded-full text-yellow-600 shrink-0"><ScanEye size={24} /></div>
+                        <div><h4 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-2">Observation Accuracy</h4><p className="text-slate-700 font-medium leading-relaxed text-sm">{feedback.observationAnalysis}</p></div>
                     </div>
                 </div>
             )}
@@ -919,18 +860,11 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                       <div className="pt-2"><span className="text-slate-400 text-xs block mb-1">Theme</span> <span className="text-slate-900">{feedback.perception.mainTheme}</span></div>
                    </div>
                  </div>
-                 
                  <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border-2 border-slate-50 shadow-xl space-y-6 md:col-span-2">
                    <h4 className="font-black text-xs uppercase tracking-[0.2em] text-blue-600 flex items-center gap-3"><BrainCircuit className="w-5 h-5" /> Story Dynamics</h4>
                    <div className="grid md:grid-cols-2 gap-8 text-sm font-medium text-slate-600">
-                     <div>
-                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Action</span>
-                       <p className="leading-relaxed bg-slate-50 p-4 rounded-2xl">{feedback?.storyAnalysis?.action}</p>
-                     </div>
-                     <div>
-                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Outcome</span>
-                       <p className="leading-relaxed bg-slate-50 p-4 rounded-2xl">{feedback?.storyAnalysis?.outcome}</p>
-                     </div>
+                     <div><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Action</span><p className="leading-relaxed bg-slate-50 p-4 rounded-2xl">{feedback?.storyAnalysis?.action}</p></div>
+                     <div><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Outcome</span><p className="leading-relaxed bg-slate-50 p-4 rounded-2xl">{feedback?.storyAnalysis?.outcome}</p></div>
                    </div>
                  </div>
               </div>
@@ -939,45 +873,20 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
             <div className="grid md:grid-cols-2 gap-6 md:gap-10">
                <div className="bg-white p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-50 shadow-2xl">
                   <h4 className="font-black text-xs uppercase tracking-[0.3em] text-green-600 mb-8 md:mb-10 flex items-center gap-4"><CheckCircle className="w-6 h-6" /> Key Strengths</h4>
-                  <div className="space-y-4 md:space-y-5">
-                    {feedback?.strengths?.map((s: string, i: number) => (
-                      <div key={i} className="flex gap-4 md:gap-5 p-4 md:p-5 bg-green-50 rounded-2xl md:rounded-3xl border border-green-100 text-slate-800 text-sm font-bold">
-                        <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-green-500 shrink-0" /> {s}
-                      </div>
-                    ))}
-                  </div>
+                  <div className="space-y-4 md:space-y-5">{feedback?.strengths?.map((s: string, i: number) => (<div key={i} className="flex gap-4 md:gap-5 p-4 md:p-5 bg-green-50 rounded-2xl md:rounded-3xl border border-green-100 text-slate-800 text-sm font-bold"><CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-green-500 shrink-0" /> {s}</div>))}</div>
                </div>
                <div className="bg-white p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border-2 border-slate-50 shadow-2xl">
                   <h4 className="font-black text-xs uppercase tracking-[0.3em] text-red-500 mb-8 md:mb-10 flex items-center gap-4"><AlertCircle className="w-6 h-6" /> OLQ Gaps</h4>
-                  <div className="space-y-4 md:space-y-5">
-                    {feedback?.weaknesses?.map((w: string, i: number) => (
-                      <div key={i} className="flex gap-4 md:gap-5 p-4 md:p-5 bg-red-50 rounded-2xl md:rounded-3xl border border-red-100 text-slate-800 text-sm font-bold">
-                        <AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-red-500 shrink-0" /> {w}
-                      </div>
-                    ))}
-                  </div>
+                  <div className="space-y-4 md:space-y-5">{feedback?.weaknesses?.map((w: string, i: number) => (<div key={i} className="flex gap-4 md:gap-5 p-4 md:p-5 bg-red-50 rounded-2xl md:rounded-3xl border border-red-100 text-slate-800 text-sm font-bold"><AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-red-500 shrink-0" /> {w}</div>))}</div>
                </div>
             </div>
 
-            {/* FEEDBACK INTEGRATION */}
-            {userId && (
-                <SessionFeedback testType="PPDT" userId={userId} />
-            )}
+            {userId && <SessionFeedback testType="PPDT" userId={userId} />}
 
             {isGuest ? (
-                <button 
-                  onClick={onLoginRedirect}
-                  className="w-full py-6 md:py-7 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest text-xs hover:bg-yellow-300 transition-all shadow-2xl flex items-center justify-center gap-3"
-                >
-                  <LogIn size={16} /> Sign Up to Unlock More
-                </button>
+                <button onClick={onLoginRedirect} className="w-full py-6 md:py-7 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest text-xs hover:bg-yellow-300 transition-all shadow-2xl flex items-center justify-center gap-3"><LogIn size={16} /> Sign Up to Unlock More</button>
             ) : (
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl"
-                >
-                  Report for Next Simulation
-                </button>
+                <button onClick={() => window.location.reload()} className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl">Report for Next Simulation</button>
             )}
           </div>
         );
@@ -987,16 +896,9 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
   return (
     <div className={`min-h-[85vh] transition-all duration-500 ease-in-out ${showBuzzer ? 'bg-red-600/20' : 'bg-transparent'}`}>
        <div className="bg-white rounded-[2.5rem] md:rounded-[4.5rem] shadow-2xl border border-slate-100 p-6 md:p-16 min-h-[80vh] relative overflow-hidden ring-1 ring-slate-200/50">
-         {/* ... (Admin skip button and buzzer overlay) ... */}
          {isAdmin && timeLeft > 0 && (
-            <button 
-                onClick={() => setTimeLeft(0)}
-                className="fixed bottom-6 right-6 z-[100] bg-red-600 text-white pl-4 pr-6 py-3 rounded-full font-black text-[10px] uppercase shadow-2xl hover:bg-red-700 transition-all flex items-center gap-2 border-4 border-white animate-pulse hover:animate-none"
-            >
-                <FastForward size={14} fill="currentColor" /> Admin Skip
-            </button>
+            <button onClick={() => setTimeLeft(0)} className="fixed bottom-6 right-6 z-[100] bg-red-600 text-white pl-4 pr-6 py-3 rounded-full font-black text-[10px] uppercase shadow-2xl hover:bg-red-700 transition-all flex items-center gap-2 border-4 border-white animate-pulse hover:animate-none"><FastForward size={14} fill="currentColor" /> Admin Skip</button>
          )}
-
          {showBuzzer && (
             <div className="absolute inset-0 z-[100] border-[12px] md:border-[24px] border-red-600/80 pointer-events-none animate-pulse flex items-center justify-center backdrop-blur-sm">
                <div className="bg-red-600 text-white px-12 md:px-24 py-8 md:py-12 rounded-full font-black text-4xl md:text-7xl shadow-[0_0_100px_rgba(220,38,38,1)] uppercase transform -rotate-12 border-4 md:border-8 border-white">BUZZER</div>
