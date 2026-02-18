@@ -458,7 +458,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
   const handleWatSheetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!e.target.files) return;
-      const files = Array.from(e.target.files);
+      // Fix: Explicitly cast to File[] to avoid 'unknown' type errors during mapping
+      const files = Array.from(e.target.files) as File[];
       const startIdx = watSheetUploads.length;
       const fileProcessingPromises = files.map(file => {
           return new Promise<{base64: string, type: string}>((resolve) => {
@@ -469,6 +470,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                       type: file.type
                   });
               };
+              // Add comment: Pass File as Blob to reader
               reader.readAsDataURL(file);
           });
       });
@@ -492,7 +494,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
   const handleSrtSheetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!e.target.files) return;
-      const files = Array.from(e.target.files);
+      // Fix: Explicitly cast to File[] to avoid 'unknown' type errors during mapping
+      const files = Array.from(e.target.files) as File[];
       const startIdx = srtSheetUploads.length;
       const fileProcessingPromises = files.map(file => {
           return new Promise<{base64: string, type: string}>((resolve) => {
@@ -503,6 +506,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                       type: file.type
                   });
               };
+              // Add comment: Pass File as Blob to reader
               reader.readAsDataURL(file);
           });
       });
@@ -919,240 +923,4 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                     <span className="bg-yellow-400 text-black px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest print:border print:border-black">Psychology Report</span>
                     <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter">{type} Verdict</h2>
                     {feedback?.verdict && type !== TestType.WAT && type !== TestType.SRT && <p className="text-xl text-slate-300 font-medium italic">"{feedback.verdict}"</p>}
-                    {(type === TestType.WAT || type === TestType.SRT) && feedback?.generalFeedback && <p className="text-lg text-slate-300 font-medium italic">"{feedback.generalFeedback}"</p>}
-                </div>
-                
-                <div className="flex gap-4 z-20 no-print absolute top-8 right-8">
-                    <button 
-                        onClick={handleDownloadReport}
-                        className="p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors backdrop-blur-md"
-                        title="Download Report PDF"
-                    >
-                        <Download size={20} />
-                    </button>
-                </div>
-                
-                {(type === TestType.WAT || type === TestType.SRT) ? (
-                    // NEW SCOREBOARD FOR WAT/SRT
-                    <div className="flex gap-6 z-10">
-                        <div className="bg-white/10 p-6 rounded-[2rem] border border-white/10 backdrop-blur-md text-center min-w-[140px] print:border-black print:text-black">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2 print:text-black">Psych Grade</span>
-                            <span className="text-5xl font-black text-yellow-400 print:text-black">{feedback?.score || "N/A"}<span className="text-lg text-white/50 print:text-black">/10</span></span>
-                            {/* Score Description */}
-                            <span className="block mt-2 text-[10px] font-black uppercase tracking-widest bg-white/20 px-2 py-1 rounded text-white print:text-black print:border print:border-black">
-                                {getScoreDescription(feedback?.score || 0)}
-                            </span>
-                        </div>
-                        <div className="bg-white/10 p-6 rounded-[2rem] border border-white/10 backdrop-blur-md text-center min-w-[140px] print:border-black">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2 print:text-black">Speed / Attempts</span>
-                            <span className="text-5xl font-black text-white print:text-black">{feedback?.attemptedCount || 0} <span className="text-2xl text-slate-400 print:text-black">/ 60</span></span>
-                            {/* Dynamic Attempt Analysis Label */}
-                            {speedAnalysis && (
-                                <span className={`block mt-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded text-white ${speedAnalysis.color} print:text-black print:border`}>
-                                    {speedAnalysis.label}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                ) : (
-                    // STANDARD SCORE FOR OTHERS
-                    <div className="bg-white/10 p-8 rounded-[3rem] border border-white/10 backdrop-blur-md text-center min-w-[200px] z-10 print:border-black">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2 print:text-black">Score</span>
-                        <span className="text-7xl font-black text-yellow-400 print:text-black">{feedback?.score || "N/A"}</span>
-                    </div>
-                )}
-            </div>
-
-            {/* WAT/SRT SPECIFIC SCOREBOARD & ANALYSIS */}
-            {(type === TestType.WAT || type === TestType.SRT) && feedback?.qualityStats && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3">
-                    {/* Quality Card 1: Positive/Effective */}
-                    <div className="bg-green-50 p-6 rounded-[2.5rem] border border-green-100 flex flex-col items-center justify-center text-center shadow-sm print:border-black">
-                        <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center text-green-600 mb-3 print:hidden"><ThumbsUp size={24}/></div>
-                        <span className="text-4xl font-black text-slate-900">{feedback.qualityStats.positive || feedback.qualityStats.effective || 0}</span>
-                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest mt-1">High OLQ Responses</span>
-                    </div>
-                    {/* Quality Card 2: Neutral/Partial */}
-                    <div className="bg-blue-50 p-6 rounded-[2.5rem] border border-blue-100 flex flex-col items-center justify-center text-center shadow-sm print:border-black">
-                        <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 mb-3 print:hidden"><MinusCircle size={24}/></div>
-                        <span className="text-4xl font-black text-slate-900">{feedback.qualityStats.neutral || feedback.qualityStats.partial || 0}</span>
-                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">Average Responses</span>
-                    </div>
-                    {/* Quality Card 3: Negative/Passive */}
-                    <div className="bg-red-50 p-6 rounded-[2.5rem] border border-red-100 flex flex-col items-center justify-center text-center shadow-sm print:border-black">
-                        <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center text-red-600 mb-3 print:hidden"><ThumbsDown size={24}/></div>
-                        <span className="text-4xl font-black text-slate-900">{feedback.qualityStats.negative || feedback.qualityStats.passive || 0}</span>
-                        <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest mt-1">Needs Improvement</span>
-                    </div>
-                </div>
-            )}
-
-            {(type === TestType.WAT || type === TestType.SRT) && (
-                <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl space-y-8 print:shadow-none print:border-none print:p-0">
-                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
-                        <Activity size={24} className="text-purple-600" /> Detailed Assessment Log
-                    </h3>
-                    <div className="grid grid-cols-1 gap-4 print:block">
-                        {/* Map through ITEMS to ensure we show all 60, not just what AI returned */}
-                        {items.map((item, i) => {
-                            const itemId = i + 1;
-                            
-                            // 1. Try to find analysis strictly by ID (Best Case)
-                            const analysisById = feedback?.detailedAnalysis?.find((a: any) => a.id === itemId);
-                            
-                            // 2. Try to find analysis by exact text match (Fallback if AI dropped ID)
-                            const analysisByContent = !analysisById ? feedback?.detailedAnalysis?.find((a: any) => 
-                                (a.situation && a.situation === item.content) || 
-                                (a.word && a.word === item.content)
-                            ) : null;
-
-                            // 3. Final Analysis Object
-                            const analysis = analysisById || analysisByContent;
-
-                            // Determine if unattempted based on USER INPUT, not analysis existence
-                            const userResponseRaw = type === TestType.WAT ? watResponses[i] : srtResponses[i];
-                            const isUnattempted = !userResponseRaw || userResponseRaw.trim() === "";
-                            
-                            return (
-                                <div key={i} className={`p-6 rounded-3xl border transition-all flex flex-col md:flex-row gap-6 mb-4 print:break-inside-avoid ${isUnattempted ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100 hover:bg-white hover:shadow-md'}`}>
-                                    <div className="md:w-1/4 shrink-0 flex items-center gap-4">
-                                        <span className="text-2xl font-black text-slate-300">{(i + 1).toString().padStart(2, '0')}</span>
-                                        <p className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-wide leading-tight">{item.content}</p>
-                                    </div>
-                                    <div className="md:w-3/4 grid md:grid-cols-2 gap-6">
-                                        <div className="space-y-1">
-                                            <div className="flex justify-between">
-                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Your Response</span>
-                                                {isUnattempted ? (
-                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-red-500">Missed</span>
-                                                ) : (
-                                                    <span className={`text-[9px] font-bold uppercase tracking-widest ${
-                                                        analysis?.assessment?.toLowerCase().includes('positive') ? 'text-green-600' : 'text-blue-600'
-                                                    }`}>{analysis?.assessment || "Pending"}</span>
-                                                )}
-                                            </div>
-                                            <p className={`p-3 rounded-xl text-sm font-medium ${isUnattempted ? 'bg-white text-red-400 border border-red-100 italic' : 'bg-white border border-slate-200 text-slate-700'}`}>
-                                                {isUnattempted ? "Not Attempted" : (analysis?.userResponse || userResponseRaw)}
-                                            </p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <span className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Ideal Response</span>
-                                            <p className="p-3 bg-green-50 border border-green-100 rounded-xl text-sm font-medium text-slate-700">
-                                                {analysis?.idealResponse || "See general recommendations for improvement."}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-
-            {/* TAT: Observation & Analysis */}
-            {type === TestType.TAT && feedback?.individualStories && (
-                <div className="space-y-8 print:break-before-auto">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 print:hidden"><ScanEye size={24} /></div>
-                        <div>
-                            <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Observation Analysis</h3>
-                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Did you see what was actually there?</p>
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:block">
-                        {feedback.individualStories.map((story: any, i: number) => (
-                            <div key={i} className={`p-6 rounded-[2rem] border-2 transition-all mb-4 print:break-inside-avoid ${story.perceivedAccurately ? 'bg-white border-slate-100' : 'bg-red-50 border-red-200 shadow-md'} hover:shadow-xl`}>
-                                <div className="flex justify-between items-start mb-4">
-                                    <span className="font-black text-slate-400 uppercase tracking-widest text-xs">Story {story.storyIndex}</span>
-                                    {story.perceivedAccurately ? (
-                                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                                            <CheckCircle size={12} /> Accurate Perception
-                                        </span>
-                                    ) : (
-                                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                                            <ScanEye size={12} /> Observation Error
-                                        </span>
-                                    )}
-                                </div>
-                                <p className="text-sm font-bold text-slate-800 mb-3 bg-slate-100/50 p-3 rounded-xl inline-block">{story.theme || "No Theme"}</p>
-                                <p className="text-xs text-slate-600 leading-relaxed p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <span className="font-black text-slate-400 uppercase tracking-widest text-[9px] block mb-2">Psychologist's Remark</span>
-                                    {story.analysis}
-                                </p>
-                                <div className="mt-4 pt-4 border-t border-slate-100/50 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-blue-600">
-                                    <Target size={12} /> OLQ Projected: {story.olqProjected}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* SDT Specifics */}
-            {type === TestType.SDT && feedback?.consistencyAnalysis && (
-                <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl space-y-6 print:border-black print:shadow-none">
-                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3"><Brain size={24} className="text-blue-600" /> Consistency Check</h3>
-                    <p className="text-sm text-slate-600 leading-relaxed font-medium p-6 bg-slate-50 rounded-3xl border border-slate-200">{feedback.consistencyAnalysis}</p>
-                </div>
-            )}
-
-            {/* General Feedback - Show for all except WAT/SRT which has specific layout */}
-            {type !== TestType.WAT && type !== TestType.SRT && (
-                <div className="grid md:grid-cols-2 gap-8 print:block">
-                    <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 mb-4 print:border-black print:shadow-none">
-                        <h4 className="font-black text-green-600 uppercase tracking-widest mb-6 flex items-center gap-3"><CheckCircle size={20}/> Strengths</h4>
-                        <ul className="space-y-3">
-                            {feedback?.strengths?.map((s: string, i: number) => (
-                                <li key={i} className="text-sm font-bold text-slate-700 flex gap-3"><span className="w-1.5 h-1.5 rounded-full bg-green-500 mt-2 shrink-0"/> {s}</li>
-                            ))}
-                        </ul>
-                    </div>
-                    <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 mb-4 print:border-black print:shadow-none">
-                        <h4 className="font-black text-red-500 uppercase tracking-widest mb-6 flex items-center gap-3"><AlertCircle size={20}/> Areas for Improvement</h4>
-                        <ul className="space-y-3">
-                            {feedback?.weaknesses?.map((w: string, i: number) => (
-                                <li key={i} className="text-sm font-bold text-slate-700 flex gap-3"><span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 shrink-0"/> {w}</li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-            )}
-
-            {type !== TestType.WAT && type !== TestType.SRT && (
-                <div className="bg-blue-50 p-8 md:p-12 rounded-[3rem] border border-blue-100 text-center space-y-6 print:border-black print:bg-white">
-                    <h4 className="font-black text-blue-800 uppercase tracking-widest text-sm print:text-black">Psychologist's Final Recommendation</h4>
-                    <p className="text-lg md:text-2xl font-medium text-blue-900 italic max-w-3xl mx-auto leading-relaxed print:text-black">"{feedback?.recommendations}"</p>
-                </div>
-            )}
-
-            {/* FEEDBACK INTEGRATION - Hide in print */}
-            {userId && (
-                <div className="no-print">
-                    <SessionFeedback testType={type} userId={userId} />
-                </div>
-            )}
-
-            {isGuest ? (
-                <button 
-                  onClick={onLoginRedirect}
-                  className="w-full py-6 md:py-7 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest text-xs hover:bg-yellow-300 transition-all shadow-2xl flex items-center justify-center gap-3 no-print"
-                >
-                  <LogIn size={16} /> Sign Up to Unlock More
-                </button>
-            ) : (
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl no-print"
-                >
-                  Return to Barracks
-                </button>
-            )}
-        </div>
-    )
-  }
-
-  return null; 
-};
-
-export default PsychologyTest;
+                    {(type === TestType.WAT || type === TestType.SRT) && feedback?.generalFeedback && <p className="text-lg text-slate-
