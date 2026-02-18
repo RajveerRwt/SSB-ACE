@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type, Chat, Part } from "@google/genai";
+import { GoogleGenAI, Type, Chat, Part, GenerateContentResponse } from "@google/genai";
 
 /* 
  * Guidelines: 
@@ -17,6 +17,42 @@ export const STANDARD_WAT_SET = [
   "Light", "Dark", "Sun", "Moon", "Star", "Sky", "Earth", "Water", "Fire", "Air",
   "Food", "Drink", "Sleep", "Wake", "Run", "Walk", "Jump", "Sit", "Stand", "Lie"
 ];
+
+// --- HELPER FUNCTIONS FOR ROBUST API CALLS ---
+
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Wraps generateContent with retry logic for 503 (Overloaded) errors.
+ * Falls back to Flash model if Pro fails repeatedly.
+ */
+async function generateWithRetry(
+    model: string, 
+    params: any, 
+    retries = 2
+): Promise<GenerateContentResponse> {
+    try {
+        return await ai.models.generateContent({ ...params, model });
+    } catch (e: any) {
+        // Handle 503 (Service Unavailable) or 429 (Rate Limit)
+        const isOverloaded = e.status === 503 || (e.error && e.error.code === 503);
+        
+        if (isOverloaded && retries > 0) {
+            console.warn(`Model ${model} overloaded. Retrying in 2s...`);
+            await wait(2000); // 2 second backoff
+            return generateWithRetry(model, params, retries - 1);
+        }
+        
+        // If Pro model fails after retries, fallback to Flash
+        if (model === 'gemini-3-pro-preview') {
+            console.warn("Pro model unavailable. Falling back to Gemini 2.5 Flash.");
+            // Gemini 2.5 Flash is highly stable for high QPS
+            return await ai.models.generateContent({ ...params, model: 'gemini-2.5-flash' });
+        }
+
+        throw e;
+    }
+}
 
 function safeJSONParse(text: string) {
   try {
@@ -48,28 +84,30 @@ function generateErrorEvaluation() {
         verdict: "Server Busy",
         strengths: ["Persistance"],
         weaknesses: ["Network/Server Issue"],
-        recommendations: "The AI evaluator is currently overloaded or the network request timed out. Please try submitting again in a few moments.",
+        recommendations: "The AI evaluator is currently overloaded due to high traffic. Your response has been saved locally. Please try viewing the report again in a few moments.",
         perception: { heroAge: "-", heroSex: "-", heroMood: "-", mainTheme: "-" },
         storyAnalysis: { action: "-", outcome: "-", coherence: "-" },
         observationAnalysis: "Analysis unavailable due to technical interruption.",
-        scoreDetails: { perception: 0, content: 0, expression: 0 }
+        scoreDetails: { perception: 0, content: 0, expression: 0 },
+        error: true
     };
 }
 
 export async function generateTestContent(testType: string) {
   if (testType === 'SRT') {
-      /* fix: use gemini-3-flash-preview for basic text tasks */
-      const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: 'Generate 60 varied Situation Reaction Test (SRT) questions for SSB interview. Return as a JSON array of strings.',
-          config: {
-              responseMimeType: 'application/json',
-              responseSchema: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
+      const response = await generateWithRetry(
+          'gemini-3-flash-preview',
+          {
+              contents: 'Generate 60 varied Situation Reaction Test (SRT) questions for SSB interview. Return as a JSON array of strings.',
+              config: {
+                  responseMimeType: 'application/json',
+                  responseSchema: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING }
+                  }
               }
           }
-      });
+      );
       return { items: safeJSONParse(response.text || "") || [] };
   }
   return { items: [] };
@@ -105,26 +143,28 @@ export async function evaluateLecturette(topic: string, transcript: string, dura
     `;
 
     try {
-        /* fix: use gemini-3-pro-preview for complex evaluation tasks */
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
-            contents: prompt,
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        score: { type: Type.NUMBER },
-                        structureAnalysis: { type: Type.STRING },
-                        contentAnalysis: { type: Type.STRING },
-                        poeAnalysis: { type: Type.STRING },
-                        timeManagementRemark: { type: Type.STRING },
-                        verdict: { type: Type.STRING },
-                        improvementTips: { type: Type.ARRAY, items: { type: Type.STRING } }
+        /* fix: use robust retry wrapper */
+        const response = await generateWithRetry(
+            'gemini-3-pro-preview', 
+            {
+                contents: prompt,
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            score: { type: Type.NUMBER },
+                            structureAnalysis: { type: Type.STRING },
+                            contentAnalysis: { type: Type.STRING },
+                            poeAnalysis: { type: Type.STRING },
+                            timeManagementRemark: { type: Type.STRING },
+                            verdict: { type: Type.STRING },
+                            improvementTips: { type: Type.ARRAY, items: { type: Type.STRING } }
+                        }
                     }
                 }
             }
-        });
+        );
         return safeJSONParse(response.text || "") || generateErrorEvaluation();
     } catch (e) {
         console.error("Lecturette Eval Failed", e);
@@ -153,40 +193,42 @@ export async function evaluatePerformance(testType: string, userData: any) {
             - factorAnalysis: { factor1_planning, factor2_social, factor3_effectiveness, factor4_dynamic } (Short assessment for each)
             `;
 
-            /* fix: use gemini-3-pro-preview for complex evaluation tasks */
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-pro-preview',
-                contents: prompt,
-                config: {
-                    responseMimeType: 'application/json',
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            score: { type: Type.NUMBER },
-                            recommendations: { type: Type.STRING },
-                            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            bodyLanguage: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    posture: { type: Type.STRING },
-                                    eyeContact: { type: Type.STRING },
-                                    gestures: { type: Type.STRING }
-                                }
-                            },
-                            factorAnalysis: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    factor1_planning: { type: Type.STRING },
-                                    factor2_social: { type: Type.STRING },
-                                    factor3_effectiveness: { type: Type.STRING },
-                                    factor4_dynamic: { type: Type.STRING }
+            /* fix: use robust retry wrapper */
+            const response = await generateWithRetry(
+                'gemini-3-pro-preview',
+                {
+                    contents: prompt,
+                    config: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: {
+                                score: { type: Type.NUMBER },
+                                recommendations: { type: Type.STRING },
+                                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                bodyLanguage: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        posture: { type: Type.STRING },
+                                        eyeContact: { type: Type.STRING },
+                                        gestures: { type: Type.STRING }
+                                    }
+                                },
+                                factorAnalysis: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        factor1_planning: { type: Type.STRING },
+                                        factor2_social: { type: Type.STRING },
+                                        factor3_effectiveness: { type: Type.STRING },
+                                        factor4_dynamic: { type: Type.STRING }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            });
+            );
             return safeJSONParse(response.text || "") || generateErrorEvaluation();
         }
 
@@ -228,50 +270,52 @@ export async function evaluatePerformance(testType: string, userData: any) {
             // Add text responses
             parts.push({ text: `Candidate Typed Responses (Reference for IDs): ${JSON.stringify(items)}` });
 
-            /* fix: use gemini-3-pro-preview for complex evaluation tasks */
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-pro-preview',
-                contents: { parts },
-                config: {
-                    responseMimeType: 'application/json',
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            score: { type: Type.NUMBER },
-                            attemptedCount: { type: Type.INTEGER },
-                            generalFeedback: { type: Type.STRING },
-                            qualityStats: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    positive: { type: Type.INTEGER },
-                                    neutral: { type: Type.INTEGER },
-                                    negative: { type: Type.INTEGER },
-                                    effective: { type: Type.INTEGER }, // For SRT
-                                    partial: { type: Type.INTEGER },   // For SRT
-                                    passive: { type: Type.INTEGER }    // For SRT
-                                }
-                            },
-                            detailedAnalysis: {
-                                type: Type.ARRAY,
-                                items: {
+            /* fix: use robust retry wrapper */
+            const response = await generateWithRetry(
+                'gemini-3-pro-preview',
+                {
+                    contents: { parts },
+                    config: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: {
+                                score: { type: Type.NUMBER },
+                                attemptedCount: { type: Type.INTEGER },
+                                generalFeedback: { type: Type.STRING },
+                                qualityStats: {
                                     type: Type.OBJECT,
                                     properties: {
-                                        id: { type: Type.INTEGER, description: "The original Question ID from the input list." },
-                                        word: { type: Type.STRING },      // For WAT
-                                        situation: { type: Type.STRING }, // For SRT
-                                        userResponse: { type: Type.STRING },
-                                        assessment: { type: Type.STRING },
-                                        idealResponse: { type: Type.STRING }
+                                        positive: { type: Type.INTEGER },
+                                        neutral: { type: Type.INTEGER },
+                                        negative: { type: Type.INTEGER },
+                                        effective: { type: Type.INTEGER }, // For SRT
+                                        partial: { type: Type.INTEGER },   // For SRT
+                                        passive: { type: Type.INTEGER }    // For SRT
                                     }
-                                }
-                            },
-                            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            recommendations: { type: Type.STRING }
+                                },
+                                detailedAnalysis: {
+                                    type: Type.ARRAY,
+                                    items: {
+                                        type: Type.OBJECT,
+                                        properties: {
+                                            id: { type: Type.INTEGER, description: "The original Question ID from the input list." },
+                                            word: { type: Type.STRING },      // For WAT
+                                            situation: { type: Type.STRING }, // For SRT
+                                            userResponse: { type: Type.STRING },
+                                            assessment: { type: Type.STRING },
+                                            idealResponse: { type: Type.STRING }
+                                        }
+                                    }
+                                },
+                                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                recommendations: { type: Type.STRING }
+                            }
                         }
                     }
                 }
-            });
+            );
             return safeJSONParse(response.text || "") || generateErrorEvaluation();
         }
 
@@ -323,51 +367,53 @@ export async function evaluatePerformance(testType: string, userData: any) {
             parts.push({ text: `Candidate's Story: "${userData.story}"` });
             parts.push({ text: `Candidate's Narration: "${userData.narration}"` });
             
-            /* fix: use gemini-3-pro-preview for complex evaluation tasks */
-            const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
-            contents: { parts: parts },
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    score: { type: Type.NUMBER },
-                    scoreDetails: {
+            /* fix: use robust retry wrapper */
+            const response = await generateWithRetry(
+                'gemini-3-pro-preview', 
+                {
+                    contents: { parts: parts },
+                    config: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
                         type: Type.OBJECT,
                         properties: {
-                            perception: { type: Type.NUMBER, description: "Score out of 3 for accuracy of observation" },
-                            content: { type: Type.NUMBER, description: "Score out of 5 for story quality and OLQs" },
-                            expression: { type: Type.NUMBER, description: "Score out of 2 for narration flow" }
+                            score: { type: Type.NUMBER },
+                            scoreDetails: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    perception: { type: Type.NUMBER, description: "Score out of 3 for accuracy of observation" },
+                                    content: { type: Type.NUMBER, description: "Score out of 5 for story quality and OLQs" },
+                                    expression: { type: Type.NUMBER, description: "Score out of 2 for narration flow" }
+                                }
+                            },
+                            verdict: { type: Type.STRING },
+                            perception: {
+                            type: Type.OBJECT,
+                            properties: {
+                                heroAge: { type: Type.STRING },
+                                heroSex: { type: Type.STRING },
+                                heroMood: { type: Type.STRING },
+                                mainTheme: { type: Type.STRING }
+                            }
+                            },
+                            storyAnalysis: {
+                            type: Type.OBJECT,
+                            properties: {
+                                action: { type: Type.STRING },
+                                outcome: { type: Type.STRING },
+                                coherence: { type: Type.STRING }
+                            }
+                            },
+                            observationAnalysis: { type: Type.STRING, description: "Detailed feedback on whether the story matched the image provided. Mention missed details." },
+                            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            recommendations: { type: Type.STRING, description: "Final verdict explanation consistent with the calculated score." },
+                            idealStory: { type: Type.STRING, description: "A short, high-scoring example story based on the same image." }
                         }
-                    },
-                    verdict: { type: Type.STRING },
-                    perception: {
-                    type: Type.OBJECT,
-                    properties: {
-                        heroAge: { type: Type.STRING },
-                        heroSex: { type: Type.STRING },
-                        heroMood: { type: Type.STRING },
-                        mainTheme: { type: Type.STRING }
+                        }
                     }
-                    },
-                    storyAnalysis: {
-                    type: Type.OBJECT,
-                    properties: {
-                        action: { type: Type.STRING },
-                        outcome: { type: Type.STRING },
-                        coherence: { type: Type.STRING }
-                    }
-                    },
-                    observationAnalysis: { type: Type.STRING, description: "Detailed feedback on whether the story matched the image provided. Mention missed details." },
-                    strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    recommendations: { type: Type.STRING, description: "Final verdict explanation consistent with the calculated score." },
-                    idealStory: { type: Type.STRING, description: "A short, high-scoring example story based on the same image." }
                 }
-                }
-            }
-            });
+            );
             return safeJSONParse(response.text || "") || generateErrorEvaluation();
         }
 
@@ -390,37 +436,39 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 }
             }
             
-            /* fix: use gemini-3-pro-preview for complex evaluation tasks */
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-pro-preview',
-                contents: { parts },
-                config: {
-                    responseMimeType: 'application/json',
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            score: { type: Type.NUMBER },
-                            verdict: { type: Type.STRING },
-                            individualStories: {
-                                type: Type.ARRAY,
-                                items: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        storyIndex: { type: Type.INTEGER },
-                                        theme: { type: Type.STRING },
-                                        analysis: { type: Type.STRING },
-                                        olqProjected: { type: Type.STRING },
-                                        perceivedAccurately: { type: Type.BOOLEAN }
+            /* fix: use robust retry wrapper */
+            const response = await generateWithRetry(
+                'gemini-3-pro-preview',
+                {
+                    contents: { parts },
+                    config: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: {
+                                score: { type: Type.NUMBER },
+                                verdict: { type: Type.STRING },
+                                individualStories: {
+                                    type: Type.ARRAY,
+                                    items: {
+                                        type: Type.OBJECT,
+                                        properties: {
+                                            storyIndex: { type: Type.INTEGER },
+                                            theme: { type: Type.STRING },
+                                            analysis: { type: Type.STRING },
+                                            olqProjected: { type: Type.STRING },
+                                            perceivedAccurately: { type: Type.BOOLEAN }
+                                        }
                                     }
-                                }
-                            },
-                            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            recommendations: { type: Type.STRING }
+                                },
+                                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                recommendations: { type: Type.STRING }
+                            }
                         }
                     }
                 }
-            });
+            );
             return safeJSONParse(response.text || "") || generateErrorEvaluation();
         }
 
@@ -448,25 +496,27 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 });
             }
 
-            /* fix: use gemini-3-pro-preview for complex evaluation tasks */
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-pro-preview',
-                contents: { parts },
-                config: {
-                    responseMimeType: 'application/json',
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            score: { type: Type.NUMBER },
-                            verdict: { type: Type.STRING },
-                            consistencyAnalysis: { type: Type.STRING },
-                            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            recommendations: { type: Type.STRING }
+            /* fix: use robust retry wrapper */
+            const response = await generateWithRetry(
+                'gemini-3-pro-preview',
+                {
+                    contents: { parts },
+                    config: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: {
+                                score: { type: Type.NUMBER },
+                                verdict: { type: Type.STRING },
+                                consistencyAnalysis: { type: Type.STRING },
+                                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                recommendations: { type: Type.STRING }
+                            }
                         }
                     }
                 }
-            });
+            );
             return safeJSONParse(response.text || "") || generateErrorEvaluation();
         }
 
@@ -479,16 +529,17 @@ export async function evaluatePerformance(testType: string, userData: any) {
 
 export async function transcribeHandwrittenStory(base64: string, mimeType: string) {
     try {
-        /* fix: use gemini-3-flash-preview for basic multimodal tasks */
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: {
-                parts: [
-                    { inlineData: { data: base64, mimeType } },
-                    { text: "Transcribe this handwritten text accurately. Return only the text content." }
-                ]
+        const response = await generateWithRetry(
+            'gemini-3-flash-preview',
+            {
+                contents: {
+                    parts: [
+                        { inlineData: { data: base64, mimeType } },
+                        { text: "Transcribe this handwritten text accurately. Return only the text content." }
+                    ]
+                }
             }
-        });
+        );
         return response.text || "";
     } catch (e) {
         console.error("Transcription failed", e);
@@ -498,19 +549,20 @@ export async function transcribeHandwrittenStory(base64: string, mimeType: strin
 
 export async function extractPIQFromImage(base64: string, mimeType: string) {
     try {
-        /* fix: use gemini-3-flash-preview for basic multimodal tasks */
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: {
-                parts: [
-                    { inlineData: { data: base64, mimeType } },
-                    { text: "Extract PIQ data from this image into JSON format matching the standard SSB PIQ form structure." }
-                ]
-            },
-            config: {
-                responseMimeType: 'application/json'
+        const response = await generateWithRetry(
+            'gemini-3-flash-preview',
+            {
+                contents: {
+                    parts: [
+                        { inlineData: { data: base64, mimeType } },
+                        { text: "Extract PIQ data from this image into JSON format matching the standard SSB PIQ form structure." }
+                    ]
+                },
+                config: {
+                    responseMimeType: 'application/json'
+                }
             }
-        });
+        );
         return safeJSONParse(response.text || "") || {};
     } catch (e) {
         console.error("OCR failed", e);
@@ -520,14 +572,16 @@ export async function extractPIQFromImage(base64: string, mimeType: string) {
 
 export async function fetchDailyNews() {
     try {
-        /* fix: use gemini-3-flash-preview for basic text tasks with search tool */
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: 'Provide 5 latest defense and geopolitical news items relevant to India for SSB aspirants. Format with HEADLINE, TAG, SUMMARY, SSB_RELEVANCE. Separate items with ---NEWS_BLOCK---',
-            config: {
-                tools: [{ googleSearch: {} }]
+        /* fix: use robust retry wrapper */
+        const response = await generateWithRetry(
+            'gemini-3-flash-preview',
+            {
+                contents: 'Provide 5 latest defense and geopolitical news items relevant to India for SSB aspirants. Format with HEADLINE, TAG, SUMMARY, SSB_RELEVANCE. Separate items with ---NEWS_BLOCK---',
+                config: {
+                    tools: [{ googleSearch: {} }]
+                }
             }
-        });
+        );
         return { text: response.text || "", groundingMetadata: response.candidates?.[0]?.groundingMetadata };
     } catch (e) {
         console.error("News fetch failed", e);
@@ -547,22 +601,23 @@ export function createSSBChat(): Chat {
 
 export async function generateLecturette(topic: string) {
     try {
-        /* fix: use gemini-3-flash-preview for basic text generation tasks */
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: `Generate a lecturette outline for the topic: ${topic}. Structure: Introduction, Key Points (3), Conclusion.`,
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        introduction: { type: Type.STRING },
-                        keyPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        conclusion: { type: Type.STRING }
+        const response = await generateWithRetry(
+            'gemini-3-flash-preview',
+            {
+                contents: `Generate a lecturette outline for the topic: ${topic}. Structure: Introduction, Key Points (3), Conclusion.`,
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            introduction: { type: Type.STRING },
+                            keyPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            conclusion: { type: Type.STRING }
+                        }
                     }
                 }
             }
-        });
+        );
         return safeJSONParse(response.text || "");
     } catch (e) {
         console.error("Lecturette gen failed", e);
