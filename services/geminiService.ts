@@ -24,44 +24,68 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const timeoutPromise = (ms: number) => new Promise((_, reject) => setTimeout(() => reject(new Error("Request Timeout")), ms));
 
 /**
- * Wraps generateContent with retry logic.
- * UPDATE: On 503 (Overloaded), it NOW switches to the fallback model IMMEDIATELY without waiting.
+ * Wraps generateContent with retry logic and smart fallback.
+ * Handles 503 (Overloaded) errors by switching to faster models immediately.
  */
 async function generateWithRetry(
     model: string, 
     params: any, 
-    retries = 1
+    retries = 2
 ): Promise<GenerateContentResponse> {
     try {
-        // Race API call against a 25s timeout
+        // Race API call against a 30s timeout
         return await Promise.race([
             ai.models.generateContent({ ...params, model }),
-            timeoutPromise(25000)
+            timeoutPromise(30000)
         ]) as GenerateContentResponse;
     } catch (e: any) {
-        // Handle 503 (Service Unavailable) or Timeout
-        const isOverloaded = e.status === 503 || (e.error && e.error.code === 503) || e.message === "Request Timeout";
+        // Extensive Error Parsing for 503/Overloaded/Unavailable/Timeout
+        const errorCode = e.status || e.code || (e.error ? e.error.code : 0);
+        const errorMessage = e.message || (e.error ? e.error.message : "") || JSON.stringify(e);
+        const errorStatus = e.statusText || (e.error ? e.error.status : "");
+
+        const isOverloaded = 
+            errorCode === 503 || 
+            errorCode === 429 || 
+            errorStatus === "UNAVAILABLE" ||
+            errorMessage.includes("high demand") || 
+            errorMessage.includes("overloaded") ||
+            errorMessage.includes("quota") ||
+            errorMessage === "Request Timeout";
         
         // IMMEDIATE FALLBACK STRATEGY
-        // If the main model (Pro) is overloaded, do not wait. Switch to Flash immediately.
-        if (isOverloaded && (model === 'gemini-3-pro-preview' || model.includes('gemini-3'))) {
-            console.warn(`Model ${model} overloaded/timeout. Switching to Gemini 2.0 Flash IMMEDIATELY.`);
-            try {
-                // Use gemini-2.0-flash as it is the most stable high-speed model currently
-                return await Promise.race([
-                    ai.models.generateContent({ ...params, model: 'gemini-2.0-flash' }),
-                    timeoutPromise(25000)
-                ]) as GenerateContentResponse;
-            } catch (fallbackError) {
-                console.error("Fallback model also failed:", fallbackError);
-                throw e; // Throw original or fallback error to trigger UI error state
+        if (isOverloaded) {
+            console.warn(`Model ${model} overloaded (Code: ${errorCode}). Attempting fallback sequence...`);
+            
+            // Fallback Priority Chain
+            // 1. Try gemini-3-flash-preview (Fast, High Capacity)
+            // 2. Try gemini-flash-latest (Reliable Legacy)
+            
+            let fallbackModel = '';
+            if (model === 'gemini-3-pro-preview') fallbackModel = 'gemini-3-flash-preview';
+            else if (model === 'gemini-3-flash-preview') fallbackModel = 'gemini-flash-latest';
+            else if (model.includes('pro')) fallbackModel = 'gemini-3-flash-preview';
+            
+            if (fallbackModel && fallbackModel !== model) {
+                console.warn(`Switching to fallback model: ${fallbackModel}`);
+                try {
+                    // Try fallback immediately
+                    return await Promise.race([
+                        ai.models.generateContent({ ...params, model: fallbackModel }),
+                        timeoutPromise(30000)
+                    ]) as GenerateContentResponse;
+                } catch (fallbackError: any) {
+                    console.error(`Fallback ${fallbackModel} also failed:`, fallbackError);
+                    // If fallback fails, proceed to standard retry
+                }
             }
         }
 
-        // Standard Retry for non-503 errors (e.g., random network blips)
+        // Standard Retry Logic (Exponential Backoff)
         if (retries > 0) {
-            console.warn(`Model ${model} error ${e.status}. Retrying in 1s...`);
-            await wait(1000); 
+            const delay = 2000 * (3 - retries); // 2000ms, 4000ms
+            console.warn(`Retrying request in ${delay}ms... (${retries} attempts left)`);
+            await wait(delay); 
             return generateWithRetry(model, params, retries - 1);
         }
 
