@@ -17,6 +17,9 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  
+  // Local Like State
+  const [likedSubmissions, setLikedSubmissions] = useState<string[]>([]);
 
   // Form State
   const [oirAnswer, setOirAnswer] = useState(''); 
@@ -25,6 +28,11 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   const [interviewAnswer, setInterviewAnswer] = useState('');
 
   useEffect(() => {
+    // Load local likes
+    const storedLikes = localStorage.getItem('liked_submissions');
+    if (storedLikes) {
+        setLikedSubmissions(JSON.parse(storedLikes));
+    }
     loadData();
   }, []);
 
@@ -45,7 +53,15 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       if (ch) {
         setChallenge(ch);
         const subs = await getDailySubmissions(ch.id);
-        setSubmissions(subs);
+        
+        // Merge with local like state
+        const storedLikes = JSON.parse(localStorage.getItem('liked_submissions') || '[]');
+        const mergedSubs = subs.map((s: any) => ({
+            ...s,
+            isLiked: storedLikes.includes(s.id)
+        }));
+        
+        setSubmissions(mergedSubs);
         
         if (u) {
             const mySub = subs.find((s: any) => s.user_id === u.id);
@@ -79,8 +95,12 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
     setIsSubmitting(true);
     try {
       await submitDailyEntry(challenge.id, oirAnswer, watAnswer, srtAnswer, interviewAnswer);
+      
+      // Refresh Data
       const subs = await getDailySubmissions(challenge.id);
-      setSubmissions(subs);
+      const storedLikes = JSON.parse(localStorage.getItem('liked_submissions') || '[]');
+      setSubmissions(subs.map((s: any) => ({ ...s, isLiked: storedLikes.includes(s.id) })));
+      
       setHasSubmitted(true);
       setUserStreak(prev => prev + 1);
       
@@ -98,21 +118,34 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   };
 
   const handleLike = async (subId: string) => {
-      if (!user) return;
+      // Allow guests to like too, stored locally
+      const isCurrentlyLiked = likedSubmissions.includes(subId);
+      const newIsLiked = !isCurrentlyLiked;
       
-      let isLiking = true;
+      // Update Local Storage
+      let newLikedList;
+      if (newIsLiked) {
+          newLikedList = [...likedSubmissions, subId];
+      } else {
+          newLikedList = likedSubmissions.filter(id => id !== subId);
+      }
+      setLikedSubmissions(newLikedList);
+      localStorage.setItem('liked_submissions', JSON.stringify(newLikedList));
+
+      // Update UI Optimistically
       setSubmissions(prev => prev.map(s => {
           if (s.id === subId) {
-              isLiking = !s.isLiked; // Toggle
               return {
                   ...s,
-                  isLiked: isLiking,
-                  likes_count: (s.likes_count || 0) + (isLiking ? 1 : -1)
+                  isLiked: newIsLiked,
+                  likes_count: (s.likes_count || 0) + (newIsLiked ? 1 : -1)
               };
           }
           return s;
       }));
-      await toggleLike(subId, isLiking);
+      
+      // Sync to Backend
+      await toggleLike(subId, newIsLiked);
   };
 
   /**
