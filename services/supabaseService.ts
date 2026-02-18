@@ -463,25 +463,6 @@ export const deductCoins = async (userId: string, amount: number) => {
     return true;
 };
 
-/**
- * NEW: Reward coins for non-payment activities (Ads, Daily Challenges)
- */
-export const rewardCoins = async (userId: string, amount: number, reason: string) => {
-    const sub = await getUserSubscription(userId);
-    const newBalance = (sub.coins || 0) + amount;
-    
-    const { error } = await supabase
-        .from('user_subscriptions')
-        .update({ coins: newBalance })
-        .eq('user_id', userId);
-
-    if (!error) {
-        console.log(`Rewarded ${amount} coins for ${reason}`);
-        return true;
-    }
-    return false;
-};
-
 export const checkLimit = async (userId: string, testType: string) => {
   return { allowed: true, message: "" };
 };

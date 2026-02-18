@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Loader2, Send, MessageSquare, Clock, User, ImageIcon, FileText, Zap, PenTool, Flame, Trophy, Lock, Heart, Award, Medal, Star, CheckCircle, Mic, RefreshCw, AlertTriangle, Brain, Maximize2, X, Coins } from 'lucide-react';
-import { getLatestDailyChallenge, submitDailyEntry, getDailySubmissions, checkAuthSession, toggleLike, getUserStreak, rewardCoins } from '../services/supabaseService';
+import { Loader2, Send, MessageSquare, Clock, User, ImageIcon, FileText, Zap, PenTool, Flame, Trophy, Lock, Heart, Award, Medal, Star, CheckCircle, Mic, RefreshCw, AlertTriangle, Brain, Maximize2, X } from 'lucide-react';
+import { getLatestDailyChallenge, submitDailyEntry, getDailySubmissions, checkAuthSession, toggleLike, getUserStreak } from '../services/supabaseService';
 
 interface DailyPracticeProps {
     onLoginRedirect?: () => void;
@@ -17,7 +17,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
-  const [earnedReward, setEarnedReward] = useState<number | null>(null);
   
   // Local Like State
   const [likedSubmissions, setLikedSubmissions] = useState<string[]>([]);
@@ -88,10 +87,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
         return;
     }
     
-    const answers = [oirAnswer, watAnswer, srtAnswer, interviewAnswer];
-    const completedCount = answers.filter(a => a.trim().length > 0).length;
-
-    if (completedCount === 0) {
+    if (!oirAnswer.trim() && !watAnswer.trim() && !srtAnswer.trim() && !interviewAnswer.trim()) {
         alert("Please complete at least one section before submitting.");
         return;
     }
@@ -99,16 +95,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
     setIsSubmitting(true);
     try {
       await submitDailyEntry(challenge.id, oirAnswer, watAnswer, srtAnswer, interviewAnswer);
-      
-      // Calculate Reward
-      let reward = 0;
-      if (completedCount === 4) reward = 2;
-      else if (completedCount >= 2) reward = 1;
-
-      if (reward > 0) {
-          await rewardCoins(user.id, reward, "Daily Challenge");
-          setEarnedReward(reward);
-      }
       
       // Refresh Data
       const subs = await getDailySubmissions(challenge.id);
@@ -122,6 +108,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       setWatAnswer('');
       setSrtAnswer('');
       setInterviewAnswer('');
+      alert("Submission Posted!");
     } catch (e) {
       console.error(e);
       alert("Failed to post. Please try again.");
@@ -131,9 +118,11 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   };
 
   const handleLike = async (subId: string) => {
+      // Allow guests to like too, stored locally
       const isCurrentlyLiked = likedSubmissions.includes(subId);
       const newIsLiked = !isCurrentlyLiked;
       
+      // Update Local Storage
       let newLikedList;
       if (newIsLiked) {
           newLikedList = [...likedSubmissions, subId];
@@ -143,6 +132,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       setLikedSubmissions(newLikedList);
       localStorage.setItem('liked_submissions', JSON.stringify(newLikedList));
 
+      // Update UI Optimistically
       setSubmissions(prev => prev.map(s => {
           if (s.id === subId) {
               return {
@@ -154,20 +144,32 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
           return s;
       }));
       
+      // Sync to Backend
       await toggleLike(subId, newIsLiked);
   };
 
+  /**
+   * Final Name Resolver
+   */
   const getDisplayName = (sub: any) => {
       const profile = sub.aspirants;
-      if (profile && profile.full_name && profile.full_name !== 'Cadet') return profile.full_name;
+      // 1. Direct profile match
+      if (profile && profile.full_name && profile.full_name !== 'Cadet') {
+          return profile.full_name;
+      }
+      
+      // 2. User match
       if (user && sub.user_id === user.id) {
           const metaName = user.user_metadata?.full_name || user.user_metadata?.name;
           if (metaName) return metaName;
       }
+      
+      // 3. Array Fallback
       if (Array.isArray(profile) && profile.length > 0) {
           const arrName = profile[0].full_name || profile[0].name;
           if (arrName && arrName !== 'Cadet') return arrName;
       }
+      
       return 'Cadet';
   };
 
@@ -175,15 +177,20 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       const badges = [];
       if (sub.likes_count >= 5) badges.push({ icon: Star, color: 'text-yellow-400', label: 'Popular' });
       if (sub.ppdt_story && sub.ppdt_story.length > 100) badges.push({ icon: PenTool, color: 'text-purple-400', label: 'Detailed' });
+      
       const profile = sub.aspirants;
       const streak = Array.isArray(profile) ? profile[0]?.streak_count : profile?.streak_count;
+      
       if (streak > 3) badges.push({ icon: Flame, color: 'text-orange-500', label: 'Consistent' });
+      
+      // Rank badges based on likes, not date order
       if (submissionIndex === 0 && sub.likes_count > 0) badges.push({ icon: Trophy, color: 'text-yellow-500', label: 'Top Cadet' });
       if (submissionIndex === 1 && sub.likes_count > 0) badges.push({ icon: Medal, color: 'text-slate-400', label: 'Runner Up' });
       if (submissionIndex === 2 && sub.likes_count > 0) badges.push({ icon: Medal, color: 'text-orange-700', label: 'Bronze' });
       return badges;
   };
 
+  // Sort submissions by likes for leaderboard
   const topSubmissions = [...submissions].sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0)).slice(0, 3);
 
   if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-slate-900" size={32}/></div>;
@@ -223,37 +230,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
          <Flame className="absolute -bottom-10 -right-10 w-64 h-64 text-orange-500/10 rotate-12 pointer-events-none" />
       </div>
 
-      {/* REWARD TOAST */}
-      {earnedReward !== null && (
-          <div className="bg-green-50 border-2 border-green-200 p-6 rounded-[2rem] flex flex-col items-center text-center space-y-2 animate-in zoom-in duration-500">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 shadow-inner">
-                  <Coins size={32} />
-              </div>
-              <h4 className="text-xl font-black text-green-900 uppercase">Mission Accomplished!</h4>
-              <p className="text-green-700 font-bold">Reward Credited: <span className="text-2xl font-black">{earnedReward} Coins</span></p>
-              <button onClick={() => setEarnedReward(null)} className="text-[10px] font-black uppercase text-green-500 hover:underline mt-2">Dismiss</button>
-          </div>
-      )}
-
-      {/* REWARD INFO BOX */}
-      {!hasSubmitted && !earnedReward && (
-          <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-center justify-between gap-4 max-w-2xl mx-auto shadow-sm">
-              <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-                      <Zap size={18} />
-                  </div>
-                  <div>
-                      <p className="text-xs font-black uppercase text-blue-900">Training Incentives Active</p>
-                      <p className="text-[10px] font-bold text-blue-700/70">Solve 4/4: 2 Coins • Solve 2+/4: 1 Coin</p>
-                  </div>
-              </div>
-              <div className="flex gap-1">
-                  {[1,2,3,4].map(i => <div key={i} className="w-2 h-2 rounded-full bg-blue-200" />)}
-              </div>
-          </div>
-      )}
-
-      {/* LEADERBOARD */}
+      {/* LEADERBOARD (Top 3 by Likes) */}
       {topSubmissions.length > 0 && (
           <div className="grid grid-cols-3 gap-2 md:gap-4 max-w-3xl mx-auto">
               {topSubmissions.map((sub, i) => {
@@ -294,6 +271,9 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                   {challenge.oir_text && (
                       <p className="text-sm font-bold text-slate-800 text-center leading-relaxed mt-2">{challenge.oir_text}</p>
                   )}
+                  {!challenge.ppdt_image_url && !challenge.oir_text && (
+                      <p className="text-slate-400 text-xs font-bold uppercase">No OIR content loaded</p>
+                  )}
               </div>
               <div className="flex-1 space-y-4">
                   <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
@@ -304,7 +284,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                       onChange={(e) => setOirAnswer(e.target.value)}
                       placeholder="Type your answer and explanation here..."
                       className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none outline-none focus:border-blue-500 transition-all text-sm font-medium"
-                      disabled={hasSubmitted}
                   />
               </div>
           </div>
@@ -322,7 +301,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                       onChange={(e) => setWatAnswer(e.target.value)}
                       className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-green-500 transition-all"
                       placeholder="Type your sentence..."
-                      disabled={hasSubmitted}
                   />
               </div>
           </div>
@@ -340,7 +318,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                       onChange={(e) => setSrtAnswer(e.target.value)}
                       className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-orange-500 transition-all"
                       placeholder="Your action..."
-                      disabled={hasSubmitted}
                   />
               </div>
           </div>
@@ -358,7 +335,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                       onChange={(e) => setInterviewAnswer(e.target.value)}
                       placeholder="Type your answer (be honest and direct)..."
                       className="flex-1 h-24 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none outline-none focus:border-purple-500 transition-all text-sm font-medium"
-                      disabled={hasSubmitted}
                   />
               </div>
           </div>
@@ -372,7 +348,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
           ) : (
               <button onClick={handleSubmit} disabled={isSubmitting || hasSubmitted} className="px-12 py-4 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-black transition-all shadow-xl disabled:opacity-50">
                   {isSubmitting ? <Loader2 className="animate-spin" /> : hasSubmitted ? <CheckCircle size={16} /> : <Send size={16} />} 
-                  {hasSubmitted ? 'Submission Logged' : 'Post for Review'}
+                  {hasSubmitted ? 'Already Submitted' : 'Submit Entry'}
               </button>
           )}
       </div>
@@ -393,6 +369,8 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                       const displayName = getDisplayName(sub);
                       const profile = sub.aspirants;
                       const streak = Array.isArray(profile) ? profile[0]?.streak_count : profile?.streak_count;
+                      
+                      // Calculate rank index based on sorted likes
                       const rankIndex = topSubmissions.findIndex(s => s.id === sub.id);
 
                       return (
@@ -476,14 +454,29 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
           )}
       </div>
 
+      {/* Zoom Modal */}
       {zoomedImage && (
           <div 
             className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
             onClick={() => setZoomedImage(null)}
           >
-              <button onClick={() => setZoomedImage(null)} className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"><X size={24} /></button>
+              <button 
+                onClick={() => setZoomedImage(null)} 
+                className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
+              >
+                  <X size={24} />
+              </button>
+              
               <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-                  <img src={zoomedImage} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl cursor-default" onClick={(e) => e.stopPropagation()} alt="Zoomed Question" />
+                  <img 
+                    src={zoomedImage} 
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl cursor-default" 
+                    onClick={(e) => e.stopPropagation()} 
+                    alt="Zoomed Question"
+                  />
+                  <p className="absolute bottom-6 text-white/50 text-xs font-bold uppercase tracking-widest pointer-events-none">
+                    Click outside to close
+                  </p>
               </div>
           </div>
       )}

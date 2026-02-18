@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info, LogIn, ThumbsUp, ThumbsDown, MinusCircle, Lock, Download, Printer, Coins } from 'lucide-react';
+import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info, LogIn, ThumbsUp, ThumbsDown, MinusCircle, Lock, Download, Printer } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, STANDARD_WAT_SET } from '../services/geminiService';
-import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription, rewardCoins } from '../services/supabaseService';
+import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
 import { TestType } from '../types';
 import CameraModal from './CameraModal';
 import SessionFeedback from './SessionFeedback';
@@ -28,9 +29,10 @@ enum PsychologyPhase {
 }
 
 const WAT_TIPS = [
-  "Spontaneity is key. Don't censor your thoughts.",
-  "OLQs should reflect in your sentences naturally.",
-  "Avoid negative connotations where possible.",
+  "Avoid 'I', 'Me', 'My'. Make sentences universal.",
+  "Showcase OLQs: Courage, Cooperation, Responsibility.",
+  "Avoid giving advice (should/could/must). Observation > Instruction.",
+  "Turn negative words into positive outcomes.",
   "Spontaneity is your best friend. Don't overthink.",
   "Keep sentences grammatical but concise."
 ];
@@ -40,7 +42,8 @@ const SRT_TIPS = [
   "Prioritize: Save Life > Protect Property > Social Duty.",
   "Be the hero of your own situation. Don't rely on others.",
   "Keep responses telegraphic (short & meaningful).",
-  "Address the root cause, not just the symptoms."
+  "Address the root cause, not just the symptoms.",
+  "Maintain a calm and composed mindset in crisis."
 ];
 
 const TAT_TIPS = [
@@ -65,20 +68,24 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const [isLoading, setIsLoading] = useState(false);
   const [pregeneratedImages, setPregeneratedImages] = useState<Record<string, string>>({});
   
+  // TAT States
   const [tatUploads, setTatUploads] = useState<string[]>(new Array(12).fill(''));
   const [tatTexts, setTatTexts] = useState<string[]>(new Array(12).fill(''));
   const [transcribingIndices, setTranscribingIndices] = useState<number[]>([]);
   
+  // SRT States
   const [srtResponses, setSrtResponses] = useState<string[]>([]);
   const [srtSheetUploads, setSrtSheetUploads] = useState<string[]>([]);
-  const [srtSheetTexts, setSrtSheetTexts] = useState<string[]>([]);
-  const [srtTranscribingIndices, setSrtTranscribingIndices] = useState<number[]>([]);
+  const [srtSheetTexts, setSrtSheetTexts] = useState<string[]>([]); // New: Store transcribed text
+  const [srtTranscribingIndices, setSrtTranscribingIndices] = useState<number[]>([]); // New: Loading state for SRT OCR
 
+  // WAT States
   const [watResponses, setWatResponses] = useState<string[]>([]);
   const [watSheetUploads, setWatSheetUploads] = useState<string[]>([]);
-  const [watSheetTexts, setWatSheetTexts] = useState<string[]>([]);
-  const [watTranscribingIndices, setWatTranscribingIndices] = useState<number[]>([]);
+  const [watSheetTexts, setWatSheetTexts] = useState<string[]>([]); // New: Store transcribed text for WAT
+  const [watTranscribingIndices, setWatTranscribingIndices] = useState<number[]>([]); // New: Loading state for WAT OCR
 
+  // SDT States
   const [sdtData, setSdtData] = useState({
     parents: '',
     teachers: '',
@@ -87,6 +94,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     aim: ''
   });
   
+  // SDT Image States
   const [sdtImages, setSdtImages] = useState<Record<string, { data: string, mimeType: string } | null>>({
     parents: null,
     teachers: null,
@@ -99,9 +107,11 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const [showScoreHelp, setShowScoreHelp] = useState(false);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
   
+  // Camera State
   const [showCamera, setShowCamera] = useState(false);
-  const [activeCameraKey, setActiveCameraKey] = useState<string | number | null>(null);
+  const [activeCameraKey, setActiveCameraKey] = useState<string | number | null>(null); // Number for TAT index, String for SDT key
 
+  // ... (Refs and Helper Functions remain the same) ...
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -123,6 +133,15 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     osc.stop(ctx.currentTime + duration);
   };
 
+  const getScoreDescription = (score: number) => {
+      if (score >= 9) return "Outstanding";
+      if (score >= 7.5) return "High Potential";
+      if (score >= 6) return "Recommended";
+      if (score >= 4) return "Average";
+      return "Below Average";
+  };
+
+  // Helper to determine Speed Rating based on specific rules
   const getAttemptAnalysis = (testType: TestType, count: number) => {
       if (testType === TestType.WAT) {
           if (count >= 45) return { label: "Ideal Pace", color: "bg-green-500" };
@@ -137,6 +156,10 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       return { label: "Completed", color: "bg-slate-500" };
   };
 
+  const handleDownloadReport = () => {
+      window.print();
+  };
+
   const startTest = async () => {
     setIsLoading(true);
     setFeedback(null);
@@ -145,9 +168,10 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     setSrtSheetUploads([]);
     setSrtSheetTexts([]);
     
+    // SDT Logic Flow
     if (type === TestType.SDT) {
         setPhase(PsychologyPhase.WRITING);
-        setTimeLeft(900); 
+        setTimeLeft(900); // 15 Minutes
         setIsLoading(false);
         return;
     }
@@ -166,16 +190,22 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       }
 
       if (type === TestType.TAT) {
+        // --- TAT Logic ---
         const dbScenarios = await getTATScenarios();
+        
         if (!dbScenarios || dbScenarios.length === 0) {
+           // Standard fallback only if DB fails completely
            const staticTAT = [ "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80", "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=800&q=80" ]; 
            finalItems = staticTAT.map((url, i) => ({ id: `tat-fb-${i}`, content: 'Fallback Set', imageUrl: url }));
         } else {
            let setImages: any[] = [];
+           
            if (isGuest) {
+               // Guest: Strictly first 11 images
                setActiveSetName('Guest Trial Set');
                setImages = dbScenarios.slice(0, 11);
            } else {
+               // Logged In: Rotate sets
                const sets: Record<string, any[]> = dbScenarios.reduce((acc: any, img: any) => {
                   const tag = img.set_tag || 'Default';
                   if (!acc[tag]) acc[tag] = [];
@@ -195,21 +225,27 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                setActiveSetName(selectedSetName);
                setImages = sets[selectedSetName].slice(0, 11); 
            }
+
            finalItems = setImages.map((s: any, i: number) => ({
               id: `tat-db-${i}`,
               content: s.description || 'Picture Story',
               imageUrl: s.image_url
            }));
         }
+        
         const images: Record<string, string> = {};
         finalItems.forEach((item) => { images[item.id] = item.imageUrl; });
         setPregeneratedImages(images);
         finalItems.push({ id: 'tat-12-blank', content: 'BLANK SLIDE' });
+
       } else if (type === TestType.WAT) {
+        // --- WAT Logic ---
         const dbWords = await getWATWords();
         let wordList: string[] = [];
+        
         if (dbWords && dbWords.length > 0) {
             if (isGuest) {
+                // Guest: First 60 words
                 setActiveSetName('Guest Trial Set');
                 wordList = dbWords.slice(0, 60).map((row: any) => row.word);
             } else {
@@ -220,7 +256,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                     return acc;
                 }, {});
                 const setNames = Object.keys(sets).sort();
-                const idealSets = setNames.filter(name => sets[name].length >= 60); 
+                const idealSets = setNames.filter(name => sets[name].length >= 60); // Prefer 60 word sets
                 let selectedSetName = '';
                 if (idealSets.length > 0) {
                     const index = usageCount % idealSets.length;
@@ -231,22 +267,30 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 }
                 setActiveSetName(selectedSetName);
                 wordList = sets[selectedSetName];
+                
+                // Shuffle large general sets for logged in users
                 if (selectedSetName === 'General' && wordList.length > 60) {
                    wordList = wordList.sort(() => Math.random() - 0.5);
                 }
             }
         } else {
+            // Fallback
             wordList = [...STANDARD_WAT_SET];
             if (!isGuest) wordList = wordList.sort(() => Math.random() - 0.5);
             setActiveSetName('Standard Fallback Set');
         }
+        
         finalItems = wordList.slice(0, 60).map((word, index) => ({ id: `wat-${index}`, content: word }));
         setWatResponses(new Array(finalItems.length).fill(''));
+
       } else if (type === TestType.SRT) {
+        // --- SRT Logic ---
         const dbQuestions = await getSRTQuestions();
         let srtList: string[] = [];
+        
         if (dbQuestions && dbQuestions.length > 0) {
             if (isGuest) {
+                // Guest: First 60 items
                 setActiveSetName('Guest Trial Set');
                 srtList = dbQuestions.slice(0, 60).map((row: any) => row.question);
             } else {
@@ -261,15 +305,19 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 const selectedSetName = setNames[index];
                 setActiveSetName(selectedSetName);
                 srtList = sets[selectedSetName];
+                
                 if (selectedSetName === 'General' && srtList.length > 60) {
                     srtList = srtList.sort(() => Math.random() - 0.5);
                 }
             }
         } else {
+            // Fallback
             const data = await generateTestContent(type);
             srtList = data.items.map((i: any) => i.content);
             setActiveSetName('Standard Fallback Set');
         }
+
+        // Ensure 60 items
         if (srtList.length < 60) {
              const originalLength = srtList.length;
              let i = 0;
@@ -280,6 +328,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
         } else {
             srtList = srtList.slice(0, 60);
         }
+        
         finalItems = srtList.map((q, index) => ({ id: `srt-${index}`, content: q }));
         setSrtResponses(new Array(finalItems.length).fill(''));
         setItems(finalItems);
@@ -288,6 +337,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
         setIsLoading(false);
         return; 
       }
+      
       setItems(finalItems);
       setCurrentIndex(0);
       setupSlide(0, finalItems);
@@ -334,6 +384,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const handleTimerEnd = () => {
     if (type === TestType.SDT) { playBuzzer(300, 1.0); submitSDT(); return; }
     if (type === TestType.SRT) { playBuzzer(300, 1.0); setPhase(PsychologyPhase.UPLOADING_SRT); return; }
+
     if (type === TestType.TAT && phase === PsychologyPhase.VIEWING) {
       playBuzzer(180, 0.4); 
       setTimeLeft(240); 
@@ -341,8 +392,11 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     } else {
       const nextIdx = currentIndex + 1;
       if (nextIdx < items.length) {
-        if (type === TestType.WAT) playBuzzer(500, 0.15); 
-        else playBuzzer(300, 0.1);
+        if (type === TestType.WAT) {
+            playBuzzer(500, 0.15); 
+        } else {
+            playBuzzer(300, 0.1);
+        }
         setCurrentIndex(nextIdx);
         setupSlide(nextIdx, items);
       } else {
@@ -404,15 +458,21 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
   const handleWatSheetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!e.target.files) return;
-      const filesArr = Array.from(e.target.files);
+      const files = Array.from(e.target.files);
       const startIdx = watSheetUploads.length;
-      const processedFiles = await Promise.all(filesArr.map(file => {
+      const fileProcessingPromises = files.map(file => {
           return new Promise<{base64: string, type: string}>((resolve) => {
               const reader = new FileReader();
-              reader.onloadend = () => resolve({ base64: (reader.result as string).split(',')[1], type: file.type });
+              reader.onloadend = () => {
+                  resolve({
+                      base64: (reader.result as string).split(',')[1],
+                      type: file.type
+                  });
+              };
               reader.readAsDataURL(file);
           });
-      }));
+      });
+      const processedFiles = await Promise.all(fileProcessingPromises);
       setWatSheetUploads(prev => [...prev, ...processedFiles.map(f => f.base64)]);
       setWatSheetTexts(prev => [...prev, ...new Array(processedFiles.length).fill('')]);
       processedFiles.forEach(async (fileData, i) => {
@@ -432,15 +492,21 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
   const handleSrtSheetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!e.target.files) return;
-      const filesArr = Array.from(e.target.files);
+      const files = Array.from(e.target.files);
       const startIdx = srtSheetUploads.length;
-      const processedFiles = await Promise.all(filesArr.map(file => {
+      const fileProcessingPromises = files.map(file => {
           return new Promise<{base64: string, type: string}>((resolve) => {
               const reader = new FileReader();
-              reader.onloadend = () => resolve({ base64: (reader.result as string).split(',')[1], type: file.type });
+              reader.onloadend = () => {
+                  resolve({
+                      base64: (reader.result as string).split(',')[1],
+                      type: file.type
+                  });
+              };
               reader.readAsDataURL(file);
           });
-      }));
+      });
+      const processedFiles = await Promise.all(fileProcessingPromises);
       setSrtSheetUploads(prev => [...prev, ...processedFiles.map(f => f.base64)]);
       setSrtSheetTexts(prev => [...prev, ...new Array(processedFiles.length).fill('')]);
       processedFiles.forEach(async (fileData, i) => {
@@ -462,12 +528,13 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       setPhase(PsychologyPhase.EVALUATING);
       try {
           const result = await evaluatePerformance(type, { sdtData, sdtImages });
+          if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) { throw new Error("AI Busy"); }
           setFeedback(result);
           if (onSave && !isGuest) onSave({ ...result, sdtData, sdtImages });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) {
           console.error("SDT Eval Error", err);
-          const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Responses saved.", error: true, sdtData, sdtImages };
+          const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, sdtData, sdtImages };
           setFeedback(fallback);
           if (onSave && !isGuest) onSave(fallback);
           setPhase(PsychologyPhase.COMPLETED);
@@ -484,12 +551,13 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       };
       try {
           const result = await evaluatePerformance(type, payload);
+          if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) { throw new Error("AI Busy"); }
           setFeedback(result);
           if (onSave && !isGuest) onSave({ ...result, srtResponses, srtSheetImages: srtSheetUploads, srtSheetTranscripts: srtSheetTexts });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { 
           console.error("SRT Eval Error", err); 
-          const fallback = { score: 0, verdict: "Technical Failure", error: true, srtResponses: payload.srtResponses };
+          const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, srtResponses: payload.srtResponses };
           setFeedback(fallback);
           if (onSave && !isGuest) onSave(fallback);
           setPhase(PsychologyPhase.COMPLETED);
@@ -506,12 +574,13 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       };
       try {
           const result = await evaluatePerformance(type, payload);
+          if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) { throw new Error("AI Busy"); }
           setFeedback(result);
           if (onSave && !isGuest) onSave({ ...result, watResponses, watSheetImages: watSheetUploads, watSheetTranscripts: watSheetTexts });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { 
           console.error("WAT Eval Error", err); 
-          const fallback = { score: 0, verdict: "Technical Failure", error: true, watResponses: payload.watResponses };
+          const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, watResponses: payload.watResponses };
           setFeedback(fallback);
           if (onSave && !isGuest) onSave(fallback);
           setPhase(PsychologyPhase.COMPLETED);
@@ -536,18 +605,20 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                     reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
                     reader.readAsDataURL(blob);
                 });
-            } catch (e) { console.warn("Could not fetch stimulus image:", e); }
+            } catch (e) { console.warn("Could not fetch stimulus image for AI context:", e); }
         }
         return { storyIndex: index + 1, stimulusImage: stimulusBase64, stimulusDesc: item.content, userStoryImage: userStoryImage, userStoryText: tatTexts[index] };
       }));
       const validPairs = tatPairs.filter(p => p !== null);
+      
       const result = await evaluatePerformance(type, { tatPairs: validPairs, testType: type, itemCount: items.length });
+      if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) { throw new Error("AI Busy"); }
       setFeedback(result);
       if (onSave && !isGuest) onSave({ ...result, tatImages: tatUploads, tatPairs: validPairs });
       setPhase(PsychologyPhase.COMPLETED);
     } catch (err) { 
         console.error("Evaluation error:", err); 
-        const fallback = { score: 0, verdict: "Technical Failure", error: true, tatPairs: tatPairs.filter(p => p !== null) };
+        const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, tatPairs: tatPairs.filter(p => p !== null) };
         setFeedback(fallback);
         if (onSave && !isGuest) onSave(fallback);
         setPhase(PsychologyPhase.COMPLETED); 
@@ -560,6 +631,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  // ... (Phases IDLE through UPLOADING) ...
   if (phase === PsychologyPhase.IDLE) {
     return (
       <div className="bg-white p-12 md:p-24 rounded-[3rem] md:rounded-[4rem] shadow-2xl border-4 border-slate-50 text-center max-w-4xl mx-auto ring-1 ring-slate-100 animate-in fade-in zoom-in duration-500">
@@ -578,13 +650,13 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
            <h4 className="font-black text-xs uppercase tracking-widest text-blue-600 mb-4 underline">Board Briefing:</h4>
            <div className="text-slate-600 font-medium text-sm md:text-lg leading-relaxed italic space-y-4">
              {type === TestType.TAT ? (
-               <p>• 12 Pictures (11 from DB + 1 Blank). 30s viewing, 4m writing per slide.</p>
+               <p>• 12 Pictures (11 from DB + 1 Blank). 30s viewing, 4m writing per slide. All images are retrieved from authorized board sets.</p>
              ) : type === TestType.SDT ? (
-               <p>• Write 5 distinct paragraphs describing opinions. Total time: 15 Minutes. Be honest.</p>
+               <p>• Write 5 distinct paragraphs describing opinions of Parents, Teachers, Friends, Self, and Future Aims. Total time: 15 Minutes. Be realistic and honest.</p>
              ) : type === TestType.SRT ? (
-               <p>• 60 Situations (30 Minutes). Respond to each situation naturally.</p>
+               <p>• 60 Situations (30 Minutes). Respond to each situation naturally. <br/>• <strong>Note:</strong> You can type responses in the boxes below OR write on paper and upload a photo at the end.</p>
              ) : (
-               <p>• 60 Words (15s each). Write the first thought that comes to mind.</p>
+               <p>• 60 Words (15s each). Write the first thought that comes to mind. <br/>• <strong>Note:</strong> You can type responses in real-time OR write on paper and upload a photo at the end.</p>
              )}
            </div>
         </div>
@@ -596,11 +668,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     );
   }
 
+  // ... (Keeping View, Uploading phases same as previous) ...
   if (phase === PsychologyPhase.PREPARING_STIMULI) {
     return <div className="flex flex-col items-center justify-center py-40 space-y-12"><Loader2 className="w-32 h-32 text-slate-900 animate-spin" /><div className="text-center"><p className="text-slate-900 font-black uppercase tracking-[0.5em] text-sm mb-4">Retrieving {activeSetName || 'Authorized'} Set</p><p className="text-slate-400 text-xs font-bold italic">Assembling board materials from secure database...</p></div></div>;
   }
   
+  // ... (Skipping middle render blocks for brevity as they are unchanged) ...
   if (phase === PsychologyPhase.VIEWING || phase === PsychologyPhase.WRITING || phase === PsychologyPhase.UPLOADING_WAT || phase === PsychologyPhase.UPLOADING_SRT || phase === PsychologyPhase.UPLOADING_STORIES) {
+      // Re-use logic from previous implementation
       const currentItem = items[currentIndex];
       const isTAT = type === TestType.TAT;
       const imageUrl = isTAT ? (currentItem?.id === 'tat-12-blank' ? 'BLANK' : pregeneratedImages[currentItem?.id]) : null;
@@ -608,6 +683,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       if (phase === PsychologyPhase.VIEWING || phase === PsychologyPhase.WRITING) {
           if (type === TestType.SDT) return (
             <div className="max-w-5xl mx-auto pb-20 animate-in fade-in duration-700">
+               {/* SDT UI Content */}
                <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md p-6 rounded-[2rem] shadow-xl border border-slate-100 flex items-center justify-center mb-8">
                   <div className={`px-6 py-3 rounded-2xl border-4 transition-all ${timeLeft < 60 ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 'bg-slate-900 border-slate-800 text-white'}`}><div className="flex items-center gap-3"><Timer size={20} /><span className="text-xl font-black font-mono">{formatTime(timeLeft)}</span></div></div>
                </div>
@@ -658,9 +734,11 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
             </div>
           );
       } else {
+          // Uploading phases
           if (phase === PsychologyPhase.UPLOADING_WAT) {
               return (
                   <div className="max-w-4xl mx-auto space-y-8 pb-20 animate-in fade-in">
+                      {/* ... Header and Uploads ... */}
                       <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
                           <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3"><Upload className="text-blue-600" size={24}/> Handwritten Response Verification</h3>
                           <div className="space-y-6 mb-8">
@@ -688,6 +766,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           } else if (phase === PsychologyPhase.UPLOADING_SRT) {
               return (
                   <div className="max-w-4xl mx-auto space-y-8 pb-20 animate-in fade-in">
+                      {/* ... Header and Uploads ... */}
                       <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
                           <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3"><Upload className="text-blue-600" size={24}/> Handwritten Response Verification</h3>
                           <div className="space-y-6 mb-8">
@@ -716,7 +795,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
               return (
                 <div className="max-w-5xl mx-auto space-y-12 pb-20 animate-in slide-in-from-bottom-20">
                    <div className="text-center space-y-6"><h2 className="text-5xl font-black text-slate-900 uppercase tracking-tighter">Dossier Submission</h2><p className="text-slate-500 font-medium italic">"Upload your written responses for psychometric evaluation."</p></div>
-                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{items.map((item, index) => { const hasImage = !!tatUploads[index]; const isTranscribing = transcribingIndices.includes(index); return (
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{items.map((item, index) => { const hasImage = !!tatUploads[index]; const hasText = !!tatTexts[index]; const isTranscribing = transcribingIndices.includes(index); return (
                       <div key={index} className={`bg-white rounded-[2.5rem] p-6 border-2 relative overflow-hidden transition-all ${hasImage ? 'border-green-100 shadow-md' : 'border-slate-100 shadow-sm'}`}>
                           <div className="flex justify-between items-center mb-4"><span className="font-black text-slate-300 text-xl select-none">{(index + 1).toString().padStart(2, '0')}</span>{hasImage && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded font-bold uppercase">Uploaded</span>}</div>
                           {hasImage ? (
@@ -760,6 +839,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   }
 
   if (phase === PsychologyPhase.COMPLETED) {
+    // SPECIAL HANDLING FOR GUEST SDT - RESTRICTED VIEW
     if (isGuest && type === TestType.SDT) {
         return (
             <div className="fixed inset-0 z-[200] bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
@@ -789,6 +869,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
         );
     }
 
+    // ERROR STATE UI (Saving Fallback)
     if (feedback?.error) {
         return (
             <div className="max-w-2xl mx-auto py-20 text-center animate-in fade-in slide-in-from-bottom-8">
@@ -817,100 +898,261 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
     return (
         <div className="max-w-6xl mx-auto space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-12 print:bg-white print:p-0 print:m-0 print:max-w-none">
+            {/* Print Styles Injection */}
             <style>
                 {`
                   @media print {
                     body * { visibility: hidden; }
-                    .print-section, .print-section * { visibility: visible; }
-                    .print-section { position: absolute; left: 0; top: 0; width: 100%; height: auto; z-index: 9999; padding: 20px; }
+                    .print\\:bg-white, .print\\:bg-white * { visibility: visible; }
+                    .print\\:bg-white { position: absolute; left: 0; top: 0; width: 100%; height: auto; z-index: 9999; padding: 20px; }
                     .no-print { display: none !important; }
+                    .bg-slate-900 { background-color: #1e293b !important; color: white !important; -webkit-print-color-adjust: exact; }
+                    .text-white { color: white !important; }
+                    .bg-white { background-color: white !important; }
                   }
                 `}
             </style>
 
-            <div className="print-section space-y-12">
-                <div className="bg-slate-900 text-white p-12 md:p-16 rounded-[3rem] shadow-2xl relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-10 print:rounded-none">
-                    <div className="space-y-4 text-center md:text-left z-10">
-                        <span className="bg-yellow-400 text-black px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest">Psychology Report</span>
-                        <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter">{type} Verdict</h2>
-                        {feedback?.generalFeedback && <p className="text-lg text-slate-300 font-medium italic">"{feedback.generalFeedback}"</p>}
-                    </div>
-                    <div className="flex flex-col items-center bg-white/5 p-8 md:p-12 rounded-[2.5rem] border border-white/10 backdrop-blur-3xl shadow-2xl z-10">
-                        <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 mb-4">Board Grade</span>
-                        <div className="text-7xl md:text-9xl font-black text-yellow-400">{feedback?.score || 0}</div>
-                        {speedAnalysis && (
-                            <div className={`mt-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest text-white ${speedAnalysis.color}`}>
-                                {speedAnalysis.label}
-                            </div>
-                        )}
-                    </div>
+            {/* Conditional Result Header */}
+            <div className="bg-slate-900 text-white p-12 md:p-16 rounded-[3rem] shadow-2xl relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-10 print:rounded-none print:p-8 print:border-b-2 print:border-black">
+                <div className="space-y-4 text-center md:text-left z-10">
+                    <span className="bg-yellow-400 text-black px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest print:border print:border-black">Psychology Report</span>
+                    <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter">{type} Verdict</h2>
+                    {feedback?.verdict && type !== TestType.WAT && type !== TestType.SRT && <p className="text-xl text-slate-300 font-medium italic">"{feedback.verdict}"</p>}
+                    {(type === TestType.WAT || type === TestType.SRT) && feedback?.generalFeedback && <p className="text-lg text-slate-300 font-medium italic">"{feedback.generalFeedback}"</p>}
                 </div>
-
-                <div className="grid md:grid-cols-2 gap-8">
-                <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl border-2 border-slate-50">
-                    <h4 className="font-black text-xs uppercase tracking-[0.3em] text-green-600 mb-8 flex items-center gap-4"><CheckCircle className="w-6 h-6" /> Key Strengths</h4>
-                    <div className="space-y-4">
-                        {feedback?.strengths?.map((s: string, i: number) => (
-                        <div key={i} className="flex gap-4 p-5 bg-green-50 rounded-2xl border border-green-100 text-slate-800 text-sm font-bold">
-                            <CheckCircle className="w-5 h-5 text-green-500 shrink-0" /> {s}
+                
+                <div className="flex gap-4 z-20 no-print absolute top-8 right-8">
+                    <button 
+                        onClick={handleDownloadReport}
+                        className="p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors backdrop-blur-md"
+                        title="Download Report PDF"
+                    >
+                        <Download size={20} />
+                    </button>
+                </div>
+                
+                {(type === TestType.WAT || type === TestType.SRT) ? (
+                    // NEW SCOREBOARD FOR WAT/SRT
+                    <div className="flex gap-6 z-10">
+                        <div className="bg-white/10 p-6 rounded-[2rem] border border-white/10 backdrop-blur-md text-center min-w-[140px] print:border-black print:text-black">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2 print:text-black">Psych Grade</span>
+                            <span className="text-5xl font-black text-yellow-400 print:text-black">{feedback?.score || "N/A"}<span className="text-lg text-white/50 print:text-black">/10</span></span>
+                            {/* Score Description */}
+                            <span className="block mt-2 text-[10px] font-black uppercase tracking-widest bg-white/20 px-2 py-1 rounded text-white print:text-black print:border print:border-black">
+                                {getScoreDescription(feedback?.score || 0)}
+                            </span>
                         </div>
-                        ))}
-                    </div>
-                </div>
-                <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl border-2 border-slate-50">
-                    <h4 className="font-black text-xs uppercase tracking-[0.3em] text-red-500 mb-8 flex items-center gap-4"><AlertCircle className="w-6 h-6" /> Areas of Concern</h4>
-                    <div className="space-y-4">
-                        {feedback?.weaknesses?.map((w: string, i: number) => (
-                        <div key={i} className="flex gap-4 p-5 bg-red-50 rounded-2xl border border-red-100 text-slate-800 text-sm font-bold">
-                            <AlertCircle className="w-5 h-5 text-red-500 shrink-0" /> {w}
+                        <div className="bg-white/10 p-6 rounded-[2rem] border border-white/10 backdrop-blur-md text-center min-w-[140px] print:border-black">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2 print:text-black">Speed / Attempts</span>
+                            <span className="text-5xl font-black text-white print:text-black">{feedback?.attemptedCount || 0} <span className="text-2xl text-slate-400 print:text-black">/ 60</span></span>
+                            {/* Dynamic Attempt Analysis Label */}
+                            {speedAnalysis && (
+                                <span className={`block mt-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded text-white ${speedAnalysis.color} print:text-black print:border`}>
+                                    {speedAnalysis.label}
+                                </span>
+                            )}
                         </div>
-                        ))}
                     </div>
-                </div>
-                </div>
-
-                {feedback?.detailedAnalysis && (
-                    <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl border border-slate-100 space-y-8">
-                        <h4 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-4"><Target className="text-blue-600" /> Itemized Assessment</h4>
-                        <div className="space-y-6">
-                            {feedback.detailedAnalysis.map((item: any, i: number) => (
-                                <div key={i} className="flex flex-col md:flex-row gap-6 p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:bg-white hover:shadow-xl transition-all">
-                                    <div className="md:w-1/4">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Word / Situation</span>
-                                        <p className="font-black text-slate-900 uppercase">{item.word || item.situation}</p>
-                                    </div>
-                                    <div className="md:w-3/4 grid md:grid-cols-2 gap-6">
-                                        <div>
-                                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest block mb-1">Your Reaction</span>
-                                            <p className="text-sm font-medium text-slate-700 italic">"{item.userResponse || 'Not Attempted'}"</p>
-                                        </div>
-                                        <div className="bg-green-100/50 p-4 rounded-2xl">
-                                            <span className="text-[9px] font-black text-green-700 uppercase tracking-widest block mb-1">Board's Ideal Path</span>
-                                            <p className="text-xs font-bold text-slate-700">{item.idealResponse}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                ) : (
+                    // STANDARD SCORE FOR OTHERS
+                    <div className="bg-white/10 p-8 rounded-[3rem] border border-white/10 backdrop-blur-md text-center min-w-[200px] z-10 print:border-black">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2 print:text-black">Score</span>
+                        <span className="text-7xl font-black text-yellow-400 print:text-black">{feedback?.score || "N/A"}</span>
                     </div>
                 )}
             </div>
 
-            {userId && <SessionFeedback testType={type} userId={userId} />}
+            {/* WAT/SRT SPECIFIC SCOREBOARD & ANALYSIS */}
+            {(type === TestType.WAT || type === TestType.SRT) && feedback?.qualityStats && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3">
+                    {/* Quality Card 1: Positive/Effective */}
+                    <div className="bg-green-50 p-6 rounded-[2.5rem] border border-green-100 flex flex-col items-center justify-center text-center shadow-sm print:border-black">
+                        <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center text-green-600 mb-3 print:hidden"><ThumbsUp size={24}/></div>
+                        <span className="text-4xl font-black text-slate-900">{feedback.qualityStats.positive || feedback.qualityStats.effective || 0}</span>
+                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest mt-1">High OLQ Responses</span>
+                    </div>
+                    {/* Quality Card 2: Neutral/Partial */}
+                    <div className="bg-blue-50 p-6 rounded-[2.5rem] border border-blue-100 flex flex-col items-center justify-center text-center shadow-sm print:border-black">
+                        <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 mb-3 print:hidden"><MinusCircle size={24}/></div>
+                        <span className="text-4xl font-black text-slate-900">{feedback.qualityStats.neutral || feedback.qualityStats.partial || 0}</span>
+                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">Average Responses</span>
+                    </div>
+                    {/* Quality Card 3: Negative/Passive */}
+                    <div className="bg-red-50 p-6 rounded-[2.5rem] border border-red-100 flex flex-col items-center justify-center text-center shadow-sm print:border-black">
+                        <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center text-red-600 mb-3 print:hidden"><ThumbsDown size={24}/></div>
+                        <span className="text-4xl font-black text-slate-900">{feedback.qualityStats.negative || feedback.qualityStats.passive || 0}</span>
+                        <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest mt-1">Needs Improvement</span>
+                    </div>
+                </div>
+            )}
 
-            <div className="flex justify-center gap-6 no-print">
-               <button onClick={() => window.print()} className="px-10 py-5 bg-blue-600 text-white rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-blue-700 transition-all shadow-xl">
-                  <Printer size={16} /> Print Dossier
-               </button>
-               <button onClick={() => window.location.reload()} className="px-10 py-5 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl">
-                  Close & Report
-               </button>
-            </div>
+            {(type === TestType.WAT || type === TestType.SRT) && (
+                <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl space-y-8 print:shadow-none print:border-none print:p-0">
+                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                        <Activity size={24} className="text-purple-600" /> Detailed Assessment Log
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 print:block">
+                        {/* Map through ITEMS to ensure we show all 60, not just what AI returned */}
+                        {items.map((item, i) => {
+                            const itemId = i + 1;
+                            
+                            // 1. Try to find analysis strictly by ID (Best Case)
+                            const analysisById = feedback?.detailedAnalysis?.find((a: any) => a.id === itemId);
+                            
+                            // 2. Try to find analysis by exact text match (Fallback if AI dropped ID)
+                            const analysisByContent = !analysisById ? feedback?.detailedAnalysis?.find((a: any) => 
+                                (a.situation && a.situation === item.content) || 
+                                (a.word && a.word === item.content)
+                            ) : null;
+
+                            // 3. Final Analysis Object
+                            const analysis = analysisById || analysisByContent;
+
+                            // Determine if unattempted based on USER INPUT, not analysis existence
+                            const userResponseRaw = type === TestType.WAT ? watResponses[i] : srtResponses[i];
+                            const isUnattempted = !userResponseRaw || userResponseRaw.trim() === "";
+                            
+                            return (
+                                <div key={i} className={`p-6 rounded-3xl border transition-all flex flex-col md:flex-row gap-6 mb-4 print:break-inside-avoid ${isUnattempted ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100 hover:bg-white hover:shadow-md'}`}>
+                                    <div className="md:w-1/4 shrink-0 flex items-center gap-4">
+                                        <span className="text-2xl font-black text-slate-300">{(i + 1).toString().padStart(2, '0')}</span>
+                                        <p className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-wide leading-tight">{item.content}</p>
+                                    </div>
+                                    <div className="md:w-3/4 grid md:grid-cols-2 gap-6">
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between">
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Your Response</span>
+                                                {isUnattempted ? (
+                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-red-500">Missed</span>
+                                                ) : (
+                                                    <span className={`text-[9px] font-bold uppercase tracking-widest ${
+                                                        analysis?.assessment?.toLowerCase().includes('positive') ? 'text-green-600' : 'text-blue-600'
+                                                    }`}>{analysis?.assessment || "Pending"}</span>
+                                                )}
+                                            </div>
+                                            <p className={`p-3 rounded-xl text-sm font-medium ${isUnattempted ? 'bg-white text-red-400 border border-red-100 italic' : 'bg-white border border-slate-200 text-slate-700'}`}>
+                                                {isUnattempted ? "Not Attempted" : (analysis?.userResponse || userResponseRaw)}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <span className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Ideal Response</span>
+                                            <p className="p-3 bg-green-50 border border-green-100 rounded-xl text-sm font-medium text-slate-700">
+                                                {analysis?.idealResponse || "See general recommendations for improvement."}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* TAT: Observation & Analysis */}
+            {type === TestType.TAT && feedback?.individualStories && (
+                <div className="space-y-8 print:break-before-auto">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 print:hidden"><ScanEye size={24} /></div>
+                        <div>
+                            <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Observation Analysis</h3>
+                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Did you see what was actually there?</p>
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:block">
+                        {feedback.individualStories.map((story: any, i: number) => (
+                            <div key={i} className={`p-6 rounded-[2rem] border-2 transition-all mb-4 print:break-inside-avoid ${story.perceivedAccurately ? 'bg-white border-slate-100' : 'bg-red-50 border-red-200 shadow-md'} hover:shadow-xl`}>
+                                <div className="flex justify-between items-start mb-4">
+                                    <span className="font-black text-slate-400 uppercase tracking-widest text-xs">Story {story.storyIndex}</span>
+                                    {story.perceivedAccurately ? (
+                                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                                            <CheckCircle size={12} /> Accurate Perception
+                                        </span>
+                                    ) : (
+                                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                                            <ScanEye size={12} /> Observation Error
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-sm font-bold text-slate-800 mb-3 bg-slate-100/50 p-3 rounded-xl inline-block">{story.theme || "No Theme"}</p>
+                                <p className="text-xs text-slate-600 leading-relaxed p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <span className="font-black text-slate-400 uppercase tracking-widest text-[9px] block mb-2">Psychologist's Remark</span>
+                                    {story.analysis}
+                                </p>
+                                <div className="mt-4 pt-4 border-t border-slate-100/50 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-blue-600">
+                                    <Target size={12} /> OLQ Projected: {story.olqProjected}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* SDT Specifics */}
+            {type === TestType.SDT && feedback?.consistencyAnalysis && (
+                <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl space-y-6 print:border-black print:shadow-none">
+                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3"><Brain size={24} className="text-blue-600" /> Consistency Check</h3>
+                    <p className="text-sm text-slate-600 leading-relaxed font-medium p-6 bg-slate-50 rounded-3xl border border-slate-200">{feedback.consistencyAnalysis}</p>
+                </div>
+            )}
+
+            {/* General Feedback - Show for all except WAT/SRT which has specific layout */}
+            {type !== TestType.WAT && type !== TestType.SRT && (
+                <div className="grid md:grid-cols-2 gap-8 print:block">
+                    <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 mb-4 print:border-black print:shadow-none">
+                        <h4 className="font-black text-green-600 uppercase tracking-widest mb-6 flex items-center gap-3"><CheckCircle size={20}/> Strengths</h4>
+                        <ul className="space-y-3">
+                            {feedback?.strengths?.map((s: string, i: number) => (
+                                <li key={i} className="text-sm font-bold text-slate-700 flex gap-3"><span className="w-1.5 h-1.5 rounded-full bg-green-500 mt-2 shrink-0"/> {s}</li>
+                            ))}
+                        </ul>
+                    </div>
+                    <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 mb-4 print:border-black print:shadow-none">
+                        <h4 className="font-black text-red-500 uppercase tracking-widest mb-6 flex items-center gap-3"><AlertCircle size={20}/> Areas for Improvement</h4>
+                        <ul className="space-y-3">
+                            {feedback?.weaknesses?.map((w: string, i: number) => (
+                                <li key={i} className="text-sm font-bold text-slate-700 flex gap-3"><span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 shrink-0"/> {w}</li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+            )}
+
+            {type !== TestType.WAT && type !== TestType.SRT && (
+                <div className="bg-blue-50 p-8 md:p-12 rounded-[3rem] border border-blue-100 text-center space-y-6 print:border-black print:bg-white">
+                    <h4 className="font-black text-blue-800 uppercase tracking-widest text-sm print:text-black">Psychologist's Final Recommendation</h4>
+                    <p className="text-lg md:text-2xl font-medium text-blue-900 italic max-w-3xl mx-auto leading-relaxed print:text-black">"{feedback?.recommendations}"</p>
+                </div>
+            )}
+
+            {/* FEEDBACK INTEGRATION - Hide in print */}
+            {userId && (
+                <div className="no-print">
+                    <SessionFeedback testType={type} userId={userId} />
+                </div>
+            )}
+
+            {isGuest ? (
+                <button 
+                  onClick={onLoginRedirect}
+                  className="w-full py-6 md:py-7 bg-yellow-400 text-black rounded-full font-black uppercase tracking-widest text-xs hover:bg-yellow-300 transition-all shadow-2xl flex items-center justify-center gap-3 no-print"
+                >
+                  <LogIn size={16} /> Sign Up to Unlock More
+                </button>
+            ) : (
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="w-full py-6 md:py-7 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl no-print"
+                >
+                  Return to Barracks
+                </button>
+            )}
         </div>
-    );
+    )
   }
 
-  return null;
+  return null; 
 };
 
 export default PsychologyTest;
