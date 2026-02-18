@@ -21,33 +21,48 @@ export const STANDARD_WAT_SET = [
 // --- HELPER FUNCTIONS FOR ROBUST API CALLS ---
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const timeoutPromise = (ms: number) => new Promise((_, reject) => setTimeout(() => reject(new Error("Request Timeout")), ms));
 
 /**
- * Wraps generateContent with retry logic for 503 (Overloaded) errors.
- * Falls back to Flash model if Pro fails repeatedly.
+ * Wraps generateContent with retry logic.
+ * UPDATE: On 503 (Overloaded), it NOW switches to the fallback model IMMEDIATELY without waiting.
  */
 async function generateWithRetry(
     model: string, 
     params: any, 
-    retries = 2
+    retries = 1
 ): Promise<GenerateContentResponse> {
     try {
-        return await ai.models.generateContent({ ...params, model });
+        // Race API call against a 25s timeout
+        return await Promise.race([
+            ai.models.generateContent({ ...params, model }),
+            timeoutPromise(25000)
+        ]) as GenerateContentResponse;
     } catch (e: any) {
-        // Handle 503 (Service Unavailable) or 429 (Rate Limit)
-        const isOverloaded = e.status === 503 || (e.error && e.error.code === 503);
+        // Handle 503 (Service Unavailable) or Timeout
+        const isOverloaded = e.status === 503 || (e.error && e.error.code === 503) || e.message === "Request Timeout";
         
-        if (isOverloaded && retries > 0) {
-            console.warn(`Model ${model} overloaded. Retrying in 2s...`);
-            await wait(2000); // 2 second backoff
-            return generateWithRetry(model, params, retries - 1);
+        // IMMEDIATE FALLBACK STRATEGY
+        // If the main model (Pro) is overloaded, do not wait. Switch to Flash immediately.
+        if (isOverloaded && (model === 'gemini-3-pro-preview' || model.includes('gemini-3'))) {
+            console.warn(`Model ${model} overloaded/timeout. Switching to Gemini 2.0 Flash IMMEDIATELY.`);
+            try {
+                // Use gemini-2.0-flash as it is the most stable high-speed model currently
+                return await Promise.race([
+                    ai.models.generateContent({ ...params, model: 'gemini-2.0-flash' }),
+                    timeoutPromise(25000)
+                ]) as GenerateContentResponse;
+            } catch (fallbackError) {
+                console.error("Fallback model also failed:", fallbackError);
+                throw e; // Throw original or fallback error to trigger UI error state
+            }
         }
-        
-        // If Pro model fails after retries, fallback to Flash
-        if (model === 'gemini-3-pro-preview') {
-            console.warn("Pro model unavailable. Falling back to Gemini 2.5 Flash.");
-            // Gemini 2.5 Flash is highly stable for high QPS
-            return await ai.models.generateContent({ ...params, model: 'gemini-2.5-flash' });
+
+        // Standard Retry for non-503 errors (e.g., random network blips)
+        if (retries > 0) {
+            console.warn(`Model ${model} error ${e.status}. Retrying in 1s...`);
+            await wait(1000); 
+            return generateWithRetry(model, params, retries - 1);
         }
 
         throw e;
@@ -82,7 +97,7 @@ function generateErrorEvaluation() {
     return {
         score: 0,
         verdict: "Server Busy",
-        strengths: ["Persistance"],
+        strengths: ["Persistence"],
         weaknesses: ["Network/Server Issue"],
         recommendations: "The AI evaluator is currently overloaded due to high traffic. Your response has been saved locally. Please try viewing the report again in a few moments.",
         perception: { heroAge: "-", heroSex: "-", heroMood: "-", mainTheme: "-" },
@@ -143,7 +158,6 @@ export async function evaluateLecturette(topic: string, transcript: string, dura
     `;
 
     try {
-        /* fix: use robust retry wrapper */
         const response = await generateWithRetry(
             'gemini-3-pro-preview', 
             {
@@ -193,7 +207,6 @@ export async function evaluatePerformance(testType: string, userData: any) {
             - factorAnalysis: { factor1_planning, factor2_social, factor3_effectiveness, factor4_dynamic } (Short assessment for each)
             `;
 
-            /* fix: use robust retry wrapper */
             const response = await generateWithRetry(
                 'gemini-3-pro-preview',
                 {
@@ -242,7 +255,6 @@ export async function evaluatePerformance(testType: string, userData: any) {
 
             const parts: Part[] = [{ text: promptText }];
             
-            // Add sheet images if available
             const images = isWAT ? userData.watSheetImages : userData.srtSheetImages;
             if (images && images.length > 0) {
                 images.forEach((img: string, i: number) => {
@@ -251,7 +263,6 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 });
             }
 
-            // Add transcripts if available (Priority for SRT)
             if (!isWAT && userData.srtSheetTranscripts && userData.srtSheetTranscripts.length > 0) {
                  const combinedTranscript = userData.srtSheetTranscripts.filter((t: string) => t).join('\n\n--- PAGE BREAK ---\n\n');
                  if (combinedTranscript.trim()) {
@@ -259,7 +270,6 @@ export async function evaluatePerformance(testType: string, userData: any) {
                  }
             }
 
-            // Add transcripts if available (Priority for WAT)
             if (isWAT && userData.watSheetTranscripts && userData.watSheetTranscripts.length > 0) {
                  const combinedTranscript = userData.watSheetTranscripts.filter((t: string) => t).join('\n\n--- PAGE BREAK ---\n\n');
                  if (combinedTranscript.trim()) {
@@ -267,10 +277,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
                  }
             }
 
-            // Add text responses
             parts.push({ text: `Candidate Typed Responses (Reference for IDs): ${JSON.stringify(items)}` });
 
-            /* fix: use robust retry wrapper */
             const response = await generateWithRetry(
                 'gemini-3-pro-preview',
                 {
@@ -289,9 +297,9 @@ export async function evaluatePerformance(testType: string, userData: any) {
                                         positive: { type: Type.INTEGER },
                                         neutral: { type: Type.INTEGER },
                                         negative: { type: Type.INTEGER },
-                                        effective: { type: Type.INTEGER }, // For SRT
-                                        partial: { type: Type.INTEGER },   // For SRT
-                                        passive: { type: Type.INTEGER }    // For SRT
+                                        effective: { type: Type.INTEGER }, 
+                                        partial: { type: Type.INTEGER },   
+                                        passive: { type: Type.INTEGER }    
                                     }
                                 },
                                 detailedAnalysis: {
@@ -300,8 +308,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
                                         type: Type.OBJECT,
                                         properties: {
                                             id: { type: Type.INTEGER, description: "The original Question ID from the input list." },
-                                            word: { type: Type.STRING },      // For WAT
-                                            situation: { type: Type.STRING }, // For SRT
+                                            word: { type: Type.STRING },      
+                                            situation: { type: Type.STRING }, 
                                             userResponse: { type: Type.STRING },
                                             assessment: { type: Type.STRING },
                                             idealResponse: { type: Type.STRING }
@@ -324,7 +332,6 @@ export async function evaluatePerformance(testType: string, userData: any) {
             combinedTextForFallback = (userData.story || "") + " " + (userData.narration || "");
             const wordCount = combinedTextForFallback.split(/\s+/).length;
 
-            // GUARDRAIL: Short PPDT
             if (wordCount < 5) {
                 return generateFallbackEvaluation(testType, combinedTextForFallback);
             }
@@ -367,7 +374,6 @@ export async function evaluatePerformance(testType: string, userData: any) {
             parts.push({ text: `Candidate's Story: "${userData.story}"` });
             parts.push({ text: `Candidate's Narration: "${userData.narration}"` });
             
-            /* fix: use robust retry wrapper */
             const response = await generateWithRetry(
                 'gemini-3-pro-preview', 
                 {
@@ -436,7 +442,6 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 }
             }
             
-            /* fix: use robust retry wrapper */
             const response = await generateWithRetry(
                 'gemini-3-pro-preview',
                 {
@@ -485,7 +490,6 @@ export async function evaluatePerformance(testType: string, userData: any) {
             Check for consistency, honesty, and OLQs.`;
 
             const parts: Part[] = [{ text: prompt }];
-            // Add images if any
             if (userData.sdtImages) {
                 Object.keys(userData.sdtImages).forEach(key => {
                     const img = userData.sdtImages[key];
@@ -496,7 +500,6 @@ export async function evaluatePerformance(testType: string, userData: any) {
                 });
             }
 
-            /* fix: use robust retry wrapper */
             const response = await generateWithRetry(
                 'gemini-3-pro-preview',
                 {
@@ -572,7 +575,6 @@ export async function extractPIQFromImage(base64: string, mimeType: string) {
 
 export async function fetchDailyNews() {
     try {
-        /* fix: use robust retry wrapper */
         const response = await generateWithRetry(
             'gemini-3-flash-preview',
             {
@@ -590,7 +592,6 @@ export async function fetchDailyNews() {
 }
 
 export function createSSBChat(): Chat {
-    /* fix: use gemini-3-flash-preview for basic chat tasks */
     return ai.chats.create({
         model: 'gemini-3-flash-preview',
         config: {
