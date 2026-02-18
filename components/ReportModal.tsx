@@ -24,18 +24,11 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testTy
   const result = localData.result_data || localData; 
   const isError = result.score === 0 && (result.verdict === "Technical Failure" || result.error);
 
-  // Auto-Retry on Open if Error State
-  useEffect(() => {
-      if (isOpen && isError && !isRetrying) {
-          attemptRetry();
-      }
-  }, [isOpen]);
-
   const attemptRetry = async () => {
       if (isRetrying) return;
       setIsRetrying(true);
       try {
-          // Re-evaluate using saved raw inputs
+          // Re-evaluate using saved raw inputs preserved in result_data
           const newResult = await evaluatePerformance(testType, result);
           
           if (newResult && newResult.score > 0) {
@@ -146,7 +139,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testTy
                         {isError ? 'In Queue' : `Score: ${result.score}/10`}
                     </h2>
                     <p className={`text-sm font-medium ${isError ? 'text-slate-600' : 'text-slate-400'} print:text-slate-600`}>
-                        {isError ? "Assessment generation in progress. Please wait..." : (result.verdict || "Assessment Complete")}
+                        {isError ? "Assessment halted due to high server traffic. Click retry to analyze saved data." : (result.verdict || "Assessment Complete")}
                     </p>
                 </div>
                 {!isError && (
@@ -160,9 +153,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testTy
                 {isError && !isRetrying && (
                     <button 
                         onClick={attemptRetry}
-                        className="px-6 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 z-10 no-print"
+                        className="px-6 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 z-10 no-print shadow-lg"
                     >
-                        <RefreshCw size={14} /> Retry Generation
+                        <RefreshCw size={14} /> Retry Analysis
                     </button>
                 )}
             </div>
@@ -249,7 +242,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testTy
                     </div>
                 </div>
             ) : (
-                /* Standard Inputs for other tests (PPDT, etc) or Fallback if no detailed analysis */
+                /* Standard Inputs for other tests (PPDT, Interview, etc) or Fallback if no detailed analysis */
                 <div className="border-t border-slate-100 pt-8 space-y-6 print:break-before-auto">
                     <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
                         <Target size={20} className="text-slate-400"/> Your Dossier Inputs
@@ -282,7 +275,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testTy
                         </div>
                     )}
 
-                    {/* Fallback View for WAT/SRT if detailedAnalysis is missing (e.g. older records) */}
+                    {/* Fallback View for WAT/SRT if detailedAnalysis is missing (e.g. pending/older records) */}
                     {(testType.includes('WAT') || testType.includes('SRT')) && !result.detailedAnalysis && (
                         <div className="grid grid-cols-1 gap-3">
                             {(result.watResponses || result.srtResponses)?.map((item: any, i: number) => (

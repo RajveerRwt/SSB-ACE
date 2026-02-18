@@ -1,4 +1,5 @@
 
+// ... existing imports ...
 import { createClient } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
 
@@ -16,14 +17,13 @@ export const TEST_RATES = {
     LECTURETTE: 3, 
     SDT: 5,
     TAT: 10,
-    OIR: 10, // Updated to 10 Coins
-    OIR_SUDDEN_DEATH: 5, // New Rate for Sudden Death
+    OIR: 10, 
+    OIR_SUDDEN_DEATH: 5, 
     INTERVIEW_TRIAL: 20, 
     INTERVIEW_FULL: 100   
 };
 
-// --- OIR SERVICES ---
-
+// ... existing OIR services ...
 export const getOIRSets = async () => {
   const { data } = await supabase.from('oir_sets').select('*').order('created_at', { ascending: false });
   return data || [];
@@ -44,7 +44,6 @@ export const getOIRQuestions = async (setId: string) => {
   return data || [];
 };
 
-// NEW: Fetch random pool for Sudden Death
 export const getAllOIRQuestionsRandom = async (limit: number = 50) => {
   const { data } = await supabase.from('oir_questions').select('*').limit(100);
   if (!data) return [];
@@ -61,7 +60,6 @@ export const getOIRLeaderboard = async (type: 'STANDARD' | 'SUDDEN_DEATH' = 'STA
     .order('score', { ascending: false })
     .limit(50);
 
-  // Filter by Set ID if provided for Standard tests
   if (type === 'STANDARD' && setId) {
       query = query.contains('result_data', { setId: setId });
   }
@@ -78,7 +76,7 @@ export const getOIRLeaderboard = async (type: 'STANDARD' | 'SUDDEN_DEATH' = 'STA
       score: entry.score,
       date: entry.created_at,
       oirRating: entry.result_data?.oir || 5,
-      completed: entry.result_data?.completed, // For Sudden Death
+      completed: entry.result_data?.completed, 
       setId: entry.result_data?.setId
   }));
 };
@@ -111,8 +109,7 @@ export const postOIRDoubt = async (questionId: string, userId: string, userName:
   });
 };
 
-// --- CACHING SERVICE ---
-
+// ... existing cache services ...
 export const getCachedContent = async (category: string, dateKey: string) => {
   const { data } = await supabase
     .from('daily_cache')
@@ -134,8 +131,7 @@ export const setCachedContent = async (category: string, dateKey: string, conten
   if (error) console.error("Cache Write Error:", error);
 };
 
-// --- LECTURETTE CACHING ---
-
+// ... existing lecturette cache ...
 export const getLecturetteContent = async (topic: string) => {
   const { data } = await supabase
     .from('lecturette_topics')
@@ -158,8 +154,7 @@ export const saveLecturetteContent = async (topic: string, board: string, catego
   if (error) console.error("Error saving lecturette cache:", error);
 };
 
-// --- TICKER CONFIGURATION ---
-
+// ... existing ticker config ...
 export const getTickerConfig = async () => {
   const { data } = await supabase
     .from('ticker_config')
@@ -189,8 +184,7 @@ export const subscribeToTicker = (callback: (config: any) => void) => {
   return () => { supabase.removeChannel(channel); };
 };
 
-// --- AUTHENTICATION ---
-
+// ... existing auth ...
 export const signInWithEmail = async (email: string, password: string) => {
   const auth = supabase.auth as any;
   if (auth.signInWithPassword) {
@@ -303,8 +297,7 @@ export const syncUserProfile = async (user: any) => {
   }
 };
 
-// --- USER DATA ---
-
+// ... existing user data services ...
 export const getUserData = async (userId: string): Promise<PIQData | null> => {
   const { data } = await supabase
     .from('aspirants')
@@ -358,6 +351,7 @@ export const saveTestAttempt = async (userId: string, testType: string, resultDa
     });
 };
 
+// ** NEW: Update existing test record with new analysis **
 export const updateTestAttempt = async (id: string, resultData: any) => {
     await supabase
       .from('test_history')
@@ -629,12 +623,7 @@ export const submitDailyEntry = async (challengeId: string, oirAnswer: string, w
   });
 };
 
-/**
- * Hyper-robust fetch for daily submissions.
- * Cross-references both aspirants AND user_subscriptions to ensure names are found even if RLS or data syncing is patchy.
- */
 export const getDailySubmissions = async (challengeId: string) => {
-  // 1. Fetch Submissions Raw
   const { data: submissions, error: subError } = await supabase
     .from('daily_submissions')
     .select('*')
@@ -643,21 +632,14 @@ export const getDailySubmissions = async (challengeId: string) => {
 
   if (subError || !submissions || submissions.length === 0) return [];
 
-  // 2. Extract unique user IDs
   const userIds = [...new Set(submissions.map(r => r.user_id))];
   
-  // 3. Manually fetch profiles from multiple possible sources
   const [{ data: profiles }] = await Promise.all([
       supabase.from('aspirants').select('user_id, full_name, streak_count').in('user_id', userIds)
   ]);
       
-  // 4. Merge Data
   return submissions.map(sub => {
-      // Find name in primary profile table
       const profile = profiles?.find(p => p.user_id === sub.user_id);
-      
-      // If profile is missing (RLS usually), we try to verify existence or return a slightly better default
-      // Note: If RLS is strictly "only my row", 'profiles' will only have the current user's data.
       return {
           ...sub,
           aspirants: profile || { 

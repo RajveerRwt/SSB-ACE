@@ -33,10 +33,10 @@ async function generateWithRetry(
     retries = 2
 ): Promise<GenerateContentResponse> {
     try {
-        // Race API call against a 30s timeout
+        // Race API call against a 40s timeout (Increased to reduce timeout errors)
         return await Promise.race([
             ai.models.generateContent({ ...params, model }),
-            timeoutPromise(30000)
+            timeoutPromise(40000)
         ]) as GenerateContentResponse;
     } catch (e: any) {
         // Extensive Error Parsing for 503/Overloaded/Unavailable/Timeout
@@ -59,7 +59,7 @@ async function generateWithRetry(
             
             // Fallback Priority Chain
             // 1. Try gemini-3-flash-preview (Fast, High Capacity)
-            // 2. Try gemini-flash-latest (Reliable Legacy)
+            // 2. Try gemini-flash-latest (Reliable Legacy 1.5 Flash)
             
             let fallbackModel = '';
             if (model === 'gemini-3-pro-preview') fallbackModel = 'gemini-3-flash-preview';
@@ -72,11 +72,23 @@ async function generateWithRetry(
                     // Try fallback immediately
                     return await Promise.race([
                         ai.models.generateContent({ ...params, model: fallbackModel }),
-                        timeoutPromise(30000)
+                        timeoutPromise(40000)
                     ]) as GenerateContentResponse;
                 } catch (fallbackError: any) {
                     console.error(`Fallback ${fallbackModel} also failed:`, fallbackError);
-                    // If fallback fails, proceed to standard retry
+                    
+                    // LEVEL 3 FALLBACK: If 3-Flash fails, try 1.5 Flash (Most Stable)
+                    if (fallbackModel === 'gemini-3-flash-preview') {
+                         console.warn("Attempting final fallback: gemini-flash-latest");
+                         try {
+                            return await Promise.race([
+                                ai.models.generateContent({ ...params, model: 'gemini-flash-latest' }),
+                                timeoutPromise(40000)
+                            ]) as GenerateContentResponse;
+                         } catch (finalError) {
+                             console.error("All models exhausted.");
+                         }
+                    }
                 }
             }
         }
@@ -120,13 +132,13 @@ function generateFallbackEvaluation(testType: string, text: string) {
 function generateErrorEvaluation() {
     return {
         score: 0,
-        verdict: "Server Busy",
-        strengths: ["Persistence"],
-        weaknesses: ["Network/Server Issue"],
-        recommendations: "The AI evaluator is currently overloaded due to high traffic. Your response has been saved locally. Please try viewing the report again in a few moments.",
+        verdict: "Technical Failure",
+        strengths: ["Data Saved"],
+        weaknesses: ["Server Busy"],
+        recommendations: "The AI is currently overloaded. Your response has been saved locally. Please use the 'Retry Generation' button in the report to analyze this data again in a few moments.",
         perception: { heroAge: "-", heroSex: "-", heroMood: "-", mainTheme: "-" },
         storyAnalysis: { action: "-", outcome: "-", coherence: "-" },
-        observationAnalysis: "Analysis unavailable due to technical interruption.",
+        observationAnalysis: "Analysis pending due to high traffic.",
         scoreDetails: { perception: 0, content: 0, expression: 0 },
         error: true
     };
@@ -206,7 +218,7 @@ export async function evaluateLecturette(topic: string, transcript: string, dura
         return safeJSONParse(response.text || "") || generateErrorEvaluation();
     } catch (e) {
         console.error("Lecturette Eval Failed", e);
-        return generateErrorEvaluation();
+        return { ...generateErrorEvaluation(), transcript }; // Return inputs
     }
 }
 
@@ -550,7 +562,11 @@ export async function evaluatePerformance(testType: string, userData: any) {
         return generateErrorEvaluation();
     } catch (e) {
         console.error("Evaluation API Error:", e);
-        return generateErrorEvaluation();
+        // CRITICAL FIX: Return inputs so they can be saved to Supabase for later retry
+        return { 
+            ...generateErrorEvaluation(), 
+            ...userData 
+        };
     }
 }
 
