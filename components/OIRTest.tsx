@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Clock, CheckCircle, AlertTriangle, ChevronRight, ChevronLeft, Flag, HelpCircle, Loader2, Play, Lock, RefreshCw, Send, MessageSquare, Lightbulb, X, Coins, Maximize2, Trophy, Flame, Timer, Skull, Crown, Medal, Share2, Linkedin, Twitter, Instagram, Filter, Target } from 'lucide-react';
 import { getOIRSets, getOIRQuestions, getOIRDoubts, postOIRDoubt, checkAuthSession, TEST_RATES, getOIRLeaderboard, getAllOIRQuestionsRandom, saveTestAttempt } from '../services/supabaseService';
@@ -112,6 +111,7 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
         setActiveSet(set);
         setTimeLeft(set.time_limit_seconds);
         setMode('TEST');
+        setCurrentQIndex(0);
     } catch (e) {
         alert("Failed to load questions.");
     } finally {
@@ -202,7 +202,10 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
       }
       
       // Load doubts for first question immediately
-      if (questions.length > 0) loadDoubts(questions[0].id);
+      if (questions.length > 0) {
+          setCurrentQIndex(0);
+          loadDoubts(questions[0].id);
+      }
   };
 
   const handleSuddenDeathAnswer = (optionIndex: number) => {
@@ -530,7 +533,7 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
   if (mode === 'TEST') {
       const currentQ = questions[currentQIndex];
       return (
-          <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in">
+          <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in pb-20">
               {/* Top Bar */}
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center sticky top-4 z-20">
                   <div>
@@ -542,8 +545,39 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                   </div>
               </div>
 
+              {/* NEW: Question Palette Grid for quick jumping */}
+              <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg mb-6">
+                  <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4 flex items-center gap-2">
+                      <Target size={12} /> Jump to Question
+                  </h5>
+                  <div className="flex flex-wrap gap-2">
+                      {questions.map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setCurrentQIndex(i)}
+                            className={`w-10 h-10 rounded-xl font-black text-xs flex items-center justify-center transition-all border-2 ${
+                                i === currentQIndex
+                                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg scale-110'
+                                    : userAnswers[i] !== -1
+                                    ? 'bg-teal-50 text-teal-600 border-teal-100 hover:border-teal-300'
+                                    : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
+                            }`}
+                          >
+                              {i + 1}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+
               {/* Question Area */}
-              <div className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-xl border border-slate-100 min-h-[400px] flex flex-col">
+              <div className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-xl border border-slate-100 min-h-[400px] flex flex-col relative overflow-hidden transition-all duration-300">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-slate-50">
+                      <div 
+                        className="h-full bg-slate-900 transition-all duration-500 ease-out" 
+                        style={{ width: `${((currentQIndex + 1) / questions.length) * 100}%` }}
+                      />
+                  </div>
+
                   {currentQ.image_url && (
                       <div 
                         className="mb-6 flex justify-center relative group cursor-zoom-in"
@@ -568,45 +602,60 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
                                 newAns[currentQIndex] = idx;
                                 setUserAnswers(newAns);
                             }}
-                            className={`p-4 rounded-xl text-left font-bold text-sm transition-all border-2 ${userAnswers[currentQIndex] === idx ? 'border-teal-500 bg-teal-50 text-teal-800' : 'border-slate-100 hover:border-slate-300 bg-slate-50'}`}
+                            className={`p-4 rounded-xl text-left font-bold text-sm transition-all border-2 ${userAnswers[currentQIndex] === idx ? 'border-teal-500 bg-teal-50 text-teal-800' : 'border-slate-100 hover:border-slate-300 bg-slate-50 hover:bg-white shadow-sm'}`}
                           >
-                              <span className="mr-3 font-black text-slate-400">{String.fromCharCode(65 + idx)}.</span>
-                              {opt}
+                              <div className="flex items-center">
+                                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center mr-4 font-black transition-colors ${userAnswers[currentQIndex] === idx ? 'bg-teal-500 text-white' : 'bg-white border border-slate-200 text-slate-400'}`}>
+                                      {String.fromCharCode(65 + idx)}
+                                  </span>
+                                  <span className="flex-1">{opt}</span>
+                              </div>
                           </button>
                       ))}
                   </div>
               </div>
 
               {/* Nav Bar */}
-              <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100">
+              <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-md">
                   <button 
                     disabled={currentQIndex === 0}
                     onClick={() => setCurrentQIndex(prev => prev - 1)}
-                    className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs tracking-widest disabled:opacity-50 hover:bg-slate-200"
+                    className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs tracking-widest disabled:opacity-50 hover:bg-slate-200 transition-all flex items-center gap-2"
                   >
-                      Prev
+                      <ChevronLeft size={16} /> Prev
                   </button>
                   
-                  {/* Quick Nav Grid */}
-                  <div className="hidden md:flex gap-1">
+                  {/* Interactive Quick Nav Grid */}
+                  <div className="hidden md:flex gap-1.5 overflow-x-auto max-w-[50%] p-1 custom-scrollbar">
                       {questions.map((_, i) => (
-                          <div key={i} className={`w-2 h-2 rounded-full ${i === currentQIndex ? 'bg-slate-900 scale-125' : userAnswers[i] !== -1 ? 'bg-teal-500' : 'bg-slate-200'}`} />
+                          <button 
+                            key={i} 
+                            onClick={() => setCurrentQIndex(i)}
+                            className={`w-3 h-3 rounded-full transition-all shrink-0 hover:scale-125 ${
+                                i === currentQIndex 
+                                    ? 'bg-slate-900 ring-2 ring-slate-900 ring-offset-2 scale-125' 
+                                    : userAnswers[i] !== -1 
+                                    ? 'bg-teal-500' 
+                                    : 'bg-slate-200 hover:bg-slate-300'
+                            }`}
+                            title={`Go to question ${i + 1}`}
+                          />
                       ))}
                   </div>
 
                   {currentQIndex === questions.length - 1 ? (
                       <button 
                         onClick={submitTest}
-                        className="px-8 py-3 bg-red-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-red-700 shadow-lg"
+                        className="px-8 py-3 bg-red-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-red-700 shadow-lg transition-all flex items-center gap-2"
                       >
-                          Submit Test
+                          <CheckCircle size={16} /> Submit Test
                       </button>
                   ) : (
                       <button 
                         onClick={() => setCurrentQIndex(prev => prev + 1)}
-                        className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-black"
+                        className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all flex items-center gap-2"
                       >
-                          Next
+                          Next <ChevronRight size={16} />
                       </button>
                   )}
               </div>
