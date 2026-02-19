@@ -230,12 +230,10 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           const result = await evaluatePerformance(type, inputData);
           setFeedback(result);
           if (userId && !isGuest) await saveAssessmentReport(userId, 'SDT', inputData, result);
-          if (onSave) onSave(result); // For usage increment
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) {
           const fallback = { score: 0, error: true }; setFeedback(fallback);
           if (userId && !isGuest) await saveAssessmentReport(userId, 'SDT', inputData, fallback);
-          if (onSave) onSave(fallback);
           setPhase(PsychologyPhase.COMPLETED);
       }
   };
@@ -251,12 +249,10 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           const result = await evaluatePerformance(type, inputData);
           setFeedback(result);
           if (userId && !isGuest) await saveAssessmentReport(userId, 'SRT', inputData, result);
-          if (onSave) onSave(result);
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { 
           const fallback = { score: 0, error: true }; setFeedback(fallback);
           if (userId && !isGuest) await saveAssessmentReport(userId, 'SRT', inputData, fallback);
-          if (onSave) onSave(fallback);
           setPhase(PsychologyPhase.COMPLETED);
       }
   };
@@ -272,21 +268,19 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           const result = await evaluatePerformance(type, inputData);
           setFeedback(result);
           if (userId && !isGuest) await saveAssessmentReport(userId, 'WAT', inputData, result);
-          if (onSave) onSave(result);
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { 
           const fallback = { score: 0, error: true }; setFeedback(fallback);
           if (userId && !isGuest) await saveAssessmentReport(userId, 'WAT', inputData, fallback);
-          if (onSave) onSave(fallback);
           setPhase(PsychologyPhase.COMPLETED);
       }
   };
 
   const submitDossier = async () => {
     setPhase(PsychologyPhase.EVALUATING);
-    let inputData: any = {};
+    let tatPairs: any[] = [];
     try {
-      const tatPairs = await Promise.all(items.map(async (item, index) => {
+      tatPairs = await Promise.all(items.map(async (item, index) => {
         const userStoryImage = tatUploads[index]; if (!userStoryImage) return null;
         let stimulusBase64: string | undefined = undefined;
         const url = pregeneratedImages[item.id];
@@ -296,17 +290,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
         }
         return { storyIndex: index + 1, stimulusImage: stimulusBase64, stimulusDesc: item.content, userStoryImage: userStoryImage, userStoryText: tatTexts[index] };
       }));
-      
-      inputData = { tatPairs: tatPairs.filter(p => p !== null), testType: type };
+      const inputData = { tatPairs: tatPairs.filter(p => p !== null), testType: type };
       const result = await evaluatePerformance(type, inputData);
       setFeedback(result);
       if (userId && !isGuest) await saveAssessmentReport(userId, 'TAT', inputData, result);
-      if (onSave) onSave(result);
       setPhase(PsychologyPhase.COMPLETED);
     } catch (err) { 
         const fallback = { score: 0, error: true }; setFeedback(fallback);
-        if (userId && !isGuest) await saveAssessmentReport(userId, 'TAT', inputData, fallback);
-        if (onSave) onSave(fallback);
+        if (userId && !isGuest) await saveAssessmentReport(userId, 'TAT', {}, fallback);
         setPhase(PsychologyPhase.COMPLETED); 
     }
   };

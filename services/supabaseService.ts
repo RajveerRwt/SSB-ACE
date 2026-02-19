@@ -52,6 +52,20 @@ export const saveAssessmentReport = async (userId: string, testType: string, inp
     return data;
 };
 
+// Added missing saveTestAttempt function to fix errors in App.tsx and OIRTest.tsx
+export const saveTestAttempt = async (userId: string, testType: string, resultData: any) => {
+    const { error } = await supabase
+      .from('test_history')
+      .insert({
+          user_id: userId,
+          test_type: testType,
+          score: resultData.score || 0,
+          result_data: resultData,
+          created_at: new Date().toISOString()
+      });
+    return !error;
+};
+
 export const getAssessmentReports = async (userId: string) => {
     const { data, error } = await supabase
       .from('assessment_reports')
@@ -155,6 +169,36 @@ export const checkAuthSession = async () => { const auth = supabase.auth as any;
 export const subscribeToAuthChanges = (callback: (user: any) => void) => { const auth = supabase.auth as any; const { data } = auth.onAuthStateChange((_event: any, session: any) => { callback(session?.user || null); }); return () => { if (data?.subscription?.unsubscribe) data.subscription.unsubscribe(); }; };
 export const isUserAdmin = (email: string | null | undefined) => { const adminEmails = ['rajveerrawat947@gmail.com', 'admin@ssbprep.online']; return email ? adminEmails.includes(email) : false; };
 
+// Added missing getAllUsers function for AdminPanel.tsx
+export const getAllUsers = async () => {
+    const { data, error } = await supabase
+      .from('aspirants')
+      .select(`
+          user_id, 
+          email, 
+          full_name, 
+          last_active, 
+          subscription_data:user_subscriptions(tier, coins),
+          test_history(test_type, score, created_at)
+      `)
+      .order('last_active', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+};
+
+// Added missing deleteUserProfile function for AdminPanel.tsx
+export const deleteUserProfile = async (userId: string) => {
+    // Delete related records manually if foreign key cascading is not configured
+    await supabase.from('test_history').delete().eq('user_id', userId);
+    await supabase.from('user_subscriptions').delete().eq('user_id', userId);
+    await supabase.from('assessment_reports').delete().eq('user_id', userId);
+    await supabase.from('payment_requests').delete().eq('user_id', userId);
+    
+    const { error } = await supabase.from('aspirants').delete().eq('user_id', userId);
+    if (error) throw error;
+};
+
 export const syncUserProfile = async (user: any) => {
   if (!user) return;
   const fullName = user.user_metadata?.full_name || user.user_metadata?.name || 'Cadet';
@@ -170,11 +214,7 @@ export const saveUserData = async (userId: string, data: PIQData) => { await sup
 
 export const getUserHistory = async (userId: string) => {
   const { data } = await supabase.from('assessment_reports').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(20);
-  return data?.map((item: any) => ({
-      ...item,
-      type: item.test_type, // Ensure compatibility with existing dashboard
-      timestamp: item.created_at
-  })) || [];
+  return data || [];
 };
 
 export const getUserStreak = async (userId: string) => { const { data } = await supabase.from('aspirants').select('streak_count').eq('user_id', userId).maybeSingle(); return data || { streak_count: 0 }; };
@@ -211,6 +251,23 @@ export const activatePlanForUser = async (userId: string, planType: string, amou
     await supabase.from('user_subscriptions').update({ coins: (sub?.coins || 0) + coinsToAdd }).eq('user_id', userId);
 };
 
+// Added missing processRazorpayTransaction function to fix error in PaymentModal.tsx
+export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, coupon: string, coins: number) => {
+    // Record the transaction locally
+    const { error: reqError } = await supabase.from('payment_requests').insert({
+        user_id: userId,
+        utr: paymentId,
+        amount: amount,
+        plan_type: planType,
+        status: 'APPROVED'
+    });
+
+    if (reqError) throw reqError;
+    
+    // Immediately credit coins since Razorpay is a real-time gateway
+    await activatePlanForUser(userId, planType, amount, coins);
+};
+
 export const getPPDTScenarios = async () => { const { data } = await supabase.from('ppdt_scenarios').select('*'); return data || []; };
 export const uploadPPDTScenario = async (file: File, description: string) => { const fileName = `ppdt-${Date.now()}-${file.name}`; await supabase.storage.from('scenarios').upload(fileName, file); const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName); await supabase.from('ppdt_scenarios').insert({ image_url: publicUrl, description }); };
 export const deletePPDTScenario = async (id: string, url: string) => { const fileName = url.split('/').pop(); if (fileName) await supabase.storage.from('scenarios').remove([fileName]); await supabase.from('ppdt_scenarios').delete().eq('id', id); };
@@ -240,8 +297,3 @@ export const sendAnnouncement = async (message: string, type: 'INFO' | 'WARNING'
 export const submitUserFeedback = async (userId: string, testType: string, rating: number, comments: string) => { await supabase.from('user_feedback').insert({ user_id: userId, test_type: testType, rating: rating, comments: comments }); };
 export const getAllFeedback = async () => { const { data } = await supabase.from('user_feedback').select('*, aspirants(full_name, email)').order('created_at', { ascending: false }); return data || []; };
 export const deleteFeedback = async (id: string) => { await supabase.from('user_feedback').delete().eq('id', id); };
-export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode?: string, coinsCredit?: number) => {};
-export const getAllUsers = async () => {return []};
-export const deleteUserProfile = async (userId: string) => {};
-export const saveTestAttempt = async (userId: string, testType: string, resultData: any) => {};
-export const updateTestAttempt = async (id: string, resultData: any) => {};

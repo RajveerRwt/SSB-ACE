@@ -225,8 +225,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
       setFeedback(result);
       
       if (userId && !isGuest) {
+          // SAVE TO DEDICATED ASSESSMENT TABLE
           await saveAssessmentReport(userId, 'PPDT', inputData, result);
-          if (onSave) onSave(result); // Still call onSave for usage increment
       }
     } catch (e) {
       console.error(e);

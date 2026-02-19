@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Import 'Target' icon from lucide-react.
-import { X, CheckCircle, AlertTriangle, Activity, Download, Loader2, RefreshCw, Star, Eye, Volume2, BookOpen, ShieldCheck, HelpCircle, ChevronDown, ChevronUp, Image as ImageIcon, Info, Target } from 'lucide-react';
+import { X, FileText, CheckCircle, AlertTriangle, Activity, Brain, Target, Mic, Download, Loader2, RefreshCw, Star, Eye, Volume2, BookOpen, ScanEye, BrainCircuit, ShieldCheck, HelpCircle, ChevronDown, ChevronUp, Image as ImageIcon, Info } from 'lucide-react';
 import { evaluatePerformance } from '../services/geminiService';
 import { updateAssessmentReport } from '../services/supabaseService';
 
@@ -58,6 +57,13 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testTy
 
   const handleDownload = () => {
     window.print();
+  };
+
+  const getScoreColor = (score: number) => {
+      if (score >= 8) return 'text-green-600';
+      if (score >= 6) return 'text-blue-600';
+      if (score >= 4) return 'text-yellow-600';
+      return 'text-red-600';
   };
 
   return (
