@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, Chat, Part, GenerateContentResponse } from "@google/genai";
 
 /* 
@@ -57,10 +56,6 @@ async function generateWithRetry(
         if (isOverloaded) {
             console.warn(`Model ${model} overloaded (Code: ${errorCode}). Attempting fallback sequence...`);
             
-            // Fallback Priority Chain
-            // 1. Try gemini-3-flash-preview (Fast, High Capacity)
-            // 2. Try gemini-flash-latest (Reliable Legacy 1.5 Flash)
-            
             let fallbackModel = '';
             if (model === 'gemini-3-pro-preview') fallbackModel = 'gemini-3-flash-preview';
             else if (model === 'gemini-3-flash-preview') fallbackModel = 'gemini-flash-latest';
@@ -69,7 +64,6 @@ async function generateWithRetry(
             if (fallbackModel && fallbackModel !== model) {
                 console.warn(`Switching to fallback model: ${fallbackModel}`);
                 try {
-                    // Try fallback immediately with same 60s timeout
                     return await Promise.race([
                         ai.models.generateContent({ ...params, model: fallbackModel }),
                         timeoutPromise(60000)
@@ -77,7 +71,6 @@ async function generateWithRetry(
                 } catch (fallbackError: any) {
                     console.error(`Fallback ${fallbackModel} also failed:`, fallbackError);
                     
-                    // LEVEL 3 FALLBACK: If 3-Flash fails, try 1.5 Flash (Most Stable)
                     if (fallbackModel === 'gemini-3-flash-preview') {
                          console.warn("Attempting final fallback: gemini-flash-latest");
                          try {
@@ -93,9 +86,8 @@ async function generateWithRetry(
             }
         }
 
-        // Standard Retry Logic (Exponential Backoff)
         if (retries > 0) {
-            const delay = 2000 * (3 - retries); // 2000ms, 4000ms
+            const delay = 2000 * (3 - retries); 
             console.warn(`Retrying request in ${delay}ms... (${retries} attempts left)`);
             await wait(delay); 
             return generateWithRetry(model, params, retries - 1);
@@ -218,7 +210,7 @@ export async function evaluateLecturette(topic: string, transcript: string, dura
         return safeJSONParse(response.text || "") || generateErrorEvaluation();
     } catch (e) {
         console.error("Lecturette Eval Failed", e);
-        return { ...generateErrorEvaluation(), transcript }; // Return inputs
+        return { ...generateErrorEvaluation(), transcript }; 
     }
 }
 
@@ -278,7 +270,6 @@ export async function evaluatePerformance(testType: string, userData: any) {
                     }
                 }
             );
-            // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
             return parsed || { ...generateErrorEvaluation(), ...userData };
         }
@@ -288,8 +279,8 @@ export async function evaluatePerformance(testType: string, userData: any) {
             const isWAT = testType === 'WAT';
             const items = isWAT ? userData.watResponses : userData.srtResponses;
             const promptText = isWAT 
-                ? "Evaluate Word Association Test responses. Check for OLQs, positivity, and spontaneity. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Words by ID or Content. IMPORTANT: Return analysis for ALL items. If a word has no response, mark 'userResponse' as empty or 'Not Attempted', but YOU MUST PROVIDE an 'idealResponse' for it."
-                : "Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Situations by ID or Content. IMPORTANT: Return analysis for ALL items. If a situation has no response, mark 'userResponse' as empty or 'Not Attempted', but YOU MUST PROVIDE an 'idealResponse' for it.";
+                ? "Evaluate Word Association Test responses. Check for OLQs, positivity, and spontaneity. Map the user's responses to the provided Words. IMPORTANT: Return analysis for ALL items. If a word has no response, mark 'userResponse' as empty, but YOU MUST PROVIDE an 'idealResponse' for it."
+                : "Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness. Map the user's responses to the provided Situations. IMPORTANT: Return analysis for ALL items. If a situation has no response, mark 'userResponse' as empty, but YOU MUST PROVIDE an 'idealResponse' for it.";
 
             const parts: Part[] = [{ text: promptText }];
             
@@ -304,18 +295,18 @@ export async function evaluatePerformance(testType: string, userData: any) {
             if (!isWAT && userData.srtSheetTranscripts && userData.srtSheetTranscripts.length > 0) {
                  const combinedTranscript = userData.srtSheetTranscripts.filter((t: string) => t).join('\n\n--- PAGE BREAK ---\n\n');
                  if (combinedTranscript.trim()) {
-                    parts.push({ text: `[Handwritten Transcripts Provided by User]:\n${combinedTranscript}\n\nNote: Use these transcripts if the structured JSON responses are empty. Match answers to questions sequentially or by context.` });
+                    parts.push({ text: `[Handwritten Transcripts Provided by User]:\n${combinedTranscript}` });
                  }
             }
 
             if (isWAT && userData.watSheetTranscripts && userData.watSheetTranscripts.length > 0) {
                  const combinedTranscript = userData.watSheetTranscripts.filter((t: string) => t).join('\n\n--- PAGE BREAK ---\n\n');
                  if (combinedTranscript.trim()) {
-                    parts.push({ text: `[Handwritten Transcripts Provided by User]:\n${combinedTranscript}\n\nNote: Use these transcripts if the structured JSON responses are empty. Match answers to words sequentially or by context.` });
+                    parts.push({ text: `[Handwritten Transcripts Provided by User]:\n${combinedTranscript}` });
                  }
             }
 
-            parts.push({ text: `Candidate Typed Responses (Reference for IDs): ${JSON.stringify(items)}` });
+            parts.push({ text: `Candidate Typed Responses: ${JSON.stringify(items)}` });
 
             const response = await generateWithRetry(
                 'gemini-3-pro-preview',
@@ -345,7 +336,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
                                     items: {
                                         type: Type.OBJECT,
                                         properties: {
-                                            id: { type: Type.INTEGER, description: "The original Question ID from the input list." },
+                                            id: { type: Type.INTEGER },
                                             word: { type: Type.STRING },      
                                             situation: { type: Type.STRING }, 
                                             userResponse: { type: Type.STRING },
@@ -362,7 +353,6 @@ export async function evaluatePerformance(testType: string, userData: any) {
                     }
                 }
             );
-            // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
             return parsed || { ...generateErrorEvaluation(), ...userData };
         }
@@ -380,35 +370,15 @@ export async function evaluatePerformance(testType: string, userData: any) {
             parts.push({ text: `
             Act as an Expert Psychologist at the Services Selection Board (SSB). Evaluate this PPDT (Screening) attempt.
             
-            *** STRICT SCORING RUBRIC (0-10) ***
-            Calculate the 'score' by summing these 3 factors. BE CRITICAL.
-            
-            1. PERCEPTION (Max 3 Marks): 
-            - Did the candidate identify the characters, mood, and setting accurately based on the STIMULUS IMAGE?
-            - If the story contradicts the image (hallucination), Perception = 0.
-            
-            2. CONTENT & ACTION (Max 5 Marks):
-            - Is there a clear Hero? 
-            - Is there a defined problem/challenge?
-            - Is the solution logical, practical, and positive?
-            - Are OLQs (Initiative, Planning, Empathy) visible?
-            
-            3. EXPRESSION (Max 2 Marks):
-            - Evaluate the provided "Candidate's Narration" transcript.
-            - CRITICAL RULE: If the "Candidate's Narration" is empty, blank, "N/A", or contains less than 5 meaningful words, the Expression score MUST be 0. Do not give participation points for silence.
-            - If narration exists: Fluency, clarity, and confidence determine the score.
-            
-            *** IMPORTANT ***
-            - The 'score' MUST match your text assessment.
-            - If the score is < 5, the 'verdict' must be 'Screened Out / Borderline'.
-            - If the story is completely unrelated to the image, the total score CANNOT exceed 3.0.
+            1. PERCEPTION (Max 3 Marks): Identification accuracy.
+            2. CONTENT & ACTION (Max 5 Marks): Hero, solution, OLQs.
+            3. EXPRESSION (Max 2 Marks): Narration fluency from transcript.
             
             Return JSON.
             ` });
 
             if (userData.stimulusImage) {
                 parts.push({ inlineData: { data: userData.stimulusImage, mimeType: 'image/jpeg' } });
-                parts.push({ text: `Stimulus Image (What the candidate saw).` });
             }
             
             parts.push({ text: `Candidate's Story: "${userData.story}"` });
@@ -427,9 +397,9 @@ export async function evaluatePerformance(testType: string, userData: any) {
                             scoreDetails: {
                                 type: Type.OBJECT,
                                 properties: {
-                                    perception: { type: Type.NUMBER, description: "Score out of 3 for accuracy of observation" },
-                                    content: { type: Type.NUMBER, description: "Score out of 5 for story quality and OLQs" },
-                                    expression: { type: Type.NUMBER, description: "Score out of 2 for narration flow" }
+                                    perception: { type: Type.NUMBER },
+                                    content: { type: Type.NUMBER },
+                                    expression: { type: Type.NUMBER }
                                 }
                             },
                             verdict: { type: Type.STRING },
@@ -450,37 +420,28 @@ export async function evaluatePerformance(testType: string, userData: any) {
                                 coherence: { type: Type.STRING }
                             }
                             },
-                            observationAnalysis: { type: Type.STRING, description: "Detailed feedback on whether the story matched the image provided. Mention missed details." },
+                            observationAnalysis: { type: Type.STRING },
                             strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
                             weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            recommendations: { type: Type.STRING, description: "Final verdict explanation consistent with the calculated score." },
-                            idealStory: { type: Type.STRING, description: "A short, high-scoring example story based on the same image." }
+                            recommendations: { type: Type.STRING },
+                            idealStory: { type: Type.STRING }
                         }
                         }
                     }
                 }
             );
-            // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
             return parsed || { ...generateErrorEvaluation(), ...userData };
         }
 
         // 4. TAT EVALUATION
         else if (testType === 'TAT') {
-            const parts: Part[] = [{ text: "Evaluate TAT Dossier. Analyze each story for OLQs (Officer Like Qualities). Check consistency across stories." }];
+            const parts: Part[] = [{ text: "Evaluate TAT Dossier. Analyze each story for OLQs. Check consistency across stories." }];
             if (userData.tatPairs) {
                 for (const pair of userData.tatPairs) {
-                    if (pair.stimulusImage) {
-                        parts.push({ inlineData: { data: pair.stimulusImage, mimeType: 'image/jpeg' } });
-                        parts.push({ text: `Stimulus for Story ${pair.storyIndex}` });
-                    }
-                    if (pair.userStoryImage) {
-                        parts.push({ inlineData: { data: pair.userStoryImage, mimeType: 'image/jpeg' } });
-                        parts.push({ text: `Handwritten Story ${pair.storyIndex}` });
-                    }
-                    if (pair.userStoryText) {
-                        parts.push({ text: `Transcribed Story ${pair.storyIndex}: ${pair.userStoryText}` });
-                    }
+                    if (pair.stimulusImage) parts.push({ inlineData: { data: pair.stimulusImage, mimeType: 'image/jpeg' } });
+                    if (pair.userStoryImage) parts.push({ inlineData: { data: pair.userStoryImage, mimeType: 'image/jpeg' } });
+                    if (pair.userStoryText) parts.push({ text: `Story ${pair.storyIndex}: ${pair.userStoryText}` });
                 }
             }
             
@@ -516,31 +477,18 @@ export async function evaluatePerformance(testType: string, userData: any) {
                     }
                 }
             );
-            // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
             return parsed || { ...generateErrorEvaluation(), ...userData };
         }
 
         // 5. SDT EVALUATION
         else if (testType === 'SDT') {
-            const prompt = `Evaluate Self Description Test (SDT).
-            Candidate Inputs:
-            Parents: ${userData.sdtData?.parents}
-            Teachers: ${userData.sdtData?.teachers}
-            Friends: ${userData.sdtData?.friends}
-            Self: ${userData.sdtData?.self}
-            Aim: ${userData.sdtData?.aim}
-            
-            Check for consistency, honesty, and OLQs.`;
-
+            const prompt = `Evaluate SDT. Parents: ${userData.sdtData?.parents}. Teachers: ${userData.sdtData?.teachers}. Friends: ${userData.sdtData?.friends}. Self: ${userData.sdtData?.self}. Aim: ${userData.sdtData?.aim}.`;
             const parts: Part[] = [{ text: prompt }];
             if (userData.sdtImages) {
                 Object.keys(userData.sdtImages).forEach(key => {
                     const img = userData.sdtImages[key];
-                    if (img) {
-                        parts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
-                        parts.push({ text: `Handwritten ${key} paragraph` });
-                    }
+                    if (img) parts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
                 });
             }
 
@@ -564,7 +512,6 @@ export async function evaluatePerformance(testType: string, userData: any) {
                     }
                 }
             );
-            // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
             return parsed || { ...generateErrorEvaluation(), ...userData };
         }
@@ -572,7 +519,6 @@ export async function evaluatePerformance(testType: string, userData: any) {
         return generateErrorEvaluation();
     } catch (e) {
         console.error("Evaluation API Error:", e);
-        // CRITICAL FIX: Return inputs so they can be saved to Supabase for later retry
         return { 
             ...generateErrorEvaluation(), 
             ...userData 

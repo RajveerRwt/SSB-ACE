@@ -1,5 +1,3 @@
-
-// ... existing imports ...
 import { createClient } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
 
@@ -23,7 +21,6 @@ export const TEST_RATES = {
     INTERVIEW_FULL: 100   
 };
 
-// ... existing OIR services ...
 export const getOIRSets = async () => {
   const { data } = await supabase.from('oir_sets').select('*').order('created_at', { ascending: false });
   return data || [];
@@ -109,7 +106,6 @@ export const postOIRDoubt = async (questionId: string, userId: string, userName:
   });
 };
 
-// ... existing cache services ...
 export const getCachedContent = async (category: string, dateKey: string) => {
   const { data } = await supabase
     .from('daily_cache')
@@ -131,7 +127,6 @@ export const setCachedContent = async (category: string, dateKey: string, conten
   if (error) console.error("Cache Write Error:", error);
 };
 
-// ... existing lecturette cache ...
 export const getLecturetteContent = async (topic: string) => {
   const { data } = await supabase
     .from('lecturette_topics')
@@ -154,7 +149,6 @@ export const saveLecturetteContent = async (topic: string, board: string, catego
   if (error) console.error("Error saving lecturette cache:", error);
 };
 
-// ... existing ticker config ...
 export const getTickerConfig = async () => {
   const { data } = await supabase
     .from('ticker_config')
@@ -184,7 +178,6 @@ export const subscribeToTicker = (callback: (config: any) => void) => {
   return () => { supabase.removeChannel(channel); };
 };
 
-// ... existing auth ...
 export const signInWithEmail = async (email: string, password: string) => {
   const auth = supabase.auth as any;
   if (auth.signInWithPassword) {
@@ -259,7 +252,6 @@ export const syncUserProfile = async (user: any) => {
   
   const fullName = user.user_metadata?.full_name || user.user_metadata?.name || 'Cadet';
 
-  // Ensure user profile exists
   const { error } = await supabase
     .from('aspirants')
     .upsert({ 
@@ -271,7 +263,6 @@ export const syncUserProfile = async (user: any) => {
     
   if (error) console.error("Sync Profile Error:", error);
   
-  // Ensure subscription entry exists
   const { data: sub } = await supabase
     .from('user_subscriptions')
     .select('tier')
@@ -297,7 +288,6 @@ export const syncUserProfile = async (user: any) => {
   }
 };
 
-// ... existing user data services ...
 export const getUserData = async (userId: string): Promise<PIQData | null> => {
   const { data } = await supabase
     .from('aspirants')
@@ -320,14 +310,15 @@ export const getUserHistory = async (userId: string) => {
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(10);
+    .limit(20); // Increased limit to see more history
     
   return data?.map((item: any) => ({
       id: item.id,
       type: item.test_type,
       timestamp: item.created_at,
       score: item.score,
-      result: item.result_data
+      result_data: item.result_data, // Ensure raw data is included
+      created_at: item.created_at
   })) || [];
 };
 
@@ -341,25 +332,33 @@ export const getUserStreak = async (userId: string) => {
 };
 
 export const saveTestAttempt = async (userId: string, testType: string, resultData: any) => {
-  await supabase
+  const { data, error } = await supabase
     .from('test_history')
     .insert({
         user_id: userId,
         test_type: testType,
         score: resultData.score || 0,
         result_data: resultData
-    });
+    }).select().single();
+  
+  if (error) console.error("Error saving attempt:", error);
+  return data;
 };
 
-// ** NEW: Update existing test record with new analysis **
+/**
+ * Updates an existing test record with new analysis data.
+ * Crucial for the recovery feature.
+ */
 export const updateTestAttempt = async (id: string, resultData: any) => {
-    await supabase
+    const { error } = await supabase
       .from('test_history')
       .update({
           score: resultData.score || 0,
           result_data: resultData
       })
       .eq('id', id);
+    
+    if (error) throw error;
 };
 
 export const getAllUsers = async () => {

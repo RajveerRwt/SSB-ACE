@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { X, FileText, CheckCircle, AlertTriangle, Activity, Brain, Target, Mic, Download, Loader2, RefreshCw, Printer, ThumbsUp, ThumbsDown, MinusCircle } from 'lucide-react';
 import { evaluatePerformance } from '../services/geminiService';
