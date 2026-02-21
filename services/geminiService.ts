@@ -288,8 +288,18 @@ export async function evaluatePerformance(testType: string, userData: any) {
             const isWAT = testType === 'WAT';
             const items = isWAT ? userData.watResponses : userData.srtResponses;
             const promptText = isWAT 
-                ? "Evaluate Word Association Test responses. Check for OLQs, positivity, and spontaneity. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Words by ID or Content. IMPORTANT: Return analysis for ALL items. If a word has no response, mark 'userResponse' as empty or 'Not Attempted', but YOU MUST PROVIDE an 'idealResponse' for it."
-                : "Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Situations by ID or Content. IMPORTANT: Return analysis for ALL items. If a situation has no response, mark 'userResponse' as empty or 'Not Attempted', but YOU MUST PROVIDE an 'idealResponse' for it.";
+                ? `Evaluate Word Association Test responses. Check for OLQs, positivity, and spontaneity. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Words by ID or Content. 
+IMPORTANT RULES:
+1. Return analysis for ALL items. If a word has no response, mark 'userResponse' as 'Not Attempted', but YOU MUST PROVIDE an 'idealResponse' for it.
+2. STRICT SCORING (0-10): The overall score MUST reflect the number of valid, attempted responses. If a response is 'Not Attempted', gibberish, or completely unrelated to the word, it receives 0 marks.
+3. If the majority of items are 'Not Attempted' or invalid, the overall score MUST be very low (e.g., 0-3) and the generalFeedback MUST state that the test was largely unattempted or invalid.
+4. Do not generate a positive overall assessment or high score if the user failed to attempt the test properly.`
+                : `Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Situations by ID or Content. 
+IMPORTANT RULES:
+1. Return analysis for ALL items. If a situation has no response, mark 'userResponse' as 'Not Attempted', but YOU MUST PROVIDE an 'idealResponse' for it.
+2. STRICT SCORING (0-10): The overall score MUST reflect the number of valid, attempted responses. If a response is 'Not Attempted', gibberish, or completely unrelated to the situation, it receives 0 marks.
+3. If the majority of items are 'Not Attempted' or invalid, the overall score MUST be very low (e.g., 0-3) and the generalFeedback MUST state that the test was largely unattempted or invalid.
+4. Do not generate a positive overall assessment or high score if the user failed to attempt the test properly.`;
 
             const parts: Part[] = [{ text: promptText }];
             
