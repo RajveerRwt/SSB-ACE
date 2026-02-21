@@ -67,6 +67,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const [activeSetName, setActiveSetName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [pregeneratedImages, setPregeneratedImages] = useState<Record<string, string>>({});
+  const [customTatImages, setCustomTatImages] = useState<string[]>(new Array(11).fill(''));
+  const [useCustomTat, setUseCustomTat] = useState(false);
   
   // TAT States
   const [tatUploads, setTatUploads] = useState<string[]>(new Array(12).fill(''));
@@ -116,6 +118,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const audioCtxRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeUploadIndex = useRef<number | null>(null);
+  const customTatInputRef = useRef<HTMLInputElement>(null);
 
   const playBuzzer = (freq: number = 200, duration: number = 0.5) => {
     if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -191,52 +194,64 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
       if (type === TestType.TAT) {
         // --- TAT Logic ---
-        const dbScenarios = await getTATScenarios();
-        
-        if (!dbScenarios || dbScenarios.length === 0) {
-           // Standard fallback only if DB fails completely
-           const staticTAT = [ "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80", "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=800&q=80" ]; 
-           finalItems = staticTAT.map((url, i) => ({ id: `tat-fb-${i}`, content: 'Fallback Set', imageUrl: url }));
+        if (useCustomTat && customTatImages.some(img => img)) {
+            const validCustomImages = customTatImages.filter(img => img);
+            setActiveSetName('Custom User Set');
+            finalItems = validCustomImages.map((url, i) => ({
+                id: `tat-custom-${i}`,
+                content: `Custom Image ${i + 1}`,
+                imageUrl: url
+            }));
         } else {
-           let setImages: any[] = [];
-           
-           if (isGuest) {
-               // Guest: Strictly first 11 images
-               setActiveSetName('Guest Trial Set');
-               setImages = dbScenarios.slice(0, 11);
-           } else {
-               // Logged In: Rotate sets
-               const sets: Record<string, any[]> = dbScenarios.reduce((acc: any, img: any) => {
-                  const tag = img.set_tag || 'Default';
-                  if (!acc[tag]) acc[tag] = [];
-                  acc[tag].push(img);
-                  return acc;
-               }, {});
-               const setNames = Object.keys(sets).sort(); 
-               const completeSets = setNames.filter(name => sets[name].length >= 11);
-               let selectedSetName = '';
-               if (completeSets.length > 0) {
-                    const index = usageCount % completeSets.length;
-                    selectedSetName = completeSets[index];
+            const dbScenarios = await getTATScenarios();
+            
+            if (!dbScenarios || dbScenarios.length === 0) {
+               // Standard fallback only if DB fails completely
+               const staticTAT = [ "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80", "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=800&q=80" ]; 
+               finalItems = staticTAT.map((url, i) => ({ id: `tat-fb-${i}`, content: 'Fallback Set', imageUrl: url }));
+            } else {
+               let setImages: any[] = [];
+               
+               if (isGuest) {
+                   // Guest: Strictly first 11 images
+                   setActiveSetName('Guest Trial Set');
+                   setImages = dbScenarios.slice(0, 11);
                } else {
-                    const index = usageCount % setNames.length;
-                    selectedSetName = setNames[index];
+                   // Logged In: Rotate sets
+                   const sets: Record<string, any[]> = dbScenarios.reduce((acc: any, img: any) => {
+                      const tag = img.set_tag || 'Default';
+                      if (!acc[tag]) acc[tag] = [];
+                      acc[tag].push(img);
+                      return acc;
+                   }, {});
+                   const setNames = Object.keys(sets).sort(); 
+                   const completeSets = setNames.filter(name => sets[name].length >= 11);
+                   let selectedSetName = '';
+                   if (completeSets.length > 0) {
+                        const index = usageCount % completeSets.length;
+                        selectedSetName = completeSets[index];
+                   } else {
+                        const index = usageCount % setNames.length;
+                        selectedSetName = setNames[index];
+                   }
+                   setActiveSetName(selectedSetName);
+                   setImages = sets[selectedSetName].slice(0, 11); 
                }
-               setActiveSetName(selectedSetName);
-               setImages = sets[selectedSetName].slice(0, 11); 
-           }
-
-           finalItems = setImages.map((s: any, i: number) => ({
-              id: `tat-db-${i}`,
-              content: s.description || 'Picture Story',
-              imageUrl: s.image_url
-           }));
+    
+               finalItems = setImages.map((s: any, i: number) => ({
+                  id: `tat-db-${i}`,
+                  content: s.description || 'Picture Story',
+                  imageUrl: s.image_url
+               }));
+            }
         }
         
         const images: Record<string, string> = {};
-        finalItems.forEach((item) => { images[item.id] = item.imageUrl; });
+        finalItems.forEach((item) => { if (item.imageUrl) images[item.id] = item.imageUrl; });
         setPregeneratedImages(images);
         finalItems.push({ id: 'tat-12-blank', content: 'BLANK SLIDE' });
+        setTatUploads(new Array(finalItems.length).fill(''));
+        setTatTexts(new Array(finalItems.length).fill(''));
 
       } else if (type === TestType.WAT) {
         // --- WAT Logic ---
@@ -442,6 +457,21 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
           setSdtImages(prev => ({ ...prev, [activeCameraKey]: { data: base64, mimeType: 'image/jpeg' } }));
       }
       setActiveCameraKey(null);
+  };
+
+  const handleCustomTatUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+        const base64 = (reader.result as string).split(',')[1];
+        setCustomTatImages(prev => {
+            const next = [...prev];
+            next[index] = `data:${file.type};base64,${base64}`;
+            return next;
+        });
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSDTImageUpload = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
@@ -660,6 +690,61 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
              )}
            </div>
         </div>
+
+        {type === TestType.TAT && (
+            <div className="mb-12 p-8 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 text-left">
+                <div className="flex items-center justify-between mb-6">
+                    <h4 className="font-black text-xs uppercase tracking-widest text-slate-500">Custom Stimulus Set (Optional)</h4>
+                    <button 
+                        onClick={() => setUseCustomTat(!useCustomTat)}
+                        className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${useCustomTat ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}
+                    >
+                        {useCustomTat ? 'Using Custom Set' : 'Use Platform Set'}
+                    </button>
+                </div>
+                
+                {useCustomTat && (
+                    <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+                        {customTatImages.map((img, idx) => (
+                            <div key={idx} className="relative aspect-square bg-white rounded-xl border border-slate-200 overflow-hidden group">
+                                {img ? (
+                                    <>
+                                        <img src={img} className="w-full h-full object-cover" alt={`Custom ${idx + 1}`} />
+                                        <button 
+                                            onClick={() => setCustomTatImages(prev => { const next = [...prev]; next[idx] = ''; return next; })}
+                                            className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <X size={10} />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors">
+                                        <Upload size={16} className="text-slate-400 mb-1" />
+                                        <span className="text-[8px] font-black text-slate-400 uppercase">Img {idx + 1}</span>
+                                        <input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            className="hidden" 
+                                            onChange={(e) => handleCustomTatUpload(idx, e)} 
+                                        />
+                                    </label>
+                                )}
+                            </div>
+                        ))}
+                        <div className="aspect-square bg-slate-100 rounded-xl border border-slate-200 flex flex-col items-center justify-center opacity-50">
+                            <div className="text-[8px] font-black text-slate-500 uppercase">Blank</div>
+                            <div className="text-[6px] font-bold text-slate-400">Auto-Added</div>
+                        </div>
+                    </div>
+                )}
+                <p className="mt-4 text-[10px] text-slate-400 font-medium italic">
+                    {useCustomTat 
+                        ? "Upload 11 images. We'll automatically add the 12th blank slide for you." 
+                        : "Leave this section to use the standard board-authorized image sets."}
+                </p>
+            </div>
+        )}
+
         <button onClick={startTest} disabled={isLoading} className="bg-slate-900 text-white px-16 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-6 mx-auto">
           {isLoading ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
           Begin Test
