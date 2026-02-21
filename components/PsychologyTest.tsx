@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info, LogIn, ThumbsUp, ThumbsDown, MinusCircle, Lock, Download, Printer } from 'lucide-react';
+import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info, LogIn, ThumbsUp, ThumbsDown, MinusCircle, Lock, Download, Printer, UserPlus } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, STANDARD_WAT_SET } from '../services/geminiService';
 import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
 import { TestType } from '../types';
@@ -692,56 +692,76 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
         </div>
 
         {type === TestType.TAT && (
-            <div className="mb-12 p-8 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 text-left">
-                <div className="flex items-center justify-between mb-6">
-                    <h4 className="font-black text-xs uppercase tracking-widest text-slate-500">Custom Stimulus Set (Optional)</h4>
-                    <button 
-                        onClick={() => setUseCustomTat(!useCustomTat)}
-                        className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${useCustomTat ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}
-                    >
-                        {useCustomTat ? 'Using Custom Set' : 'Use Platform Set'}
-                    </button>
-                </div>
+            <div className="mb-12 p-10 bg-white rounded-[3rem] border-4 border-slate-50 shadow-xl text-left relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-32 -mt-32 transition-transform group-hover:scale-110 duration-700"></div>
                 
-                {useCustomTat && (
-                    <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
-                        {customTatImages.map((img, idx) => (
-                            <div key={idx} className="relative aspect-square bg-white rounded-xl border border-slate-200 overflow-hidden group">
-                                {img ? (
-                                    <>
-                                        <img src={img} className="w-full h-full object-cover" alt={`Custom ${idx + 1}`} />
-                                        <button 
-                                            onClick={() => setCustomTatImages(prev => { const next = [...prev]; next[idx] = ''; return next; })}
-                                            className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <X size={10} />
-                                        </button>
-                                    </>
-                                ) : (
-                                    <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors">
-                                        <Upload size={16} className="text-slate-400 mb-1" />
-                                        <span className="text-[8px] font-black text-slate-400 uppercase">Img {idx + 1}</span>
-                                        <input 
-                                            type="file" 
-                                            accept="image/*" 
-                                            className="hidden" 
-                                            onChange={(e) => handleCustomTatUpload(idx, e)} 
-                                        />
-                                    </label>
-                                )}
-                            </div>
-                        ))}
-                        <div className="aspect-square bg-slate-100 rounded-xl border border-slate-200 flex flex-col items-center justify-center opacity-50">
-                            <div className="text-[8px] font-black text-slate-500 uppercase">Blank</div>
-                            <div className="text-[6px] font-bold text-slate-400">Auto-Added</div>
+                <div className="relative z-10">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                        <div className="space-y-2">
+                            <h4 className="font-black text-xl uppercase tracking-tighter text-slate-900 flex items-center gap-3">
+                                <ImageIcon className="text-blue-600" size={24} /> Custom Stimulus Set
+                            </h4>
+                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest opacity-60">Upload your own images for practice</p>
                         </div>
+                        <button 
+                            onClick={() => setUseCustomTat(!useCustomTat)}
+                            className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-lg flex items-center gap-3 ${useCustomTat ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                        >
+                            {useCustomTat ? <><CheckCircle size={16}/> Using Custom Set</> : <><RefreshCw size={16}/> Use Platform Set</>}
+                        </button>
                     </div>
-                )}
-                <p className="mt-4 text-[10px] text-slate-400 font-medium italic">
-                    {useCustomTat 
-                        ? "Upload 11 images. We'll automatically add the 12th blank slide for you." 
-                        : "Leave this section to use the standard board-authorized image sets."}
-                </p>
+                    
+                    {useCustomTat && (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {customTatImages.map((img, idx) => (
+                                <div key={idx} className="relative aspect-[3/4] bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 overflow-hidden group/item transition-all hover:border-blue-400 hover:shadow-lg">
+                                    {img ? (
+                                        <>
+                                            <img src={img} className="w-full h-full object-cover" alt={`Custom ${idx + 1}`} />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center justify-center">
+                                                <button 
+                                                    onClick={() => setCustomTatImages(prev => { const next = [...prev]; next[idx] = ''; return next; })}
+                                                    className="bg-red-500 text-white p-2 rounded-xl shadow-xl hover:scale-110 transition-transform"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                            <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-900">
+                                                #{idx + 1}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-white transition-colors">
+                                            <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center mb-2 group-hover/item:scale-110 transition-transform">
+                                                <Upload size={18} className="text-blue-600" />
+                                            </div>
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Image {idx + 1}</span>
+                                            <input 
+                                                type="file" 
+                                                accept="image/*" 
+                                                className="hidden" 
+                                                onChange={(e) => handleCustomTatUpload(idx, e)} 
+                                            />
+                                        </label>
+                                    )}
+                                </div>
+                            ))}
+                            <div className="aspect-[3/4] bg-slate-900 rounded-2xl flex flex-col items-center justify-center text-center p-4 border-2 border-slate-800">
+                                <div className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-1">Blank</div>
+                                <div className="text-[8px] font-bold text-slate-500 uppercase leading-tight">Auto-Added Slide 12</div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <div className="mt-8 flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                            {useCustomTat 
+                                ? "You are using a custom set. Ensure you upload all 11 images for a complete board experience. The 12th slide will be a standard blank slide for your final story." 
+                                : "The platform uses board-authorized image sets by default. These are curated to test specific Officer Like Qualities (OLQs)."}
+                        </p>
+                    </div>
+                </div>
             </div>
         )}
 
@@ -1145,28 +1165,71 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                         </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:block">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 print:block">
                         {feedback.individualStories.map((story: any, i: number) => (
-                            <div key={i} className={`p-6 rounded-[2rem] border-2 transition-all mb-4 print:break-inside-avoid ${story.perceivedAccurately ? 'bg-white border-slate-100' : 'bg-red-50 border-red-200 shadow-md'} hover:shadow-xl`}>
-                                <div className="flex justify-between items-start mb-4">
-                                    <span className="font-black text-slate-400 uppercase tracking-widest text-xs">Story {story.storyIndex}</span>
-                                    {story.perceivedAccurately ? (
-                                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                                            <CheckCircle size={12} /> Accurate Perception
-                                        </span>
-                                    ) : (
-                                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                                            <ScanEye size={12} /> Observation Error
-                                        </span>
-                                    )}
+                            <div key={i} className={`p-8 rounded-[3rem] border-2 transition-all mb-4 print:break-inside-avoid ${story.perceivedAccurately ? 'bg-white border-slate-100' : 'bg-red-50 border-red-200 shadow-md'} hover:shadow-2xl group`}>
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-4">
+                                        <span className="w-10 h-10 bg-slate-900 text-white rounded-2xl flex items-center justify-center text-sm font-black shadow-lg">{(i + 1).toString().padStart(2, '0')}</span>
+                                        <div>
+                                            <h4 className="font-black text-slate-900 uppercase tracking-tight">Story #{i + 1}</h4>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{story.theme || "General Theme"}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col items-end">
+                                        <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${story.perceivedAccurately ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                                            {story.perceivedAccurately ? 'Accurate Perception' : 'Misperceived'}
+                                        </div>
+                                        {story.score !== undefined && (
+                                            <div className="mt-2 text-xl font-black text-slate-900">
+                                                {story.score}<span className="text-slate-300 text-xs">/10</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <p className="text-sm font-bold text-slate-800 mb-3 bg-slate-100/50 p-3 rounded-xl inline-block">{story.theme || "No Theme"}</p>
-                                <p className="text-xs text-slate-600 leading-relaxed p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <span className="font-black text-slate-400 uppercase tracking-widest text-[9px] block mb-2">Psychologist's Remark</span>
-                                    {story.analysis}
-                                </p>
-                                <div className="mt-4 pt-4 border-t border-slate-100/50 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-blue-600">
-                                    <Target size={12} /> OLQ Projected: {story.olqProjected}
+
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                <UserPlus size={12} className="text-blue-500" /> Hero Analysis
+                                            </p>
+                                            <p className="text-sm text-slate-700 leading-relaxed font-medium">{story.heroAnalysis || story.analysis}</p>
+                                        </div>
+                                        
+                                        {story.actionAnalysis && (
+                                            <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                                                <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                    <Activity size={12} className="text-blue-500" /> Action & Logic
+                                                </p>
+                                                <p className="text-sm text-slate-700 leading-relaxed font-medium">{story.actionAnalysis}</p>
+                                            </div>
+                                        )}
+
+                                        {story.outcomeAnalysis && (
+                                            <div className="p-4 bg-green-50/50 rounded-2xl border border-green-100/50">
+                                                <p className="text-[9px] font-black text-green-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                    <Target size={12} className="text-green-500" /> Outcome
+                                                </p>
+                                                <p className="text-sm text-slate-700 leading-relaxed font-medium">{story.outcomeAnalysis}</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {story.olqProjected && (Array.isArray(story.olqProjected) ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {story.olqProjected.map((olq: string, idx: number) => (
+                                                <span key={idx} className="px-3 py-1 bg-white border border-slate-200 rounded-full text-[9px] font-black text-slate-500 uppercase tracking-widest shadow-sm group-hover:border-blue-200 group-hover:text-blue-600 transition-colors">
+                                                    {olq}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
+                                            <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1">OLQs Observed</p>
+                                            <p className="text-xs text-slate-600 font-bold">{story.olqProjected}</p>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         ))}

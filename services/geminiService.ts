@@ -512,9 +512,12 @@ IMPORTANT RULES:
                                         properties: {
                                             storyIndex: { type: Type.INTEGER },
                                             theme: { type: Type.STRING },
-                                            analysis: { type: Type.STRING },
-                                            olqProjected: { type: Type.STRING },
-                                            perceivedAccurately: { type: Type.BOOLEAN }
+                                            heroAnalysis: { type: Type.STRING, description: "Analysis of the hero's character and qualities." },
+                                            actionAnalysis: { type: Type.STRING, description: "Analysis of the actions taken by the hero." },
+                                            outcomeAnalysis: { type: Type.STRING, description: "Analysis of the story's outcome." },
+                                            olqProjected: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of OLQs observed in this story." },
+                                            perceivedAccurately: { type: Type.BOOLEAN },
+                                            score: { type: Type.NUMBER, description: "Score for this individual story (0-10)." }
                                         }
                                     }
                                 },
