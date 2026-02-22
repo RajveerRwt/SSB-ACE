@@ -4,10 +4,10 @@ import { GoogleGenAI, Type, Chat, Part, GenerateContentResponse } from "@google/
 /* 
  * Guidelines: 
  * Basic Text Tasks: 'gemini-3-flash-preview'
- * Complex Text Tasks: 'gemini-3-pro-preview'
+ * Complex Text Tasks: 'gemini-3.1-pro-preview'
  * Image Generation: 'gemini-2.5-flash-image'
  */
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export const STANDARD_WAT_SET = [
   "Blood", "Army", "War", "Victory", "Defeat", "Leader", "Follow", "Mother", "Father", "Sister",
@@ -195,7 +195,7 @@ export async function evaluateLecturette(topic: string, transcript: string, dura
 
     try {
         const response = await generateWithRetry(
-            'gemini-3-pro-preview', 
+            'gemini-3.1-pro-preview', 
             {
                 contents: prompt,
                 config: {
@@ -244,7 +244,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
             `;
 
             const response = await generateWithRetry(
-                'gemini-3-pro-preview',
+                'gemini-3.1-pro-preview',
                 {
                     contents: prompt,
                     config: {
@@ -328,7 +328,7 @@ IMPORTANT RULES:
             parts.push({ text: `Candidate Typed Responses (Reference for IDs): ${JSON.stringify(items)}` });
 
             const response = await generateWithRetry(
-                'gemini-3-pro-preview',
+                'gemini-3.1-pro-preview',
                 {
                     contents: { parts },
                     config: {
@@ -425,7 +425,7 @@ IMPORTANT RULES:
             parts.push({ text: `Candidate's Narration: "${userData.narration}"` });
             
             const response = await generateWithRetry(
-                'gemini-3-pro-preview', 
+                'gemini-3.1-pro-preview', 
                 {
                     contents: { parts: parts },
                     config: {
@@ -495,7 +495,7 @@ IMPORTANT RULES:
             }
             
             const response = await generateWithRetry(
-                'gemini-3-pro-preview',
+                'gemini-3.1-pro-preview',
                 {
                     contents: { parts },
                     config: {
@@ -558,7 +558,7 @@ IMPORTANT RULES:
             }
 
             const response = await generateWithRetry(
-                'gemini-3-pro-preview',
+                'gemini-3.1-pro-preview',
                 {
                     contents: { parts },
                     config: {

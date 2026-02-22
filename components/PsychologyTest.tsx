@@ -1214,7 +1214,52 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                                                 <p className="text-sm text-slate-700 leading-relaxed font-medium">{story.outcomeAnalysis}</p>
                                             </div>
                                         )}
+
+                                        {story.overallAssessment && (
+                                            <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                    <Brain size={12} className="text-yellow-400" /> Overall Verdict
+                                                </p>
+                                                <p className="text-sm leading-relaxed font-medium italic">"{story.overallAssessment}"</p>
+                                            </div>
+                                        )}
                                     </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <p className="text-[9px] font-black text-green-600 uppercase tracking-widest flex items-center gap-2">
+                                                <ThumbsUp size={12} /> Story Strengths
+                                            </p>
+                                            <ul className="space-y-1">
+                                                {story.strengths?.map((s: string, idx: number) => (
+                                                    <li key={idx} className="text-[11px] font-bold text-slate-600 flex gap-2">
+                                                        <span className="w-1 h-1 rounded-full bg-green-400 mt-1.5 shrink-0" /> {s}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <p className="text-[9px] font-black text-red-500 uppercase tracking-widest flex items-center gap-2">
+                                                <ThumbsDown size={12} /> Story Weaknesses
+                                            </p>
+                                            <ul className="space-y-1">
+                                                {story.weaknesses?.map((w: string, idx: number) => (
+                                                    <li key={idx} className="text-[11px] font-bold text-slate-600 flex gap-2">
+                                                        <span className="w-1 h-1 rounded-full bg-red-400 mt-1.5 shrink-0" /> {w}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {story.improvements && (
+                                        <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-2xl">
+                                            <p className="text-[9px] font-black text-yellow-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                <Award size={12} /> How to Improve
+                                            </p>
+                                            <p className="text-xs text-slate-700 font-bold leading-relaxed">{story.improvements}</p>
+                                        </div>
+                                    )}
 
                                     {story.olqProjected && (Array.isArray(story.olqProjected) ? (
                                         <div className="flex flex-wrap gap-2">
@@ -1233,6 +1278,46 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                                 </div>
                             </div>
                         ))}
+                    </div>
+                    
+                    {/* Score Legend */}
+                    <div className="mt-12 p-8 bg-slate-900 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
+                        <div className="relative z-10">
+                            <h4 className="text-lg font-black uppercase tracking-tighter mb-6 flex items-center gap-3">
+                                <Award className="text-yellow-400" size={24} /> Understanding Your TAT Scores
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center text-xs font-black">0-3</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-red-400">Poor</span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 leading-relaxed">Negative themes, passive hero, or lack of logical resolution. Needs significant work on mindset.</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center text-xs font-black">4-5</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">Average</span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 leading-relaxed">Basic story structure but lacks depth in OLQs or has some negative traits projected.</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-xs font-black">6-8</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Good</span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 leading-relaxed">Positive hero, constructive action, and logical outcome. Projects several core OLQs effectively.</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center text-xs font-black">9-10</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-green-400">Exceptional</span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 leading-relaxed">Perfect alignment with board expectations. Strong leadership, social effectiveness, and dynamic action.</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
