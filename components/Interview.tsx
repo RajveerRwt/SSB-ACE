@@ -276,7 +276,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
           videoRef.current.play().catch(e => console.error("Video play failed", e));
       }
       
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
       
       // Dynamic System Instruction Generation
       const baseInstruction = `You are Col. Arjun Singh, President of 1 AFSB.

@@ -7,7 +7,7 @@ import { GoogleGenAI, Type, Chat, Part, GenerateContentResponse } from "@google/
  * Complex Text Tasks: 'gemini-3.1-pro-preview'
  * Image Generation: 'gemini-2.5-flash-image'
  */
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
 
 export const STANDARD_WAT_SET = [
   "Blood", "Army", "War", "Victory", "Defeat", "Leader", "Follow", "Mother", "Father", "Sister",
