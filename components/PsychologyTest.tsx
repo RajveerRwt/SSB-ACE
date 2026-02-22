@@ -76,6 +76,68 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const [customSrtSituations, setCustomSrtSituations] = useState<string>('');
   const [useCustomSrt, setUseCustomSrt] = useState(false);
   const [isExtractingCustom, setIsExtractingCustom] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [evaluationStartTime, setEvaluationStartTime] = useState<number | null>(null);
+  const [isBackgrounding, setIsBackgrounding] = useState(false);
+  const [evalTime, setEvalTime] = useState(0);
+  const evaluationPayloadRef = useRef<any>(null);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (phase === PsychologyPhase.EVALUATING) {
+      interval = setInterval(() => {
+        setEvalTime(prev => prev + 1);
+      }, 1000);
+    } else {
+      setEvalTime(0);
+    }
+    return () => clearInterval(interval);
+  }, [phase]);
+
+  const performEvaluation = async (testType: TestType, payload: any, originalData: any) => {
+    setPhase(PsychologyPhase.EVALUATING);
+    setEvaluationStartTime(Date.now());
+    setRetryCount(0);
+    setEvalTime(0);
+    evaluationPayloadRef.current = { testType, payload, originalData };
+
+    const runEval = async (attempt: number): Promise<any> => {
+      try {
+        setRetryCount(attempt);
+        const result = await evaluatePerformance(testType, payload);
+        
+        // If AI returns a "Server Busy" or empty score despite valid input, treat as failure for retry
+        if (result.error || (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data" || result.verdict === "Technical Failure"))) {
+           throw new Error("AI Busy or Technical Failure");
+        }
+        
+        return result;
+      } catch (err: any) {
+        console.warn(`Evaluation attempt ${attempt + 1} failed:`, err);
+        
+        // If it's a fatal error (not 503/429), we might want to stop, 
+        // but the user wants "retry again and again".
+        // We'll use exponential backoff up to 10s
+        const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return runEval(attempt + 1);
+      }
+    };
+
+    try {
+      const result = await runEval(0);
+      setFeedback(result);
+      if (onSave && !isGuest) onSave({ ...result, ...originalData });
+      setPhase(PsychologyPhase.COMPLETED);
+    } catch (err) {
+      console.error("Critical Evaluation Failure", err);
+      // Fallback if the loop somehow breaks
+      const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, ...originalData };
+      setFeedback(fallback);
+      if (onSave && !isGuest) onSave(fallback);
+      setPhase(PsychologyPhase.COMPLETED);
+    }
+  };
   
   const startDirectEvaluation = () => {
     setIsLoading(true);
@@ -668,70 +730,30 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   };
 
   const submitSDT = async () => {
-      setPhase(PsychologyPhase.EVALUATING);
-      try {
-          const result = await evaluatePerformance(type, { sdtData, sdtImages });
-          if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) { throw new Error("AI Busy"); }
-          setFeedback(result);
-          if (onSave && !isGuest) onSave({ ...result, sdtData, sdtImages });
-          setPhase(PsychologyPhase.COMPLETED);
-      } catch (err) {
-          console.error("SDT Eval Error", err);
-          const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, sdtData, sdtImages };
-          setFeedback(fallback);
-          if (onSave && !isGuest) onSave(fallback);
-          setPhase(PsychologyPhase.COMPLETED);
-      }
+      await performEvaluation(type, { sdtData, sdtImages }, { sdtData, sdtImages });
   };
 
   const submitSRT = async () => {
-      setPhase(PsychologyPhase.EVALUATING);
       const payload = { 
           testType: 'SRT', 
           srtResponses: items.map((item, i) => ({ id: i + 1, situation: item.content, response: srtResponses[i] || "" })),
           srtSheetImages: srtSheetUploads,
           srtSheetTranscripts: srtSheetTexts 
       };
-      try {
-          const result = await evaluatePerformance(type, payload);
-          if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) { throw new Error("AI Busy"); }
-          setFeedback(result);
-          if (onSave && !isGuest) onSave({ ...result, srtResponses, srtSheetImages: srtSheetUploads, srtSheetTranscripts: srtSheetTexts });
-          setPhase(PsychologyPhase.COMPLETED);
-      } catch (err) { 
-          console.error("SRT Eval Error", err); 
-          const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, srtResponses: payload.srtResponses };
-          setFeedback(fallback);
-          if (onSave && !isGuest) onSave(fallback);
-          setPhase(PsychologyPhase.COMPLETED);
-      }
+      await performEvaluation(type, payload, { srtResponses, srtSheetImages: srtSheetUploads, srtSheetTranscripts: srtSheetTexts });
   };
 
   const submitWAT = async () => {
-      setPhase(PsychologyPhase.EVALUATING);
       const payload = { 
           testType: 'WAT', 
           watResponses: items.map((item, i) => ({ id: i + 1, word: item.content, response: watResponses[i] || "" })),
           watSheetImages: watSheetUploads,
           watSheetTranscripts: watSheetTexts 
       };
-      try {
-          const result = await evaluatePerformance(type, payload);
-          if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) { throw new Error("AI Busy"); }
-          setFeedback(result);
-          if (onSave && !isGuest) onSave({ ...result, watResponses, watSheetImages: watSheetUploads, watSheetTranscripts: watSheetTexts });
-          setPhase(PsychologyPhase.COMPLETED);
-      } catch (err) { 
-          console.error("WAT Eval Error", err); 
-          const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, watResponses: payload.watResponses };
-          setFeedback(fallback);
-          if (onSave && !isGuest) onSave(fallback);
-          setPhase(PsychologyPhase.COMPLETED);
-      }
+      await performEvaluation(type, payload, { watResponses, watSheetImages: watSheetUploads, watSheetTranscripts: watSheetTexts });
   };
 
   const submitDossier = async () => {
-    setPhase(PsychologyPhase.EVALUATING);
     let tatPairs: any[] = [];
     try {
       tatPairs = await Promise.all(items.map(async (item, index) => {
@@ -754,17 +776,11 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
       }));
       const validPairs = tatPairs.filter(p => p !== null);
       
-      const result = await evaluatePerformance(type, { tatPairs: validPairs, testType: type, itemCount: items.length });
-      if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) { throw new Error("AI Busy"); }
-      setFeedback(result);
-      if (onSave && !isGuest) onSave({ ...result, tatImages: tatUploads, tatPairs: validPairs });
-      setPhase(PsychologyPhase.COMPLETED);
+      await performEvaluation(type, { tatPairs: validPairs, testType: type, itemCount: items.length }, { tatImages: tatUploads, tatPairs: validPairs });
     } catch (err) { 
-        console.error("Evaluation error:", err); 
-        const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, tatPairs: tatPairs.filter(p => p !== null) };
-        setFeedback(fallback);
-        if (onSave && !isGuest) onSave(fallback);
-        setPhase(PsychologyPhase.COMPLETED); 
+        console.error("Dossier Preparation Error", err);
+        setPhase(PsychologyPhase.COMPLETED);
+        setFeedback({ score: 0, verdict: "Preparation Error", recommendations: "Could not prepare data for evaluation.", error: true });
     }
   };
 
@@ -1212,16 +1228,75 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   if (phase === PsychologyPhase.EVALUATING) {
     const tips = type === TestType.WAT ? WAT_TIPS : type === TestType.SRT ? SRT_TIPS : type === TestType.TAT ? TAT_TIPS : SDT_TIPS;
     const currentTip = tips[currentTipIndex % tips.length];
+    const timeElapsed = evalTime;
 
     return (
         <div className="flex flex-col items-center justify-center py-40 space-y-12 animate-in fade-in">
-            <Loader2 className="w-24 h-24 text-blue-600 animate-spin" />
-            <div className="text-center space-y-4 max-w-lg px-6">
-                <p className="text-slate-900 font-black uppercase tracking-[0.5em] text-sm mb-4">Psychologist Assessment</p>
+            <div className="relative">
+                <Loader2 className="w-24 h-24 text-blue-600 animate-spin" />
+                {retryCount > 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-[10px] font-black text-blue-600 bg-white px-2 py-1 rounded-full shadow-sm border border-blue-100">
+                            R-{retryCount}
+                        </span>
+                    </div>
+                )}
+            </div>
+            
+            <div className="text-center space-y-6 max-w-lg px-6">
+                <div className="space-y-2">
+                    <p className="text-slate-900 font-black uppercase tracking-[0.5em] text-sm">Psychologist Assessment</p>
+                    {retryCount > 0 && (
+                        <p className="text-blue-600 text-[10px] font-black uppercase tracking-widest animate-pulse">
+                            Server busy. Retrying automatically...
+                        </p>
+                    )}
+                </div>
+
                 <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 shadow-sm transition-all duration-500 min-h-[100px] flex items-center justify-center">
                     <p className="text-blue-800 font-bold text-sm italic">"Tip: {currentTip}"</p>
                 </div>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-4">Analyzing personality patterns...</p>
+
+                <div className="space-y-4">
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">
+                        {timeElapsed > 15 ? "This is taking longer than usual..." : "Analyzing personality patterns..."}
+                    </p>
+
+                    {(timeElapsed > 10 || retryCount > 0) && (
+                        <div className="pt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 space-y-4">
+                                <p className="text-[10px] text-slate-500 font-bold leading-relaxed uppercase tracking-tight">
+                                    High demand on AI servers. You can wait here, or check your results later in "Mission Logs".
+                                </p>
+                                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                                    <button 
+                                        onClick={() => {
+                                            // Save partial data and exit
+                                            const fallback = { 
+                                                score: 0, 
+                                                verdict: "Technical Failure", 
+                                                recommendations: "Assessment Pending. Your responses have been saved. Check back in 5-10 minutes.", 
+                                                error: true,
+                                                ...evaluationPayloadRef.current?.originalData
+                                            };
+                                            if (onSave && !isGuest) onSave(fallback);
+                                            window.location.reload(); // Simple way to "exit" to dashboard
+                                        }}
+                                        className="px-6 py-3 bg-white border-2 border-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all"
+                                    >
+                                        Check Later
+                                    </button>
+                                    <button 
+                                        disabled
+                                        className="px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest opacity-50 cursor-not-allowed"
+                                    >
+                                        Staying on Screen...
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
