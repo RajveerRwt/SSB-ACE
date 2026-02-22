@@ -1106,9 +1106,17 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                     </div>
                 ) : (
                     // STANDARD SCORE FOR OTHERS
-                    <div className="bg-white/10 p-8 rounded-[3rem] border border-white/10 backdrop-blur-md text-center min-w-[200px] z-10 print:border-black">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2 print:text-black">Score</span>
-                        <span className="text-7xl font-black text-yellow-400 print:text-black">{feedback?.score || "N/A"}</span>
+                    <div className="flex gap-6 z-10">
+                        <div className="bg-white/10 p-8 rounded-[3rem] border border-white/10 backdrop-blur-md text-center min-w-[160px] print:border-black">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2 print:text-black">Score</span>
+                            <span className="text-6xl font-black text-yellow-400 print:text-black">{feedback?.score || "N/A"}</span>
+                        </div>
+                        {type === TestType.TAT && feedback?.attemptedCount !== undefined && (
+                            <div className="bg-white/10 p-8 rounded-[3rem] border border-white/10 backdrop-blur-md text-center min-w-[160px] print:border-black">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2 print:text-black">Attempts</span>
+                                <span className="text-6xl font-black text-white print:text-black">{feedback.attemptedCount} <span className="text-xl text-slate-400">/ 12</span></span>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -1432,6 +1440,23 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                                 </div>
                             );
                         })}
+                    </div>
+                </div>
+            )}
+
+            {/* TAT Handwriting Assessment */}
+            {type === TestType.TAT && (feedback?.handwritingFeedback || feedback?.handwritingAnalysis) && (
+                <div className="bg-white p-10 rounded-[3rem] border-2 border-slate-100 shadow-xl space-y-6 print:border-black print:shadow-none">
+                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                        <PenTool size={24} className="text-blue-600" /> Handwriting & Neatness Assessment
+                    </h3>
+                    <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-200 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                            <PenTool size={80} />
+                        </div>
+                        <p className="text-sm md:text-base text-slate-700 leading-relaxed font-medium relative z-10">
+                            {feedback.handwritingFeedback || feedback.handwritingAnalysis}
+                        </p>
                     </div>
                 </div>
             )}

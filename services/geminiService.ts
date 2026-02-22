@@ -477,7 +477,7 @@ IMPORTANT RULES:
 
         // 4. TAT EVALUATION
         else if (testType === 'TAT') {
-            const parts: Part[] = [{ text: "Evaluate TAT Dossier. For each story, provide a detailed assessment including: 1. Hero Analysis, 2. Detailed Overview (logic/structure), 3. Observation Accuracy (matching stimulus), 4. Key Strengths, 5. OLQ Gaps/Mistakes, 6. Action Analysis, 7. Outcome Analysis, 8. Improvement Tips. Analyze for OLQs (Officer Like Qualities) and check consistency across all 12 stories." }];
+            const parts: Part[] = [{ text: "Evaluate TAT Dossier. For each story, provide a detailed assessment including: 1. Hero Analysis, 2. Detailed Overview (logic/structure), 3. Observation Accuracy (matching stimulus), 4. Key Strengths, 5. OLQ Gaps/Mistakes, 6. Action Analysis, 7. Outcome Analysis, 8. Improvement Tips. Analyze for OLQs (Officer Like Qualities) and check consistency across all 12 stories. Also, assess the candidate's handwriting legibility (is it neat, readable, and understandable?) and count the total number of stories attempted out of 12. IMPORTANT: The overall score must be penalized if the candidate attempts fewer than 12 stories." }];
             if (userData.tatPairs) {
                 for (const pair of userData.tatPairs) {
                     if (pair.stimulusImage) {
@@ -528,7 +528,9 @@ IMPORTANT RULES:
                                 },
                                 strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
                                 weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                recommendations: { type: Type.STRING }
+                                recommendations: { type: Type.STRING },
+                                handwritingFeedback: { type: Type.STRING, description: "Feedback on the candidate's handwriting legibility and neatness." },
+                                attemptedCount: { type: Type.INTEGER, description: "Total number of stories attempted out of 12." }
                             }
                         }
                     }
