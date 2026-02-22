@@ -362,34 +362,6 @@ export const updateTestAttempt = async (id: string, resultData: any) => {
       .eq('id', id);
 };
 
-export const saveDetailedAssessment = async (userId: string, testType: string, feedback: any, originalData: any) => {
-    const { data, error } = await supabase
-        .from('psychology_assessments')
-        .insert({
-            user_id: userId,
-            test_type: testType,
-            feedback: feedback,
-            original_data: originalData
-        })
-        .select()
-        .single();
-    
-    if (error) {
-        console.error("Error saving detailed assessment:", error);
-        throw error;
-    }
-    return data;
-};
-
-export const getDetailedAssessments = async (userId: string) => {
-    const { data } = await supabase
-        .from('psychology_assessments')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-    return data || [];
-};
-
 export const getAllUsers = async () => {
   const { data: aspirants, error: aspError } = await supabase
     .from('aspirants')
