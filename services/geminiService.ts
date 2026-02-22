@@ -515,6 +515,9 @@ IMPORTANT RULES:
                                             heroAnalysis: { type: Type.STRING, description: "Analysis of the hero's character and qualities." },
                                             actionAnalysis: { type: Type.STRING, description: "Analysis of the actions taken by the hero." },
                                             outcomeAnalysis: { type: Type.STRING, description: "Analysis of the story's outcome." },
+                                            mistakes: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Specific mistakes or negative traits observed in this story." },
+                                            improvementTips: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Actionable tips to improve this specific story." },
+                                            overallAssessment: { type: Type.STRING, description: "A concise summary of the candidate's performance in this story." },
                                             olqProjected: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of OLQs observed in this story." },
                                             perceivedAccurately: { type: Type.BOOLEAN },
                                             score: { type: Type.NUMBER, description: "Score for this individual story (0-10)." }
