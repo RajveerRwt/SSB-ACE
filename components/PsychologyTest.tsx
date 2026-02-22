@@ -1240,169 +1240,193 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                         </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 gap-8 print:block">
+                    <div className="grid grid-cols-1 gap-12 print:block">
                         {feedback.individualStories.map((story: any, i: number) => {
                             const stimulusUrl = pregeneratedImages[items[i]?.id];
                             const userUpload = tatUploads[i];
                             
                             return (
-                                <div key={i} className={`p-8 rounded-[3rem] border-2 transition-all mb-4 print:break-inside-avoid ${story.perceivedAccurately ? 'bg-white border-slate-100' : 'bg-red-50 border-red-200 shadow-md'} hover:shadow-2xl group`}>
-                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
-                                        <div className="flex items-center gap-4">
-                                            <span className="w-10 h-10 bg-slate-900 text-white rounded-2xl flex items-center justify-center text-sm font-black shadow-lg">{(i + 1).toString().padStart(2, '0')}</span>
+                                <div key={i} className={`p-10 rounded-[4rem] border-2 transition-all mb-8 print:break-inside-avoid ${story.perceivedAccurately ? 'bg-white border-slate-100' : 'bg-red-50 border-red-200 shadow-md'} hover:shadow-2xl group relative overflow-hidden`}>
+                                    {/* Background Accent */}
+                                    <div className={`absolute top-0 right-0 w-64 h-64 -mr-20 -mt-20 rounded-full blur-3xl opacity-5 pointer-events-none ${story.perceivedAccurately ? 'bg-blue-500' : 'bg-red-500'}`} />
+                                    
+                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 relative z-10">
+                                        <div className="flex items-center gap-6">
+                                            <span className="w-14 h-14 bg-slate-900 text-yellow-400 rounded-3xl flex items-center justify-center text-xl font-black shadow-xl rotate-3 border-4 border-slate-800">
+                                                {(i + 1).toString().padStart(2, '0')}
+                                            </span>
                                             <div>
-                                                <h4 className="font-black text-slate-900 uppercase tracking-tight">Story #{i + 1}</h4>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{story.theme || "General Theme"}</p>
+                                                <h4 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Story Assessment</h4>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{story.theme || "General Theme"}</p>
+                                                    <span className="w-1 h-1 rounded-full bg-slate-200" />
+                                                    <div className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${story.perceivedAccurately ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                                                        {story.perceivedAccurately ? 'Accurate Perception' : 'Misperceived'}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                         
-                                        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-                                            <div className="flex flex-col items-end">
-                                                <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${story.perceivedAccurately ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                                                    {story.perceivedAccurately ? 'Accurate Perception' : 'Misperceived'}
+                                        <div className="flex items-center gap-6">
+                                            <div className="text-right">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Psych Grade</p>
+                                                <div className="text-4xl font-black text-slate-900 flex items-baseline gap-1">
+                                                    {story.score || 0}<span className="text-slate-300 text-sm">/10</span>
                                                 </div>
-                                                {story.score !== undefined && (
-                                                    <div className="mt-2 text-xl font-black text-slate-900">
-                                                        {story.score}<span className="text-slate-300 text-xs">/10</span>
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 relative z-10">
                                         {/* Image Previews */}
-                                        <div className="lg:col-span-4 space-y-4">
-                                            {stimulusUrl && stimulusUrl !== 'BLANK' && (
-                                                <div className="space-y-2">
-                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Stimulus Image</p>
-                                                    <div 
-                                                        className="aspect-[4/3] rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 cursor-zoom-in hover:opacity-90 transition-opacity"
-                                                        onClick={() => setEnlargedImage(stimulusUrl)}
-                                                    >
-                                                        <img src={stimulusUrl} className="w-full h-full object-cover grayscale contrast-125" alt="Stimulus" />
-                                                    </div>
+                                        <div className="lg:col-span-4 space-y-6">
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                                        <ImageIcon size={12} /> Stimulus
+                                                    </p>
+                                                    <span className="text-[8px] font-bold text-slate-400 uppercase">Click to Enlarge</span>
                                                 </div>
-                                            )}
-                                            {userUpload && (
-                                                <div className="space-y-2">
-                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Your Story Sheet (Click to Enlarge)</p>
-                                                    <div 
-                                                        className="aspect-[3/4] rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 cursor-zoom-in hover:opacity-90 transition-opacity"
-                                                        onClick={() => setEnlargedImage(`data:image/jpeg;base64,${userUpload}`)}
-                                                    >
-                                                        <img src={`data:image/jpeg;base64,${userUpload}`} className="w-full h-full object-cover" alt="User Upload" />
-                                                    </div>
+                                                <div 
+                                                    className="aspect-[4/3] rounded-[2rem] overflow-hidden border-2 border-slate-100 bg-slate-50 cursor-zoom-in hover:border-blue-200 transition-all shadow-sm group/img"
+                                                    onClick={() => setEnlargedImage(stimulusUrl)}
+                                                >
+                                                    {stimulusUrl && stimulusUrl !== 'BLANK' ? (
+                                                        <img src={stimulusUrl} className="w-full h-full object-cover grayscale contrast-125 group-hover/img:scale-110 transition-transform duration-500" alt="Stimulus" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-slate-300 font-black uppercase tracking-widest text-xs">Blank Slide</div>
+                                                    )}
                                                 </div>
-                                            )}
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                                        <FileText size={12} /> Your Story
+                                                    </p>
+                                                    <span className="text-[8px] font-bold text-slate-400 uppercase">Click to Enlarge</span>
+                                                </div>
+                                                <div 
+                                                    className="aspect-[3/4] rounded-[2rem] overflow-hidden border-2 border-slate-100 bg-slate-50 cursor-zoom-in hover:border-blue-200 transition-all shadow-sm group/img"
+                                                    onClick={() => setEnlargedImage(`data:image/jpeg;base64,${userUpload}`)}
+                                                >
+                                                    {userUpload ? (
+                                                        <img src={`data:image/jpeg;base64,${userUpload}`} className="w-full h-full object-cover group-hover/img:scale-110 transition-transform duration-500" alt="User Upload" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-red-300 font-black uppercase tracking-widest text-[10px] p-4 text-center">No Story Uploaded</div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
 
                                         {/* Analysis Content */}
-                                        <div className="lg:col-span-8 space-y-6">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                        <UserPlus size={12} className="text-blue-500" /> Hero Analysis
-                                                    </p>
-                                                    <p className="text-sm text-slate-700 leading-relaxed font-medium">{story.heroAnalysis || story.analysis}</p>
+                                        <div className="lg:col-span-8 space-y-8">
+                                            {/* Detailed Overview */}
+                                            <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden group/box">
+                                                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover/box:opacity-10 transition-opacity">
+                                                    <BookOpen size={80} />
                                                 </div>
-                                                
-                                                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
-                                                    <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                        <ScanEye size={12} className="text-blue-500" /> Observation Accuracy
-                                                    </p>
-                                                    <p className="text-sm text-slate-700 leading-relaxed font-medium">{story.observationAccuracy || (story.perceivedAccurately ? "The candidate correctly identified the key elements of the stimulus." : "Some details of the stimulus were missed or misinterpreted.")}</p>
-                                                </div>
-
-                                                {story.actionAnalysis && (
-                                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                            <Activity size={12} className="text-blue-500" /> Action & Logic
-                                                        </p>
-                                                        <p className="text-sm text-slate-700 leading-relaxed font-medium">{story.actionAnalysis}</p>
-                                                    </div>
-                                                )}
-
-                                                {story.outcomeAnalysis && (
-                                                    <div className="p-4 bg-green-50/50 rounded-2xl border border-green-100/50">
-                                                        <p className="text-[9px] font-black text-green-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                            <Target size={12} className="text-green-500" /> Outcome
-                                                        </p>
-                                                        <p className="text-sm text-slate-700 leading-relaxed font-medium">{story.outcomeAnalysis}</p>
-                                                    </div>
-                                                )}
-
-                                                {(story.detailedOverview || story.overallAssessment) && (
-                                                    <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 md:col-span-2">
-                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                            <Brain size={12} className="text-yellow-400" /> Detailed Overview
-                                                        </p>
-                                                        <p className="text-sm font-medium leading-relaxed italic">"{story.detailedOverview || story.overallAssessment}"</p>
-                                                    </div>
-                                                )}
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                    <BookOpen size={14} className="text-yellow-400" /> Detailed Overview
+                                                </p>
+                                                <p className="text-sm md:text-base font-medium leading-relaxed italic text-slate-200">
+                                                    "{story.detailedOverview || story.overallAssessment || "A comprehensive analysis of your story structure and logic."}"
+                                                </p>
                                             </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {(story.keyStrengths && story.keyStrengths.length > 0) ? (
-                                                    <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
-                                                        <p className="text-[9px] font-black text-green-600 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                                            <ThumbsUp size={12} /> Key Strengths
-                                                        </p>
-                                                        <ul className="space-y-2">
-                                                            {story.keyStrengths.map((s: string, idx: number) => (
-                                                                <li key={idx} className="text-[11px] font-bold text-green-700 flex gap-2">
-                                                                    <span className="w-1 h-1 rounded-full bg-green-400 mt-1.5 shrink-0" /> {s}
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-                                                ) : null}
-
-                                                {(story.olqGaps && story.olqGaps.length > 0) || (story.mistakes && story.mistakes.length > 0) ? (
-                                                    <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
-                                                        <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                                            <AlertCircle size={12} /> OLQ Gaps / Mistakes
-                                                        </p>
-                                                        <ul className="space-y-2">
-                                                            {(story.olqGaps || story.mistakes).map((m: string, idx: number) => (
-                                                                <li key={idx} className="text-[11px] font-bold text-red-700 flex gap-2">
-                                                                    <span className="w-1 h-1 rounded-full bg-red-400 mt-1.5 shrink-0" /> {m}
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-                                                ) : null}
-
-                                                {story.improvementTips && story.improvementTips.length > 0 && (
-                                                    <div className="p-4 bg-yellow-50 rounded-2xl border border-yellow-100 md:col-span-2">
-                                                        <p className="text-[9px] font-black text-yellow-600 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                                            <PenTool size={12} /> Improvement Tips
-                                                        </p>
-                                                        <ul className="space-y-2">
-                                                            {story.improvementTips.map((tip: string, idx: number) => (
-                                                                <li key={idx} className="text-[11px] font-bold text-yellow-800 flex gap-2">
-                                                                    <span className="w-1 h-1 rounded-full bg-yellow-400 mt-1.5 shrink-0" /> {tip}
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-                                                )}
+                                            {/* Observation Accuracy */}
+                                            <div className={`p-8 rounded-[2.5rem] border-2 transition-all ${story.perceivedAccurately ? 'bg-blue-50/30 border-blue-100' : 'bg-red-50/30 border-red-100'}`}>
+                                                <p className={`text-[10px] font-black uppercase tracking-widest mb-4 flex items-center gap-2 ${story.perceivedAccurately ? 'text-blue-600' : 'text-red-600'}`}>
+                                                    <ScanEye size={14} /> Observation Accuracy
+                                                </p>
+                                                <p className="text-sm text-slate-700 leading-relaxed font-medium">
+                                                    {story.observationAccuracy || (story.perceivedAccurately 
+                                                        ? "Excellent observation. You correctly identified the characters, their mood, and the environmental setting from the stimulus." 
+                                                        : "The stimulus was misinterpreted. Key elements like character count, gender, or environmental cues were missed.")}
+                                                </p>
                                             </div>
 
-                                            {story.olqProjected && (Array.isArray(story.olqProjected) ? (
-                                                <div className="flex flex-wrap gap-2">
-                                                    {story.olqProjected.map((olq: string, idx: number) => (
-                                                        <span key={idx} className="px-3 py-1 bg-white border border-slate-200 rounded-full text-[9px] font-black text-slate-500 uppercase tracking-widest shadow-sm group-hover:border-blue-200 group-hover:text-blue-600 transition-colors">
-                                                            {olq}
-                                                        </span>
-                                                    ))}
+                                            {/* Strengths & Gaps Grid */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                                                    <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-6 flex items-center gap-2">
+                                                        <Award size={14} /> Key Strengths
+                                                    </p>
+                                                    <ul className="space-y-4">
+                                                        {(story.keyStrengths && story.keyStrengths.length > 0) ? (
+                                                            story.keyStrengths.map((s: string, idx: number) => (
+                                                                <li key={idx} className="text-xs font-bold text-slate-700 flex gap-3">
+                                                                    <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center shrink-0 mt-0.5">
+                                                                        <CheckCircle size={10} className="text-green-600" />
+                                                                    </div>
+                                                                    {s}
+                                                                </li>
+                                                            ))
+                                                        ) : (
+                                                            <li className="text-xs font-medium text-slate-400 italic">No specific strengths highlighted for this story.</li>
+                                                        )}
+                                                    </ul>
                                                 </div>
-                                            ) : (
-                                                <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
-                                                    <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1">OLQs Observed</p>
-                                                    <p className="text-xs text-slate-600 font-bold">{story.olqProjected}</p>
+
+                                                <div className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                                                    <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                                                        <AlertCircle size={14} /> OLQ Gaps / Mistakes
+                                                    </p>
+                                                    <ul className="space-y-4">
+                                                        {((story.olqGaps || story.mistakes) && (story.olqGaps || story.mistakes).length > 0) ? (
+                                                            (story.olqGaps || story.mistakes).map((m: string, idx: number) => (
+                                                                <li key={idx} className="text-xs font-bold text-slate-700 flex gap-3">
+                                                                    <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
+                                                                        <MinusCircle size={10} className="text-red-600" />
+                                                                    </div>
+                                                                    {m}
+                                                                </li>
+                                                            ))
+                                                        ) : (
+                                                            <li className="text-xs font-medium text-slate-400 italic">No significant gaps or mistakes identified.</li>
+                                                        )}
+                                                    </ul>
                                                 </div>
-                                            ))}
+                                            </div>
+
+                                            {/* Hero, Action, Outcome Grid */}
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                        <UserPlus size={10} className="text-blue-500" /> Hero
+                                                    </p>
+                                                    <p className="text-[11px] text-slate-700 leading-relaxed font-bold">{story.heroAnalysis || "Hero qualities analysis."}</p>
+                                                </div>
+                                                <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                        <Activity size={10} className="text-purple-500" /> Action
+                                                    </p>
+                                                    <p className="text-[11px] text-slate-700 leading-relaxed font-bold">{story.actionAnalysis || "Logic and action analysis."}</p>
+                                                </div>
+                                                <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                        <Target size={10} className="text-green-500" /> Outcome
+                                                    </p>
+                                                    <p className="text-[11px] text-slate-700 leading-relaxed font-bold">{story.outcomeAnalysis || "Outcome and resolution analysis."}</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Improvement Tips */}
+                                            {story.improvementTips && story.improvementTips.length > 0 && (
+                                                <div className="p-8 bg-yellow-50/50 rounded-[2.5rem] border-2 border-yellow-100/50">
+                                                    <p className="text-[10px] font-black text-yellow-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                        <PenTool size={14} /> Improvement Tips
+                                                    </p>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        {story.improvementTips.map((tip: string, idx: number) => (
+                                                            <div key={idx} className="flex gap-3 items-start">
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 mt-1.5 shrink-0" />
+                                                                <p className="text-xs font-bold text-yellow-800 leading-relaxed">{tip}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
