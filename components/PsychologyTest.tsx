@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info, LogIn, ThumbsUp, ThumbsDown, MinusCircle, Lock, Download, Printer, UserPlus } from 'lucide-react';
-import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, STANDARD_WAT_SET } from '../services/geminiService';
+import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, extractCustomStimuli, STANDARD_WAT_SET } from '../services/geminiService';
 import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
 import { TestType } from '../types';
 import CameraModal from './CameraModal';
@@ -70,6 +70,13 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const [customTatImages, setCustomTatImages] = useState<string[]>(new Array(11).fill(''));
   const [useCustomTat, setUseCustomTat] = useState(false);
   
+  const [customWatWords, setCustomWatWords] = useState<string>('');
+  const [useCustomWat, setUseCustomWat] = useState(false);
+  
+  const [customSrtSituations, setCustomSrtSituations] = useState<string>('');
+  const [useCustomSrt, setUseCustomSrt] = useState(false);
+  const [isExtractingCustom, setIsExtractingCustom] = useState(false);
+  
   const startDirectEvaluation = () => {
     setIsLoading(true);
     setActiveSetName('Direct Assessment (Custom)');
@@ -90,6 +97,48 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     setTatUploads(new Array(finalItems.length).fill(''));
     setTatTexts(new Array(finalItems.length).fill(''));
     setPhase(PsychologyPhase.UPLOADING_STORIES);
+    setIsLoading(false);
+  };
+
+  const startDirectEvaluationWat = () => {
+    setIsLoading(true);
+    setActiveSetName('Direct Assessment (Custom WAT)');
+    const words = customWatWords.split('\n').map(w => w.trim()).filter(w => w);
+    if (words.length === 0) {
+        alert("Please enter at least one word.");
+        setIsLoading(false);
+        return;
+    }
+    const finalItems = words.map((word, i) => ({
+        id: `wat-custom-${i}`,
+        content: word
+    }));
+    setItems(finalItems);
+    setWatResponses(new Array(finalItems.length).fill(''));
+    setWatSheetUploads([]);
+    setWatSheetTexts([]);
+    setPhase(PsychologyPhase.UPLOADING_WAT);
+    setIsLoading(false);
+  };
+
+  const startDirectEvaluationSrt = () => {
+    setIsLoading(true);
+    setActiveSetName('Direct Assessment (Custom SRT)');
+    const situations = customSrtSituations.split('\n').map(s => s.trim()).filter(s => s);
+    if (situations.length === 0) {
+        alert("Please enter at least one situation.");
+        setIsLoading(false);
+        return;
+    }
+    const finalItems = situations.map((sit, i) => ({
+        id: `srt-custom-${i}`,
+        content: sit
+    }));
+    setItems(finalItems);
+    setSrtResponses(new Array(finalItems.length).fill(''));
+    setSrtSheetUploads([]);
+    setSrtSheetTexts([]);
+    setPhase(PsychologyPhase.UPLOADING_SRT);
     setIsLoading(false);
   };
   
@@ -279,44 +328,49 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
       } else if (type === TestType.WAT) {
         // --- WAT Logic ---
-        const dbWords = await getWATWords();
         let wordList: string[] = [];
         
-        if (dbWords && dbWords.length > 0) {
-            if (isGuest) {
-                // Guest: First 60 words
-                setActiveSetName('Guest Trial Set');
-                wordList = dbWords.slice(0, 60).map((row: any) => row.word);
-            } else {
-                const sets: Record<string, string[]> = dbWords.reduce((acc: any, row: any) => {
-                    const tag = row.set_tag || 'General';
-                    if (!acc[tag]) acc[tag] = [];
-                    acc[tag].push(row.word);
-                    return acc;
-                }, {});
-                const setNames = Object.keys(sets).sort();
-                const idealSets = setNames.filter(name => sets[name].length >= 60); // Prefer 60 word sets
-                let selectedSetName = '';
-                if (idealSets.length > 0) {
-                    const index = usageCount % idealSets.length;
-                    selectedSetName = idealSets[index];
-                } else {
-                    const index = usageCount % setNames.length;
-                    selectedSetName = setNames[index];
-                }
-                setActiveSetName(selectedSetName);
-                wordList = sets[selectedSetName];
-                
-                // Shuffle large general sets for logged in users
-                if (selectedSetName === 'General' && wordList.length > 60) {
-                   wordList = wordList.sort(() => Math.random() - 0.5);
-                }
-            }
+        if (useCustomWat && customWatWords.trim()) {
+            wordList = customWatWords.split('\n').map(w => w.trim()).filter(w => w);
+            setActiveSetName('Custom User Set');
         } else {
-            // Fallback
-            wordList = [...STANDARD_WAT_SET];
-            if (!isGuest) wordList = wordList.sort(() => Math.random() - 0.5);
-            setActiveSetName('Standard Fallback Set');
+            const dbWords = await getWATWords();
+            if (dbWords && dbWords.length > 0) {
+                if (isGuest) {
+                    // Guest: First 60 words
+                    setActiveSetName('Guest Trial Set');
+                    wordList = dbWords.slice(0, 60).map((row: any) => row.word);
+                } else {
+                    const sets: Record<string, string[]> = dbWords.reduce((acc: any, row: any) => {
+                        const tag = row.set_tag || 'General';
+                        if (!acc[tag]) acc[tag] = [];
+                        acc[tag].push(row.word);
+                        return acc;
+                    }, {});
+                    const setNames = Object.keys(sets).sort();
+                    const idealSets = setNames.filter(name => sets[name].length >= 60); // Prefer 60 word sets
+                    let selectedSetName = '';
+                    if (idealSets.length > 0) {
+                        const index = usageCount % idealSets.length;
+                        selectedSetName = idealSets[index];
+                    } else {
+                        const index = usageCount % setNames.length;
+                        selectedSetName = setNames[index];
+                    }
+                    setActiveSetName(selectedSetName);
+                    wordList = sets[selectedSetName];
+                    
+                    // Shuffle large general sets for logged in users
+                    if (selectedSetName === 'General' && wordList.length > 60) {
+                       wordList = wordList.sort(() => Math.random() - 0.5);
+                    }
+                }
+            } else {
+                // Fallback
+                wordList = [...STANDARD_WAT_SET];
+                if (!isGuest) wordList = wordList.sort(() => Math.random() - 0.5);
+                setActiveSetName('Standard Fallback Set');
+            }
         }
         
         finalItems = wordList.slice(0, 60).map((word, index) => ({ id: `wat-${index}`, content: word }));
@@ -324,36 +378,41 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
       } else if (type === TestType.SRT) {
         // --- SRT Logic ---
-        const dbQuestions = await getSRTQuestions();
         let srtList: string[] = [];
         
-        if (dbQuestions && dbQuestions.length > 0) {
-            if (isGuest) {
-                // Guest: First 60 items
-                setActiveSetName('Guest Trial Set');
-                srtList = dbQuestions.slice(0, 60).map((row: any) => row.question);
-            } else {
-                const sets: Record<string, string[]> = dbQuestions.reduce((acc: any, row: any) => {
-                    const tag = row.set_tag || 'General';
-                    if (!acc[tag]) acc[tag] = [];
-                    acc[tag].push(row.question);
-                    return acc;
-                }, {});
-                const setNames = Object.keys(sets).sort();
-                const index = usageCount % setNames.length;
-                const selectedSetName = setNames[index];
-                setActiveSetName(selectedSetName);
-                srtList = sets[selectedSetName];
-                
-                if (selectedSetName === 'General' && srtList.length > 60) {
-                    srtList = srtList.sort(() => Math.random() - 0.5);
-                }
-            }
+        if (useCustomSrt && customSrtSituations.trim()) {
+            srtList = customSrtSituations.split('\n').map(s => s.trim()).filter(s => s);
+            setActiveSetName('Custom User Set');
         } else {
-            // Fallback
-            const data = await generateTestContent(type);
-            srtList = data.items.map((i: any) => i.content);
-            setActiveSetName('Standard Fallback Set');
+            const dbQuestions = await getSRTQuestions();
+            if (dbQuestions && dbQuestions.length > 0) {
+                if (isGuest) {
+                    // Guest: First 60 items
+                    setActiveSetName('Guest Trial Set');
+                    srtList = dbQuestions.slice(0, 60).map((row: any) => row.question);
+                } else {
+                    const sets: Record<string, string[]> = dbQuestions.reduce((acc: any, row: any) => {
+                        const tag = row.set_tag || 'General';
+                        if (!acc[tag]) acc[tag] = [];
+                        acc[tag].push(row.question);
+                        return acc;
+                    }, {});
+                    const setNames = Object.keys(sets).sort();
+                    const index = usageCount % setNames.length;
+                    const selectedSetName = setNames[index];
+                    setActiveSetName(selectedSetName);
+                    srtList = sets[selectedSetName];
+                    
+                    if (selectedSetName === 'General' && srtList.length > 60) {
+                        srtList = srtList.sort(() => Math.random() - 0.5);
+                    }
+                }
+            } else {
+                // Fallback
+                const data = await generateTestContent(type);
+                srtList = data.items.map((i: any) => i.content);
+                setActiveSetName('Standard Fallback Set');
+            }
         }
 
         // Ensure 60 items
@@ -443,6 +502,36 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
         else if (type === TestType.WAT) setPhase(PsychologyPhase.UPLOADING_WAT);
         else setPhase(PsychologyPhase.COMPLETED);
       }
+    }
+  };
+
+  const handleCustomStimuliUpload = async (e: React.ChangeEvent<HTMLInputElement>, testType: 'WAT' | 'SRT') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setIsExtractingCustom(true);
+    try {
+        const reader = new FileReader();
+        const fileContent = await new Promise<{base64: string, type: string}>((resolve) => {
+            reader.onloadend = () => resolve({
+                base64: (reader.result as string).split(',')[1],
+                type: file.type
+            });
+            reader.readAsDataURL(file);
+        });
+
+        const extractedText = await extractCustomStimuli(fileContent.base64, fileContent.type, testType);
+
+        if (testType === 'WAT') {
+            setCustomWatWords(prev => prev ? prev + '\n' + extractedText : extractedText);
+        } else {
+            setCustomSrtSituations(prev => prev ? prev + '\n' + extractedText : extractedText);
+        }
+    } catch (err) {
+        console.error("Extraction failed", err);
+        alert("Failed to extract text. Please try a clearer image or manual entry.");
+    } finally {
+        setIsExtractingCustom(false);
     }
   };
 
@@ -789,6 +878,142 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
             </div>
         )}
 
+        {type === TestType.WAT && (
+            <div className="mb-12 p-10 bg-white rounded-[3rem] border-4 border-slate-50 shadow-xl text-left relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-50 rounded-full -mr-32 -mt-32 transition-transform group-hover:scale-110 duration-700"></div>
+                
+                <div className="relative z-10">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                        <div className="space-y-2">
+                            <h4 className="font-black text-xl uppercase tracking-tighter text-slate-900 flex items-center gap-3">
+                                <Edit className="text-emerald-600" size={24} /> Custom Word Set
+                            </h4>
+                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest opacity-60">Enter your own words for practice</p>
+                        </div>
+                        <button 
+                            onClick={() => setUseCustomWat(!useCustomWat)}
+                            className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-lg flex items-center gap-3 ${useCustomWat ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                        >
+                            {useCustomWat ? <><CheckCircle size={16}/> Using Custom Set</> : <><RefreshCw size={16}/> Use Platform Set</>}
+                        </button>
+                    </div>
+                    
+                    {useCustomWat && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+                            <div className="flex items-center gap-4">
+                                <label className="flex-1 flex items-center justify-center gap-3 p-4 bg-emerald-50 border-2 border-dashed border-emerald-200 rounded-2xl cursor-pointer hover:bg-emerald-100 transition-all group/upload">
+                                    {isExtractingCustom ? (
+                                        <Loader2 size={20} className="animate-spin text-emerald-600" />
+                                    ) : (
+                                        <Upload size={20} className="text-emerald-600 group-hover/upload:scale-110 transition-transform" />
+                                    )}
+                                    <span className="text-xs font-black uppercase tracking-widest text-emerald-700">
+                                        {isExtractingCustom ? "Extracting..." : "Upload Image/PDF of Words"}
+                                    </span>
+                                    <input 
+                                        type="file" 
+                                        className="hidden" 
+                                        accept="image/*,application/pdf" 
+                                        onChange={(e) => handleCustomStimuliUpload(e, 'WAT')}
+                                        disabled={isExtractingCustom}
+                                    />
+                                </label>
+                            </div>
+
+                            <textarea 
+                                value={customWatWords}
+                                onChange={(e) => setCustomWatWords(e.target.value)}
+                                placeholder="Enter words separated by new lines (e.g. Brave, Success, Failure...)"
+                                className="w-full h-48 p-6 bg-slate-50 border-2 border-slate-200 rounded-[2rem] focus:bg-white focus:border-emerald-500 outline-none transition-all font-medium text-slate-700 resize-none"
+                            />
+                            <div className="mt-4 flex justify-between items-center px-4">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Total Words: {customWatWords.split('\n').filter(w => w.trim()).length} / 60 Recommended
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <div className="mt-8 flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <Info size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                            {useCustomWat 
+                                ? "Enter one word per line. The test will automatically cycle through these words at 15-second intervals." 
+                                : "The platform provides standardized word sets designed to trigger psychological responses related to OLQs."}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {type === TestType.SRT && (
+            <div className="mb-12 p-10 bg-white rounded-[3rem] border-4 border-slate-50 shadow-xl text-left relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-orange-50 rounded-full -mr-32 -mt-32 transition-transform group-hover:scale-110 duration-700"></div>
+                
+                <div className="relative z-10">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                        <div className="space-y-2">
+                            <h4 className="font-black text-xl uppercase tracking-tighter text-slate-900 flex items-center gap-3">
+                                <Activity className="text-orange-600" size={24} /> Custom Situation Set
+                            </h4>
+                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest opacity-60">Enter your own situations for practice</p>
+                        </div>
+                        <button 
+                            onClick={() => setUseCustomSrt(!useCustomSrt)}
+                            className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-lg flex items-center gap-3 ${useCustomSrt ? 'bg-orange-600 text-white shadow-orange-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                        >
+                            {useCustomSrt ? <><CheckCircle size={16}/> Using Custom Set</> : <><RefreshCw size={16}/> Use Platform Set</>}
+                        </button>
+                    </div>
+                    
+                    {useCustomSrt && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+                            <div className="flex items-center gap-4">
+                                <label className="flex-1 flex items-center justify-center gap-3 p-4 bg-orange-50 border-2 border-dashed border-orange-200 rounded-2xl cursor-pointer hover:bg-orange-100 transition-all group/upload">
+                                    {isExtractingCustom ? (
+                                        <Loader2 size={20} className="animate-spin text-orange-600" />
+                                    ) : (
+                                        <Upload size={20} className="text-orange-600 group-hover/upload:scale-110 transition-transform" />
+                                    )}
+                                    <span className="text-xs font-black uppercase tracking-widest text-orange-700">
+                                        {isExtractingCustom ? "Extracting..." : "Upload Image/PDF of Situations"}
+                                    </span>
+                                    <input 
+                                        type="file" 
+                                        className="hidden" 
+                                        accept="image/*,application/pdf" 
+                                        onChange={(e) => handleCustomStimuliUpload(e, 'SRT')}
+                                        disabled={isExtractingCustom}
+                                    />
+                                </label>
+                            </div>
+
+                            <textarea 
+                                value={customSrtSituations}
+                                onChange={(e) => setCustomSrtSituations(e.target.value)}
+                                placeholder="Enter situations separated by new lines (e.g. He was going to exam and saw an accident...)"
+                                className="w-full h-48 p-6 bg-slate-50 border-2 border-slate-200 rounded-[2rem] focus:bg-white focus:border-orange-500 outline-none transition-all font-medium text-slate-700 resize-none"
+                            />
+                            <div className="mt-4 flex justify-between items-center px-4">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Total Situations: {customSrtSituations.split('\n').filter(s => s.trim()).length} / 60 Recommended
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <div className="mt-8 flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <Info size={16} className="text-orange-500 shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                            {useCustomSrt 
+                                ? "Enter one situation per line. You will have 30 minutes to respond to all situations you enter." 
+                                : "Standardized situations test your reaction speed, decision making, and social responsibility."}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {type === TestType.TAT && useCustomTat ? (
           <div className="flex flex-col md:flex-row gap-4 justify-center">
             <button onClick={startTest} disabled={isLoading} className="bg-slate-900 text-white px-12 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-4">
@@ -800,6 +1025,28 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
               Direct Evaluation
             </button>
           </div>
+        ) : type === TestType.WAT && useCustomWat ? (
+            <div className="flex flex-col md:flex-row gap-4 justify-center">
+              <button onClick={startTest} disabled={isLoading} className="bg-slate-900 text-white px-12 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-4">
+                {isLoading ? <Loader2 className="animate-spin" /> : <PenTool size={24} />}
+                Start Practice
+              </button>
+              <button onClick={startDirectEvaluationWat} disabled={isLoading} className="bg-emerald-600 text-white px-12 py-6 rounded-full font-black text-lg hover:bg-emerald-700 transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-4">
+                {isLoading ? <Loader2 className="animate-spin" /> : <FileText size={24} />}
+                Direct Evaluation
+              </button>
+            </div>
+        ) : type === TestType.SRT && useCustomSrt ? (
+            <div className="flex flex-col md:flex-row gap-4 justify-center">
+              <button onClick={startTest} disabled={isLoading} className="bg-slate-900 text-white px-12 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-4">
+                {isLoading ? <Loader2 className="animate-spin" /> : <PenTool size={24} />}
+                Start Practice
+              </button>
+              <button onClick={startDirectEvaluationSrt} disabled={isLoading} className="bg-orange-600 text-white px-12 py-6 rounded-full font-black text-lg hover:bg-orange-700 transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-4">
+                {isLoading ? <Loader2 className="animate-spin" /> : <FileText size={24} />}
+                Direct Evaluation
+              </button>
+            </div>
         ) : (
           <button onClick={startTest} disabled={isLoading} className="bg-slate-900 text-white px-16 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-6 mx-auto">
             {isLoading ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
@@ -1197,15 +1444,27 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                             // 3. Final Analysis Object
                             const analysis = analysisById || analysisByContent;
 
-                            // Determine if unattempted based on USER INPUT, not analysis existence
+                            // Determine if unattempted based on USER INPUT or AI MAPPING
                             const userResponseRaw = type === TestType.WAT ? watResponses[i] : srtResponses[i];
-                            const isUnattempted = !userResponseRaw || userResponseRaw.trim() === "";
+                            const aiMappedResponse = analysis?.userResponse;
+                            const isUnattempted = (!userResponseRaw || userResponseRaw.trim() === "") && 
+                                                (!aiMappedResponse || aiMappedResponse.toLowerCase().includes("not attempted") || aiMappedResponse.trim() === "");
                             
                             return (
                                 <div key={i} className={`p-6 rounded-3xl border transition-all flex flex-col md:flex-row gap-6 mb-4 print:break-inside-avoid ${isUnattempted ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100 hover:bg-white hover:shadow-md'}`}>
                                     <div className="md:w-1/4 shrink-0 flex items-center gap-4">
                                         <span className="text-2xl font-black text-slate-300">{(i + 1).toString().padStart(2, '0')}</span>
-                                        <p className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-wide leading-tight">{item.content}</p>
+                                        <div className="flex flex-col">
+                                            <p className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-wide leading-tight">{item.content}</p>
+                                            {analysis?.score !== undefined && (
+                                                <div className="mt-1 flex items-center gap-1">
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase">Item Score:</span>
+                                                    <span className={`text-[10px] font-black ${analysis.score >= 7 ? 'text-green-600' : analysis.score >= 5 ? 'text-blue-600' : 'text-red-500'}`}>
+                                                        {analysis.score}/10
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="md:w-3/4 grid md:grid-cols-2 gap-6">
                                         <div className="space-y-1">
@@ -1215,13 +1474,18 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                                                     <span className="text-[9px] font-bold uppercase tracking-widest text-red-500">Missed</span>
                                                 ) : (
                                                     <span className={`text-[9px] font-bold uppercase tracking-widest ${
-                                                        analysis?.assessment?.toLowerCase().includes('positive') ? 'text-green-600' : 'text-blue-600'
-                                                    }`}>{analysis?.assessment || "Pending"}</span>
+                                                        analysis?.assessment?.toLowerCase().includes('positive') || analysis?.assessment?.toLowerCase().includes('effective') ? 'text-green-600' : 'text-blue-600'
+                                                    }`}>{analysis?.assessment || "Assessed"}</span>
                                                 )}
                                             </div>
                                             <p className={`p-3 rounded-xl text-sm font-medium ${isUnattempted ? 'bg-white text-red-400 border border-red-100 italic' : 'bg-white border border-slate-200 text-slate-700'}`}>
-                                                {isUnattempted ? "Not Attempted" : (analysis?.userResponse || userResponseRaw)}
+                                                {isUnattempted ? "Not Attempted" : (aiMappedResponse && !aiMappedResponse.toLowerCase().includes("not attempted") ? aiMappedResponse : userResponseRaw)}
                                             </p>
+                                            {analysis?.textAssessment && (
+                                                <p className="mt-2 text-[10px] font-bold text-slate-500 italic leading-relaxed">
+                                                    Feedback: {analysis.textAssessment}
+                                                </p>
+                                            )}
                                         </div>
                                         <div className="space-y-1">
                                             <span className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Ideal Response</span>
@@ -1444,8 +1708,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 </div>
             )}
 
-            {/* TAT Handwriting Assessment */}
-            {type === TestType.TAT && (feedback?.handwritingFeedback || feedback?.handwritingAnalysis) && (
+            {/* Handwriting Assessment */}
+            {(type === TestType.TAT || type === TestType.WAT || type === TestType.SRT) && (feedback?.handwritingFeedback || feedback?.handwritingAnalysis) && (
                 <div className="bg-white p-10 rounded-[3rem] border-2 border-slate-100 shadow-xl space-y-6 print:border-black print:shadow-none">
                     <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                         <PenTool size={24} className="text-blue-600" /> Handwriting & Neatness Assessment

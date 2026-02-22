@@ -24,6 +24,31 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const timeoutPromise = (ms: number) => new Promise((_, reject) => setTimeout(() => reject(new Error("Request Timeout")), ms));
 
 /**
+ * Extracts words or situations from a file (image/PDF).
+ */
+export async function extractCustomStimuli(fileBase64: string, mimeType: string, testType: 'WAT' | 'SRT'): Promise<string> {
+    const prompt = testType === 'WAT' 
+        ? "Extract a list of words from this image/PDF for a Word Association Test. Return ONLY the words separated by new lines. No numbers, no extra text."
+        : "Extract a list of situations/sentences from this image/PDF for a Situation Reaction Test. Return ONLY the situations separated by new lines. No numbers, no extra text.";
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: {
+                parts: [
+                    { inlineData: { data: fileBase64, mimeType } },
+                    { text: prompt }
+                ]
+            }
+        });
+        return response.text?.trim() || "";
+    } catch (err) {
+        console.error("Extraction failed:", err);
+        throw err;
+    }
+}
+
+/**
  * Wraps generateContent with retry logic and smart fallback.
  * Handles 503 (Overloaded) errors by switching to faster models immediately.
  */
@@ -293,13 +318,17 @@ IMPORTANT RULES:
 1. Return analysis for ALL items. If a word has no response, mark 'userResponse' as 'Not Attempted', but YOU MUST PROVIDE an 'idealResponse' for it.
 2. STRICT SCORING (0-10): The overall score MUST reflect the number of valid, attempted responses. If a response is 'Not Attempted', gibberish, or completely unrelated to the word, it receives 0 marks.
 3. If the majority of items are 'Not Attempted' or invalid, the overall score MUST be very low (e.g., 0-3) and the generalFeedback MUST state that the test was largely unattempted or invalid.
-4. Do not generate a positive overall assessment or high score if the user failed to attempt the test properly.`
+4. Do not generate a positive overall assessment or high score if the user failed to attempt the test properly.
+5. Assess the candidate's handwriting legibility (is it neat, readable, and understandable?) from the provided images.
+6. For each item in 'detailedAnalysis', provide an individual 'score' (0-10) and a brief 'textAssessment'.`
                 : `Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Situations by ID or Content. 
 IMPORTANT RULES:
 1. Return analysis for ALL items. If a situation has no response, mark 'userResponse' as 'Not Attempted', but YOU MUST PROVIDE an 'idealResponse' for it.
 2. STRICT SCORING (0-10): The overall score MUST reflect the number of valid, attempted responses. If a response is 'Not Attempted', gibberish, or completely unrelated to the situation, it receives 0 marks.
 3. If the majority of items are 'Not Attempted' or invalid, the overall score MUST be very low (e.g., 0-3) and the generalFeedback MUST state that the test was largely unattempted or invalid.
-4. Do not generate a positive overall assessment or high score if the user failed to attempt the test properly.`;
+4. Do not generate a positive overall assessment or high score if the user failed to attempt the test properly.
+5. Assess the candidate's handwriting legibility (is it neat, readable, and understandable?) from the provided images.
+6. For each item in 'detailedAnalysis', provide an individual 'score' (0-10) and a brief 'textAssessment'.`;
 
             const parts: Part[] = [{ text: promptText }];
             
@@ -360,13 +389,16 @@ IMPORTANT RULES:
                                             situation: { type: Type.STRING }, 
                                             userResponse: { type: Type.STRING },
                                             assessment: { type: Type.STRING },
+                                            textAssessment: { type: Type.STRING, description: "Brief individual feedback for this response." },
+                                            score: { type: Type.NUMBER, description: "Individual score for this item (0-10)." },
                                             idealResponse: { type: Type.STRING }
                                         }
                                     }
                                 },
                                 strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
                                 weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                recommendations: { type: Type.STRING }
+                                recommendations: { type: Type.STRING },
+                                handwritingFeedback: { type: Type.STRING, description: "Feedback on the candidate's handwriting legibility and neatness." }
                             }
                         }
                     }
