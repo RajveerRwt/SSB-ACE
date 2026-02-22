@@ -477,7 +477,7 @@ IMPORTANT RULES:
 
         // 4. TAT EVALUATION
         else if (testType === 'TAT') {
-            const parts: Part[] = [{ text: "Evaluate TAT Dossier. Analyze each story for OLQs (Officer Like Qualities). Check consistency across stories." }];
+            const parts: Part[] = [{ text: "Evaluate TAT Dossier. For each story, provide a detailed assessment including: 1. Hero Analysis, 2. Detailed Overview (logic/structure), 3. Observation Accuracy (matching stimulus), 4. Key Strengths, 5. OLQ Gaps/Mistakes, 6. Action Analysis, 7. Outcome Analysis, 8. Improvement Tips. Analyze for OLQs (Officer Like Qualities) and check consistency across all 12 stories." }];
             if (userData.tatPairs) {
                 for (const pair of userData.tatPairs) {
                     if (pair.stimulusImage) {
@@ -513,11 +513,13 @@ IMPORTANT RULES:
                                             storyIndex: { type: Type.INTEGER },
                                             theme: { type: Type.STRING },
                                             heroAnalysis: { type: Type.STRING, description: "Analysis of the hero's character and qualities." },
+                                            detailedOverview: { type: Type.STRING, description: "A comprehensive analysis of the story content, structure, and logic." },
+                                            observationAccuracy: { type: Type.STRING, description: "Detailed feedback on whether the candidate correctly identified characters, mood, and setting from the stimulus." },
+                                            keyStrengths: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Positive traits or OLQs demonstrated in this specific story." },
+                                            olqGaps: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Missing qualities, mistakes, or negative traits observed." },
                                             actionAnalysis: { type: Type.STRING, description: "Analysis of the actions taken by the hero." },
                                             outcomeAnalysis: { type: Type.STRING, description: "Analysis of the story's outcome." },
-                                            mistakes: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Specific mistakes or negative traits observed in this story." },
                                             improvementTips: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Actionable tips to improve this specific story." },
-                                            overallAssessment: { type: Type.STRING, description: "A concise summary of the candidate's performance in this story." },
                                             olqProjected: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of OLQs observed in this story." },
                                             perceivedAccurately: { type: Type.BOOLEAN },
                                             score: { type: Type.NUMBER, description: "Score for this individual story (0-10)." }

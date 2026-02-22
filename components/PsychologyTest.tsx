@@ -130,6 +130,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
   const [feedback, setFeedback] = useState<any>(null);
   const [showScoreHelp, setShowScoreHelp] = useState(false);
+  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
   
   // Camera State
@@ -1038,6 +1039,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     const speedAnalysis = (type === TestType.WAT || type === TestType.SRT) ? getAttemptAnalysis(type, feedback?.attemptedCount || 0) : null;
 
     return (
+        <>
         <div className="max-w-6xl mx-auto space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-12 print:bg-white print:p-0 print:m-0 print:max-w-none">
             {/* Print Styles Injection */}
             <style>
@@ -1274,15 +1276,21 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                                             {stimulusUrl && stimulusUrl !== 'BLANK' && (
                                                 <div className="space-y-2">
                                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Stimulus Image</p>
-                                                    <div className="aspect-[4/3] rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+                                                    <div 
+                                                        className="aspect-[4/3] rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 cursor-zoom-in hover:opacity-90 transition-opacity"
+                                                        onClick={() => setEnlargedImage(stimulusUrl)}
+                                                    >
                                                         <img src={stimulusUrl} className="w-full h-full object-cover grayscale contrast-125" alt="Stimulus" />
                                                     </div>
                                                 </div>
                                             )}
                                             {userUpload && (
                                                 <div className="space-y-2">
-                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Your Story Sheet</p>
-                                                    <div className="aspect-[3/4] rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Your Story Sheet (Click to Enlarge)</p>
+                                                    <div 
+                                                        className="aspect-[3/4] rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 cursor-zoom-in hover:opacity-90 transition-opacity"
+                                                        onClick={() => setEnlargedImage(`data:image/jpeg;base64,${userUpload}`)}
+                                                    >
                                                         <img src={`data:image/jpeg;base64,${userUpload}`} className="w-full h-full object-cover" alt="User Upload" />
                                                     </div>
                                                 </div>
@@ -1299,9 +1307,16 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                                                     <p className="text-sm text-slate-700 leading-relaxed font-medium">{story.heroAnalysis || story.analysis}</p>
                                                 </div>
                                                 
+                                                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                                                    <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                        <ScanEye size={12} className="text-blue-500" /> Observation Accuracy
+                                                    </p>
+                                                    <p className="text-sm text-slate-700 leading-relaxed font-medium">{story.observationAccuracy || (story.perceivedAccurately ? "The candidate correctly identified the key elements of the stimulus." : "Some details of the stimulus were missed or misinterpreted.")}</p>
+                                                </div>
+
                                                 {story.actionAnalysis && (
-                                                    <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
-                                                        <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                                                             <Activity size={12} className="text-blue-500" /> Action & Logic
                                                         </p>
                                                         <p className="text-sm text-slate-700 leading-relaxed font-medium">{story.actionAnalysis}</p>
@@ -1317,34 +1332,49 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                                                     </div>
                                                 )}
 
-                                                {story.overallAssessment && (
+                                                {(story.detailedOverview || story.overallAssessment) && (
                                                     <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 md:col-span-2">
                                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                            <Brain size={12} className="text-yellow-400" /> Overall Assessment
+                                                            <Brain size={12} className="text-yellow-400" /> Detailed Overview
                                                         </p>
-                                                        <p className="text-sm font-medium leading-relaxed italic">"{story.overallAssessment}"</p>
+                                                        <p className="text-sm font-medium leading-relaxed italic">"{story.detailedOverview || story.overallAssessment}"</p>
                                                     </div>
                                                 )}
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {story.mistakes && story.mistakes.length > 0 && (
-                                                    <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
-                                                        <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                                            <MinusCircle size={12} /> Mistakes Observed
+                                                {(story.keyStrengths && story.keyStrengths.length > 0) ? (
+                                                    <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
+                                                        <p className="text-[9px] font-black text-green-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                            <ThumbsUp size={12} /> Key Strengths
                                                         </p>
                                                         <ul className="space-y-2">
-                                                            {story.mistakes.map((m: string, idx: number) => (
+                                                            {story.keyStrengths.map((s: string, idx: number) => (
+                                                                <li key={idx} className="text-[11px] font-bold text-green-700 flex gap-2">
+                                                                    <span className="w-1 h-1 rounded-full bg-green-400 mt-1.5 shrink-0" /> {s}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                ) : null}
+
+                                                {(story.olqGaps && story.olqGaps.length > 0) || (story.mistakes && story.mistakes.length > 0) ? (
+                                                    <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
+                                                        <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                            <AlertCircle size={12} /> OLQ Gaps / Mistakes
+                                                        </p>
+                                                        <ul className="space-y-2">
+                                                            {(story.olqGaps || story.mistakes).map((m: string, idx: number) => (
                                                                 <li key={idx} className="text-[11px] font-bold text-red-700 flex gap-2">
                                                                     <span className="w-1 h-1 rounded-full bg-red-400 mt-1.5 shrink-0" /> {m}
                                                                 </li>
                                                             ))}
                                                         </ul>
                                                     </div>
-                                                )}
+                                                ) : null}
 
                                                 {story.improvementTips && story.improvementTips.length > 0 && (
-                                                    <div className="p-4 bg-yellow-50 rounded-2xl border border-yellow-100">
+                                                    <div className="p-4 bg-yellow-50 rounded-2xl border border-yellow-100 md:col-span-2">
                                                         <p className="text-[9px] font-black text-yellow-600 uppercase tracking-widest mb-3 flex items-center gap-2">
                                                             <PenTool size={12} /> Improvement Tips
                                                         </p>
@@ -1442,6 +1472,30 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                 </button>
             )}
         </div>
+
+        {/* Image Enlarge Modal */}
+        {enlargedImage && (
+            <div 
+                className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 md:p-10 animate-in fade-in duration-300"
+                onClick={() => setEnlargedImage(null)}
+            >
+                <div className="relative max-w-5xl w-full h-full flex items-center justify-center">
+                    <button 
+                        className="absolute top-0 right-0 md:-top-10 md:-right-10 text-white p-2 hover:bg-white/10 rounded-full transition-colors"
+                        onClick={() => setEnlargedImage(null)}
+                    >
+                        <X size={32} />
+                    </button>
+                    <img 
+                        src={enlargedImage} 
+                        className="max-w-full max-h-full object-contain rounded-xl shadow-2xl" 
+                        alt="Enlarged View" 
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            </div>
+        )}
+        </>
     )
   }
 
