@@ -42,3 +42,17 @@ create policy "Admin delete questions" on public.oir_questions for delete using 
 alter table public.oir_doubts enable row level security;
 create policy "Public read doubts" on public.oir_doubts for select using (true);
 create policy "Public insert doubts" on public.oir_doubts for insert with check (true);
+
+-- PSYCHOLOGY ASSESSMENTS
+create table if not exists public.psychology_assessments (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid not null,
+  test_type text not null,
+  feedback jsonb not null,
+  original_data jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.psychology_assessments enable row level security;
+create policy "Users can read their own assessments" on public.psychology_assessments for select using (auth.uid() = user_id);
+create policy "Users can insert their own assessments" on public.psychology_assessments for insert with check (auth.uid() = user_id);

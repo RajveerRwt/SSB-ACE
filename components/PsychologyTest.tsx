@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info, LogIn, ThumbsUp, ThumbsDown, MinusCircle, Lock, Download, Printer, UserPlus } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, extractCustomStimuli, STANDARD_WAT_SET } from '../services/geminiService';
-import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
+import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription, saveDetailedAssessment } from '../services/supabaseService';
 import { TestType } from '../types';
 import CameraModal from './CameraModal';
 import SessionFeedback from './SessionFeedback';
@@ -127,12 +127,31 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     try {
       const result = await runEval(0);
       setFeedback(result);
+      
+      // Save to the new dedicated table
+      if (userId && !isGuest) {
+          try {
+              await saveDetailedAssessment(userId, testType, result, originalData);
+          } catch (saveErr) {
+              console.error("Failed to save detailed assessment:", saveErr);
+          }
+      }
+
       if (onSave && !isGuest) onSave({ ...result, ...originalData });
       setPhase(PsychologyPhase.COMPLETED);
     } catch (err) {
       console.error("Critical Evaluation Failure", err);
       // Fallback if the loop somehow breaks
       const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, ...originalData };
+      
+      if (userId && !isGuest) {
+          try {
+              await saveDetailedAssessment(userId, testType, fallback, originalData);
+          } catch (saveErr) {
+              console.error("Failed to save fallback assessment:", saveErr);
+          }
+      }
+
       setFeedback(fallback);
       if (onSave && !isGuest) onSave(fallback);
       setPhase(PsychologyPhase.COMPLETED);
@@ -1259,18 +1278,18 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
 
                 <div className="space-y-4">
                     <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">
-                        {timeElapsed > 15 ? "This is taking longer than usual..." : "Analyzing personality patterns..."}
+                        {retryCount > 0 ? "AI Overloaded. Trying fallback models..." : (timeElapsed > 15 ? "This is taking longer than usual..." : "Analyzing personality patterns...")}
                     </p>
 
                     {(timeElapsed > 10 || retryCount > 0) && (
                         <div className="pt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
                             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 space-y-4">
                                 <p className="text-[10px] text-slate-500 font-bold leading-relaxed uppercase tracking-tight">
-                                    High demand on AI servers. You can wait here, or check your results later in "Mission Logs".
+                                    High demand on AI servers. We are retrying with different models to ensure your assessment is generated. You can wait here, or check your results later in your profile.
                                 </p>
                                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                                     <button 
-                                        onClick={() => {
+                                        onClick={async () => {
                                             // Save partial data and exit
                                             const fallback = { 
                                                 score: 0, 
@@ -1279,6 +1298,15 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                                                 error: true,
                                                 ...evaluationPayloadRef.current?.originalData
                                             };
+                                            
+                                            if (userId && !isGuest) {
+                                                try {
+                                                    await saveDetailedAssessment(userId, type, fallback, evaluationPayloadRef.current?.originalData);
+                                                } catch (e) {
+                                                    console.error("Check Later Save Error:", e);
+                                                }
+                                            }
+
                                             if (onSave && !isGuest) onSave(fallback);
                                             window.location.reload(); // Simple way to "exit" to dashboard
                                         }}

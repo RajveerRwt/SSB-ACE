@@ -13,7 +13,7 @@ import AdminPanel from './components/AdminPanel';
 import PaymentModal from './components/PaymentModal';
 import LegalPages from './components/LegalPages';
 import { TestType, PIQData } from './types';
-import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser } from './services/supabaseService';
+import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, getDetailedAssessments } from './services/supabaseService';
 import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle } from 'lucide-react';
 import { SSBLogo } from './components/Logo';
 
@@ -28,6 +28,7 @@ const Dashboard: React.FC<{
 }> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user, onOpenPayment }) => {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [history, setHistory] = useState<any[]>([]);
+  const [detailedLogs, setDetailedLogs] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
@@ -51,10 +52,16 @@ const Dashboard: React.FC<{
   useEffect(() => {
     if (isLoggedIn && user && !user.startsWith('demo')) {
       setLoadingHistory(true);
-      getUserHistory(user).then(data => {
-        setHistory(data);
-        setLoadingHistory(false);
+      
+      Promise.all([
+          getUserHistory(user),
+          getDetailedAssessments(user)
+      ]).then(([hist, detailed]) => {
+          setHistory(hist);
+          setDetailedLogs(detailed);
+          setLoadingHistory(false);
       });
+
       getUserSubscription(user).then(sub => setSubscription(sub));
       
       const fetchStatus = () => {
@@ -227,33 +234,45 @@ const Dashboard: React.FC<{
              <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-xl">
                <div className="flex justify-between items-center mb-6">
                  <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-4">
-                   <History className="text-purple-600" size={20} /> Mission Logs
+                   <History className="text-purple-600" size={20} /> Assessment Records
                  </h3>
-                 <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recent Activity</span>
+                 <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Detailed History</span>
                </div>
                
                {loadingHistory ? (
                  <div className="flex items-center justify-center p-8"><Loader2 className="animate-spin text-slate-300" /></div>
-               ) : history.length === 0 ? (
+               ) : detailedLogs.length === 0 ? (
                  <div className="text-center p-8 bg-slate-50 rounded-3xl text-slate-400 text-xs font-medium italic">
-                   "No mission records found. Complete a test to initialize log."
+                   "No detailed records found. Complete a test to initialize log."
                  </div>
                ) : (
                  <div className="space-y-3">
-                   {history.map((h, i) => (
+                   {detailedLogs.map((h, i) => (
                      <div key={i} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors gap-3">
                         <div className="flex items-center gap-4">
                           <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-black text-[10px]">
-                            {h.type.substring(0,2)}
+                            {h.test_type.substring(0,2)}
                           </div>
                           <div>
-                            <p className="text-xs font-black uppercase text-slate-800 tracking-wide">{h.type}</p>
-                            <p className="text--[9px] text-slate-400 font-bold">{new Date(h.timestamp).toLocaleDateString()}</p>
+                            <p className="text-xs font-black uppercase text-slate-800 tracking-wide">{h.test_type}</p>
+                            <p className="text-[9px] text-slate-400 font-bold">{new Date(h.created_at).toLocaleDateString()}</p>
                           </div>
                         </div>
-                        <div className="text-right flex md:block w-full md:w-auto justify-between items-center">
-                          <p className="text-xs font-black text-slate-900">Score: {h.score}</p>
-                          <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Logged</p>
+                        <div className="text-right flex md:block w-full md:w-auto justify-between items-center gap-4">
+                           <div className="text-right">
+                          <p className="text-xs font-black text-slate-900">Score: {h.feedback?.score || 0}</p>
+                             <p className={`text-[9px] font-bold uppercase tracking-widest ${h.feedback?.error ? 'text-red-500' : 'text-green-600'}`}>
+                                {h.feedback?.error ? 'Pending/Error' : 'Evaluated'}
+                             </p>
+                           </div>
+                           <button 
+                             onClick={() => {
+                                 alert("Detailed assessment is stored. You can view it by re-running the test or in the future 'Detailed Reports' section.");
+                             }}
+                             className="px-3 py-1.5 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-black"
+                           >
+                             View Report
+                           </button>
                         </div>
                      </div>
                    ))}
