@@ -67,7 +67,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isRecordingRef = useRef(false);
 
-  // ... (Audio Init, Buzzer, Start Logic - No changes needed here) ...
+
   const initAudio = () => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -403,7 +403,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
   // Render logic...
   const renderContent = () => {
     switch (step) {
-      // ... (Previous steps remain the same) ...
+
       case PPDTStep.IDLE:
         return (
           <div className="max-w-4xl mx-auto text-center py-20 md:py-28 space-y-12 animate-in fade-in zoom-in duration-500">

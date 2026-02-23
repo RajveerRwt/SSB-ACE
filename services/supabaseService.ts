@@ -1,5 +1,4 @@
 
-// ... existing imports ...
 import { createClient } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
 
@@ -23,7 +22,7 @@ export const TEST_RATES = {
     INTERVIEW_FULL: 100   
 };
 
-// ... existing OIR services ...
+
 export const getOIRSets = async () => {
   const { data } = await supabase.from('oir_sets').select('*').order('created_at', { ascending: false });
   return data || [];
@@ -109,7 +108,7 @@ export const postOIRDoubt = async (questionId: string, userId: string, userName:
   });
 };
 
-// ... existing cache services ...
+
 export const getCachedContent = async (category: string, dateKey: string) => {
   const { data } = await supabase
     .from('daily_cache')
@@ -131,7 +130,7 @@ export const setCachedContent = async (category: string, dateKey: string, conten
   if (error) console.error("Cache Write Error:", error);
 };
 
-// ... existing lecturette cache ...
+
 export const getLecturetteContent = async (topic: string) => {
   const { data } = await supabase
     .from('lecturette_topics')
@@ -154,7 +153,7 @@ export const saveLecturetteContent = async (topic: string, board: string, catego
   if (error) console.error("Error saving lecturette cache:", error);
 };
 
-// ... existing ticker config ...
+
 export const getTickerConfig = async () => {
   const { data } = await supabase
     .from('ticker_config')
@@ -184,7 +183,7 @@ export const subscribeToTicker = (callback: (config: any) => void) => {
   return () => { supabase.removeChannel(channel); };
 };
 
-// ... existing auth ...
+
 export const signInWithEmail = async (email: string, password: string) => {
   const auth = supabase.auth as any;
   if (auth.signInWithPassword) {
@@ -297,7 +296,7 @@ export const syncUserProfile = async (user: any) => {
   }
 };
 
-// ... existing user data services ...
+
 export const getUserData = async (userId: string): Promise<PIQData | null> => {
   const { data } = await supabase
     .from('aspirants')

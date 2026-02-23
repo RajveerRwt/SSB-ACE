@@ -258,7 +258,17 @@ export async function evaluatePerformance(testType: string, userData: any) {
             Interview Duration: ${Math.floor(userData.duration / 60)} minutes.
             Transcript: "${userData.transcript}"
             
-            Task: Assess Officer Like Qualities (OLQs).
+            Task: Assess Officer Like Qualities (OLQs) with focus on:
+            1. Effective Intelligence & Reasoning Ability: How they handled complex or probing questions.
+            2. Social Adjustment: Relationship with family/friends as revealed in CIQs.
+            3. Social Effectiveness: Confidence, Power of Expression, and handling of Stress/Probing.
+            4. Dynamic Qualities: Determination and Courage in answering difficult questions.
+            
+            CRITICAL EVALUATION POINTS:
+            - Did they remember all parts of the Rapid Fire (CIQ) questions?
+            - Did they maintain composure during probing or stress testing?
+            - Is their awareness of Current Affairs (Defense/Geopolitics) up to the mark?
+            
             Return JSON with:
             - score (0-10)
             - recommendations (Detailed feedback)

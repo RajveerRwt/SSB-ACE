@@ -186,7 +186,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
   const [showCamera, setShowCamera] = useState(false);
   const [activeCameraKey, setActiveCameraKey] = useState<string | number | null>(null); // Number for TAT index, String for SDT key
 
-  // ... (Refs and Helper Functions remain the same) ...
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -774,7 +773,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // ... (Phases IDLE through UPLOADING) ...
+
   if (phase === PsychologyPhase.IDLE) {
     return (
       <div className="bg-white p-12 md:p-24 rounded-[3rem] md:rounded-[4rem] shadow-2xl border-4 border-slate-50 text-center max-w-4xl mx-auto ring-1 ring-slate-100 animate-in fade-in zoom-in duration-500">
@@ -1057,12 +1056,10 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
     );
   }
 
-  // ... (Keeping View, Uploading phases same as previous) ...
   if (phase === PsychologyPhase.PREPARING_STIMULI) {
     return <div className="flex flex-col items-center justify-center py-40 space-y-12"><Loader2 className="w-32 h-32 text-slate-900 animate-spin" /><div className="text-center"><p className="text-slate-900 font-black uppercase tracking-[0.5em] text-sm mb-4">Retrieving {activeSetName || 'Authorized'} Set</p><p className="text-slate-400 text-xs font-bold italic">Assembling board materials from secure database...</p></div></div>;
   }
   
-  // ... (Skipping middle render blocks for brevity as they are unchanged) ...
   if (phase === PsychologyPhase.VIEWING || phase === PsychologyPhase.WRITING || phase === PsychologyPhase.UPLOADING_WAT || phase === PsychologyPhase.UPLOADING_SRT || phase === PsychologyPhase.UPLOADING_STORIES) {
       // Re-use logic from previous implementation
       const currentItem = items[currentIndex];
