@@ -180,6 +180,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
   ];
 
   const handleNavClick = (id: TestType) => {
+    // Redirect to login if trying to access Interview while not logged in
+    if (id === TestType.INTERVIEW && !isLoggedIn) {
+        onLogin?.();
+        if (isMobile) setSidebarOpen(false);
+        return;
+    }
+
     let cost = 0;
     
     // Apply costs specifically for tests that deduct on entry, consistent with Dashboard
