@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText, Gauge, Coins, Wallet, History, X, Lightbulb, ChevronDown, ChevronRight, LogOut, MoreHorizontal, ShieldAlert, BadgeCheck, Minus, Copy } from 'lucide-react';
+import { Upload, Trash2, Plus, Image as ImageIcon, Loader2, RefreshCw, Lock, Layers, Target, Info, AlertCircle, ExternalLink, Clipboard, Check, Database, Settings, FileText, IndianRupee, CheckCircle, XCircle, Clock, Zap, User, Search, Eye, Crown, Calendar, Tag, TrendingUp, Percent, PenTool, Megaphone, Radio, Star, MessageSquare, Mic, List, Users, Activity, BarChart3, PieChart, Filter, MailWarning, UserCheck, Brain, FileSignature, ToggleLeft, ToggleRight, ScrollText, Gauge, Coins, Wallet, History, X, Lightbulb, ChevronDown, ChevronRight, LogOut, MoreHorizontal, ShieldAlert, BadgeCheck, Minus, Copy, Map } from 'lucide-react';
 import { 
   uploadPPDTScenario, getPPDTScenarios, deletePPDTScenario,
   uploadTATScenario, getTATScenarios, deleteTATScenario,
@@ -10,7 +10,8 @@ import {
   getAllUsers, deleteUserProfile, getCoupons, createCoupon, deleteCoupon,
   uploadDailyChallenge, sendAnnouncement, getAllFeedback, deleteFeedback,
   getLatestDailyChallenge, getTickerConfig, updateTickerConfig,
-  getOIRSets, createOIRSet, deleteOIRSet, getOIRQuestions, addOIRQuestion, deleteOIRQuestion, activatePlanForUser, supabase
+  getOIRSets, createOIRSet, deleteOIRSet, getOIRQuestions, addOIRQuestion, deleteOIRQuestion, activatePlanForUser, supabase,
+  getGPEScenarios, addGPEScenario, deleteGPEScenario
 } from '../services/supabaseService';
 
 const AdminPanel: React.FC = () => {
@@ -41,6 +42,11 @@ const AdminPanel: React.FC = () => {
   const [newDescription, setNewDescription] = useState('');
   const [setTag, setSetTag] = useState('Set 1');
   
+  // GPE Inputs
+  const [gpeTitle, setGpeTitle] = useState('');
+  const [gpeNarrative, setGpeNarrative] = useState('');
+  const [gpeDifficulty, setGpeDifficulty] = useState('Medium');
+
   // WAT Inputs
   const [watBulkInput, setWatBulkInput] = useState('');
   const [watSetTag, setWatSetTag] = useState('WAT Set 1');
@@ -83,7 +89,7 @@ const AdminPanel: React.FC = () => {
   // SQL Help Toggle
   const [showSqlHelp, setShowSqlHelp] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK' | 'OIR'>('PAYMENTS');
+  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'GPE' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK' | 'OIR'>('PAYMENTS');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -126,6 +132,7 @@ const AdminPanel: React.FC = () => {
         else if (activeTab === 'TAT') data = await getTATScenarios();
         else if (activeTab === 'WAT') data = await getWATWords();
         else if (activeTab === 'SRT') data = await getSRTQuestions();
+        else if (activeTab === 'GPE') data = await getGPEScenarios();
         setItems(data || []);
       }
     } catch (e: any) {
@@ -197,6 +204,19 @@ const AdminPanel: React.FC = () => {
         if (questions.length === 0) throw new Error("No situations entered.");
         await uploadSRTQuestions(questions, srtSetTag || 'General');
         setSrtBulkInput('');
+      } else if (activeTab === 'GPE') {
+        const file = fileInputRef.current?.files?.[0];
+        let imageUrl = '';
+        if (file) {
+            const fileName = `gpe-${Date.now()}-${file.name}`;
+            await supabase.storage.from('scenarios').upload(fileName, file);
+            const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName);
+            imageUrl = data.publicUrl;
+        }
+        if (!gpeTitle || !gpeNarrative) throw new Error("Title and Narrative are required.");
+        await addGPEScenario(gpeTitle, gpeNarrative, imageUrl, gpeDifficulty);
+        setGpeTitle(''); setGpeNarrative(''); setGpeDifficulty('Medium');
+        if (fileInputRef.current) fileInputRef.current.value = '';
       } else if (activeTab === 'COUPONS') {
         if (!couponCode || !couponDiscount || !influencerName) throw new Error("All fields required.");
         await createCoupon(couponCode, parseInt(couponDiscount), influencerName);
@@ -230,6 +250,7 @@ const AdminPanel: React.FC = () => {
       else if (activeTab === 'SRT') await deleteSRTQuestion(id);
       else if (activeTab === 'PPDT' && url) await deletePPDTScenario(id, url);
       else if (activeTab === 'TAT' && url) await deleteTATScenario(id, url);
+      else if (activeTab === 'GPE') await deleteGPEScenario(id);
       else if (activeTab === 'COUPONS') await deleteCoupon(id);
       else if (activeTab === 'FEEDBACK') await deleteFeedback(id);
       else if (activeTab === 'OIR') {
@@ -353,6 +374,7 @@ const AdminPanel: React.FC = () => {
       { id: 'TAT', label: 'TAT', icon: Layers, color: 'bg-slate-900 text-white' },
       { id: 'WAT', label: 'WAT', icon: Zap, color: 'bg-slate-900 text-white' },
       { id: 'SRT', label: 'SRT', icon: Brain, color: 'bg-slate-900 text-white' },
+      { id: 'GPE', label: 'GPE', icon: Map, color: 'bg-slate-900 text-white' },
       { id: 'DAILY', label: 'Daily', icon: Clock, color: 'bg-rose-600 text-white' },
       { id: 'COUPONS', label: 'Coupons', icon: Tag, color: 'bg-pink-600 text-white' },
       { id: 'BROADCAST', label: 'Broadcast', icon: Megaphone, color: 'bg-red-600 text-white' },
@@ -640,6 +662,64 @@ create policy "Admin insert ticker" on public.ticker_config for insert with chec
                           <div key={item.id} className="flex justify-between p-3 bg-slate-50 rounded-xl">
                               <span className="font-bold text-sm text-slate-700">{item.word || item.question} <span className="text-slate-400 text-[10px] ml-2">({item.set_tag})</span></span>
                               <button onClick={() => handleDelete(item.id)} className="text-red-400 hover:text-red-600"><X size={14}/></button>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* GPE */}
+      {activeTab === 'GPE' && (
+          <div className="space-y-8 animate-in fade-in">
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                  <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Map size={24}/> Add GPE Scenario</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      <div className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Model Image (Optional)</label>
+                          <div className="p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 hover:border-slate-400 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" />
+                              <div className="flex flex-col items-center gap-2 text-slate-400">
+                                  <ImageIcon size={24} />
+                                  <span className="text-xs font-bold uppercase">Upload Model Image</span>
+                              </div>
+                          </div>
+                      </div>
+                      <div className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Title</label>
+                          <input value={gpeTitle} onChange={e => setGpeTitle(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Scenario Title..." />
+                          
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4 block">Difficulty</label>
+                          <select value={gpeDifficulty} onChange={e => setGpeDifficulty(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm">
+                              <option value="Low">Low</option>
+                              <option value="Medium">Medium</option>
+                              <option value="High">High</option>
+                          </select>
+                      </div>
+                      <div className="space-y-4 md:col-span-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Narrative Story</label>
+                          <textarea value={gpeNarrative} onChange={e => setGpeNarrative(e.target.value)} className="w-full h-48 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Enter the full GPE narrative story here..." />
+                      </div>
+                  </div>
+                  <button onClick={handleUpload} disabled={isUploading} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all">
+                      {isUploading ? <Loader2 className="animate-spin mx-auto" /> : 'Add GPE Scenario'}
+                  </button>
+              </div>
+
+              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100">
+                  <h4 className="font-black text-slate-900 uppercase text-sm tracking-widest mb-4">Existing GPE Scenarios</h4>
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                      {items.map(item => (
+                          <div key={item.id} className="flex justify-between items-start p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                              <div className="flex gap-4">
+                                  {item.image_url && <img src={item.image_url} className="w-20 h-20 object-cover rounded-xl" />}
+                                  <div>
+                                      <h5 className="font-bold text-slate-900 text-sm">{item.title}</h5>
+                                      <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest mt-1 inline-block ${item.difficulty === 'High' ? 'bg-red-100 text-red-700' : item.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{item.difficulty}</span>
+                                      <p className="text-xs text-slate-500 mt-2 line-clamp-2">{item.narrative}</p>
+                                  </div>
+                              </div>
+                              <button onClick={() => handleDelete(item.id)} className="text-red-400 hover:text-red-600 p-2"><Trash2 size={18}/></button>
                           </div>
                       ))}
                   </div>

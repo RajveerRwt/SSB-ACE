@@ -11,6 +11,7 @@ export enum TestType {
   WAT = 'WAT',
   SRT = 'SRT',
   SDT = 'SDT',
+  GPE = 'GPE',
   INTERVIEW = 'INTERVIEW',
   LECTURETTE = 'LECTURETTE',
   CURRENT_AFFAIRS = 'CURRENT_AFFAIRS',

@@ -738,6 +738,59 @@ export async function generateLecturette(topic: string) {
     }
 }
 
+export async function evaluateGPE(narrative: string, individualSolution: string, finalPlan: string) {
+    try {
+        const response = await generateWithRetry(
+            'gemini-3.1-pro-preview',
+            {
+                contents: `Evaluate this Group Planning Exercise (GPE).
+                
+                Narrative/Story:
+                ${narrative}
+                
+                Candidate's Individual Solution:
+                ${individualSolution}
+                
+                Candidate's Final Group Plan (Nominated):
+                ${finalPlan}
+                
+                Evaluate based on:
+                1. Problem Identification & Prioritization (Did they identify all problems? Correct priority?)
+                2. Resource Allocation (Did they use men, material, and time effectively?)
+                3. Practicality & Logic (Is the plan realistic?)
+                4. Final Outcome (Did they achieve the main objective?)
+                
+                Provide a JSON response.`,
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            score: { type: Type.NUMBER, description: "Score out of 10" },
+                            problemIdentification: { type: Type.STRING, description: "Feedback on identifying and prioritizing problems" },
+                            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            detailedAnalysis: { type: Type.STRING }
+                        },
+                        required: ["score", "problemIdentification", "strengths", "weaknesses", "detailedAnalysis"]
+                    }
+                }
+            }
+        );
+        return safeJSONParse(response.text || "");
+    } catch (e) {
+        console.error("GPE evaluation failed", e);
+        return {
+            error: "Evaluation failed due to technical issues.",
+            score: 0,
+            problemIdentification: "",
+            strengths: [],
+            weaknesses: [],
+            detailedAnalysis: ""
+        };
+    }
+}
+
 export async function generatePPDTStimulus(promptText: string) {
     try {
         const response = await ai.models.generateContent({

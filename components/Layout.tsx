@@ -173,6 +173,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     { id: TestType.WAT, label: 'WAT (Psychology)', icon: HelpCircle },
     { id: TestType.SRT, label: 'SRT (Psychology)', icon: HelpCircle },
     { id: TestType.SDT, label: 'Self Description', icon: FileSignature },
+    { id: TestType.GPE, label: 'GPE (Group Planning)', icon: Map },
     { id: TestType.LECTURETTE, label: 'Lecturette', icon: BookOpen },
     { id: TestType.INTERVIEW, label: '1:1 Personal Interview (Virtual)', icon: Mic }, 
     { id: TestType.AI_BOT, label: 'SSB AI Guide', icon: Bot },

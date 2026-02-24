@@ -16,12 +16,33 @@ export const TEST_RATES = {
     LECTURETTE: 3, 
     SDT: 5,
     TAT: 10,
+    GPE: 10,
     OIR: 10, 
     OIR_SUDDEN_DEATH: 5, 
     INTERVIEW_TRIAL: 20, 
     INTERVIEW_FULL: 100   
 };
 
+
+export const getGPEScenarios = async () => {
+  const { data } = await supabase.from('gpe_scenarios').select('*').order('created_at', { ascending: false });
+  return data || [];
+};
+
+export const addGPEScenario = async (title: string, narrative: string, imageUrl: string, difficulty: string) => {
+  const { data, error } = await supabase.from('gpe_scenarios').insert({
+    title,
+    narrative,
+    image_url: imageUrl,
+    difficulty
+  }).select().single();
+  if (error) throw error;
+  return data;
+};
+
+export const deleteGPEScenario = async (id: string) => {
+  await supabase.from('gpe_scenarios').delete().eq('id', id);
+};
 
 export const getOIRSets = async () => {
   const { data } = await supabase.from('oir_sets').select('*').order('created_at', { ascending: false });
