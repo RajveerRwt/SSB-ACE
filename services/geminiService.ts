@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type, Chat, Part, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, Type, Chat, Part, GenerateContentResponse, Modality } from "@google/genai";
 
 /* 
  * Guidelines: 
@@ -642,6 +642,24 @@ IMPORTANT RULES:
     }
 }
 
+export async function transcribeAudio(base64: string, mimeType: string) {
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: {
+                parts: [
+                    { inlineData: { data: base64, mimeType } },
+                    { text: "Transcribe this audio accurately. Return only the text content." }
+                ]
+            }
+        });
+        return response.text || "";
+    } catch (e) {
+        console.error("Audio transcription failed", e);
+        return "";
+    }
+}
+
 export async function transcribeHandwrittenStory(base64: string, mimeType: string) {
     try {
         const response = await generateWithRetry(
@@ -744,7 +762,7 @@ export async function textToSpeech(text: string) {
             model: "gemini-2.5-flash-preview-tts",
             contents: [{ parts: [{ text: `Narrate this as a GTO (Group Testing Officer) in a professional, authoritative but helpful tone: ${text}` }] }],
             config: {
-                responseModalities: ["AUDIO"],
+                responseModalities: [Modality.AUDIO],
                 speechConfig: {
                     voiceConfig: {
                         prebuiltVoiceConfig: { voiceName: 'Puck' },

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Square, Loader2, CheckCircle, FileText, Clock, AlertTriangle, Map, Mic, RefreshCw, Volume2, Users, ImageIcon } from 'lucide-react';
-import { evaluateGPE, textToSpeech, simulateGPEDiscussion, transcribeHandwrittenStory } from '../services/geminiService';
+import { evaluateGPE, textToSpeech, simulateGPEDiscussion, transcribeHandwrittenStory, transcribeAudio } from '../services/geminiService';
 import { getGPEScenarios, TEST_RATES } from '../services/supabaseService';
 
 interface GPETestProps {
@@ -42,7 +42,12 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
     const [isNarrating, setIsNarrating] = useState(false);
     const [discussionPoints, setDiscussionPoints] = useState<any[]>([]);
     const [isTranscribing, setIsTranscribing] = useState(false);
+    const [isImageEnlarged, setIsImageEnlarged] = useState(false);
+    const [userCounters, setUserCounters] = useState<any[]>([]);
+    const [counterInput, setCounterInput] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const finalFileInputRef = useRef<HTMLInputElement>(null);
+    const gtoAudioRef = useRef<HTMLAudioElement>(null);
 
     useEffect(() => {
         const fetchScenarios = async () => {
@@ -136,7 +141,7 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
         }
     };
 
-    const handleHandwrittenUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleHandwrittenUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'individual' | 'final') => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -146,7 +151,11 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
             reader.onloadend = async () => {
                 const base64 = (reader.result as string).split(',')[1];
                 const text = await transcribeHandwrittenStory(base64, file.type);
-                setSolutionText(prev => prev ? `${prev}\n\n[Transcribed Handwritten Solution]:\n${text}` : text);
+                if (target === 'individual') {
+                    setSolutionText(prev => prev ? `${prev}\n\n[Transcribed Handwritten Solution]:\n${text}` : text);
+                } else {
+                    setFinalPlanText(prev => prev ? `${prev}\n\n[Transcribed Handwritten Final Plan]:\n${text}` : text);
+                }
             };
             reader.readAsDataURL(file);
         } catch (err) {
@@ -155,6 +164,12 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
         } finally {
             setIsTranscribing(false);
         }
+    };
+
+    const handleCounterSubmit = () => {
+        if (!counterInput.trim()) return;
+        setUserCounters([...userCounters, { text: counterInput, timestamp: new Date() }]);
+        setCounterInput('');
     };
 
     const skipDiscussion = () => {
@@ -174,11 +189,30 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
                 }
             };
 
-            mediaRecorderRef.current.onstop = () => {
+            mediaRecorderRef.current.onstop = async () => {
                 const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
                 const url = URL.createObjectURL(audioBlob);
                 setAudioUrl(url);
-                // In a real app, we would transcribe this. For now, we'll rely on text input or simulate.
+                
+                // Transcribe if in discussion phase
+                if (phase === GPEPhase.GROUP_DISCUSSION) {
+                    setIsTranscribing(true);
+                    try {
+                        const reader = new FileReader();
+                        reader.onloadend = async () => {
+                            const base64 = (reader.result as string).split(',')[1];
+                            const text = await transcribeAudio(base64, 'audio/webm');
+                            if (text) {
+                                setUserCounters(prev => [...prev, { text, timestamp: new Date() }]);
+                            }
+                        };
+                        reader.readAsDataURL(audioBlob);
+                    } catch (e) {
+                        console.error("Audio transcription failed", e);
+                    } finally {
+                        setIsTranscribing(false);
+                    }
+                }
             };
 
             mediaRecorderRef.current.start();
@@ -292,23 +326,47 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
                     <div className="space-y-6">
                         {/* Always show model image if available */}
                         {selectedScenario?.image_url && (
-                            <div className="bg-slate-100 p-2 rounded-2xl">
-                                <img src={selectedScenario.image_url} alt="GPE Model" className="w-full h-auto rounded-xl max-h-[400px] object-contain" />
+                            <div className={`relative transition-all duration-500 ${isImageEnlarged ? 'fixed inset-0 z-50 bg-black/90 p-4 flex items-center justify-center' : 'bg-slate-100 p-2 rounded-2xl'}`}>
+                                <img 
+                                    src={selectedScenario.image_url} 
+                                    alt="GPE Model" 
+                                    className={`rounded-xl transition-all ${isImageEnlarged ? 'max-h-full max-w-full object-contain' : 'w-full h-auto max-h-[400px] object-contain cursor-zoom-in'}`}
+                                    onClick={() => !isImageEnlarged && setIsImageEnlarged(true)}
+                                />
+                                <button 
+                                    onClick={() => setIsImageEnlarged(!isImageEnlarged)}
+                                    className="absolute top-4 right-4 p-3 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md transition-all"
+                                >
+                                    {isImageEnlarged ? <Square size={20} /> : <Map size={20} />}
+                                </button>
+                                {isImageEnlarged && (
+                                    <p className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/60 font-bold uppercase tracking-widest text-xs">Click icon or press ESC to close</p>
+                                )}
                             </div>
                         )}
 
                         {phase === GPEPhase.MODEL_EXPLANATION && (
                             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isNarrating ? 'bg-blue-100 text-blue-600 animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
-                                        <Volume2 size={24} />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-slate-900">GTO Narration</h4>
-                                        <p className="text-xs text-slate-500 uppercase font-black tracking-widest">{isNarrating ? 'GTO is explaining the model...' : 'Narration Ready'}</p>
+                                <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl mb-6 border border-slate-100">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isNarrating ? 'bg-blue-100 text-blue-600 animate-pulse' : 'bg-blue-600 text-white shadow-lg'}`}>
+                                            <Volume2 size={24} />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-slate-900">GTO Narration</h4>
+                                            <p className="text-xs text-slate-500 uppercase font-black tracking-widest">{isNarrating ? 'GTO is explaining the model...' : 'Narration Ready'}</p>
+                                        </div>
                                     </div>
                                     {gtoAudio && (
-                                        <audio src={gtoAudio} autoPlay className="hidden" />
+                                        <div className="flex gap-2">
+                                            <audio ref={gtoAudioRef} src={gtoAudio} className="hidden" />
+                                            <button 
+                                                onClick={() => gtoAudioRef.current?.play()}
+                                                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2"
+                                            >
+                                                <Play size={14} /> Play Again
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                                 <p className="text-slate-600 font-medium leading-relaxed mb-6">
@@ -361,7 +419,7 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
                                         <p className="text-xs text-yellow-800 font-medium">Write your individual solution. Identify problems, prioritize them, allocate resources, and state the final outcome.</p>
                                     </div>
                                     <div className="shrink-0">
-                                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleHandwrittenUpload} />
+                                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleHandwrittenUpload(e, 'individual')} />
                                         <button 
                                             onClick={() => fileInputRef.current?.click()}
                                             disabled={isTranscribing}
@@ -394,26 +452,60 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
                                     <Users size={48} className="mx-auto text-blue-500 mb-4" />
                                     <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-2">Group Discussion</h4>
                                     <p className="text-slate-500 font-medium max-w-md mx-auto">
-                                        The group is discussing the plan. Here are some points raised by other candidates. Consider them for your final plan.
+                                        The group is discussing the plan. Counter points raised by others or support them. Address them by Chest No.
                                     </p>
                                 </div>
 
-                                <div className="space-y-4 mb-8">
+                                <div className="space-y-4 mb-8 max-h-[400px] overflow-y-auto px-2 custom-scrollbar">
                                     {discussionPoints.length === 0 ? (
                                         <div className="flex flex-col items-center py-6">
                                             <Loader2 className="animate-spin text-blue-400 mb-2" />
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Generating Group Input...</p>
                                         </div>
                                     ) : (
-                                        discussionPoints.map((p, i) => (
-                                            <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex gap-4 animate-in slide-in-from-left-4" style={{ animationDelay: `${i * 200}ms` }}>
-                                                <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-black text-xs shrink-0 shadow-md">
-                                                    {p.chestNo}
+                                        <>
+                                            {discussionPoints.map((p, i) => (
+                                                <div key={`ai-${i}`} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex gap-4 animate-in slide-in-from-left-4">
+                                                    <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-black text-xs shrink-0 shadow-md">
+                                                        {p.chestNo}
+                                                    </div>
+                                                    <p className="text-sm text-slate-700 font-medium leading-relaxed italic">"{p.point}"</p>
                                                 </div>
-                                                <p className="text-sm text-slate-700 font-medium leading-relaxed italic">"{p.point}"</p>
-                                            </div>
-                                        ))
+                                            ))}
+                                            {userCounters.map((c, i) => (
+                                                <div key={`user-${i}`} className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-row-reverse gap-4 animate-in slide-in-from-right-4">
+                                                    <div className="w-10 h-10 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-[10px] shrink-0 shadow-md">
+                                                        YOU
+                                                    </div>
+                                                    <p className="text-sm text-blue-900 font-bold leading-relaxed text-right">{c.text}</p>
+                                                </div>
+                                            ))}
+                                        </>
                                     )}
+                                </div>
+
+                                <div className="bg-white p-4 rounded-2xl border-2 border-slate-200 mb-6 flex gap-2 items-end">
+                                    <textarea 
+                                        value={counterInput}
+                                        onChange={(e) => setCounterInput(e.target.value)}
+                                        placeholder="Type your counter/point (e.g. Chest No 5, I disagree because...)"
+                                        className="flex-1 bg-transparent border-none outline-none font-medium text-sm resize-none h-20"
+                                    />
+                                    <div className="flex flex-col gap-2">
+                                        <button 
+                                            onClick={isRecording ? stopRecording : startRecording}
+                                            className={`p-3 rounded-xl transition-all ${isRecording ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                                        >
+                                            <Mic size={18} />
+                                        </button>
+                                        <button 
+                                            onClick={handleCounterSubmit}
+                                            disabled={!counterInput.trim()}
+                                            className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-all"
+                                        >
+                                            <Play size={18} />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <button onClick={skipDiscussion} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-sm hover:bg-slate-800 transition-all shadow-lg">
@@ -424,8 +516,21 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
 
                         {phase === GPEPhase.FINAL_PLAN && (
                             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-4">
-                                    <p className="text-sm text-blue-800 font-medium">You have been nominated to explain the agreed common plan. You can type it or record your audio.</p>
+                                <div className="flex justify-between items-center mb-4">
+                                    <div className="bg-blue-50 p-3 rounded-xl border border-blue-200 flex-1 mr-4">
+                                        <p className="text-xs text-blue-800 font-medium">You have been nominated to explain the agreed common plan. You can type it, record audio, or upload a handwritten plan.</p>
+                                    </div>
+                                    <div className="shrink-0">
+                                        <input type="file" ref={finalFileInputRef} className="hidden" accept="image/*" onChange={(e) => handleHandwrittenUpload(e, 'final')} />
+                                        <button 
+                                            onClick={() => finalFileInputRef.current?.click()}
+                                            disabled={isTranscribing}
+                                            className="px-4 py-3 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 flex items-center gap-2"
+                                        >
+                                            {isTranscribing ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+                                            Upload Handwritten
+                                        </button>
+                                    </div>
                                 </div>
                                 
                                 <div className="space-y-4">
