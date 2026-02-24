@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio, MapPin, Filter, Star, Coins, Lock } from 'lucide-react';
+import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio, MapPin, Filter, Star, Coins, Lock, PenTool } from 'lucide-react';
 import { generateLecturette, evaluateLecturette } from '../services/geminiService';
 import { getLecturetteContent, saveLecturetteContent, TEST_RATES } from '../services/supabaseService';
 
@@ -259,6 +259,9 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, isGuest
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  const [customTopic, setCustomTopic] = useState('');
+  const [useCustomTopic, setUseCustomTopic] = useState(false);
+
   const playBuzzer = (freq: number = 200, duration: number = 0.5) => {
     if (!audioCtxRef.current) {
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -349,6 +352,39 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, isGuest
                   // 3. Save to DB for next user
                   await saveLecturetteContent(topic, topicData.board, topicData.category, content);
               }
+          }
+      } catch (e) {
+          console.error("Failed to gen lecturette", e);
+      } finally {
+          setLoadingLecturette(false);
+      }
+  };
+
+  const handleCustomTopicStart = async () => {
+      if (isGuest) {
+          if (onLoginRedirect) onLoginRedirect();
+          return;
+      }
+      if (!customTopic.trim()) {
+          alert("Please enter a topic.");
+          return;
+      }
+      
+      const topic = customTopic.trim();
+      setSelectedLecturette(topic);
+      setLecturetteContent(null);
+      setLoadingLecturette(true);
+      setLecturetteTimer(180);
+      setSpeechTimer(0);
+      setIsPrepTimerRunning(false);
+      setFeedback(null);
+      setAudioUrl(null);
+      transcriptRef.current = "";
+      
+      try {
+          const content = await generateLecturette(topic);
+          if (content) {
+              setLecturetteContent(content);
           }
       } catch (e) {
           console.error("Failed to gen lecturette", e);
@@ -518,73 +554,114 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, isGuest
                       <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Topic Cards</h3>
                       <p className="text-slate-500 text-xs font-bold mt-2">Filter by Board Number to see exact recent topics.</p>
                   </div>
-              </div>
-                  
-              {/* BOARD FILTER - Scrollable */}
-              <div className="flex overflow-x-auto pb-4 gap-2 mb-6 custom-scrollbar">
-                  {boards.map(b => (
-                      <button 
-                        key={b}
-                        onClick={() => setActiveBoardFilter(b)}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap shrink-0 flex items-center gap-2 ${
-                            activeBoardFilter === b 
-                            ? (b === 'IMPORTANT' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-purple-600 text-white shadow-lg') 
-                            : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-                        }`}
-                      >
-                          {b === 'IMPORTANT' && <Star size={12} fill="currentColor" />}
-                          {b === 'ALL' ? 'All Boards' : b === 'IMPORTANT' ? 'Important Topics' : b}
-                      </button>
-                  ))}
+                  <button 
+                      onClick={() => {
+                          if (isGuest) {
+                              if (onLoginRedirect) onLoginRedirect();
+                              return;
+                          }
+                          setUseCustomTopic(!useCustomTopic);
+                      }}
+                      className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-lg flex items-center gap-3 ${useCustomTopic ? 'bg-purple-600 text-white shadow-purple-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                  >
+                      {useCustomTopic ? <><CheckCircle size={16}/> Using Custom Topic</> : <><RefreshCw size={16}/> Custom Topic</>}
+                  </button>
               </div>
 
-              {filteredTopics.length === 0 ? (
-                  <div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest text-xs">
-                      No topics found for this filter.
+              {useCustomTopic ? (
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+                      <div className="bg-purple-50 p-8 rounded-[2rem] border-2 border-purple-100">
+                          <h4 className="text-lg font-black text-purple-900 uppercase tracking-tighter mb-4 flex items-center gap-2">
+                              <PenTool size={20} /> Enter Custom Topic
+                          </h4>
+                          <input 
+                              type="text"
+                              value={customTopic}
+                              onChange={(e) => setCustomTopic(e.target.value)}
+                              placeholder="e.g., The Impact of Artificial Intelligence on Future Jobs"
+                              className="w-full p-6 bg-white border-2 border-purple-200 rounded-2xl focus:border-purple-500 outline-none transition-all font-medium text-slate-700 text-lg shadow-sm"
+                          />
+                          <div className="mt-6 flex justify-end">
+                              <button 
+                                  onClick={handleCustomTopicStart}
+                                  disabled={!customTopic.trim() || loadingLecturette}
+                                  className="px-10 py-4 bg-purple-600 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-purple-700 shadow-lg flex items-center gap-2 disabled:opacity-50 transition-all"
+                              >
+                                  {loadingLecturette ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+                                  Start Practice
+                              </button>
+                          </div>
+                      </div>
                   </div>
               ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {filteredTopics.map((topic, i) => (
-                          <div 
-                            key={i} 
-                            onClick={() => handleLecturetteClick(topic)}
-                            className="flex flex-col md:flex-row items-start md:items-center justify-between p-5 bg-white border border-slate-200 rounded-2xl hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all group shadow-sm hover:shadow-lg gap-4"
-                          >
-                              <div className="flex items-center gap-4">
-                                  <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-purple-600 group-hover:text-white transition-colors font-black text-xs shrink-0">
-                                      {i + 1}
-                                  </div>
-                                  <div>
-                                      <h5 className="font-bold text-slate-900 text-sm group-hover:text-purple-900 leading-tight">{topic.title}</h5>
-                                      <div className="flex items-center gap-2 mt-1">
-                                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                                              <MapPin size={10} /> {topic.board === 'Frequent' ? 'Repeated Topic' : topic.board}
+                  <>
+                      {/* BOARD FILTER - Scrollable */}
+                      <div className="flex overflow-x-auto pb-4 gap-2 mb-6 custom-scrollbar">
+                          {boards.map(b => (
+                              <button 
+                                key={b}
+                                onClick={() => setActiveBoardFilter(b)}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap shrink-0 flex items-center gap-2 ${
+                                    activeBoardFilter === b 
+                                    ? (b === 'IMPORTANT' ? 'bg-yellow-400 text-black shadow-lg' : 'bg-purple-600 text-white shadow-lg') 
+                                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                                }`}
+                              >
+                                  {b === 'IMPORTANT' && <Star size={12} fill="currentColor" />}
+                                  {b === 'ALL' ? 'All Boards' : b === 'IMPORTANT' ? 'Important Topics' : b}
+                              </button>
+                          ))}
+                      </div>
+
+                      {filteredTopics.length === 0 ? (
+                          <div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest text-xs">
+                              No topics found for this filter.
+                          </div>
+                      ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {filteredTopics.map((topic, i) => (
+                                  <div 
+                                    key={i} 
+                                    onClick={() => handleLecturetteClick(topic)}
+                                    className="flex flex-col md:flex-row items-start md:items-center justify-between p-5 bg-white border border-slate-200 rounded-2xl hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all group shadow-sm hover:shadow-lg gap-4"
+                                  >
+                                      <div className="flex items-center gap-4">
+                                          <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-purple-600 group-hover:text-white transition-colors font-black text-xs shrink-0">
+                                              {i + 1}
+                                          </div>
+                                          <div>
+                                              <h5 className="font-bold text-slate-900 text-sm group-hover:text-purple-900 leading-tight">{topic.title}</h5>
+                                              <div className="flex items-center gap-2 mt-1">
+                                                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                                      <MapPin size={10} /> {topic.board === 'Frequent' ? 'Repeated Topic' : topic.board}
+                                                  </span>
+                                                  <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest px-2 py-0.5 bg-blue-50 rounded-full">
+                                                      {topic.category}
+                                                  </span>
+                                              </div>
+                                          </div>
+                                      </div>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                          <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${topic.difficulty === 'High' ? 'bg-red-100 text-red-700' : topic.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                                              {topic.difficulty}
                                           </span>
-                                          <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest px-2 py-0.5 bg-blue-50 rounded-full">
-                                              {topic.category}
-                                          </span>
+                                          {isGuest && topic.title !== "My inspiration in life" ? (
+                                              <span className="bg-slate-200 text-slate-500 px-2 py-1 rounded text-[9px] font-black flex items-center gap-1">
+                                                  <Lock size={8} /> Locked
+                                              </span>
+                                          ) : (
+                                              onConsumeCoins && (
+                                                  <span className="bg-slate-900 text-yellow-400 px-2 py-1 rounded text-[9px] font-black flex items-center gap-1">
+                                                      {topic.title === "My inspiration in life" && isGuest ? "FREE" : <><Coins size={8} /> {TEST_RATES.LECTURETTE}</>}
+                                                  </span>
+                                              )
+                                          )}
                                       </div>
                                   </div>
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                  <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${topic.difficulty === 'High' ? 'bg-red-100 text-red-700' : topic.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
-                                      {topic.difficulty}
-                                  </span>
-                                  {isGuest && topic.title !== "My inspiration in life" ? (
-                                      <span className="bg-slate-200 text-slate-500 px-2 py-1 rounded text-[9px] font-black flex items-center gap-1">
-                                          <Lock size={8} /> Locked
-                                      </span>
-                                  ) : (
-                                      onConsumeCoins && (
-                                          <span className="bg-slate-900 text-yellow-400 px-2 py-1 rounded text-[9px] font-black flex items-center gap-1">
-                                              {topic.title === "My inspiration in life" && isGuest ? "FREE" : <><Coins size={8} /> {TEST_RATES.LECTURETTE}</>}
-                                          </span>
-                                      )
-                                  )}
-                              </div>
+                              ))}
                           </div>
-                      ))}
-                  </div>
+                      )}
+                  </>
               )}
           </div>
       )}

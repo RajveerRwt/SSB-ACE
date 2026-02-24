@@ -816,7 +816,13 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest opacity-60">Upload your own images for practice</p>
                         </div>
                         <button 
-                            onClick={() => setUseCustomTat(!useCustomTat)}
+                            onClick={() => {
+                                if (isGuest) {
+                                    if (onLoginRedirect) onLoginRedirect();
+                                    return;
+                                }
+                                setUseCustomTat(!useCustomTat);
+                            }}
                             className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-lg flex items-center gap-3 ${useCustomTat ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                         >
                             {useCustomTat ? <><CheckCircle size={16}/> Using Custom Set</> : <><RefreshCw size={16}/> Use Platform Set</>}
@@ -890,7 +896,13 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest opacity-60">Enter your own words for practice</p>
                         </div>
                         <button 
-                            onClick={() => setUseCustomWat(!useCustomWat)}
+                            onClick={() => {
+                                if (isGuest) {
+                                    if (onLoginRedirect) onLoginRedirect();
+                                    return;
+                                }
+                                setUseCustomWat(!useCustomWat);
+                            }}
                             className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-lg flex items-center gap-3 ${useCustomWat ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                         >
                             {useCustomWat ? <><CheckCircle size={16}/> Using Custom Set</> : <><RefreshCw size={16}/> Use Platform Set</>}
@@ -958,7 +970,13 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, user
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest opacity-60">Enter your own situations for practice</p>
                         </div>
                         <button 
-                            onClick={() => setUseCustomSrt(!useCustomSrt)}
+                            onClick={() => {
+                                if (isGuest) {
+                                    if (onLoginRedirect) onLoginRedirect();
+                                    return;
+                                }
+                                setUseCustomSrt(!useCustomSrt);
+                            }}
                             className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-lg flex items-center gap-3 ${useCustomSrt ? 'bg-orange-600 text-white shadow-orange-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                         >
                             {useCustomSrt ? <><CheckCircle size={16}/> Using Custom Set</> : <><RefreshCw size={16}/> Use Platform Set</>}
