@@ -43,11 +43,18 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
     const [discussionPoints, setDiscussionPoints] = useState<any[]>([]);
     const [isTranscribing, setIsTranscribing] = useState(false);
     const [isImageEnlarged, setIsImageEnlarged] = useState(false);
+    const [zoomLevel, setZoomLevel] = useState(1);
     const [userCounters, setUserCounters] = useState<any[]>([]);
     const [counterInput, setCounterInput] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const finalFileInputRef = useRef<HTMLInputElement>(null);
     const gtoAudioRef = useRef<HTMLAudioElement>(null);
+
+    useEffect(() => {
+        if (gtoAudio && gtoAudioRef.current) {
+            gtoAudioRef.current.play().catch(e => console.warn("Auto-play blocked", e));
+        }
+    }, [gtoAudio]);
 
     useEffect(() => {
         const fetchScenarios = async () => {
@@ -235,7 +242,7 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
         setIsEvaluating(true);
         setPhase(GPEPhase.COMPLETED);
         try {
-            const result = await evaluateGPE(selectedScenario.narrative, solutionText, finalPlanText || transcript);
+            const result = await evaluateGPE(selectedScenario.narrative, solutionText, finalPlanText || transcript, userCounters);
             setFeedback(result);
             onComplete(result);
         } catch (e) {
@@ -326,21 +333,52 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
                     <div className="space-y-6">
                         {/* Always show model image if available */}
                         {selectedScenario?.image_url && (
-                            <div className={`relative transition-all duration-500 ${isImageEnlarged ? 'fixed inset-0 z-50 bg-black/90 p-4 flex items-center justify-center' : 'bg-slate-100 p-2 rounded-2xl'}`}>
-                                <img 
-                                    src={selectedScenario.image_url} 
-                                    alt="GPE Model" 
-                                    className={`rounded-xl transition-all ${isImageEnlarged ? 'max-h-full max-w-full object-contain' : 'w-full h-auto max-h-[400px] object-contain cursor-zoom-in'}`}
-                                    onClick={() => !isImageEnlarged && setIsImageEnlarged(true)}
-                                />
-                                <button 
-                                    onClick={() => setIsImageEnlarged(!isImageEnlarged)}
-                                    className="absolute top-4 right-4 p-3 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md transition-all"
-                                >
-                                    {isImageEnlarged ? <Square size={20} /> : <Map size={20} />}
-                                </button>
+                            <div className={`relative transition-all duration-500 ${isImageEnlarged ? 'fixed inset-0 z-50 bg-black/95 p-4 flex flex-col items-center justify-center' : 'bg-slate-100 p-2 rounded-2xl'}`}>
+                                <div className={`overflow-auto custom-scrollbar flex items-center justify-center w-full h-full ${isImageEnlarged ? '' : 'max-h-[400px]'}`}>
+                                    <img 
+                                        src={selectedScenario.image_url} 
+                                        alt="GPE Model" 
+                                        style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'center' }}
+                                        className={`rounded-xl transition-transform duration-200 ${isImageEnlarged ? '' : 'w-full h-auto object-contain cursor-zoom-in'}`}
+                                        onClick={() => !isImageEnlarged && setIsImageEnlarged(true)}
+                                    />
+                                </div>
+                                
+                                <div className="absolute top-4 right-4 flex gap-2">
+                                    {isImageEnlarged && (
+                                        <>
+                                            <button 
+                                                onClick={() => setZoomLevel(prev => Math.min(prev + 0.5, 4))}
+                                                className="p-3 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md transition-all"
+                                                title="Zoom In"
+                                            >
+                                                <Play size={20} className="-rotate-90" />
+                                            </button>
+                                            <button 
+                                                onClick={() => setZoomLevel(prev => Math.max(prev - 0.5, 0.5))}
+                                                className="p-3 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md transition-all"
+                                                title="Zoom Out"
+                                            >
+                                                <Play size={20} className="rotate-90" />
+                                            </button>
+                                        </>
+                                    )}
+                                    <button 
+                                        onClick={() => {
+                                            setIsImageEnlarged(!isImageEnlarged);
+                                            if (isImageEnlarged) setZoomLevel(1);
+                                        }}
+                                        className="p-3 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md transition-all"
+                                    >
+                                        {isImageEnlarged ? <Square size={20} /> : <Map size={20} />}
+                                    </button>
+                                </div>
+                                
                                 {isImageEnlarged && (
-                                    <p className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/60 font-bold uppercase tracking-widest text-xs">Click icon or press ESC to close</p>
+                                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+                                        <p className="text-white/60 font-black uppercase tracking-widest text-[10px]">Zoom: {Math.round(zoomLevel * 100)}%</p>
+                                        <p className="text-white/40 font-bold uppercase tracking-widest text-[8px]">Click icon or press ESC to close</p>
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -602,12 +640,41 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
                                             <h4 className="text-xs font-black text-blue-400 uppercase tracking-widest mb-1">Overall Score</h4>
-                                            <div className="text-4xl font-black text-blue-900">{feedback.score}/10</div>
+                                            <div className="flex items-baseline gap-2">
+                                                <div className="text-4xl font-black text-blue-900">{feedback.score}/10</div>
+                                                <div className={`text-xs font-black uppercase px-2 py-1 rounded ${
+                                                    feedback.score >= 7.6 ? 'bg-green-100 text-green-700' :
+                                                    feedback.score >= 6.0 ? 'bg-blue-100 text-blue-700' :
+                                                    feedback.score >= 4.5 ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-red-100 text-red-700'
+                                                }`}>
+                                                    {feedback.verdict}
+                                                </div>
+                                            </div>
+                                            <div className="mt-4 space-y-1">
+                                                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                    <span>0-4.4 Poor</span>
+                                                    <span>4.5-5.9 Avg</span>
+                                                    <span>6-7.5 Good</span>
+                                                    <span>7.6+ Exc</span>
+                                                </div>
+                                                <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden flex">
+                                                    <div className="h-full bg-red-400" style={{ width: '44%' }}></div>
+                                                    <div className="h-full bg-yellow-400" style={{ width: '15%' }}></div>
+                                                    <div className="h-full bg-blue-400" style={{ width: '16%' }}></div>
+                                                    <div className="h-full bg-green-400" style={{ width: '25%' }}></div>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
                                             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Problem Identification</h4>
-                                            <div className="text-lg font-bold text-slate-700">{feedback.problemIdentification || 'Good'}</div>
+                                            <div className="text-sm font-bold text-slate-700 leading-relaxed">{feedback.problemIdentification || 'Good'}</div>
                                         </div>
+                                    </div>
+
+                                    <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
+                                        <h4 className="font-bold text-blue-900 mb-3 flex items-center gap-2"><Users size={18} /> Group Participation Analysis</h4>
+                                        <p className="text-slate-700 text-sm leading-relaxed">{feedback.discussionFeedback}</p>
                                     </div>
 
                                     <div className="bg-green-50 p-6 rounded-2xl border border-green-100">

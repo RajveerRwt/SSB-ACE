@@ -811,12 +811,26 @@ export async function simulateGPEDiscussion(narrative: string, userSolution: str
     }
 }
 
-export async function evaluateGPE(narrative: string, individualSolution: string, finalPlan: string) {
+export async function evaluateGPE(narrative: string, individualSolution: string, finalPlan: string, discussionCounters: any[]) {
     try {
+        const discussionText = discussionCounters.map(c => c.text).join("\n");
         const response = await generateWithRetry(
             'gemini-3.1-pro-preview',
             {
-                contents: `Evaluate this Group Planning Exercise (GPE).
+                contents: `Act as a GTO (Group Testing Officer) at SSB. Evaluate this Group Planning Exercise (GPE).
+                
+                *** STRICT SSB EVALUATION CRITERIA ***
+                1. Problem Identification & Prioritization (30%): Did they identify ALL problems? Is the priority logical (Life > Property > Task)?
+                2. Resource Allocation (20%): Effective use of men, material, and time.
+                3. Practicality & Logic (20%): Is the plan realistic? No "superman" actions.
+                4. Group Participation (15%): Based on their counter-points/participation in discussion.
+                5. Final Plan Nomination (15%): Quality of the final common plan explanation.
+                
+                *** SCORING SCALE ***
+                - 0.0 - 4.4: Below Average (Screened Out/Not Recommended)
+                - 4.5 - 5.9: Average (Borderline)
+                - 6.0 - 7.5: Good (Recommended)
+                - 7.6 - 10.0: Exceptional (Strong Recommendation)
                 
                 Narrative/Story:
                 ${narrative}
@@ -824,14 +838,14 @@ export async function evaluateGPE(narrative: string, individualSolution: string,
                 Candidate's Individual Solution:
                 ${individualSolution}
                 
-                Candidate's Final Group Plan (Nominated):
-                ${finalPlan}
+                Candidate's Participation in Discussion (Counter-points):
+                ${discussionText || "No participation recorded."}
                 
-                Evaluate based on:
-                1. Problem Identification & Prioritization (Did they identify all problems? Correct priority?)
-                2. Resource Allocation (Did they use men, material, and time effectively?)
-                3. Practicality & Logic (Is the plan realistic?)
-                4. Final Outcome (Did they achieve the main objective?)
+                Candidate's Final Group Plan (Nominated):
+                ${finalPlan || "No final plan provided."}
+                
+                *** CRITICAL RULE ***
+                If the candidate did not participate in discussion OR did not provide a final plan, PENALIZE HEAVILY. Do not give a score above 5.0 if participation is missing.
                 
                 Provide a JSON response.`,
                 config: {
@@ -840,12 +854,14 @@ export async function evaluateGPE(narrative: string, individualSolution: string,
                         type: Type.OBJECT,
                         properties: {
                             score: { type: Type.NUMBER, description: "Score out of 10" },
-                            problemIdentification: { type: Type.STRING, description: "Feedback on identifying and prioritizing problems" },
+                            verdict: { type: Type.STRING, description: "Below Average / Average / Good / Exceptional" },
+                            problemIdentification: { type: Type.STRING },
+                            discussionFeedback: { type: Type.STRING },
                             strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
                             weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
                             detailedAnalysis: { type: Type.STRING }
                         },
-                        required: ["score", "problemIdentification", "strengths", "weaknesses", "detailedAnalysis"]
+                        required: ["score", "verdict", "problemIdentification", "discussionFeedback", "strengths", "weaknesses", "detailedAnalysis"]
                     }
                 }
             }
@@ -856,7 +872,9 @@ export async function evaluateGPE(narrative: string, individualSolution: string,
         return {
             error: "Evaluation failed due to technical issues.",
             score: 0,
+            verdict: "N/A",
             problemIdentification: "",
+            discussionFeedback: "",
             strengths: [],
             weaknesses: [],
             detailedAnalysis: ""
