@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward, HelpCircle, ChevronDown, ChevronUp, AlertTriangle, Play, LogIn, IndianRupee, Coins } from 'lucide-react';
-import { GoogleGenAI, LiveServerMessage, Modality, Type, FunctionDeclaration } from '@google/genai';
+import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { evaluatePerformance } from '../services/geminiService';
 import { PIQData } from '../types';
 import SessionFeedback from './SessionFeedback';
@@ -153,12 +153,9 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
     if (connectionStatus === 'CONNECTED' && timeLeft > 0) {
       interval = setInterval(() => {
         setTimeLeft(prev => prev - 1);
-        timeLeftRef.current = timeLeftRef.current - 1;
       }, 1000);
     } else if (timeLeft === 0 && sessionMode === 'SESSION') {
-      // Instead of abrupt end, we wait for a grace period or AI to finish
-      // For now, we'll give 2 more minutes of "Grace Period" but show it to user
-      console.log("Time up, entering grace period for wrap-up");
+      endSession(true); // Force end if time runs out
     }
     return () => clearInterval(interval);
   }, [connectionStatus, timeLeft, sessionMode]);
@@ -281,21 +278,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
       
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
       
-      const getLatestNewsTool: FunctionDeclaration = {
-        name: "get_latest_news",
-        parameters: {
-          type: Type.OBJECT,
-          description: "Fetch the latest news on a specific topic (Defense, Geopolitics, National Events) to ask the candidate's opinion.",
-          properties: {
-            topic: {
-              type: Type.STRING,
-              description: "The topic or keyword to search for (e.g., 'India-China border', 'Agnipath scheme', 'G20').",
-            },
-          },
-          required: ["topic"],
-        },
-      };
-
       // Dynamic System Instruction Generation
       const baseInstruction = `You are Col. Arjun Singh, President of 1 AFSB. You are a seasoned Interviewing Officer (IO) with over 20 years of experience in the Indian Armed Forces.
           CONTEXT: A rigorous, formal Personal Interview for the Indian Armed Forces (SSB).
@@ -354,7 +336,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
           inputAudioTranscription: {}, 
           outputAudioTranscription: {}, // ENABLED: Capture AI Speech for Transcript
           systemInstruction: finalInstruction,
-          tools: [{ functionDeclarations: [getLatestNewsTool] }],
+          tools: [{ googleSearch: {} }],
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } }, // Using Charon for deeper, authoritative tone
           },
@@ -426,35 +408,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId,
             }
           },
           onmessage: async (message: LiveServerMessage) => {
-            // Handle Tool Calls
-            if (message.toolCall && message.toolCall.functionCalls && message.toolCall.functionCalls.length > 0) {
-                const call = message.toolCall.functionCalls[0];
-                if (call.name === 'get_latest_news' && call.args) {
-                    try {
-                        const topic = call.args.topic as string;
-                        const newsResponse = await ai.models.generateContent({
-                            model: 'gemini-3-flash-preview',
-                            contents: `Find the latest news about: ${topic}. Provide a concise summary for an SSB Interviewing Officer to use in a conversation.`,
-                            config: { tools: [{ googleSearch: {} }] }
-                        });
-                        
-                        const newsContent = newsResponse.text || "No recent news found on this topic.";
-                        
-                        sessionPromiseRef.current?.then(session => {
-                            session.sendToolResponse({
-                                functionResponses: [{
-                                    name: 'get_latest_news',
-                                    response: { content: newsContent },
-                                    id: call.id
-                                }]
-                            });
-                        });
-                    } catch (e) {
-                        console.error("Tool execution failed", e);
-                    }
-                }
-            }
-
             // A. Handle User Input Transcription
             if (message.serverContent?.inputTranscription) {
               const text = message.serverContent.inputTranscription.text;
