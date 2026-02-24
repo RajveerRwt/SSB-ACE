@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, Loader2, CheckCircle, FileText, Clock, AlertTriangle, Map, Mic, RefreshCw, Volume2, Users } from 'lucide-react';
-import { evaluateGPE } from '../services/geminiService';
+import { Play, Square, Loader2, CheckCircle, FileText, Clock, AlertTriangle, Map, Mic, RefreshCw, Volume2, Users, ImageIcon } from 'lucide-react';
+import { evaluateGPE, textToSpeech, simulateGPEDiscussion, transcribeHandwrittenStory } from '../services/geminiService';
 import { getGPEScenarios, TEST_RATES } from '../services/supabaseService';
 
 interface GPETestProps {
@@ -38,6 +38,11 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
     const [transcript, setTranscript] = useState('');
+    const [gtoAudio, setGtoAudio] = useState<string | null>(null);
+    const [isNarrating, setIsNarrating] = useState(false);
+    const [discussionPoints, setDiscussionPoints] = useState<any[]>([]);
+    const [isTranscribing, setIsTranscribing] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const fetchScenarios = async () => {
@@ -96,6 +101,19 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
 
         setSelectedScenario(scenario);
         setPhase(GPEPhase.MODEL_EXPLANATION);
+        
+        // Start GTO Narration
+        setIsNarrating(true);
+        try {
+            const audioData = await textToSpeech(`Welcome candidates. Observe this model. It represents the area of ${scenario.title}. I will now explain the features. ${scenario.narrative.substring(0, 200)}...`);
+            if (audioData) {
+                setGtoAudio(`data:audio/mp3;base64,${audioData}`);
+            }
+        } catch (e) {
+            console.error("GTO Narration failed", e);
+        } finally {
+            setIsNarrating(false);
+        }
     };
 
     const proceedToStory = () => setPhase(GPEPhase.STORY_READING);
@@ -105,9 +123,38 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
         setTimer(300); // 5 minutes
     };
 
-    const submitIndividualSolution = () => {
+    const submitIndividualSolution = async () => {
         setPhase(GPEPhase.GROUP_DISCUSSION);
         setTimer(900); // 15 minutes for discussion
+        
+        // Simulate discussion points
+        try {
+            const points = await simulateGPEDiscussion(selectedScenario.narrative, solutionText);
+            setDiscussionPoints(points);
+        } catch (e) {
+            console.error("Discussion simulation failed", e);
+        }
+    };
+
+    const handleHandwrittenUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsTranscribing(true);
+        try {
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                const base64 = (reader.result as string).split(',')[1];
+                const text = await transcribeHandwrittenStory(base64, file.type);
+                setSolutionText(prev => prev ? `${prev}\n\n[Transcribed Handwritten Solution]:\n${text}` : text);
+            };
+            reader.readAsDataURL(file);
+        } catch (err) {
+            console.error("Transcription failed", err);
+            alert("Failed to transcribe image. Please try typing your solution.");
+        } finally {
+            setIsTranscribing(false);
+        }
     };
 
     const skipDiscussion = () => {
@@ -252,6 +299,18 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
 
                         {phase === GPEPhase.MODEL_EXPLANATION && (
                             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isNarrating ? 'bg-blue-100 text-blue-600 animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                        <Volume2 size={24} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-slate-900">GTO Narration</h4>
+                                        <p className="text-xs text-slate-500 uppercase font-black tracking-widest">{isNarrating ? 'GTO is explaining the model...' : 'Narration Ready'}</p>
+                                    </div>
+                                    {gtoAudio && (
+                                        <audio src={gtoAudio} autoPlay className="hidden" />
+                                    )}
+                                </div>
                                 <p className="text-slate-600 font-medium leading-relaxed mb-6">
                                     Observe the model carefully. The GTO is explaining the terrain, scale, directions, and important landmarks. You may clarify any doubts regarding the model now.
                                 </p>
@@ -274,13 +333,21 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
                         )}
 
                         {phase === GPEPhase.CORRELATION && (
-                            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 text-center py-10">
-                                <AlertTriangle size={48} className="mx-auto text-yellow-500 mb-4" />
-                                <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-2">Do Not Write Anything</h4>
-                                <p className="text-slate-500 font-medium max-w-md mx-auto">
-                                    You have 5 minutes to read the story cards (mentally) and correlate the problems with the model. Make a mental picture of all features and salient points.
-                                </p>
-                                <div className="mt-8">
+                            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 mb-6 flex items-start gap-3">
+                                    <AlertTriangle className="text-yellow-600 shrink-0 mt-0.5" size={18} />
+                                    <div>
+                                        <h4 className="text-sm font-black text-yellow-900 uppercase tracking-widest">Do Not Write Anything</h4>
+                                        <p className="text-xs text-yellow-800 font-medium">You have 5 minutes to read the story cards and correlate the problems with the model.</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 mb-6">
+                                    <h4 className="font-bold text-blue-900 mb-4 flex items-center gap-2"><FileText size={20} /> Story Card (Correlate with Map)</h4>
+                                    <p className="text-slate-700 leading-relaxed whitespace-pre-wrap text-sm">{selectedScenario?.narrative}</p>
+                                </div>
+
+                                <div className="mt-8 text-center">
                                     <button onClick={handleTimerEnd} className="text-xs font-bold text-slate-400 hover:text-slate-600 underline">Skip Timer (Admin/Dev)</button>
                                 </div>
                             </div>
@@ -288,9 +355,22 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
 
                         {phase === GPEPhase.INDIVIDUAL_SOLUTION && (
                             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 mb-4 flex items-start gap-3">
-                                    <AlertTriangle className="text-yellow-600 shrink-0 mt-0.5" size={18} />
-                                    <p className="text-sm text-yellow-800 font-medium">Write your individual solution. Identify problems, prioritize them, allocate resources, and state the final outcome.</p>
+                                <div className="flex justify-between items-center mb-4">
+                                    <div className="bg-yellow-50 p-3 rounded-xl border border-yellow-200 flex items-start gap-3 flex-1 mr-4">
+                                        <AlertTriangle className="text-yellow-600 shrink-0 mt-0.5" size={18} />
+                                        <p className="text-xs text-yellow-800 font-medium">Write your individual solution. Identify problems, prioritize them, allocate resources, and state the final outcome.</p>
+                                    </div>
+                                    <div className="shrink-0">
+                                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleHandwrittenUpload} />
+                                        <button 
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={isTranscribing}
+                                            className="px-4 py-3 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 flex items-center gap-2"
+                                        >
+                                            {isTranscribing ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+                                            Upload Handwritten
+                                        </button>
+                                    </div>
                                 </div>
                                 <textarea
                                     value={solutionText}
@@ -300,7 +380,7 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
                                 />
                                 <button 
                                     onClick={submitIndividualSolution} 
-                                    disabled={!solutionText.trim()}
+                                    disabled={!solutionText.trim() || isTranscribing}
                                     className="w-full mt-4 py-4 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest text-sm hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50"
                                 >
                                     Submit Individual Solution
@@ -309,14 +389,35 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, is
                         )}
 
                         {phase === GPEPhase.GROUP_DISCUSSION && (
-                            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 text-center py-10">
-                                <Users size={48} className="mx-auto text-blue-500 mb-4" />
-                                <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-2">Group Discussion</h4>
-                                <p className="text-slate-500 font-medium max-w-md mx-auto mb-8">
-                                    In a real SSB, you would now discuss your solutions with the group to arrive at a common plan. For this practice, take a moment to review your solution and think about how you would convince others.
-                                </p>
-                                <button onClick={skipDiscussion} className="px-8 py-3 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-slate-800 transition-all shadow-lg">
-                                    Proceed to Final Plan
+                            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <div className="text-center mb-8">
+                                    <Users size={48} className="mx-auto text-blue-500 mb-4" />
+                                    <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-2">Group Discussion</h4>
+                                    <p className="text-slate-500 font-medium max-w-md mx-auto">
+                                        The group is discussing the plan. Here are some points raised by other candidates. Consider them for your final plan.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-4 mb-8">
+                                    {discussionPoints.length === 0 ? (
+                                        <div className="flex flex-col items-center py-6">
+                                            <Loader2 className="animate-spin text-blue-400 mb-2" />
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Generating Group Input...</p>
+                                        </div>
+                                    ) : (
+                                        discussionPoints.map((p, i) => (
+                                            <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex gap-4 animate-in slide-in-from-left-4" style={{ animationDelay: `${i * 200}ms` }}>
+                                                <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-black text-xs shrink-0 shadow-md">
+                                                    {p.chestNo}
+                                                </div>
+                                                <p className="text-sm text-slate-700 font-medium leading-relaxed italic">"{p.point}"</p>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                <button onClick={skipDiscussion} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-sm hover:bg-slate-800 transition-all shadow-lg">
+                                    Proceed to Final Plan Nomination
                                 </button>
                             </div>
                         )}

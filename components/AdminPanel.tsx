@@ -452,7 +452,20 @@ create policy "Public read test_history" on public.test_history for select using
 );
 alter table public.ticker_config enable row level security;
 create policy "Public read ticker" on public.ticker_config for select using (true);
-create policy "Admin insert ticker" on public.ticker_config for insert with check (true);`)} className="flex items-center gap-1 text-[10px] font-black uppercase text-blue-500 hover:text-blue-700"><Copy size={12}/> Copy SQL</button>
+create policy "Admin insert ticker" on public.ticker_config for insert with check (true);
+
+create table if not exists public.gpe_scenarios (
+  id uuid default gen_random_uuid() primary key,
+  title text not null,
+  narrative text not null,
+  image_url text,
+  difficulty text default 'Medium',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+alter table public.gpe_scenarios enable row level security;
+create policy "Public read gpe" on public.gpe_scenarios for select using (true);
+create policy "Admin insert gpe" on public.gpe_scenarios for insert with check (true);
+create policy "Admin delete gpe" on public.gpe_scenarios for delete using (true);`)} className="flex items-center gap-1 text-[10px] font-black uppercase text-blue-500 hover:text-blue-700"><Copy size={12}/> Copy SQL</button>
                       </div>
                       <pre className="bg-slate-900 text-slate-300 p-3 rounded-lg text-[10px] font-mono overflow-x-auto">
 {`create table if not exists public.ticker_config (
@@ -464,7 +477,20 @@ create policy "Admin insert ticker" on public.ticker_config for insert with chec
 );
 alter table public.ticker_config enable row level security;
 create policy "Public read ticker" on public.ticker_config for select using (true);
-create policy "Admin insert ticker" on public.ticker_config for insert with check (true);`}
+create policy "Admin insert ticker" on public.ticker_config for insert with check (true);
+
+create table if not exists public.gpe_scenarios (
+  id uuid default gen_random_uuid() primary key,
+  title text not null,
+  narrative text not null,
+  image_url text,
+  difficulty text default 'Medium',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+alter table public.gpe_scenarios enable row level security;
+create policy "Public read gpe" on public.gpe_scenarios for select using (true);
+create policy "Admin insert gpe" on public.gpe_scenarios for insert with check (true);
+create policy "Admin delete gpe" on public.gpe_scenarios for delete using (true);`}
                       </pre>
                   </div>
               </div>

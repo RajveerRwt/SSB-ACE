@@ -738,6 +738,61 @@ export async function generateLecturette(topic: string) {
     }
 }
 
+export async function textToSpeech(text: string) {
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-preview-tts",
+            contents: [{ parts: [{ text: `Narrate this as a GTO (Group Testing Officer) in a professional, authoritative but helpful tone: ${text}` }] }],
+            config: {
+                responseModalities: ["AUDIO"],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName: 'Puck' },
+                    },
+                },
+            },
+        });
+
+        return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
+    } catch (e) {
+        console.error("TTS failed", e);
+        return null;
+    }
+}
+
+export async function simulateGPEDiscussion(narrative: string, userSolution: string) {
+    try {
+        const response = await generateWithRetry(
+            'gemini-3-flash-preview',
+            {
+                contents: `Simulate a group discussion for GPE. 
+                Narrative: ${narrative}
+                User's Solution: ${userSolution}
+                
+                Provide 4-5 points raised by other group members (Chest No 2, 5, 8, 12) that either support or challenge the user's plan. 
+                Return as a JSON array of objects with 'chestNo' and 'point'.`,
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                chestNo: { type: Type.STRING },
+                                point: { type: Type.STRING }
+                            }
+                        }
+                    }
+                }
+            }
+        );
+        return safeJSONParse(response.text || "") || [];
+    } catch (e) {
+        console.error("Discussion simulation failed", e);
+        return [];
+    }
+}
+
 export async function evaluateGPE(narrative: string, individualSolution: string, finalPlan: string) {
     try {
         const response = await generateWithRetry(
