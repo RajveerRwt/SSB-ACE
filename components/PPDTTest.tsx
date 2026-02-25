@@ -33,14 +33,15 @@ enum PPDTStep {
 }
 
 interface PPDTProps {
-  onSave?: (result: any) => void;
+  onSave?: (result: any, id?: string) => void;
+  onPendingSave?: (testType: string, originalData: any) => Promise<string>;
   isAdmin?: boolean;
   userId?: string;
   isGuest?: boolean;
   onLoginRedirect?: () => void;
 }
 
-const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
+const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
   const [step, setStep] = useState<PPDTStep>(PPDTStep.IDLE);
   const [isDirectEvaluation, setIsDirectEvaluation] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -211,6 +212,9 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
   useEffect(() => {
     const isNarrationTimed = step === PPDTStep.NARRATION && isRecording;
     const isTimedPhase = [PPDTStep.IMAGE, PPDTStep.CHARACTER_MARKING, PPDTStep.STORY_WRITING].includes(step);
+
+    // Skip timer if Direct Evaluation is active
+    if (isDirectEvaluation && step === PPDTStep.STORY_WRITING) return;
 
     if (timeLeft > 0 && (isTimedPhase || isNarrationTimed)) {
       timerRef.current = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
@@ -504,7 +508,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                         setCurrentImageUrl(customStimulus || '');
                         setImageDescription("Custom Upload - Direct Evaluation");
                         setStep(PPDTStep.STORY_WRITING);
-                        setTimeLeft(900); // 15 minutes
+                        setTimeLeft(0); // No timer
                     }}
                     className="bg-slate-900 p-8 rounded-[2rem] border-2 border-slate-800 hover:border-yellow-400 hover:shadow-2xl transition-all group relative overflow-hidden text-left text-white"
                 >
@@ -622,7 +626,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                     <p className="text-slate-400 text-[10px] md:text-sm font-bold uppercase tracking-widest mt-2 underline decoration-blue-500 underline-offset-4 decoration-2">Write on paper & Include the Character Box</p>
                 </div>
                 <div className={`px-6 py-3 md:px-10 md:py-5 rounded-[1.5rem] md:rounded-[2rem] font-mono font-black text-2xl md:text-4xl border-4 transition-all ${timeLeft < 30 || isTimeUp ? 'bg-red-50 border-red-500 text-red-600 animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.2)]' : 'bg-slate-900 border-slate-800 text-white'}`}>
-                    {isTimeUp ? "TIME UP" : `${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')}`}
+                    {isDirectEvaluation ? "DIRECT EVAL" : (isTimeUp ? "TIME UP" : `${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')}`)}
                 </div>
                 </div>
 
