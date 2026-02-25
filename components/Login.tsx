@@ -16,24 +16,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [showResend, setShowResend] = useState(false);
-
-  const handleResendEmail = async () => {
-    if (!email) return;
-    setIsLoading(true);
-    try {
-      const { error } = await resendConfirmationEmail(email);
-      if (error) throw error;
-      setSuccessMsg("Confirmation email resent! Please check your inbox.");
-      setShowResend(false);
-    } catch (err: any) {
-      setError(err.message || "Failed to resend email.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +53,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
         const { data, error } = await signInWithEmail(email, password);
         if (error) {
           if (error.message.includes("Invalid login credentials")) {
-            setShowResend(true);
             throw new Error("Invalid credentials. If you just registered, please check your email for the confirmation link to activate your account.");
           }
           throw error;
@@ -81,6 +65,20 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
       console.error("Auth Error:", err);
       setError(err.message || "Authentication failed.");
       setIsLoading(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (!email) return;
+    setIsResending(true);
+    try {
+      const { error } = await resendConfirmationEmail(email);
+      if (error) throw error;
+      setSuccessMsg("Confirmation email resent! Please check your inbox.");
+    } catch (err: any) {
+      setError(err.message || "Failed to resend email.");
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -143,12 +141,22 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
                  <ShieldCheck size={24} />
                </div>
                <p className="text-green-800 font-bold text-sm leading-relaxed">{successMsg}</p>
-               <button 
-                  onClick={() => { setIsSignUp(false); setSuccessMsg(''); }}
-                  className="w-full py-4 bg-green-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-green-700 transition-colors shadow-lg"
-               >
-                 Proceed to Login
-               </button>
+               <div className="space-y-3">
+                 <button 
+                    onClick={() => { setIsSignUp(false); setSuccessMsg(''); }}
+                    className="w-full py-4 bg-green-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-green-700 transition-colors shadow-lg"
+                 >
+                   Proceed to Login
+                 </button>
+                 <button 
+                    onClick={handleResendEmail}
+                    disabled={isResending}
+                    className="w-full py-3 bg-white text-green-600 border border-green-200 rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-green-50 transition-colors flex items-center justify-center gap-2"
+                 >
+                   {isResending ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                   Resend Confirmation
+                 </button>
+               </div>
             </div>
           ) : (
             <>
@@ -225,22 +233,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
                 </div>
 
                 {error && (
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-2 text-red-500 bg-red-50 p-4 rounded-xl border border-red-100">
-                      <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                      <p className="text-[10px] font-bold leading-relaxed">{error}</p>
-                    </div>
-                    {showResend && !isSignUp && (
-                      <button 
-                        type="button"
-                        onClick={handleResendEmail}
-                        disabled={isLoading}
-                        className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
-                      >
-                        {isLoading ? <Loader2 className="animate-spin" size={14} /> : <Mail size={14} />}
-                        Resend Confirmation Email
-                      </button>
-                    )}
+                  <div className="flex items-start gap-2 text-red-500 bg-red-50 p-4 rounded-xl border border-red-100">
+                    <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                    <p className="text-[10px] font-bold leading-relaxed">{error}</p>
                   </div>
                 )}
 

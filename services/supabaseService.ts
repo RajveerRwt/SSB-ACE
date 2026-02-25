@@ -248,6 +248,21 @@ export const logoutUser = async () => {
   await (supabase.auth as any).signOut();
 };
 
+export const resendConfirmationEmail = async (email: string) => {
+  const auth = supabase.auth as any;
+  if (auth.resend) {
+    return await auth.resend({
+      type: 'signup',
+      email: email,
+      options: {
+        emailRedirectTo: window.location.origin
+      }
+    });
+  }
+  // Fallback for older supabase versions if any
+  return { error: new Error("Resend not supported on this client version") };
+};
+
 export const checkAuthSession = async () => {
   const auth = supabase.auth as any;
   if (auth.getSession) {
