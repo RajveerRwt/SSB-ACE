@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { PIQData, UserSubscription, Announcement } from '../types';
 
 // Initialize Supabase Client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_KEY || 'placeholder';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_KEY || process.env.REACT_APP_SUPABASE_KEY || 'placeholder';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -246,17 +246,6 @@ export const signUpWithEmail = async (email: string, password: string, fullName:
 
 export const logoutUser = async () => {
   await (supabase.auth as any).signOut();
-};
-
-export const resendConfirmationEmail = async (email: string) => {
-  const auth = supabase.auth as any;
-  return await auth.resend({
-    type: 'signup',
-    email: email,
-    options: {
-      emailRedirectTo: window.location.origin
-    }
-  });
 };
 
 export const checkAuthSession = async () => {
