@@ -22,95 +22,10 @@ import { GPETest } from './GPETest';
 import Footer from './Footer';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES } from '../services/supabaseService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2 } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // --- GAMIFICATION COMPONENTS ---
-
-const RadarChart: React.FC<{ stats: any }> = ({ stats }) => {
-  // Stats mapping: 0-10 scale
-  // 1. Planning (PPDT)
-  // 2. Social (Interview)
-  // 3. Dynamic (SRT/TAT Speed - Simulated by activity count)
-  // 4. Expression (Lecturette/Interview)
-  // 5. Stability (Psych Avg)
-  // 6. Determination (Streak/Total Tests)
-
-  const normalized = {
-    planning: Math.min(Math.max(stats.ppdtAvg || 2, 2), 10),
-    social: Math.min(Math.max(stats.interviewAvg || 2, 2), 10),
-    dynamic: Math.min(Math.max((stats.totalTests / 5) * 2, 2), 10), // Scale total tests to score
-    expression: Math.min(Math.max(stats.interviewAvg || 2, 2), 10),
-    stability: Math.min(Math.max(stats.psychAvg || 2, 2), 10),
-    determination: Math.min(Math.max((stats.totalTests / 10) * 3, 2), 10)
-  };
-
-  // Helper to calculate polygon points
-  const getPoint = (value: number, angle: number, radius: number = 80, center: number = 100) => {
-    const r = (value / 10) * radius;
-    const x = center + r * Math.cos(angle);
-    const y = center + r * Math.sin(angle);
-    return `${x},${y}`;
-  };
-
-  const angles = [0, 60, 120, 180, 240, 300].map(d => (d - 90) * (Math.PI / 180));
-  
-  const polyPoints = [
-    getPoint(normalized.planning, angles[0]),
-    getPoint(normalized.social, angles[1]),
-    getPoint(normalized.dynamic, angles[2]),
-    getPoint(normalized.expression, angles[3]),
-    getPoint(normalized.stability, angles[4]),
-    getPoint(normalized.determination, angles[5]),
-  ].join(" ");
-
-  const bgPoints = [
-    getPoint(10, angles[0]),
-    getPoint(10, angles[1]),
-    getPoint(10, angles[2]),
-    getPoint(10, angles[3]),
-    getPoint(10, angles[4]),
-    getPoint(10, angles[5]),
-  ].join(" ");
-
-  return (
-    <div className="relative w-full h-64 flex items-center justify-center">
-      <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-xl">
-        {/* Background Web */}
-        {[2, 4, 6, 8, 10].map(level => (
-           <polygon 
-             key={level}
-             points={[0,1,2,3,4,5].map(i => getPoint(level, angles[i])).join(" ")}
-             fill="none"
-             stroke="#e2e8f0"
-             strokeWidth="1"
-           />
-        ))}
-        {/* Axis Lines */}
-        {angles.map((a, i) => (
-           <line 
-             key={i} 
-             x1="100" y1="100" 
-             x2={100 + 80 * Math.cos(a)} 
-             y2={100 + 80 * Math.sin(a)} 
-             stroke="#e2e8f0" 
-             strokeWidth="1" 
-           />
-        ))}
-        {/* Data Polygon */}
-        <polygon points={polyPoints} fill="rgba(59, 130, 246, 0.2)" stroke="#2563eb" strokeWidth="2" className="drop-shadow-sm transition-all duration-1000 ease-out" />
-        
-        {/* Labels */}
-        <text x="100" y="15" textAnchor="middle" className="text-[8px] font-black uppercase fill-slate-500">Planning</text>
-        <text x="180" y="60" textAnchor="middle" className="text-[8px] font-black uppercase fill-slate-500">Social</text>
-        <text x="180" y="150" textAnchor="middle" className="text-[8px] font-black uppercase fill-slate-500">Dynamic</text>
-        <text x="100" y="195" textAnchor="middle" className="text-[8px] font-black uppercase fill-slate-500">Expression</text>
-        <text x="20" y="150" textAnchor="middle" className="text-[8px] font-black uppercase fill-slate-500">Stability</text>
-        <text x="20" y="60" textAnchor="middle" className="text-[8px] font-black uppercase fill-slate-500">Grit</text>
-      </svg>
-    </div>
-  );
-};
 
 const MedalRibbon: React.FC<{ 
   title: string, 
@@ -167,7 +82,8 @@ const Dashboard: React.FC<{
       psychAvg: 0,
       interviewAvg: 0,
       totalTests: 0,
-      rank: 'Cadet'
+      rank: 'Cadet',
+      breakdown: {} as Record<string, { count: number, avg: number }>
   });
   
   const quotes = [
@@ -233,6 +149,20 @@ const Dashboard: React.FC<{
         setHistory(data);
         
         // Calculate Stats
+        const breakdown: Record<string, { count: number, avg: number }> = {};
+        data.forEach((h: any) => {
+            const type = h.type;
+            if (!breakdown[type]) {
+                breakdown[type] = { count: 0, avg: 0 };
+            }
+            breakdown[type].count += 1;
+            breakdown[type].avg += (Number(h.score) || 0);
+        });
+
+        Object.keys(breakdown).forEach(key => {
+            breakdown[key].avg = breakdown[key].avg / breakdown[key].count;
+        });
+
         const ppdtLogs = data.filter((h: any) => h.type.includes('PPDT'));
         const psychLogs = data.filter((h: any) => ['TAT', 'WAT', 'SRT', 'SDT'].some(t => h.type.includes(t)));
         const interviewLogs = data.filter((h: any) => h.type.includes('INTERVIEW'));
@@ -248,7 +178,7 @@ const Dashboard: React.FC<{
         if (totalTests > 30) rank = 'Major';
         if (ppdtAvg > 8 && interviewAvg > 8) rank = 'Commando';
 
-        setStats({ ppdtAvg, psychAvg, interviewAvg, totalTests, rank });
+        setStats({ ppdtAvg, psychAvg, interviewAvg, totalTests, rank, breakdown });
         setLoadingHistory(false);
       });
       
@@ -405,14 +335,44 @@ const Dashboard: React.FC<{
                 </div>
               </div>
               
-              {/* GAMIFICATION SECTION: OLQ RADAR & MEDALS */}
+              {/* GAMIFICATION SECTION: MISSION PERFORMANCE & MEDALS */}
               <div className="grid md:grid-cols-2 gap-8 mb-8">
-                  {/* Left: OLQ Hexagon */}
-                  <div className="bg-slate-50 rounded-3xl p-4 border border-slate-100 flex flex-col items-center">
-                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-2">
-                          <Target size={12} /> OLQ Profile
+                  {/* Left: Mission Performance Breakdown */}
+                  <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100 flex flex-col">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                          <Target size={12} /> Mission Performance
                       </h4>
-                      <RadarChart stats={stats} />
+                      <div className="space-y-3 overflow-y-auto max-h-[200px] pr-2 custom-scrollbar">
+                          {Object.keys(stats.breakdown).length === 0 ? (
+                              <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                                  <BarChart2 size={32} className="opacity-20 mb-2" />
+                                  <p className="text-[10px] font-bold uppercase tracking-widest">No Data Available</p>
+                              </div>
+                          ) : (
+                              Object.entries(stats.breakdown).map(([type, data]) => (
+                                  <div key={type} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                          <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-[10px]">
+                                              {type.substring(0, 2)}
+                                          </div>
+                                          <div>
+                                              <p className="text-[10px] font-black uppercase text-slate-800 tracking-tight">{type}</p>
+                                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{data.count} Sorties</p>
+                                          </div>
+                                      </div>
+                                      <div className="text-right">
+                                          <p className="text-xs font-black text-slate-900">{data.avg.toFixed(1)}</p>
+                                          <div className="w-16 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                                              <div 
+                                                  className={`h-full rounded-full ${data.avg > 7 ? 'bg-green-500' : data.avg > 5 ? 'bg-yellow-500' : 'bg-red-500'}`} 
+                                                  style={{ width: `${(data.avg / 10) * 100}%` }}
+                                              />
+                                          </div>
+                                      </div>
+                                  </div>
+                              ))
+                          )}
+                      </div>
                   </div>
 
                   {/* Right: Medal Case */}

@@ -708,7 +708,7 @@ export async function fetchDailyNews() {
         const response = await generateWithRetry(
             'gemini-3-flash-preview',
             {
-                contents: 'Provide 5 latest defense and geopolitical news items relevant to India for SSB aspirants. Format with HEADLINE, TAG, SUMMARY, SSB_RELEVANCE. Separate items with ---NEWS_BLOCK---',
+                contents: 'Provide exactly 5 latest defense and geopolitical news items relevant to India for SSB aspirants. You MUST follow this format for EACH item:\n\n---NEWS_BLOCK---\nHEADLINE: [Title]\nTAG: [Defense/National/International]\nSUMMARY: [2-3 detailed sentences]\nSSB_RELEVANCE: [How it helps in GD/Lecturette]\n\nDo not add any other text outside these blocks.',
                 config: {
                     tools: [{ googleSearch: {} }]
                 }

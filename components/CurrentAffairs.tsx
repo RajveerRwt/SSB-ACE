@@ -40,14 +40,37 @@ const CurrentAffairs: React.FC = () => {
 
       // 2. If no cache, fetch from Gemini API
       const { text, groundingMetadata } = await fetchDailyNews();
+      
+      if (!text || text.length < 50) {
+          throw new Error("Intelligence report too brief or empty.");
+      }
+
       const blocks = text?.split('---NEWS_BLOCK---').slice(1) || [];
       const parsedNews: NewsItem[] = blocks.map((block: string) => {
-          const headline = block.match(/HEADLINE:\s*(.*)/i)?.[1]?.trim() || "Defense Update";
-          const tag = block.match(/TAG:\s*(.*)/i)?.[1]?.trim() || "National";
-          const summary = block.match(/SUMMARY:\s*(.*)/i)?.[1]?.trim() || "No summary available.";
-          const relevance = block.match(/SSB_RELEVANCE:\s*(.*)/i)?.[1]?.trim() || "General Awareness";
-          return { headline, tag, summary, relevance };
-      });
+          const headlineMatch = block.match(/HEADLINE:\s*(.*)/i);
+          const summaryMatch = block.match(/SUMMARY:\s*(.*)/i);
+          
+          if (!headlineMatch || !summaryMatch) return null;
+
+          const headline = headlineMatch[1].trim();
+          const summary = summaryMatch[1].trim();
+
+          // Reject if summary is too short or just a placeholder
+          if (summary.length < 20 || summary.toLowerCase().includes("no summary available")) {
+              return null;
+          }
+
+          return { 
+              headline, 
+              tag: block.match(/TAG:\s*(.*)/i)?.[1]?.trim() || "National", 
+              summary, 
+              relevance: block.match(/SSB_RELEVANCE:\s*(.*)/i)?.[1]?.trim() || "General Awareness" 
+          };
+      }).filter((item): item is NewsItem => item !== null);
+      
+      if (parsedNews.length === 0) {
+          throw new Error("Failed to decode intelligence blocks. Please retry.");
+      }
       
       const webSources = (groundingMetadata?.groundingChunks || [])
         .filter((c: any) => c.web?.uri)
@@ -57,9 +80,11 @@ const CurrentAffairs: React.FC = () => {
       setSources(webSources);
       setLastUpdated(new Date().toLocaleTimeString());
 
-      // 3. Save result to Cache
-      if (parsedNews.length > 0) {
+      // 3. Save result to Cache only if we have a solid report (at least 3 items)
+      if (parsedNews.length >= 3) {
           await setCachedContent('NEWS', dateKey, { news: parsedNews, sources: webSources });
+      } else {
+          console.warn("Insufficient quality news items found (found " + parsedNews.length + "), skipping cache to allow retry.");
       }
 
     } catch (err: any) {
