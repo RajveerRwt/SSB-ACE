@@ -3,8 +3,8 @@ import { PIQData } from '../types';
 
 // --- SUPABASE CONFIGURATION ---
 // Replace these with your actual Supabase project URL and Anon Key
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://your-project.supabase.co';
-const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_KEY || 'your-anon-key';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_KEY || 'your-anon-key';
 
 let supabase: any = null;
 let isSupabaseActive = false;

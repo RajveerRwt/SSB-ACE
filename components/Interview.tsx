@@ -313,7 +313,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
           3. PROBING: If an answer is superficial, dig deeper. Ask "Why?", "How?", "Give me an example."
           4. STRESS TESTING: Occasionally challenge the candidate's stance. "I don't agree with you," or "Isn't that a very selfish view?" to see their reaction.
           5. CURRENT AFFAIRS: Use your Google Search tool to find LATEST news (Defense, Geopolitics, National events). Ask for their opinion and how it affects India's security.
-          6. SITUATIONAL JUDGMENT: Throw in 2-3 SRT-style questions during the interview. "Suppose you are on a trek and your friend breaks a leg, what do you do?"
+          6. SITUATIONAL JUDGMENT (SRT): Ask 2 unique, unpredictable situational questions based on their PIQ background (e.g., related to their city, hobbies, or education). DO NOT use generic examples like "broken leg on a trek". Invent novel, challenging situations.
           
           *** PROTOCOL: AUDIO & VISUAL ***
           7. MODALITY: You can SEE and HEAR the candidate. 
@@ -333,9 +333,12 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
           - Deep dive into Current Affairs (Defense/Geopolitics).
           - Situational Questions.
           - Closing: Ask if they want to ask anything or have anything to add.
-          - DO NOT end abruptly. Ensure the conversation feels complete.`;
+          - DO NOT end abruptly. Ensure the conversation feels complete.
+          
+          CRITICAL: Keep your responses concise. Do not monologue. Ask the question and let the candidate speak.`;
 
       let finalInstruction = baseInstruction;
+      const sessionSeed = Math.floor(Math.random() * 10000);
       
       if (isRetry) {
           const recentHistory = conversationHistoryRef.current.slice(-5).join(" | ");
@@ -346,7 +349,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
           LAST KNOWN CONTEXT: "${recentHistory}"
           INSTRUCTION: Briefly acknowledge the drop ("We had a glitch, carry on with..."). Then RESUME probing the last topic immediately. DO NOT RESTART INTRO.`;
       } else {
-          finalInstruction += `\n\nINSTRUCTION: START_INTERVIEW. Candidate has just entered. Wait for greeting.`;
+          finalInstruction += `\n\nSESSION ID: ${sessionSeed}. Ensure your questions and SRTs are unique to this session.\nINSTRUCTION: START_INTERVIEW. Candidate has just entered. Wait for greeting.`;
       }
 
       const sessionPromise = ai.live.connect({
@@ -391,21 +394,10 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
               scriptProcessor.connect(inputAudioContextRef.current.destination);
             }
 
-            // 3. Heartbeat to prevent session timeout (every 30s)
-            heartbeatIntervalRef.current = window.setInterval(() => {
-                if (isSocketOpenRef.current && sessionPromiseRef.current) {
-                    sessionPromiseRef.current.then(session => {
-                        // Send a tiny bit of silence to keep the connection active
-                        const silence = new Int16Array(100).fill(0);
-                        session.sendRealtimeInput({ 
-                            media: { data: encode(new Uint8Array(silence.buffer)), mimeType: 'audio/pcm;rate=16000' } 
-                        });
-                    }).catch(() => {});
-                }
-            }, 30000);
-
-            // 2. Video Input Pipeline (Increased to 0.5 FPS for better engagement)
-            const FRAME_RATE = 0.5; 
+            // 3. Heartbeat removed as mic stream keeps connection alive and heartbeat can cause context issues.
+            
+            // 2. Video Input Pipeline (Reduced to 0.1 FPS to prevent context overload over long sessions)
+            const FRAME_RATE = 0.1; 
             if (videoRef.current && canvasRef.current) {
                 frameIntervalRef.current = window.setInterval(() => {
                     const videoEl = videoRef.current;
@@ -524,9 +516,11 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
                   if (sourcesRef.current.size === 0) setIsAiSpeaking(false);
                 };
 
-                // Add a tiny lookahead (50ms) to prevent cracking due to scheduling jitter
-                const lookahead = 0.05;
-                const startTime = Math.max(nextStartTimeRef.current, outputAudioContextRef.current.currentTime + lookahead);
+                // Prevent cracking by perfectly aligning chunks, only adding buffer on underrun
+                let startTime = nextStartTimeRef.current;
+                if (startTime < outputAudioContextRef.current.currentTime) {
+                    startTime = outputAudioContextRef.current.currentTime + 0.1; // 100ms buffer for new speech bursts
+                }
                 source.start(startTime);
                 nextStartTimeRef.current = startTime + audioBuffer.duration;
                 sourcesRef.current.add(source);
