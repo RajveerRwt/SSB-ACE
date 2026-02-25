@@ -4,8 +4,7 @@ import { evaluateGPE, textToSpeech, simulateGPEDiscussion, transcribeHandwritten
 import { getGPEScenarios, TEST_RATES } from '../services/supabaseService';
 
 interface GPETestProps {
-    onComplete: (feedback: any, id?: string) => void;
-    onPendingSave?: (testType: string, originalData: any) => Promise<string>;
+    onComplete: (feedback: any) => void;
     onConsumeCoins?: (amount: number) => Promise<boolean>;
     isGuest?: boolean;
     onLoginRedirect?: () => void;
@@ -22,9 +21,8 @@ enum GPEPhase {
     COMPLETED = 'COMPLETED'
 }
 
-export const GPETest: React.FC<GPETestProps> = ({ onComplete, onPendingSave, onConsumeCoins, isGuest, onLoginRedirect }) => {
+export const GPETest: React.FC<GPETestProps> = ({ onComplete, onConsumeCoins, isGuest, onLoginRedirect }) => {
     const [phase, setPhase] = useState<GPEPhase>(GPEPhase.SELECTION);
-    const [pendingId, setPendingId] = useState<string | undefined>(undefined);
     const [scenarios, setScenarios] = useState<any[]>([]);
     const [selectedScenario, setSelectedScenario] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
@@ -243,39 +241,13 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onPendingSave, onC
     const submitFinalPlan = async () => {
         setIsEvaluating(true);
         setPhase(GPEPhase.COMPLETED);
-        
-        const originalData = {
-            narrative: selectedScenario.narrative,
-            solutionText,
-            finalPlan: finalPlanText || transcript,
-            userCounters
-        };
-
-        let currentId = pendingId;
-        if (onPendingSave && !isGuest) {
-            currentId = await onPendingSave('GPE', originalData);
-            setPendingId(currentId);
-        }
-
         try {
-            const result = await evaluateGPE(
-                originalData.narrative, 
-                originalData.solutionText, 
-                originalData.finalPlan, 
-                originalData.userCounters
-            );
+            const result = await evaluateGPE(selectedScenario.narrative, solutionText, finalPlanText || transcript, userCounters);
             setFeedback(result);
-            onComplete(result, currentId);
+            onComplete(result);
         } catch (e) {
             console.error("Evaluation failed", e);
-            const fallback = { 
-                score: 0, 
-                verdict: "Technical Failure", 
-                recommendations: "Assessment Pending. Your responses have been saved and will be analyzed in the background.",
-                error: true 
-            };
-            setFeedback(fallback);
-            onComplete(fallback, currentId);
+            setFeedback({ error: "Evaluation failed due to technical issues." });
         } finally {
             setIsEvaluating(false);
         }

@@ -91,8 +91,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
 
 interface InterviewProps {
   piqData?: PIQData;
-  onSave?: (result: any, id?: string) => void | Promise<void>;
-  onPendingSave?: (testType: string, originalData: any) => Promise<string>;
+  onSave?: (result: any) => void | Promise<void>;
   isAdmin?: boolean;
   userId?: string;
   isGuest?: boolean;
@@ -100,9 +99,8 @@ interface InterviewProps {
   onConsumeCoins?: (cost: number) => Promise<boolean>;
 }
 
-const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, isAdmin, userId, isGuest = false, onLoginRedirect, onConsumeCoins }) => {
+const Interview: React.FC<InterviewProps> = ({ piqData, onSave, isAdmin, userId, isGuest = false, onLoginRedirect, onConsumeCoins }) => {
   const [sessionMode, setSessionMode] = useState<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
-  const [pendingId, setPendingId] = useState<string | undefined>(undefined);
   // Ref to track session mode synchronously across callbacks to prevent race conditions during termination
   const sessionModeRef = useRef<'DASHBOARD' | 'SESSION' | 'RESULT'>('DASHBOARD');
   
@@ -582,35 +580,27 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
     
     await cleanupSession();
     setIsAnalyzing(true);
-    let currentId = pendingId;
 
     try {
       const fullTranscript = conversationHistoryRef.current.join("\n");
-      const originalData = { 
+      const results = await evaluatePerformance('Personal Interview Board (30 Min)', { 
         piq: activePIQ, 
         duration: totalDuration - timeLeft, 
         transcript: fullTranscript || "No verbal response captured.",
         testType: 'Interview' // Ensure service knows this is an Interview
-      };
-
-      if (onPendingSave && !isGuest) {
-          currentId = await onPendingSave('INTERVIEW', originalData);
-          setPendingId(currentId);
-      }
-
-      const results = await evaluatePerformance('Personal Interview Board (30 Min)', originalData);
+      });
       setFinalAnalysis(results);
       if (onSave && !isGuest) {
         // Await onSave to ensure data is written to DB/storage before UI allows exit
-        await onSave(results, currentId);
+        await onSave(results);
       }
     } catch (e) {
       console.error(e);
       // Fallback in case of critical failure
-      const fallback = {
+      setFinalAnalysis({
          score: 0,
          verdict: "Technical Failure",
-         recommendations: "Assessment Pending. Your responses have been saved and will be analyzed in the background.",
+         recommendations: "Assessment could not be generated due to network issues or API failure. Your session has been archived.",
          strengths: ["Determination"],
          weaknesses: ["Technical Interruption"],
          factorAnalysis: {
@@ -618,11 +608,8 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
             factor2_social: "N/A",
             factor3_effectiveness: "N/A",
             factor4_dynamic: "N/A"
-         },
-         error: true
-      };
-      setFinalAnalysis(fallback);
-      if (onSave && !isGuest) await onSave(fallback, currentId);
+         }
+      });
     } finally { 
       setIsAnalyzing(false); 
     }

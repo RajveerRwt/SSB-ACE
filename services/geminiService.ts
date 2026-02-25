@@ -55,47 +55,66 @@ export async function extractCustomStimuli(fileBase64: string, mimeType: string,
 async function generateWithRetry(
     model: string, 
     params: any, 
-    retries = 2,
-    timeoutMs = 60000
+    retries = 2
 ): Promise<GenerateContentResponse> {
     try {
-        // Race API call against the specified timeout
+        // Race API call against a 60s timeout (Increased for heavy WAT/SRT/TAT loads)
         return await Promise.race([
             ai.models.generateContent({ ...params, model }),
-            timeoutPromise(timeoutMs)
+            timeoutPromise(60000)
         ]) as GenerateContentResponse;
     } catch (e: any) {
         // Extensive Error Parsing for 503/Overloaded/Unavailable/Timeout
         const errorCode = e.status || e.code || (e.error ? e.error.code : 0);
-        const errorMessage = (e.message || (e.error ? e.error.message : "") || JSON.stringify(e)).toLowerCase();
+        const errorMessage = e.message || (e.error ? e.error.message : "") || JSON.stringify(e);
         const errorStatus = e.statusText || (e.error ? e.error.status : "");
 
         const isOverloaded = 
             errorCode === 503 || 
             errorCode === 429 || 
-            errorCode === 504 ||
             errorStatus === "UNAVAILABLE" ||
             errorMessage.includes("high demand") || 
             errorMessage.includes("overloaded") ||
             errorMessage.includes("quota") ||
-            errorMessage.includes("deadline") ||
-            errorMessage.includes("timeout") ||
-            errorMessage === "request timeout";
+            errorMessage === "Request Timeout";
         
         // IMMEDIATE FALLBACK STRATEGY
-        if (isOverloaded && retries > 0) {
-            console.warn(`Model ${model} failed/overloaded (Code: ${errorCode}). Attempting fallback...`);
+        if (isOverloaded) {
+            console.warn(`Model ${model} overloaded (Code: ${errorCode}). Attempting fallback sequence...`);
             
-            let fallbackModel = 'gemini-3-flash-preview';
-            if (model === 'gemini-3-flash-preview' || model === 'gemini-3.1-pro-preview') {
-                fallbackModel = 'gemini-flash-latest';
-            }
+            // Fallback Priority Chain
+            // 1. Try gemini-3-flash-preview (Fast, High Capacity)
+            // 2. Try gemini-flash-latest (Reliable Legacy 1.5 Flash)
             
-            if (fallbackModel !== model) {
+            let fallbackModel = '';
+            if (model === 'gemini-3-pro-preview') fallbackModel = 'gemini-3-flash-preview';
+            else if (model === 'gemini-3-flash-preview') fallbackModel = 'gemini-flash-latest';
+            else if (model.includes('pro')) fallbackModel = 'gemini-3-flash-preview';
+            
+            if (fallbackModel && fallbackModel !== model) {
                 console.warn(`Switching to fallback model: ${fallbackModel}`);
-                // Use a slightly longer timeout for fallback if it was a timeout
-                const nextTimeout = errorMessage.includes("timeout") ? timeoutMs + 30000 : timeoutMs;
-                return await generateWithRetry(fallbackModel, params, retries - 1, nextTimeout);
+                try {
+                    // Try fallback immediately with same 60s timeout
+                    return await Promise.race([
+                        ai.models.generateContent({ ...params, model: fallbackModel }),
+                        timeoutPromise(60000)
+                    ]) as GenerateContentResponse;
+                } catch (fallbackError: any) {
+                    console.error(`Fallback ${fallbackModel} also failed:`, fallbackError);
+                    
+                    // LEVEL 3 FALLBACK: If 3-Flash fails, try 1.5 Flash (Most Stable)
+                    if (fallbackModel === 'gemini-3-flash-preview') {
+                         console.warn("Attempting final fallback: gemini-flash-latest");
+                         try {
+                            return await Promise.race([
+                                ai.models.generateContent({ ...params, model: 'gemini-flash-latest' }),
+                                timeoutPromise(60000)
+                            ]) as GenerateContentResponse;
+                         } catch (finalError) {
+                             console.error("All models exhausted.");
+                         }
+                    }
+                }
             }
         }
 
@@ -292,9 +311,7 @@ export async function evaluatePerformance(testType: string, userData: any) {
                             }
                         }
                     }
-                },
-                2,
-                90000 // 90s timeout for Interview
+                }
             );
             // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
@@ -350,7 +367,7 @@ IMPORTANT RULES:
             parts.push({ text: `Candidate Typed Responses (Reference for IDs): ${JSON.stringify(items)}` });
 
             const response = await generateWithRetry(
-                'gemini-3-flash-preview',
+                'gemini-3.1-pro-preview',
                 {
                     contents: { parts },
                     config: {
@@ -395,9 +412,7 @@ IMPORTANT RULES:
                             }
                         }
                     }
-                },
-                2,
-                120000 // 2 minute timeout for 60 items
+                }
             );
             // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
@@ -522,7 +537,7 @@ IMPORTANT RULES:
             }
             
             const response = await generateWithRetry(
-                'gemini-3-flash-preview',
+                'gemini-3.1-pro-preview',
                 {
                     contents: { parts },
                     config: {
@@ -561,9 +576,7 @@ IMPORTANT RULES:
                             }
                         }
                     }
-                },
-                2,
-                180000 // 3 minute timeout for 12 stories + many images
+                }
             );
             // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
@@ -594,7 +607,7 @@ IMPORTANT RULES:
             }
 
             const response = await generateWithRetry(
-                'gemini-3-flash-preview',
+                'gemini-3.1-pro-preview',
                 {
                     contents: { parts },
                     config: {
@@ -616,11 +629,6 @@ IMPORTANT RULES:
             // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
             return parsed || { ...generateErrorEvaluation(), ...userData };
-        }
-
-        // 6. GPE EVALUATION
-        else if (testType === 'GPE') {
-            return await evaluateGPE(userData.narrative, userData.solutionText, userData.finalPlan, userData.userCounters);
         }
 
         return generateErrorEvaluation();
@@ -807,7 +815,7 @@ export async function evaluateGPE(narrative: string, individualSolution: string,
     try {
         const discussionText = discussionCounters.map(c => c.text).join("\n");
         const response = await generateWithRetry(
-            'gemini-3-flash-preview',
+            'gemini-3.1-pro-preview',
             {
                 contents: `Act as a GTO (Group Testing Officer) at SSB. Evaluate this Group Planning Exercise (GPE).
                 
@@ -856,9 +864,7 @@ export async function evaluateGPE(narrative: string, individualSolution: string,
                         required: ["score", "verdict", "problemIdentification", "discussionFeedback", "strengths", "weaknesses", "detailedAnalysis"]
                     }
                 }
-            },
-            2,
-            90000 // 90s timeout for GPE
+            }
         );
         return safeJSONParse(response.text || "");
     } catch (e) {

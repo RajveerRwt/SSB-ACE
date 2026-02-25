@@ -32,17 +32,15 @@ enum PPDTStep {
 }
 
 interface PPDTProps {
-  onSave?: (result: any, id?: string) => void;
-  onPendingSave?: (testType: string, originalData: any) => Promise<string>;
+  onSave?: (result: any) => void;
   isAdmin?: boolean;
   userId?: string;
   isGuest?: boolean;
   onLoginRedirect?: () => void;
 }
 
-const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
+const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
   const [step, setStep] = useState<PPDTStep>(PPDTStep.IDLE);
-  const [pendingId, setPendingId] = useState<string | undefined>(undefined);
   const [timeLeft, setTimeLeft] = useState(0);
   const [story, setStory] = useState('');
   const [currentImageUrl, setCurrentImageUrl] = useState('');
@@ -354,7 +352,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
 
     setStep(PPDTStep.FINISHED);
     setIsLoading(true);
-    let currentId = pendingId;
     try {
       let stimulusBase64 = null;
       if (currentImageUrl) {
@@ -377,37 +374,27 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
           }
       }
 
-      const originalData = { 
+      const result = await evaluatePerformance('PPDT Screening Board (Stage-1)', { 
         story, 
         narration: narrationText,
         visualStimulusProvided: imageDescription,
         uploadedStoryImage: uploadedImageBase64,
         stimulusImage: stimulusBase64 
-      };
-
-      if (onPendingSave && !isGuest) {
-          currentId = await onPendingSave('PPDT', originalData);
-          setPendingId(currentId);
-      }
-
-      const result = await evaluatePerformance('PPDT Screening Board (Stage-1)', originalData);
+      });
       setFeedback(result);
       
       // Pass isCustomAttempt flag to prevent usage increment in App.tsx
-      if (onSave && !isGuest) onSave({ ...result, uploadedStoryImage: uploadedImageBase64, isCustomAttempt: !!customStimulus }, currentId);
+      if (onSave && !isGuest) onSave({ ...result, uploadedStoryImage: uploadedImageBase64, isCustomAttempt: !!customStimulus });
     } catch (e) {
       console.error(e);
       // Fallback feedback on critical error
-      const fallback = {
+      setFeedback({
           score: 0,
-          recommendations: "Assessment Pending. Your responses have been saved.",
+          recommendations: "Evaluation failed due to network or server error. Please try again.",
           strengths: ["Persistence"],
           weaknesses: ["Connection Issue"],
-          scoreDetails: { perception: 0, content: 0, expression: 0 },
-          error: true
-      };
-      setFeedback(fallback);
-      if (onSave && !isGuest) onSave(fallback, currentId);
+          scoreDetails: { perception: 0, content: 0, expression: 0 }
+      });
     } finally {
       setIsLoading(false);
     }

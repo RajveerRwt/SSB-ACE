@@ -347,8 +347,7 @@ export const getUserHistory = async (userId: string) => {
       type: item.test_type,
       timestamp: item.created_at,
       score: item.score,
-      result: item.result_data,
-      status: item.status || 'completed'
+      result: item.result_data
   })) || [];
 };
 
@@ -361,50 +360,26 @@ export const getUserStreak = async (userId: string) => {
   return data || { streak_count: 0 };
 };
 
-export const saveTestAttempt = async (userId: string, testType: string, resultData: any, status: 'pending' | 'completed' = 'completed', originalData: any = null) => {
-  const { data, error } = await supabase
+export const saveTestAttempt = async (userId: string, testType: string, resultData: any) => {
+  await supabase
     .from('test_history')
     .insert({
         user_id: userId,
         test_type: testType,
         score: resultData.score || 0,
-        result_data: resultData,
-        original_data: originalData,
-        status: status
-    })
-    .select()
-    .single();
-    
-    if (error) console.error("Error saving test attempt:", error);
-    return data;
+        result_data: resultData
+    });
 };
 
 // ** NEW: Update existing test record with new analysis **
-export const updateTestAttempt = async (id: string, resultData: any, status: 'completed' | 'failed' = 'completed') => {
-    const { error } = await supabase
+export const updateTestAttempt = async (id: string, resultData: any) => {
+    await supabase
       .from('test_history')
       .update({
           score: resultData.score || 0,
-          result_data: resultData,
-          status: status
+          result_data: resultData
       })
       .eq('id', id);
-      
-    if (error) console.error("Error updating test attempt:", error);
-};
-
-export const getPendingAssessments = async (userId: string) => {
-    const { data, error } = await supabase
-        .from('test_history')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('status', 'pending');
-    
-    if (error) {
-        console.error("Error fetching pending assessments:", error);
-        return [];
-    }
-    return data;
 };
 
 export const getAllUsers = async () => {

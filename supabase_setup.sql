@@ -50,27 +50,9 @@ create table if not exists public.psychology_assessments (
   test_type text not null,
   feedback jsonb not null,
   original_data jsonb,
-  status text default 'completed',
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- TEST HISTORY
-create table if not exists public.test_history (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid not null,
-  test_type text not null,
-  score float default 0,
-  result_data jsonb,
-  original_data jsonb,
-  status text default 'completed',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 alter table public.psychology_assessments enable row level security;
 create policy "Users can read their own assessments" on public.psychology_assessments for select using (auth.uid() = user_id);
 create policy "Users can insert their own assessments" on public.psychology_assessments for insert with check (auth.uid() = user_id);
-
-alter table public.test_history enable row level security;
-create policy "Users can read their own history" on public.test_history for select using (auth.uid() = user_id);
-create policy "Users can insert their own history" on public.test_history for insert with check (auth.uid() = user_id);
-create policy "Users can update their own history" on public.test_history for update using (auth.uid() = user_id);

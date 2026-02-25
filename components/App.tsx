@@ -21,8 +21,7 @@ import OIRTest from './OIRTest';
 import { GPETest } from './GPETest';
 import Footer from './Footer';
 import { TestType, PIQData, UserSubscription } from '../types';
-import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES } from '../services/supabaseService';
-import { evaluatePerformance } from '../services/geminiService';
+import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES } from '../services/supabaseService';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2 } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
@@ -443,16 +442,8 @@ const Dashboard: React.FC<{
                                     </div>
                                     </div>
                                     <div className="text-right flex md:block w-full md:w-auto justify-between items-center">
-                                    <p className="text-xs font-black text-slate-900">
-                                        {h.status === 'pending' ? (
-                                            <span className="flex items-center gap-1 text-blue-600 animate-pulse">
-                                                <Loader2 size={10} className="animate-spin" /> Processing...
-                                            </span>
-                                        ) : `Score: ${h.score}`}
-                                    </p>
-                                    <p className={`text-[9px] font-bold uppercase tracking-widest ${h.status === 'pending' ? 'text-blue-500' : 'text-green-600'}`}>
-                                        {h.status === 'pending' ? 'In Queue' : 'Logged'}
-                                    </p>
+                                    <p className="text-xs font-black text-slate-900">Score: {h.score}</p>
+                                    <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Logged</p>
                                     </div>
                                 </div>
                             ))
@@ -598,59 +589,6 @@ const Dashboard: React.FC<{
   );
 };
 
-// --- BACKGROUND ASSESSMENT MANAGER ---
-const BackgroundAssessmentManager: React.FC<{ userId: string }> = ({ userId }) => {
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [processedCount, setProcessedCount] = useState(0);
-
-    useEffect(() => {
-        const processPending = async () => {
-            if (isProcessing) return;
-            
-            const pending = await getPendingAssessments(userId);
-            if (pending.length === 0) return;
-
-            setIsProcessing(true);
-            console.log(`[Background] Found ${pending.length} pending assessments. Processing...`);
-
-            for (const attempt of pending) {
-                try {
-                    console.log(`[Background] Evaluating ${attempt.test_type} (ID: ${attempt.id})`);
-                    const result = await evaluatePerformance(attempt.test_type as TestType, attempt.original_data);
-                    
-                    if (result && result.score !== undefined) {
-                        await updateTestAttempt(attempt.id, result, 'completed');
-                        console.log(`[Background] Successfully processed ${attempt.test_type}`);
-                        setProcessedCount(prev => prev + 1);
-                    }
-                } catch (err) {
-                    console.error(`[Background] Failed to process ${attempt.id}:`, err);
-                }
-            }
-            setIsProcessing(false);
-        };
-
-        // Run every 2 minutes or on mount
-        processPending();
-        const interval = setInterval(processPending, 120000);
-        return () => clearInterval(interval);
-    }, [userId, processedCount]);
-
-    if (isProcessing) {
-        return (
-            <div className="fixed bottom-24 left-4 z-50 bg-slate-900/90 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10 animate-pulse">
-                <Loader2 className="animate-spin text-yellow-400" size={18} />
-                <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">AI Background Processing</span>
-                    <span className="text-[11px] font-bold">Analyzing your previous test...</span>
-                </div>
-            </div>
-        );
-    }
-
-    return null;
-};
-
 const App: React.FC = () => {
   const [activeTest, setActiveTest] = useState<TestType>(TestType.DASHBOARD);
   const [user, setUser] = useState<string | null>(null);
@@ -757,21 +695,11 @@ const App: React.FC = () => {
       }
   };
   
-  const handleTestComplete = async (result: any, id?: string) => {
+  const handleTestComplete = async (result: any) => {
       if (!user) return;
       let typeStr = activeTest.toString();
-      if (id) {
-          await updateTestAttempt(id, result, 'completed');
-      } else {
-          await saveTestAttempt(user, typeStr, result);
-      }
+      await saveTestAttempt(user, typeStr, result);
       await incrementUsage(user, typeStr);
-  };
-
-  const handlePendingSave = async (testType: string, originalData: any) => {
-      if (!user) return "";
-      const attempt = await saveTestAttempt(user, testType, { score: 0, verdict: 'Processing...' }, 'pending', originalData);
-      return attempt?.id || "";
   };
 
   const handleShowGuestWarning = () => {
@@ -785,13 +713,13 @@ const App: React.FC = () => {
       case TestType.LOGIN: return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.REGISTER: return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} initialIsSignUp={true} />;
       case TestType.PIQ: return <PIQForm onSave={async (data: PIQData) => { if(user) { await saveUserData(user, data); setPiqData(data); alert("PIQ Saved"); setActiveTest(TestType.DASHBOARD); } else { alert("Please login."); setActiveTest(TestType.LOGIN); } }} initialData={piqData || undefined} />;
-      case TestType.PPDT: return <PPDTTest onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.TAT: return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.WAT: return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.SRT: return <PsychologyTest type={TestType.SRT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.SDT: return <PsychologyTest type={TestType.SDT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.GPE: return <GPETest onComplete={handleTestComplete} onPendingSave={handlePendingSave} onConsumeCoins={async (amount) => await handleCoinConsumption(amount)} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.INTERVIEW: return <Interview piqData={piqData || undefined} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
+      case TestType.PPDT: return <PPDTTest onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.TAT: return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.WAT: return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.SRT: return <PsychologyTest type={TestType.SRT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.SDT: return <PsychologyTest type={TestType.SDT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.GPE: return <GPETest onComplete={handleTestComplete} onConsumeCoins={async (amount) => await handleCoinConsumption(amount)} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.INTERVIEW: return <Interview piqData={piqData || undefined} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
       case TestType.CONTACT: return <ContactForm piqData={piqData || undefined} />;
       case TestType.STAGES: return <SSBStages />;
       case TestType.AI_BOT: return <SSBBot />;
@@ -819,7 +747,6 @@ const App: React.FC = () => {
       subscription={subscription}
       onOpenPayment={() => setPaymentOpen(true)}
     >
-      {user && !user.startsWith('demo') && <BackgroundAssessmentManager userId={user} />}
       {renderContent()}
       {user && (
         <PaymentModal 

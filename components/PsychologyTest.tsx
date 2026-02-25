@@ -9,8 +9,7 @@ import SessionFeedback from './SessionFeedback';
 
 interface PsychologyProps {
   type: TestType;
-  onSave?: (result: any, id?: string) => void;
-  onPendingSave?: (testType: string, originalData: any) => Promise<string>;
+  onSave?: (result: any) => void;
   isAdmin?: boolean;
   userId?: string;
   isGuest?: boolean;
@@ -60,9 +59,8 @@ const SDT_TIPS = [
     "Focus on self-improvement in the 'Self Opinion' section."
 ];
 
-const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
+const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
   const [items, setItems] = useState<any[]>([]);
-  const [pendingId, setPendingId] = useState<string | undefined>(undefined);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [phase, setPhase] = useState<PsychologyPhase>(PsychologyPhase.IDLE);
   const [timeLeft, setTimeLeft] = useState(-1);
@@ -670,85 +668,63 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
 
   const submitSDT = async () => {
       setPhase(PsychologyPhase.EVALUATING);
-      const originalData = { sdtData, sdtImages };
-      let currentId = pendingId;
-      
-      if (onPendingSave && !isGuest) {
-          currentId = await onPendingSave(type, originalData);
-          setPendingId(currentId);
-      }
-
       try {
-          const result = await evaluatePerformance(type, originalData);
+          const result = await evaluatePerformance(type, { sdtData, sdtImages });
           if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) { throw new Error("AI Busy"); }
           setFeedback(result);
-          if (onSave && !isGuest) onSave({ ...result, sdtData, sdtImages }, currentId);
+          if (onSave && !isGuest) onSave({ ...result, sdtData, sdtImages });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) {
           console.error("SDT Eval Error", err);
           const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, sdtData, sdtImages };
           setFeedback(fallback);
-          if (onSave && !isGuest) onSave(fallback, currentId);
+          if (onSave && !isGuest) onSave(fallback);
           setPhase(PsychologyPhase.COMPLETED);
       }
   };
 
   const submitSRT = async () => {
       setPhase(PsychologyPhase.EVALUATING);
-      const originalData = { 
+      const payload = { 
           testType: 'SRT', 
           srtResponses: items.map((item, i) => ({ id: i + 1, situation: item.content, response: srtResponses[i] || "" })),
           srtSheetImages: srtSheetUploads,
           srtSheetTranscripts: srtSheetTexts 
       };
-      
-      let currentId = pendingId;
-      if (onPendingSave && !isGuest) {
-          currentId = await onPendingSave(type, originalData);
-          setPendingId(currentId);
-      }
-
       try {
-          const result = await evaluatePerformance(type, originalData);
+          const result = await evaluatePerformance(type, payload);
           if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) { throw new Error("AI Busy"); }
           setFeedback(result);
-          if (onSave && !isGuest) onSave({ ...result, srtResponses, srtSheetImages: srtSheetUploads, srtSheetTranscripts: srtSheetTexts }, currentId);
+          if (onSave && !isGuest) onSave({ ...result, srtResponses, srtSheetImages: srtSheetUploads, srtSheetTranscripts: srtSheetTexts });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { 
           console.error("SRT Eval Error", err); 
-          const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, srtResponses: originalData.srtResponses };
+          const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, srtResponses: payload.srtResponses };
           setFeedback(fallback);
-          if (onSave && !isGuest) onSave(fallback, currentId);
+          if (onSave && !isGuest) onSave(fallback);
           setPhase(PsychologyPhase.COMPLETED);
       }
   };
 
   const submitWAT = async () => {
       setPhase(PsychologyPhase.EVALUATING);
-      const originalData = { 
+      const payload = { 
           testType: 'WAT', 
           watResponses: items.map((item, i) => ({ id: i + 1, word: item.content, response: watResponses[i] || "" })),
           watSheetImages: watSheetUploads,
           watSheetTranscripts: watSheetTexts 
       };
-
-      let currentId = pendingId;
-      if (onPendingSave && !isGuest) {
-          currentId = await onPendingSave(type, originalData);
-          setPendingId(currentId);
-      }
-
       try {
-          const result = await evaluatePerformance(type, originalData);
+          const result = await evaluatePerformance(type, payload);
           if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) { throw new Error("AI Busy"); }
           setFeedback(result);
-          if (onSave && !isGuest) onSave({ ...result, watResponses, watSheetImages: watSheetUploads, watSheetTranscripts: watSheetTexts }, currentId);
+          if (onSave && !isGuest) onSave({ ...result, watResponses, watSheetImages: watSheetUploads, watSheetTranscripts: watSheetTexts });
           setPhase(PsychologyPhase.COMPLETED);
       } catch (err) { 
           console.error("WAT Eval Error", err); 
-          const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, watResponses: originalData.watResponses };
+          const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, watResponses: payload.watResponses };
           setFeedback(fallback);
-          if (onSave && !isGuest) onSave(fallback, currentId);
+          if (onSave && !isGuest) onSave(fallback);
           setPhase(PsychologyPhase.COMPLETED);
       }
   };
@@ -756,8 +732,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
   const submitDossier = async () => {
     setPhase(PsychologyPhase.EVALUATING);
     let tatPairs: any[] = [];
-    let currentId = pendingId;
-
     try {
       tatPairs = await Promise.all(items.map(async (item, index) => {
         const userStoryImage = tatUploads[index];
@@ -778,23 +752,17 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
         return { storyIndex: index + 1, stimulusImage: stimulusBase64, stimulusDesc: item.content, userStoryImage: userStoryImage, userStoryText: tatTexts[index] };
       }));
       const validPairs = tatPairs.filter(p => p !== null);
-      const originalData = { tatPairs: validPairs, testType: type, itemCount: items.length };
-
-      if (onPendingSave && !isGuest) {
-          currentId = await onPendingSave(type, originalData);
-          setPendingId(currentId);
-      }
       
-      const result = await evaluatePerformance(type, originalData);
+      const result = await evaluatePerformance(type, { tatPairs: validPairs, testType: type, itemCount: items.length });
       if (result.score === 0 && (result.verdict === "Server Busy" || result.verdict === "Insufficient Data")) { throw new Error("AI Busy"); }
       setFeedback(result);
-      if (onSave && !isGuest) onSave({ ...result, tatImages: tatUploads, tatPairs: validPairs }, currentId);
+      if (onSave && !isGuest) onSave({ ...result, tatImages: tatUploads, tatPairs: validPairs });
       setPhase(PsychologyPhase.COMPLETED);
     } catch (err) { 
         console.error("Evaluation error:", err); 
         const fallback = { score: 0, verdict: "Technical Failure", recommendations: "Assessment Pending. Your responses have been saved.", error: true, tatPairs: tatPairs.filter(p => p !== null) };
         setFeedback(fallback);
-        if (onSave && !isGuest) onSave(fallback, currentId);
+        if (onSave && !isGuest) onSave(fallback);
         setPhase(PsychologyPhase.COMPLETED); 
     }
   };
