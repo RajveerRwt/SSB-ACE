@@ -21,6 +21,7 @@ const PPDT_TIPS = [
 enum PPDTStep {
   IDLE,
   INSTRUCTIONS,
+  CUSTOM_MODE_SELECTION,
   LOADING_IMAGE,
   IMAGE,
   CHARACTER_MARKING,
@@ -41,6 +42,7 @@ interface PPDTProps {
 
 const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
   const [step, setStep] = useState<PPDTStep>(PPDTStep.IDLE);
+  const [isDirectEvaluation, setIsDirectEvaluation] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [story, setStory] = useState('');
   const [currentImageUrl, setCurrentImageUrl] = useState('');
@@ -108,6 +110,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
   };
 
   const handleStandardStart = async () => {
+    setIsDirectEvaluation(false);
     if (isGuest) {
         setCustomStimulus(null);
         handleShowInstructions();
@@ -138,7 +141,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
         const reader = new FileReader();
         reader.onloadend = () => {
             setCustomStimulus(reader.result as string);
-            handleShowInstructions();
+            setStep(PPDTStep.CUSTOM_MODE_SELECTION);
         };
         reader.readAsDataURL(file);
     }
@@ -379,7 +382,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
         narration: narrationText,
         visualStimulusProvided: imageDescription,
         uploadedStoryImage: uploadedImageBase64,
-        stimulusImage: stimulusBase64 
+        stimulusImage: stimulusBase64,
+        isDirectEvaluation // Pass the flag
       });
       setFeedback(result);
       
@@ -462,6 +466,72 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
           </div>
         );
 
+      case PPDTStep.CUSTOM_MODE_SELECTION:
+        return (
+          <div className="max-w-4xl mx-auto text-center py-20 md:py-28 space-y-12 animate-in fade-in zoom-in duration-500">
+            <div className="w-24 h-24 md:w-32 md:h-32 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-2xl rotate-3 border-8 border-slate-50 ring-4 ring-slate-100">
+              <ImagePlus size={48} />
+            </div>
+            
+            <div className="space-y-4">
+               <h3 className="text-4xl md:text-6xl font-black text-slate-900 uppercase tracking-tighter">Choose Mode</h3>
+               <p className="text-slate-500 text-lg md:text-2xl font-medium italic max-w-lg mx-auto leading-relaxed">
+                 "How would you like to proceed with your custom stimulus?"
+               </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto pt-8">
+                <button 
+                    onClick={() => {
+                        setIsDirectEvaluation(false);
+                        handleShowInstructions();
+                    }}
+                    className="bg-white p-8 rounded-[2rem] border-2 border-slate-100 hover:border-blue-600 hover:shadow-2xl transition-all group relative overflow-hidden text-left"
+                >
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <Activity size={100} />
+                    </div>
+                    <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        <BookOpen size={24} />
+                    </div>
+                    <h4 className="text-xl font-black uppercase text-slate-900 mb-2 tracking-tight">Practice Mode</h4>
+                    <p className="text-xs text-slate-500 font-medium">Full simulation including Narration and AI Evaluation.</p>
+                </button>
+
+                <button 
+                    onClick={() => {
+                        setIsDirectEvaluation(true);
+                        setCurrentImageUrl(customStimulus || '');
+                        setImageDescription("Custom Upload - Direct Evaluation");
+                        setStep(PPDTStep.STORY_WRITING);
+                        setTimeLeft(900); // 15 minutes
+                    }}
+                    className="bg-slate-900 p-8 rounded-[2rem] border-2 border-slate-800 hover:border-yellow-400 hover:shadow-2xl transition-all group relative overflow-hidden text-left text-white"
+                >
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-yellow-400">
+                        <ShieldCheck size={100} />
+                    </div>
+                    <div className="w-14 h-14 bg-yellow-400 text-black rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        <FileText size={24} />
+                    </div>
+                    <h4 className="text-xl font-black uppercase text-white mb-2 tracking-tight">Direct Evaluation</h4>
+                    <p className="text-xs text-slate-400 font-medium">Evaluate written story only. No narration required. Focus on content quality.</p>
+                </button>
+            </div>
+            
+            <button 
+                onClick={() => { 
+                    setStep(PPDTStep.IDLE); 
+                    setCustomStimulus(null); 
+                    setIsDirectEvaluation(false);
+                }}
+                className="text-slate-400 font-black uppercase tracking-widest text-xs hover:text-slate-600"
+            >
+                Back to Dashboard
+            </button>
+          </div>
+        );
+
       case PPDTStep.INSTRUCTIONS:
         return (
           <div className="max-w-4xl mx-auto py-12 md:py-16 space-y-8 md:space-y-12 animate-in fade-in slide-in-from-right-8 duration-500">
@@ -479,8 +549,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                   { time: '30s', title: 'Picture Perception', desc: 'Observe the image details carefully.', icon: Eye, color: 'text-blue-600' },
                   { time: '1m', title: 'Character Marking', desc: 'Note Age, Sex, Mood & Position in box.', icon: PenTool, color: 'text-purple-600' },
                   { time: '4m', title: 'Story Writing', desc: 'Write Action, Hero details & Outcome.', icon: BookOpen, color: 'text-slate-900' },
-                  { time: '1m', title: 'Narration', desc: 'Narrate your story clearly.', icon: Volume2, color: 'text-green-600' }
-                ].map((item, i) => (
+                  { time: '1m', title: 'Narration', desc: 'Narrate your story clearly.', icon: Volume2, color: 'text-green-600', hidden: isDirectEvaluation }
+                ].filter(item => !item.hidden).map((item, i) => (
                   <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl flex items-center gap-6">
                      <div className={`w-16 h-16 rounded-2xl bg-slate-50 flex flex-col items-center justify-center shrink-0 border border-slate-100 ${item.color}`}>
                         <item.icon size={24} />
@@ -505,7 +575,11 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
 
              <div className="flex justify-center pt-8 gap-4">
                <button 
-                  onClick={() => { setStep(PPDTStep.IDLE); setCustomStimulus(null); }}
+                  onClick={() => { 
+                      setStep(PPDTStep.IDLE); 
+                      setCustomStimulus(null); 
+                      setIsDirectEvaluation(false);
+                  }}
                   className="px-8 py-6 text-slate-400 font-black uppercase tracking-widest text-xs hover:text-slate-600"
                >
                   Cancel
@@ -514,7 +588,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                   onClick={startTestSequence}
                   className="px-16 md:px-24 py-6 md:py-8 bg-blue-600 text-white rounded-full font-black uppercase tracking-[0.2em] text-sm shadow-2xl hover:bg-blue-700 transition-all hover:scale-105"
                >
-                 Start {customStimulus ? 'Practice' : 'Test'}
+                 Start {isDirectEvaluation ? 'Evaluation' : (customStimulus ? 'Practice' : 'Test')}
                </button>
              </div>
           </div>
@@ -637,13 +711,22 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                 </div>
                 <h3 className="text-3xl md:text-5xl font-black text-slate-900 uppercase tracking-tighter">Story Logged</h3>
                 <p className="text-slate-500 font-medium text-lg md:text-xl leading-relaxed italic px-4 md:px-12">
-                "Gentleman, you have finished your writing. Prepare for individual narration. Keep your voice firm and head high."
+                {isDirectEvaluation 
+                    ? "Gentleman, your story has been logged. Proceeding to direct evaluation of your written content."
+                    : "Gentleman, you have finished your writing. Prepare for individual narration. Keep your voice firm and head high."}
                 </p>
                 <button 
-                onClick={() => { setStep(PPDTStep.NARRATION); setTimeLeft(60); }}
+                onClick={() => { 
+                    if (isDirectEvaluation) {
+                        finishTest();
+                    } else {
+                        setStep(PPDTStep.NARRATION); 
+                        setTimeLeft(60); 
+                    }
+                }}
                 className="px-16 md:px-20 py-5 md:py-6 bg-blue-600 text-white rounded-full font-black uppercase tracking-widest text-xs md:text-sm hover:bg-blue-700 transition-all shadow-[0_20px_40px_rgba(37,99,235,0.3)] hover:-translate-y-1"
                 >
-                Begin Narration (1 Min)
+                {isDirectEvaluation ? "Get Evaluation" : "Begin Narration (1 Min)"}
                 </button>
             </div>
         );
@@ -852,20 +935,20 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, isAdmin, userId, isGuest = fals
                             </div>
                             <div className="flex items-end gap-2">
                                 <span className="text-4xl font-black text-slate-900">{feedback.scoreDetails.content || 0}</span>
-                                <span className="text-sm font-bold text-slate-400 mb-1">/ 5</span>
+                                <span className="text-sm font-bold text-slate-400 mb-1">/ {isDirectEvaluation ? '7' : '5'}</span>
                             </div>
                             <p className="text-[10px] font-bold text-slate-500 mt-2">Action, Plot & OLQs</p>
                         </div>
-                        <div className="bg-green-50 p-6 rounded-3xl border border-green-100">
+                        <div className={`bg-green-50 p-6 rounded-3xl border border-green-100 ${isDirectEvaluation ? 'opacity-50 grayscale' : ''}`}>
                             <div className="flex justify-between items-start mb-4">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-green-600">Expression</span>
                                 <Volume2 size={18} className="text-green-500" />
                             </div>
                             <div className="flex items-end gap-2">
-                                <span className="text-4xl font-black text-slate-900">{feedback.scoreDetails.expression || 0}</span>
-                                <span className="text-sm font-bold text-slate-400 mb-1">/ 2</span>
+                                <span className="text-4xl font-black text-slate-900">{isDirectEvaluation ? 'N/A' : (feedback.scoreDetails.expression || 0)}</span>
+                                {!isDirectEvaluation && <span className="text-sm font-bold text-slate-400 mb-1">/ 2</span>}
                             </div>
-                            <p className="text-[10px] font-bold text-slate-500 mt-2">Narration Fluency</p>
+                            <p className="text-[10px] font-bold text-slate-500 mt-2">{isDirectEvaluation ? 'Skipped in Direct Eval' : 'Narration Fluency'}</p>
                         </div>
                     </div>
                 </div>

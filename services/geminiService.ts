@@ -414,26 +414,30 @@ IMPORTANT RULES:
             }
 
             const parts: Part[] = [];
+            const isDirectEval = userData.isDirectEvaluation;
+
             parts.push({ text: `
             Act as an Expert Psychologist at the Services Selection Board (SSB). Evaluate this PPDT (Screening) attempt.
+            ${isDirectEval ? "NOTE: This is a DIRECT EVALUATION of the written story only. No narration was provided." : ""}
             
             *** STRICT SCORING RUBRIC (0-10) ***
-            Calculate the 'score' by summing these 3 factors. BE CRITICAL.
+            Calculate the 'score' by summing these factors. BE CRITICAL.
             
             1. PERCEPTION (Max 3 Marks): 
             - Did the candidate identify the characters, mood, and setting accurately based on the STIMULUS IMAGE?
             - If the story contradicts the image (hallucination), Perception = 0.
             
-            2. CONTENT & ACTION (Max 5 Marks):
+            2. CONTENT & ACTION (Max ${isDirectEval ? '7' : '5'} Marks):
             - Is there a clear Hero? 
             - Is there a defined problem/challenge?
             - Is the solution logical, practical, and positive?
             - Are OLQs (Initiative, Planning, Empathy) visible?
+            ${isDirectEval ? "- Since this is a direct evaluation, the Content & Action score is out of 7 marks instead of 5." : ""}
             
-            3. EXPRESSION (Max 2 Marks):
+            ${!isDirectEval ? `3. EXPRESSION (Max 2 Marks):
             - Evaluate the provided "Candidate's Narration" transcript.
             - CRITICAL RULE: If the "Candidate's Narration" is empty, blank, "N/A", or contains less than 5 meaningful words, the Expression score MUST be 0. Do not give participation points for silence.
-            - If narration exists: Fluency, clarity, and confidence determine the score.
+            - If narration exists: Fluency, clarity, and confidence determine the score.` : ""}
             
             *** IMPORTANT ***
             - The 'score' MUST match your text assessment.
@@ -465,8 +469,8 @@ IMPORTANT RULES:
                                 type: Type.OBJECT,
                                 properties: {
                                     perception: { type: Type.NUMBER, description: "Score out of 3 for accuracy of observation" },
-                                    content: { type: Type.NUMBER, description: "Score out of 5 for story quality and OLQs" },
-                                    expression: { type: Type.NUMBER, description: "Score out of 2 for narration flow" }
+                                    content: { type: Type.NUMBER, description: isDirectEval ? "Score out of 7 for story quality and OLQs" : "Score out of 5 for story quality and OLQs" },
+                                    expression: { type: Type.NUMBER, description: isDirectEval ? "Score (Must be 0 as narration was skipped)" : "Score out of 2 for narration flow" }
                                 }
                             },
                             verdict: { type: Type.STRING },
