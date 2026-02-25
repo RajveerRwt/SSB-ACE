@@ -141,7 +141,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
   const streamRef = useRef<MediaStream | null>(null);
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const retryCountRef = useRef(0);
-  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const heartbeatIntervalRef = useRef<number | null>(null);
   const frameIntervalRef = useRef<number | null>(null); // To manage video loop
   const isSocketOpenRef = useRef(false);
   
@@ -350,7 +350,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
       }
 
       const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
         config: {
           responseModalities: [Modality.AUDIO], // Audio Output
           inputAudioTranscription: {}, 
@@ -391,8 +391,21 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
               scriptProcessor.connect(inputAudioContextRef.current.destination);
             }
 
-            // 2. Video Input Pipeline (1 FPS for bandwidth/cost optimization)
-            const FRAME_RATE = 0.2; 
+            // 3. Heartbeat to prevent session timeout (every 30s)
+            heartbeatIntervalRef.current = window.setInterval(() => {
+                if (isSocketOpenRef.current && sessionPromiseRef.current) {
+                    sessionPromiseRef.current.then(session => {
+                        // Send a tiny bit of silence to keep the connection active
+                        const silence = new Int16Array(100).fill(0);
+                        session.sendRealtimeInput({ 
+                            media: { data: encode(new Uint8Array(silence.buffer)), mimeType: 'audio/pcm;rate=16000' } 
+                        });
+                    }).catch(() => {});
+                }
+            }, 30000);
+
+            // 2. Video Input Pipeline (Increased to 0.5 FPS for better engagement)
+            const FRAME_RATE = 0.5; 
             if (videoRef.current && canvasRef.current) {
                 frameIntervalRef.current = window.setInterval(() => {
                     const videoEl = videoRef.current;
@@ -492,7 +505,11 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
 
             const audioData = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
             if (audioData && outputAudioContextRef.current) {
-              // Only set speaking if we have valid audio context
+              // Ensure context is running (Fix for voice cracking/silence after pause)
+              if (outputAudioContextRef.current.state === 'suspended') {
+                await outputAudioContextRef.current.resume();
+              }
+              
               setIsAiSpeaking(true);
               
               try {
@@ -507,7 +524,9 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
                   if (sourcesRef.current.size === 0) setIsAiSpeaking(false);
                 };
 
-                const startTime = Math.max(nextStartTimeRef.current, outputAudioContextRef.current.currentTime);
+                // Add a tiny lookahead (50ms) to prevent cracking due to scheduling jitter
+                const lookahead = 0.05;
+                const startTime = Math.max(nextStartTimeRef.current, outputAudioContextRef.current.currentTime + lookahead);
                 source.start(startTime);
                 nextStartTimeRef.current = startTime + audioBuffer.duration;
                 sourcesRef.current.add(source);
