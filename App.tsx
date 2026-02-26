@@ -14,6 +14,7 @@ import PaymentModal from './components/PaymentModal';
 import LegalPages from './components/LegalPages';
 import OIRTest from './components/OIRTest';
 import LecturetteTest from './components/LecturetteTest';
+import DailyPractice from './components/DailyPractice';
 import { TestType, PIQData } from './types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, deductCoins, TEST_RATES } from './services/supabaseService';
 import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle } from 'lucide-react';
@@ -149,16 +150,33 @@ const Dashboard: React.FC<{
                       <Crown size={16} /> Upgrade to Pro
                     </button>
                  )}
+
+                 <button 
+                   onClick={() => onStartTest(TestType.DAILY_PRACTICE)}
+                   className="flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 bg-white/10 border border-white/20 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-[11px] hover:bg-white/20 transition-all flex items-center justify-center gap-3 shadow-lg group"
+                 >
+                   <Clock size={16} className="text-yellow-400" /> 
+                   <span>Daily Challenge</span>
+                   <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black text-[8px] rounded font-black animate-pulse">+2 COINS</span>
+                 </button>
                </div>
              ) : (
-               <div className="pt-4">
+               <div className="pt-4 flex flex-wrap gap-4">
                   <button 
                     onClick={() => onStartTest(TestType.LOGIN)}
-                    className="w-full md:w-auto px-12 py-6 bg-yellow-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3"
+                    className="flex-1 md:flex-none px-12 py-6 bg-yellow-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3"
                   >
                     <LogIn size={18} /> Join / Login to Start
                   </button>
-                  <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Sign up to access AI Interview & Psychology Tests</p>
+                  <button 
+                    onClick={() => onStartTest(TestType.DAILY_PRACTICE)}
+                    className="flex-1 md:flex-none px-12 py-6 bg-white/10 border border-white/20 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl hover:bg-white/20 transition-all flex items-center justify-center gap-3 group"
+                  >
+                    <Clock size={18} className="text-yellow-400" /> 
+                    <span>Daily Challenge</span>
+                    <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black text-[8px] rounded font-black animate-pulse">+2 COINS</span>
+                  </button>
+                  <p className="w-full mt-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-center md:text-left">Sign up to access AI Interview & Psychology Tests</p>
                </div>
              )}
 
@@ -504,6 +522,8 @@ const App: React.FC = () => {
             onLoginRedirect={() => setActiveTest(TestType.LOGIN)}
           />
         );
+      case TestType.DAILY_PRACTICE:
+        return <DailyPractice onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.CONTACT:
         return <ContactForm piqData={piqData || undefined} />;
       case TestType.STAGES:

@@ -229,7 +229,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
             </div>
             <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">Daily <span className="text-yellow-400">War Room</span></h1>
             <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">
-                {new Date(challenge.created_at).toDateString()}
+                {new Date(challenge.created_at).toDateString()} • Earn 2 Coins for your first submission today
             </p>
          </div>
          <Flame className="absolute -bottom-10 -right-10 w-64 h-64 text-orange-500/10 rotate-12 pointer-events-none" />
