@@ -606,15 +606,9 @@ create policy "Admin delete gpe" on public.gpe_scenarios for delete using (true)
               ) : (
                   <>
                       <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-                          <div className="flex justify-between items-start mb-6">
-                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><Layers size={24} className="text-teal-600"/> Create OIR Set</h3>
-                            <div className="bg-teal-50 px-4 py-2 rounded-xl border border-teal-100 flex items-center gap-2">
-                                <Info size={14} className="text-teal-600" />
-                                <p className="text-[10px] font-bold text-teal-700 uppercase">Tip: Include "Screening" in title for Screening Tests</p>
-                            </div>
-                          </div>
+                          <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Layers size={24} className="text-teal-600"/> Create OIR Set</h3>
                           <div className="flex gap-4">
-                              <input value={newOirSetTitle} onChange={e => setNewOirSetTitle(e.target.value)} placeholder="Set Title (e.g. Screening Test 1 OIR 1)" className="flex-1 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
+                              <input value={newOirSetTitle} onChange={e => setNewOirSetTitle(e.target.value)} placeholder="Set Title (e.g. OIR Set 1)" className="flex-1 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
                               <div className="w-32 relative">
                                   <input type="number" value={newOirSetTime} onChange={e => setNewOirSetTime(parseInt(e.target.value))} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
                                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Sec</span>
@@ -646,17 +640,11 @@ create policy "Admin delete gpe" on public.gpe_scenarios for delete using (true)
       {(activeTab === 'PPDT' || activeTab === 'TAT') && (
           <div className="space-y-8 animate-in fade-in">
               <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-                  <div className="flex justify-between items-start mb-6">
-                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><Upload size={24}/> Upload Scenario</h3>
-                    <div className="bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 flex items-center gap-2">
-                        <Info size={14} className="text-blue-600" />
-                        <p className="text-[10px] font-bold text-blue-700 uppercase">Tip: Include "Screening" in description for Screening Tests</p>
-                    </div>
-                  </div>
+                  <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><Upload size={24}/> Upload Scenario</h3>
                   <div className="flex gap-4">
                       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleUpload} />
                       <button onClick={() => fileInputRef.current?.click()} className="px-8 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200">Select Image</button>
-                      <input value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Description (e.g. Screening Test 1 PPDT)..." className="flex-1 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
+                      <input value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Description..." className="flex-1 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
                       {activeTab === 'TAT' && <input value={setTag} onChange={e => setSetTag(e.target.value)} placeholder="Set Tag" className="w-32 p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />}
                       <button onClick={handleUpload} disabled={isUploading} className="px-8 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black">{isUploading ? <Loader2 className="animate-spin" /> : 'Upload'}</button>
                   </div>

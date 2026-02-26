@@ -21,7 +21,6 @@ export enum TestType {
   STAGES = 'STAGES',
   AI_BOT = 'AI_BOT',
   ADMIN = 'ADMIN',
-  SCREENING_TEST = 'SCREENING_TEST',
   TERMS = 'TERMS',
   PRIVACY = 'PRIVACY',
   REFUND = 'REFUND'

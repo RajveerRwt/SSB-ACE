@@ -14,10 +14,9 @@ import PaymentModal from './components/PaymentModal';
 import LegalPages from './components/LegalPages';
 import OIRTest from './components/OIRTest';
 import LecturetteTest from './components/LecturetteTest';
-import ScreeningTest from './components/ScreeningTest';
 import { TestType, PIQData } from './types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, deductCoins, TEST_RATES } from './services/supabaseService';
-import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle, ImageIcon, Mic } from 'lucide-react';
+import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle } from 'lucide-react';
 import { SSBLogo } from './components/Logo';
 
 // Dashboard Component
@@ -222,58 +221,6 @@ const Dashboard: React.FC<{
          <ShieldCheck className="absolute top-1/2 -right-12 -translate-y-1/2 w-[20rem] md:w-[30rem] h-[20rem] md:h-[30rem] text-white/5 rotate-12 pointer-events-none" />
       </div>
 
-      {/* QUICK ACTIONS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <button 
-          onClick={() => onStartTest(TestType.SCREENING_TEST)}
-          className="p-6 bg-white rounded-[2rem] border border-slate-100 shadow-xl hover:shadow-2xl transition-all group flex flex-col items-center text-center gap-3 border-b-4 border-emerald-500"
-        >
-          <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <ShieldCheck size={24} />
-          </div>
-          <div>
-            <h4 className="font-black text-slate-900 uppercase text-[10px] tracking-widest">Full Screening</h4>
-            <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Stage 1 Simulation</p>
-          </div>
-        </button>
-        <button 
-          onClick={() => onStartTest(TestType.OIR)}
-          className="p-6 bg-white rounded-[2rem] border border-slate-100 shadow-xl hover:shadow-2xl transition-all group flex flex-col items-center text-center gap-3 border-b-4 border-teal-500"
-        >
-          <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Brain size={24} />
-          </div>
-          <div>
-            <h4 className="font-black text-slate-900 uppercase text-[10px] tracking-widest">OIR Practice</h4>
-            <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Reasoning Tests</p>
-          </div>
-        </button>
-        <button 
-          onClick={() => onStartTest(TestType.PPDT)}
-          className="p-6 bg-white rounded-[2rem] border border-slate-100 shadow-xl hover:shadow-2xl transition-all group flex flex-col items-center text-center gap-3 border-b-4 border-blue-500"
-        >
-          <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <ImageIcon size={24} />
-          </div>
-          <div>
-            <h4 className="font-black text-slate-900 uppercase text-[10px] tracking-widest">PPDT Round</h4>
-            <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Perception Test</p>
-          </div>
-        </button>
-        <button 
-          onClick={() => onStartTest(TestType.INTERVIEW)}
-          className="p-6 bg-white rounded-[2rem] border border-slate-100 shadow-xl hover:shadow-2xl transition-all group flex flex-col items-center text-center gap-3 border-b-4 border-yellow-500"
-        >
-          <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Mic size={24} />
-          </div>
-          <div>
-            <h4 className="font-black text-slate-900 uppercase text-[10px] tracking-widest">AI Interview</h4>
-            <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Virtual IO</p>
-          </div>
-        </button>
-      </div>
-
       {/* OFFICER'S CREED & ROADMAP */}
       <div className="grid lg:grid-cols-12 gap-6 md:gap-10">
          <div className="lg:col-span-8 space-y-6 md:space-y-10">
@@ -327,7 +274,6 @@ const Dashboard: React.FC<{
              <div className="space-y-4 md:space-y-5">
                 {[
                   { id: TestType.PIQ, name: 'Personal Info Questionnaire', type: 'Phase 0: Admin', time: '15 mins', status: isLoggedIn ? (piqLoaded ? 'Completed' : 'Action Required') : 'Login Required' },
-                  { id: TestType.SCREENING_TEST, name: 'Full Screening Simulation', type: 'Stage 1: OIR + PPDT', time: '45 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
                   { id: TestType.PPDT, name: 'PPDT Simulation', type: 'Stage 1: Screening', time: '10 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
                   { id: TestType.SDT, name: 'Self Description Test', type: 'Stage 2: Psychology', time: '15 mins', status: isLoggedIn ? 'Available' : 'Login Required' },
                   { id: TestType.INTERVIEW, name: 'Stage 2: Personal Interview', type: 'IO Evaluation', time: '40 mins', status: isLoggedIn ? (piqLoaded ? 'Available' : 'Restricted') : 'Login Required' },
@@ -383,10 +329,7 @@ const Dashboard: React.FC<{
                    Comprehensive 5-Day Stage Guide Active
                  </p>
                </div>
-               <div className="flex flex-col w-full gap-3">
-                 <button onClick={() => onStartTest(TestType.STAGES)} className="w-full py-4 bg-white text-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl">Briefing Room</button>
-                 <button onClick={() => onStartTest(TestType.SCREENING_TEST)} className="w-full py-4 bg-yellow-400 text-slate-900 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl hover:bg-yellow-300 transition-all">Start Screening</button>
-               </div>
+               <button onClick={() => onStartTest(TestType.STAGES)} className="w-full py-4 bg-white text-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl">Briefing Room</button>
             </div>
          </div>
       </div>
@@ -461,14 +404,13 @@ const App: React.FC = () => {
          test === TestType.SDT || 
          test === TestType.PIQ ||
          test === TestType.OIR ||
-         test === TestType.LECTURETTE ||
-         test === TestType.SCREENING_TEST
+         test === TestType.LECTURETTE
      )) {
          setActiveTest(TestType.LOGIN);
          return;
      }
 
-     if ((test === TestType.INTERVIEW || test === TestType.PPDT || test === TestType.TAT || test === TestType.SCREENING_TEST) && user) {
+     if ((test === TestType.INTERVIEW || test === TestType.PPDT || test === TestType.TAT) && user) {
         const { allowed, message } = await checkLimit(user, test);
         if (!allowed) {
             alert(message);
@@ -554,16 +496,6 @@ const App: React.FC = () => {
             onExit={() => setActiveTest(TestType.DASHBOARD)} 
           />
         );
-      case TestType.SCREENING_TEST:
-        return (
-          <ScreeningTest 
-            onConsumeCoins={handleConsumeCoins} 
-            userId={user || ''}
-            isGuest={!user} 
-            onLoginRedirect={() => setActiveTest(TestType.LOGIN)}
-            onExit={() => setActiveTest(TestType.DASHBOARD)} 
-          />
-        );
       case TestType.LECTURETTE:
         return (
           <LecturetteTest 
@@ -575,7 +507,7 @@ const App: React.FC = () => {
       case TestType.CONTACT:
         return <ContactForm piqData={piqData || undefined} />;
       case TestType.STAGES:
-        return <SSBStages onNavigate={navigateTo} isLoggedIn={!!user} />;
+        return <SSBStages />;
       case TestType.AI_BOT:
         return <SSBBot />;
       case TestType.ADMIN:
