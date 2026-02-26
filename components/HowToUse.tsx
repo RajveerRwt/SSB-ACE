@@ -116,7 +116,7 @@ const HowToUse: React.FC<{ onNavigate: (t: TestType) => void }> = ({ onNavigate 
                      <br/>- Speak clearly and confidently.
                      <br/>- Greet the officer immediately ("Good Morning Sir").
                      <br/>- Maintain eye contact with the camera.
-                     <br/>- The interview lasts 30-40 minutes and covers PIQ, CIQ, and General Awareness.
+                     <br/>- The interview lasts 25-30 minutes and covers PIQ, CIQ, and General Awareness.
                   </p>
                   <button onClick={() => onNavigate(TestType.INTERVIEW)} className="mt-2 text-[10px] font-black uppercase text-blue-600 flex items-center gap-1 hover:underline">
                      Start Interview <ChevronRight size={12} />
