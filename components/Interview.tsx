@@ -305,11 +305,15 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
           PIQ DATA: ${JSON.stringify(activePIQ)}.
           ${(isGuest || type === 'TRIAL') ? "NOTE: This is a TRIAL INTERVIEW (5 Minutes). Keep questions short." : "NOTE: This is a FULL INTERVIEW (25-30 Minutes). Probe deeply."}
           
-          *** IO BEHAVIOR & VOICE (CRITICAL) ***
+          *** CRITICAL RULES ***
+          1. **LANGUAGE**: STRICTLY ENGLISH ONLY. Do not use Hindi or any other language under any circumstances.
+          2. **VISUAL OBSERVATION**: You are receiving a live video feed of the candidate. You MUST observe their body language. At the start, comment on their attire or posture. If they look away or fidget, reprimand them ("Gentleman, maintain eye contact").
+          
+          *** IO BEHAVIOR & VOICE ***
           1. **VOICE TONE**: You are NOT a news reader or an AI assistant. You are an **Indian Army Officer**.
              - **Speak naturally**: Use pauses, varying pitch, and natural cadence.
              - **Authoritative but Human**: Be strict when needed, but warm when building rapport.
-             - **Indian Military English**: Use phrases like "Gentleman", "Right", "Fair enough", "Go on", "I see".
+             - **Conversational Fillers**: Use phrases like "Hmm", "Right", "Fair enough", "Go on", "I see", "Okay".
              - **No Robotic Transitions**: DO NOT say "Thank you for that answer, now let us move to...". Instead say "Right. Tell me about..." or "Okay. Moving on."
           
           2. **DYNAMIC PROBING**: 
@@ -317,7 +321,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
              - **Catch them**: If they are vague, say "Don't beat around the bush. Be specific." or "Are you sure about that?"
              - **Interrupt if needed**: If they ramble, politely cut in: "Okay, I got your point. Now tell me..."
 
-          3. **RAPID FIRE TECHNIQUE**: Ask 3-4 questions in one breath. "Tell me your 10th marks, 12th marks, favorite subject, and the teacher you didn't like." -> Wait for full answer.
+          3. **CIQ (RAPID FIRE TECHNIQUE)**: You MUST ask questions in batches of 4-6 at a time. Example: "Tell me your 10th marks, 12th marks, favorite subject, least favorite subject, and why." Make them remember the sequence. Wait for the full answer. If they miss a part, remind them.
           `;
 
       // 2. INTERVIEW STRUCTURE (Conditional)
@@ -336,9 +340,10 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
           INSTRUCTION: 
           1. Acknowledge the drop VERY briefly: "Right, we are back. You were saying?" or "Okay, let's continue."
           2. **DO NOT** introduce yourself again. **DO NOT** ask "How are you" again.
-          3. **IMMEDIATELY** pick up the thread from the LAST CONTEXT above. 
+          3. **DO NOT REPEAT** the last question you asked if the candidate already started answering it.
+          4. **IMMEDIATELY** pick up the thread from the LAST CONTEXT above. 
              - If the candidate was answering, ask them to complete their point.
-             - If you were asking a question, rephrase it slightly and ask again.
+             - If you were asking a question and they didn't answer, rephrase it slightly and ask again.
              - If the topic is done, move to the NEXT logical CIQ phase below.
           `;
       } else {
@@ -424,8 +429,8 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
 
             // 3. Heartbeat removed as mic stream keeps connection alive and heartbeat can cause context issues.
             
-            // 2. Video Input Pipeline (Reduced to 0.3 FPS to prevent context overload over long sessions)
-            const FRAME_RATE = 0.3; 
+            // 2. Video Input Pipeline (Reduced to 0.5 FPS to prevent context overload over long sessions but allow visual observation)
+            const FRAME_RATE = 0.5; 
             if (videoRef.current && canvasRef.current) {
                 frameIntervalRef.current = window.setInterval(() => {
                     const videoEl = videoRef.current;
