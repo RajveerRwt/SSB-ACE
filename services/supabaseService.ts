@@ -523,6 +523,27 @@ export const deductCoins = async (userId: string, amount: number) => {
     return true;
 };
 
+export const creditCoins = async (userId: string, amount: number) => {
+    const { data: sub } = await supabase
+        .from('user_subscriptions')
+        .select('coins')
+        .eq('user_id', userId)
+        .single();
+        
+    const currentCoins = sub?.coins || 0;
+    
+    const { error } = await supabase
+        .from('user_subscriptions')
+        .update({ coins: currentCoins + amount })
+        .eq('user_id', userId);
+        
+    if (error) {
+        console.error("Credit failed:", error);
+        return false;
+    }
+    return true;
+};
+
 export const checkLimit = async (userId: string, testType: string) => {
   return { allowed: true, message: "" };
 };
@@ -673,7 +694,28 @@ export const submitDailyEntry = async (challengeId: string, oirAnswer: string, w
   const auth = supabase.auth as any;
   const user = auth.user ? auth.user() : (await auth.getUser()).data.user;
   if (!user) throw new Error("Login Required");
-  await supabase.from('daily_submissions').insert({
+
+  // Check if user already submitted for this challenge
+  const { data: existingSub } = await supabase
+    .from('daily_submissions')
+    .select('id')
+    .eq('challenge_id', challengeId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (existingSub) throw new Error("Already submitted for this challenge");
+
+  // Check if user already submitted ANY challenge today for the daily reward
+  const today = new Date().toISOString().split('T')[0];
+  const { data: existingToday } = await supabase
+    .from('daily_submissions')
+    .select('id')
+    .eq('user_id', user.id)
+    .gte('created_at', `${today}T00:00:00Z`)
+    .lte('created_at', `${today}T23:59:59Z`)
+    .maybeSingle();
+
+  const { error } = await supabase.from('daily_submissions').insert({
       challenge_id: challengeId,
       user_id: user.id,
       ppdt_story: oirAnswer,
@@ -681,6 +723,16 @@ export const submitDailyEntry = async (challengeId: string, oirAnswer: string, w
       srt_answers: [srt],
       interview_answer: interview
   });
+
+  if (error) throw error;
+
+  // If this is the first submission of the day, credit 2 coins
+  if (!existingToday) {
+      await creditCoins(user.id, 2);
+      return { rewarded: true };
+  }
+
+  return { rewarded: false };
 };
 
 export const getDailySubmissions = async (challengeId: string) => {

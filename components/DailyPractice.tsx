@@ -94,7 +94,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
 
     setIsSubmitting(true);
     try {
-      await submitDailyEntry(challenge.id, oirAnswer, watAnswer, srtAnswer, interviewAnswer);
+      const result = await submitDailyEntry(challenge.id, oirAnswer, watAnswer, srtAnswer, interviewAnswer);
       
       // Refresh Data
       const subs = await getDailySubmissions(challenge.id);
@@ -108,10 +108,15 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       setWatAnswer('');
       setSrtAnswer('');
       setInterviewAnswer('');
-      alert("Submission Posted!");
-    } catch (e) {
+      
+      if (result && result.rewarded) {
+          alert("Submission Posted! You earned 2 Coins for today's practice.");
+      } else {
+          alert("Submission Posted!");
+      }
+    } catch (e: any) {
       console.error(e);
-      alert("Failed to post. Please try again.");
+      alert(e.message || "Failed to post. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
