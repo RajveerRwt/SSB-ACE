@@ -167,6 +167,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', icon: Globe },
     { id: TestType.RESOURCES, label: 'Free Resources', icon: Library }, 
     { id: TestType.PIQ, label: 'PIQ Form', icon: ClipboardList },
+    { id: TestType.SCREENING_TEST, label: 'Full Screening Test', icon: ShieldCheck },
     { id: TestType.OIR, label: 'OIR Test', icon: Lightbulb },
     { id: TestType.PPDT, label: 'PPDT Round', icon: ImageIcon },
     { id: TestType.TAT, label: 'TAT (Psychology)', icon: PenTool },
@@ -283,6 +284,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
               >
                 <item.icon className="w-5 h-5 shrink-0" />
                 <span className="font-medium text-sm truncate" title={item.label}>{item.label}</span>
+                {item.id === TestType.SCREENING_TEST && (
+                    <span className="absolute right-4 bg-emerald-600 text-white text-[8px] px-1.5 py-0.5 rounded font-bold uppercase animate-pulse">NEW</span>
+                )}
                 {item.id === TestType.INTERVIEW && (
                     <span className="absolute right-4 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" title="Live Core Feature" />
                 )}
@@ -373,6 +377,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                || (activeTest === TestType.DAILY_PRACTICE ? 'Daily Challenge' : '')
                || (activeTest === TestType.RESOURCES ? 'SSB Knowledge Bank' : '')
                || (activeTest === TestType.LECTURETTE ? 'Lecturette Simulator' : '')
+               || (activeTest === TestType.SCREENING_TEST ? 'Full Screening Simulation' : '')
                || (activeTest === TestType.OIR ? 'OIR Test' : '')}
             </h2>
 
