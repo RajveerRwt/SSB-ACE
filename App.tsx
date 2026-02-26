@@ -176,6 +176,16 @@ const Dashboard: React.FC<{
                     <span>Daily Challenge</span>
                     <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black text-[8px] rounded font-black animate-pulse">+2 COINS</span>
                   </button>
+
+                  <a 
+                    href="https://wa.me/9131112322?text=i%20want%20free%20100coin%20credits"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 md:flex-none px-12 py-6 bg-green-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl hover:bg-green-700 transition-all flex items-center justify-center gap-3"
+                  >
+                    <Zap size={18} className="text-yellow-400" />
+                    GET free 100 coin
+                  </a>
                   <p className="w-full mt-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-center md:text-left">Sign up to access AI Interview & Psychology Tests</p>
                </div>
              )}
