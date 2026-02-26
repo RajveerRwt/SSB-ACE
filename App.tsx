@@ -14,6 +14,7 @@ import PaymentModal from './components/PaymentModal';
 import LegalPages from './components/LegalPages';
 import OIRTest from './components/OIRTest';
 import LecturetteTest from './components/LecturetteTest';
+import ScreeningTest from './components/ScreeningTest';
 import { TestType, PIQData } from './types';
 import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, deductCoins, TEST_RATES } from './services/supabaseService';
 import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle } from 'lucide-react';
@@ -404,13 +405,14 @@ const App: React.FC = () => {
          test === TestType.SDT || 
          test === TestType.PIQ ||
          test === TestType.OIR ||
-         test === TestType.LECTURETTE
+         test === TestType.LECTURETTE ||
+         test === TestType.SCREENING_TEST
      )) {
          setActiveTest(TestType.LOGIN);
          return;
      }
 
-     if ((test === TestType.INTERVIEW || test === TestType.PPDT || test === TestType.TAT) && user) {
+     if ((test === TestType.INTERVIEW || test === TestType.PPDT || test === TestType.TAT || test === TestType.SCREENING_TEST) && user) {
         const { allowed, message } = await checkLimit(user, test);
         if (!allowed) {
             alert(message);
@@ -496,6 +498,16 @@ const App: React.FC = () => {
             onExit={() => setActiveTest(TestType.DASHBOARD)} 
           />
         );
+      case TestType.SCREENING_TEST:
+        return (
+          <ScreeningTest 
+            onConsumeCoins={handleConsumeCoins} 
+            userId={user || ''}
+            isGuest={!user} 
+            onLoginRedirect={() => setActiveTest(TestType.LOGIN)}
+            onExit={() => setActiveTest(TestType.DASHBOARD)} 
+          />
+        );
       case TestType.LECTURETTE:
         return (
           <LecturetteTest 
@@ -507,7 +519,7 @@ const App: React.FC = () => {
       case TestType.CONTACT:
         return <ContactForm piqData={piqData || undefined} />;
       case TestType.STAGES:
-        return <SSBStages />;
+        return <SSBStages onNavigate={navigateTo} isLoggedIn={!!user} />;
       case TestType.AI_BOT:
         return <SSBBot />;
       case TestType.ADMIN:

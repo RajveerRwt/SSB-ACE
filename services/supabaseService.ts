@@ -19,6 +19,7 @@ export const TEST_RATES = {
     GPE: 10,
     OIR: 10, 
     OIR_SUDDEN_DEATH: 5, 
+    SCREENING_TEST: 50,
     INTERVIEW_TRIAL: 20, 
     INTERVIEW_FULL: 100   
 };

@@ -2,7 +2,12 @@
 import React, { useState } from 'react';
 import { Target, Brain, Users, Mic, Award, CheckCircle2, Shield, Calendar, Clock, MapPin, Info, FileText, Activity, Flag } from 'lucide-react';
 
-const SSBStages: React.FC = () => {
+interface SSBStagesProps {
+  onNavigate?: (t: any) => void;
+  isLoggedIn?: boolean;
+}
+
+const SSBStages: React.FC<SSBStagesProps> = ({ onNavigate, isLoggedIn }) => {
   const [activeDay, setActiveDay] = useState(1);
 
   const stages = [
@@ -138,6 +143,21 @@ const SSBStages: React.FC = () => {
                   <p className="text-xs text-slate-500 font-medium leading-relaxed">{task.desc}</p>
                 </div>
               ))}
+              {s.day === 1 && onNavigate && (
+                <div className="p-6 md:p-8 bg-emerald-50 rounded-[2rem] md:rounded-[2.5rem] border border-emerald-100 flex flex-col justify-center items-center text-center gap-4">
+                   <Target className="text-emerald-600" size={32} />
+                   <div>
+                     <h5 className="font-black uppercase text-xs tracking-widest text-emerald-900 leading-tight">Full Screening Simulation</h5>
+                     <p className="text-[10px] text-emerald-700 font-bold uppercase mt-1">2 OIR + 1 PPDT</p>
+                   </div>
+                   <button 
+                    onClick={() => onNavigate('SCREENING_TEST')}
+                    className="w-full py-3 bg-emerald-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-700 transition-all shadow-lg"
+                   >
+                     Start Screening
+                   </button>
+                </div>
+              )}
             </div>
 
             <div className={`p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] text-white flex flex-col md:flex-row items-center gap-6 md:gap-10 shadow-xl ${s.color}`}>
