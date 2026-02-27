@@ -492,19 +492,10 @@ IMPORTANT RULES:
                                 mainTheme: { type: Type.STRING }
                             }
                             },
-                            storyAnalysis: {
-                            type: Type.OBJECT,
-                            properties: {
-                                action: { type: Type.STRING },
-                                outcome: { type: Type.STRING },
-                                coherence: { type: Type.STRING }
-                            }
-                            },
                             observationAnalysis: { type: Type.STRING, description: "Detailed feedback on whether the story matched the image provided. Mention missed details." },
                             strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
                             weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            recommendations: { type: Type.STRING, description: "Final verdict explanation consistent with the calculated score." },
-                            idealStory: { type: Type.STRING, description: "A short, high-scoring example story based on the same image." }
+                            recommendations: { type: Type.STRING, description: "Final verdict explanation consistent with the calculated score." }
                         }
                         }
                     }

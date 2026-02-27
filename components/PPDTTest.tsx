@@ -70,6 +70,38 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isRecordingRef = useRef(false);
 
+  const resizeImage = (base64: string, maxWidth: number = 1024, maxHeight: number = 1024): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = `data:image/jpeg;base64,${base64}`;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // 0.7 quality
+        resolve(dataUrl.split(',')[1]);
+      };
+      img.onerror = () => resolve(base64); // Fallback to original if error
+    });
+  };
+
 
   const initAudio = () => {
     if (!audioCtxRef.current) {
@@ -311,8 +343,10 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
     const file = event.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64Data = (reader.result as string).split(',')[1];
+    reader.onloadend = async () => {
+      let base64Data = (reader.result as string).split(',')[1];
+      // Resize image to reduce payload size
+      base64Data = await resizeImage(base64Data, 1024, 1024);
       processImage(base64Data, file.type);
     };
     reader.readAsDataURL(file);
@@ -363,17 +397,21 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
       let stimulusBase64 = null;
       if (currentImageUrl) {
           if (currentImageUrl.startsWith('data:')) {
-              stimulusBase64 = currentImageUrl.split(',')[1];
+              const rawBase64 = currentImageUrl.split(',')[1];
+              // Resize stimulus image to reduce payload size
+              stimulusBase64 = await resizeImage(rawBase64, 1024, 1024);
           } else {
               try {
                   // Use 5s timeout to prevent hanging on external images
                   const response = await fetchWithTimeout(currentImageUrl, 5000);
                   const blob = await response.blob();
-                  stimulusBase64 = await new Promise<string>((resolve) => {
+                  const rawBase64 = await new Promise<string>((resolve) => {
                       const reader = new FileReader();
                       reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
                       reader.readAsDataURL(blob);
                   });
+                  // Resize stimulus image to reduce payload size
+                  stimulusBase64 = await resizeImage(rawBase64, 1024, 1024);
               } catch (err) { 
                   console.warn("Failed to fetch stimulus within timeout:", err); 
                   // Proceed without image if fetch fails
@@ -958,31 +996,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                 </div>
             )}
 
-            {/* IDEAL STORY SECTION */}
-            {feedback?.idealStory && (
-                <div className="bg-slate-900 p-8 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] shadow-xl relative overflow-hidden mt-8">
-                    <div className="absolute top-0 right-0 p-6 opacity-10">
-                        <BookOpen size={120} className="text-white" />
-                    </div>
-                    <div className="relative z-10 space-y-4">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-yellow-400 rounded-lg text-black">
-                                <Star size={20} fill="currentColor" />
-                            </div>
-                            <h4 className="text-xl font-black uppercase tracking-widest text-white">Board's Recommended Story</h4>
-                        </div>
-                        <p className="text-slate-300 font-medium leading-relaxed text-sm md:text-base italic p-6 bg-white/5 rounded-2xl border border-white/10">
-                            "{feedback.idealStory}"
-                        </p>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-right">
-                            * Example of logical perception & positive action
-                        </p>
-                    </div>
-                </div>
-            )}
-
             {feedback?.observationAnalysis && (
-                <div className="bg-yellow-50 border-l-4 border-yellow-500 p-6 md:p-8 rounded-[2rem] shadow-md animate-in slide-in-from-left-4">
+                <div className="bg-yellow-50 border-l-4 border-yellow-500 p-6 md:p-8 rounded-[2rem] shadow-md animate-in slide-in-from-left-4 mb-8">
                     <div className="flex items-start gap-4">
                         <div className="p-3 bg-yellow-100 rounded-full text-yellow-600 shrink-0">
                             <ScanEye size={24} />
@@ -996,28 +1011,14 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
             )}
 
             {feedback?.perception && (
-              <div className="grid md:grid-cols-3 gap-6 md:gap-8">
+              <div className="grid grid-cols-1 gap-6 md:gap-8">
                  <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border-2 border-slate-50 shadow-xl space-y-6">
                    <h4 className="font-black text-xs uppercase tracking-[0.2em] text-purple-600 flex items-center gap-3"><Eye className="w-5 h-5" /> Perception</h4>
-                   <div className="space-y-4 text-sm font-bold text-slate-700">
-                      <div className="flex justify-between border-b border-slate-100 pb-2"><span>Hero Age:</span> <span className="text-slate-900">{feedback.perception.heroAge}</span></div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2"><span>Hero Sex:</span> <span className="text-slate-900">{feedback.perception.heroSex}</span></div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2"><span>Hero Mood:</span> <span className="text-slate-900">{feedback.perception.heroMood}</span></div>
-                      <div className="pt-2"><span className="text-slate-400 text-xs block mb-1">Theme</span> <span className="text-slate-900">{feedback.perception.mainTheme}</span></div>
-                   </div>
-                 </div>
-                 
-                 <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border-2 border-slate-50 shadow-xl space-y-6 md:col-span-2">
-                   <h4 className="font-black text-xs uppercase tracking-[0.2em] text-blue-600 flex items-center gap-3"><BrainCircuit className="w-5 h-5" /> Story Dynamics</h4>
-                   <div className="grid md:grid-cols-2 gap-8 text-sm font-medium text-slate-600">
-                     <div>
-                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Action</span>
-                       <p className="leading-relaxed bg-slate-50 p-4 rounded-2xl">{feedback?.storyAnalysis?.action}</p>
-                     </div>
-                     <div>
-                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Outcome</span>
-                       <p className="leading-relaxed bg-slate-50 p-4 rounded-2xl">{feedback?.storyAnalysis?.outcome}</p>
-                     </div>
+                   <div className="grid md:grid-cols-4 gap-4 text-sm font-bold text-slate-700">
+                      <div className="flex justify-between border-b border-slate-100 pb-2 md:border-b-0 md:border-r md:pr-4"><span>Hero Age:</span> <span className="text-slate-900">{feedback.perception.heroAge}</span></div>
+                      <div className="flex justify-between border-b border-slate-100 pb-2 md:border-b-0 md:border-r md:px-4"><span>Hero Sex:</span> <span className="text-slate-900">{feedback.perception.heroSex}</span></div>
+                      <div className="flex justify-between border-b border-slate-100 pb-2 md:border-b-0 md:border-r md:px-4"><span>Hero Mood:</span> <span className="text-slate-900">{feedback.perception.heroMood}</span></div>
+                      <div className="pt-2 md:pt-0 md:pl-4"><span className="text-slate-400 text-xs block mb-1">Theme</span> <span className="text-slate-900">{feedback.perception.mainTheme}</span></div>
                    </div>
                  </div>
               </div>
