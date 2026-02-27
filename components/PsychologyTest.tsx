@@ -332,7 +332,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
     setSrtSheetTexts([]);
 
     // Coin Deduction Logic
-    if (selectedSet && onConsumeCoins && !isGuest) {
+    if (onConsumeCoins && !isGuest) {
         const cost = (TEST_RATES as any)[type] || 5;
         const success = await onConsumeCoins(cost);
         if (!success) {
@@ -956,6 +956,28 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Custom Mode Card - Moved to Top */}
+          <div 
+            onClick={() => setPhase(PsychologyPhase.IDLE)}
+            className="group bg-blue-600 p-8 rounded-[3rem] border-4 border-blue-500 shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all cursor-pointer flex flex-col items-center justify-center text-center space-y-4 relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 p-6 opacity-10">
+                <Edit size={100} className="text-white" />
+            </div>
+            <div className="p-4 bg-white/20 backdrop-blur-md rounded-2xl shadow-sm text-white group-hover:bg-white/30 transition-colors relative z-10">
+              <Upload size={32} />
+            </div>
+            <div className="relative z-10">
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">Custom Practice</h3>
+              <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mt-1">Upload your own {type === TestType.TAT ? 'Images' : type === TestType.WAT ? 'Words' : 'Situations'}</p>
+            </div>
+            <div className="pt-2 relative z-10">
+                <span className="px-4 py-1.5 bg-white text-blue-600 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
+                    Pro Feature
+                </span>
+            </div>
+          </div>
+
           {availableSets.map((set, idx) => (
             <div 
               key={idx}
@@ -987,20 +1009,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
               </div>
             </div>
           ))}
-          
-          {/* Custom Mode Card */}
-          <div 
-            onClick={() => setPhase(PsychologyPhase.IDLE)}
-            className="group bg-slate-50 p-8 rounded-[3rem] border-2 border-dashed border-slate-200 hover:border-slate-400 transition-all cursor-pointer flex flex-col items-center justify-center text-center space-y-4"
-          >
-            <div className="p-4 bg-white rounded-2xl shadow-sm text-slate-400 group-hover:text-slate-600 transition-colors">
-              <Edit size={32} />
-            </div>
-            <div>
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Custom Practice</h3>
-              <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Upload your own stimuli</p>
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -1020,21 +1028,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
                 Guest Trial Mode: Fixed Set
             </div>
         )}
-        <div className="bg-slate-50 p-8 rounded-[2rem] mb-12 text-left border border-slate-200">
-           <h4 className="font-black text-xs uppercase tracking-widest text-blue-600 mb-4 underline">Board Briefing:</h4>
-           <div className="text-slate-600 font-medium text-sm md:text-lg leading-relaxed italic space-y-4">
-             {type === TestType.TAT ? (
-               <p>• 12 Pictures (11 from DB + 1 Blank). 30s viewing, 4m writing per slide. All images are retrieved from authorized board sets.</p>
-             ) : type === TestType.SDT ? (
-               <p>• Write 5 distinct paragraphs describing opinions of Parents, Teachers, Friends, Self, and Future Aims. Total time: 15 Minutes. Be realistic and honest.</p>
-             ) : type === TestType.SRT ? (
-               <p>• 60 Situations (30 Minutes). Respond to each situation naturally. <br/>• <strong>Note:</strong> You can type responses in the boxes below OR write on paper and upload a photo at the end.</p>
-             ) : (
-               <p>• 60 Words (15s each). Write the first thought that comes to mind. <br/>• <strong>Note:</strong> You can type responses in real-time OR write on paper and upload a photo at the end.</p>
-             )}
-           </div>
-        </div>
 
+        {/* Custom Upload Sections - Moved to Top of IDLE phase */}
         {type === TestType.TAT && (
             <div className="mb-12 p-10 bg-white rounded-[3rem] border-4 border-slate-50 shadow-xl text-left relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-32 -mt-32 transition-transform group-hover:scale-110 duration-700"></div>
@@ -1166,8 +1161,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
                             <textarea 
                                 value={customWatWords}
                                 onChange={(e) => setCustomWatWords(e.target.value)}
-                                placeholder="Enter words separated by new lines (e.g. Brave, Success, Failure...)"
-                                className="w-full h-48 p-6 bg-slate-50 border-2 border-slate-200 rounded-[2rem] focus:bg-white focus:border-emerald-500 outline-none transition-all font-medium text-slate-700 resize-none"
+                                placeholder="Enter words here (one per line)..."
+                                className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 text-sm font-medium focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none resize-none"
                             />
                             <div className="mt-4 flex justify-between items-center px-4">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -1240,12 +1235,12 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
                             <textarea 
                                 value={customSrtSituations}
                                 onChange={(e) => setCustomSrtSituations(e.target.value)}
-                                placeholder="Enter situations separated by new lines (e.g. He was going to exam and saw an accident...)"
-                                className="w-full h-48 p-6 bg-slate-50 border-2 border-slate-200 rounded-[2rem] focus:bg-white focus:border-orange-500 outline-none transition-all font-medium text-slate-700 resize-none"
+                                placeholder="Enter situations here (one per line)..."
+                                className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 text-sm font-medium focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 transition-all outline-none resize-none"
                             />
                             <div className="mt-4 flex justify-between items-center px-4">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Total Situations: {customSrtSituations.split('\n').filter(s => s.trim()).length} / 60 Recommended
+                                    Total Situations: {customSrtSituations.split('\n').filter(w => w.trim()).length} / 60 Recommended
                                 </p>
                             </div>
                         </div>
@@ -1255,13 +1250,28 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
                         <Info size={16} className="text-orange-500 shrink-0 mt-0.5" />
                         <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
                             {useCustomSrt 
-                                ? "Enter one situation per line. You will have 30 minutes to respond to all situations you enter." 
-                                : "Standardized situations test your reaction speed, decision making, and social responsibility."}
+                                ? "Enter one situation per line. The test will display these situations for 30 seconds each." 
+                                : "The platform provides realistic situations designed to assess your spontaneous reactions and decision-making."}
                         </p>
                     </div>
                 </div>
             </div>
         )}
+
+        <div className="bg-slate-50 p-8 rounded-[2rem] mb-12 text-left border border-slate-200">
+           <h4 className="font-black text-xs uppercase tracking-widest text-blue-600 mb-4 underline">Board Briefing:</h4>
+           <div className="text-slate-600 font-medium text-sm md:text-lg leading-relaxed italic space-y-4">
+             {type === TestType.TAT ? (
+               <p>• 12 Pictures (11 from DB + 1 Blank). 30s viewing, 4m writing per slide. All images are retrieved from authorized board sets.</p>
+             ) : type === TestType.SDT ? (
+               <p>• Write 5 distinct paragraphs describing opinions of Parents, Teachers, Friends, Self, and Future Aims. Total time: 15 Minutes. Be realistic and honest.</p>
+             ) : type === TestType.SRT ? (
+               <p>• 60 Situations (30 Minutes). Respond to each situation naturally. <br/>• <strong>Note:</strong> You can type responses in the boxes below OR write on paper and upload a photo at the end.</p>
+             ) : (
+               <p>• 60 Words (15s each). Write the first thought that comes to mind. <br/>• <strong>Note:</strong> You can type responses in real-time OR write on paper and upload a photo at the end.</p>
+              )}
+            </div>
+         </div>
 
         {type === TestType.TAT && useCustomTat ? (
           <div className="flex flex-col md:flex-row gap-4 justify-center">

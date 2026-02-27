@@ -730,7 +730,10 @@ const App: React.FC = () => {
      }
 
      // 2. COIN CHECK (for generic test types)
-     if (user && params?.cost > 0) {
+     // Skip immediate deduction for Psychology tests as they handle it internally (Set Selection)
+     const isPsychTest = [TestType.TAT, TestType.WAT, TestType.SRT, TestType.SDT].includes(test);
+
+     if (user && params?.cost > 0 && !isPsychTest) {
          const { allowed, balance, shortfall } = await checkBalance(user, params.cost);
          if (!allowed) {
              const proceed = window.confirm(`Insufficient Coins!\nRequired: ${params.cost}\nAvailable: ${balance}\n\nDo you want to add coins now?`);
