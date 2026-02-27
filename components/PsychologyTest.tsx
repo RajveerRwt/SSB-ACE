@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info, LogIn, ThumbsUp, ThumbsDown, MinusCircle, Lock, Download, Printer, UserPlus } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, extractCustomStimuli, STANDARD_WAT_SET } from '../services/geminiService';
-import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription } from '../services/supabaseService';
+import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription, TEST_RATES } from '../services/supabaseService';
 import { TestType } from '../types';
 import CameraModal from './CameraModal';
 import SessionFeedback from './SessionFeedback';
@@ -15,10 +15,12 @@ interface PsychologyProps {
   userId?: string;
   isGuest?: boolean;
   onLoginRedirect?: () => void;
+  onConsumeCoins?: (amount: number) => Promise<boolean>;
 }
 
 enum PsychologyPhase {
   IDLE,
+  SET_SELECTION,
   PREPARING_STIMULI,
   VIEWING, 
   WRITING,
@@ -60,11 +62,12 @@ const SDT_TIPS = [
     "Focus on self-improvement in the 'Self Opinion' section."
 ];
 
-const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
+const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave, isAdmin, userId, isGuest = false, onLoginRedirect, onConsumeCoins }) => {
   const [items, setItems] = useState<any[]>([]);
   const [pendingId, setPendingId] = useState<string | undefined>(undefined);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [phase, setPhase] = useState<PsychologyPhase>(PsychologyPhase.IDLE);
+  const [availableSets, setAvailableSets] = useState<any[]>([]);
   const [timeLeft, setTimeLeft] = useState(-1);
   const [activeSetName, setActiveSetName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -78,6 +81,57 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
   const [customSrtSituations, setCustomSrtSituations] = useState<string>('');
   const [useCustomSrt, setUseCustomSrt] = useState(false);
   const [isExtractingCustom, setIsExtractingCustom] = useState(false);
+
+  useEffect(() => {
+    if (isGuest || type === TestType.SDT) return;
+    
+    const fetchSets = async () => {
+        setIsLoading(true);
+        try {
+            let sets: Record<string, any[]> = {};
+            if (type === TestType.TAT) {
+                const data = await getTATScenarios();
+                sets = data.reduce((acc: any, img: any) => {
+                    const tag = img.set_tag || 'Default';
+                    if (!acc[tag]) acc[tag] = [];
+                    acc[tag].push(img);
+                    return acc;
+                }, {});
+            } else if (type === TestType.WAT) {
+                const data = await getWATWords();
+                sets = data.reduce((acc: any, row: any) => {
+                    const tag = row.set_tag || 'General';
+                    if (!acc[tag]) acc[tag] = [];
+                    acc[tag].push(row.word);
+                    return acc;
+                }, {});
+            } else if (type === TestType.SRT) {
+                const data = await getSRTQuestions();
+                sets = data.reduce((acc: any, row: any) => {
+                    const tag = row.set_tag || 'General';
+                    if (!acc[tag]) acc[tag] = [];
+                    acc[tag].push(row.question);
+                    return acc;
+                }, {});
+            }
+            
+            const setList = Object.keys(sets).map(name => ({
+                name,
+                count: sets[name].length,
+                items: sets[name]
+            })).filter(s => s.count > 0);
+            
+            setAvailableSets(setList);
+            setPhase(PsychologyPhase.SET_SELECTION);
+        } catch (e) {
+            console.error("Failed to fetch sets", e);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    fetchSets();
+  }, [type, isGuest]);
   
   const startDirectEvaluation = () => {
     setIsLoading(true);
@@ -269,13 +323,23 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
       window.print();
   };
 
-  const startTest = async () => {
+  const startTest = async (selectedSet?: any) => {
     setIsLoading(true);
     setFeedback(null);
     setWatSheetUploads([]);
     setWatSheetTexts([]);
     setSrtSheetUploads([]);
     setSrtSheetTexts([]);
+
+    // Coin Deduction Logic
+    if (selectedSet && onConsumeCoins && !isGuest) {
+        const cost = (TEST_RATES as any)[type] || 5;
+        const success = await onConsumeCoins(cost);
+        if (!success) {
+            setIsLoading(false);
+            return;
+        }
+    }
     
     // SDT Logic Flow
     if (type === TestType.SDT) {
@@ -308,6 +372,13 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
                 content: `Custom Image ${i + 1}`,
                 imageUrl: url
             }));
+        } else if (selectedSet) {
+            setActiveSetName(selectedSet.name);
+            finalItems = selectedSet.items.slice(0, 11).map((s: any, i: number) => ({
+                id: `tat-db-${i}`,
+                content: s.description || 'Picture Story',
+                imageUrl: s.image_url
+            }));
         } else {
             const dbScenarios = await getTATScenarios();
             
@@ -323,7 +394,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
                    setActiveSetName('Guest Trial Set');
                    setImages = dbScenarios.slice(0, 11);
                } else {
-                   // Logged In: Rotate sets
+                   // Logged In: Rotate sets (Fallback if no set selected)
                    const sets: Record<string, any[]> = dbScenarios.reduce((acc: any, img: any) => {
                       const tag = img.set_tag || 'Default';
                       if (!acc[tag]) acc[tag] = [];
@@ -366,6 +437,9 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
         if (useCustomWat && customWatWords.trim()) {
             wordList = customWatWords.split('\n').map(w => w.trim()).filter(w => w);
             setActiveSetName('Custom User Set');
+        } else if (selectedSet) {
+            setActiveSetName(selectedSet.name);
+            wordList = selectedSet.items;
         } else {
             const dbWords = await getWATWords();
             if (dbWords && dbWords.length > 0) {
@@ -416,6 +490,9 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
         if (useCustomSrt && customSrtSituations.trim()) {
             srtList = customSrtSituations.split('\n').map(s => s.trim()).filter(s => s);
             setActiveSetName('Custom User Set');
+        } else if (selectedSet) {
+            setActiveSetName(selectedSet.name);
+            srtList = selectedSet.items;
         } else {
             const dbQuestions = await getSRTQuestions();
             if (dbQuestions && dbQuestions.length > 0) {
@@ -855,6 +932,79 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-40 space-y-6">
+        <Loader2 className="w-16 h-16 text-blue-600 animate-spin" />
+        <p className="text-slate-500 font-black uppercase tracking-widest text-xs">Loading Board Data...</p>
+      </div>
+    );
+  }
+
+  if (phase === PsychologyPhase.SET_SELECTION) {
+    return (
+      <div className="max-w-6xl mx-auto py-12 px-6 animate-in fade-in slide-in-from-bottom-8">
+        <div className="text-center mb-12 space-y-4">
+          <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Select Your {type} Set</h2>
+          <p className="text-slate-500 font-medium">Choose a board-authorized set to begin your assessment.</p>
+          <div className="flex justify-center gap-4 mt-6">
+             <div className="bg-yellow-400 text-black px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                <Award size={14} /> Cost: {(TEST_RATES as any)[type] || 5} Coins
+             </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {availableSets.map((set, idx) => (
+            <div 
+              key={idx}
+              onClick={() => startTest(set)}
+              className="group bg-white p-8 rounded-[3rem] border-2 border-slate-100 shadow-xl hover:shadow-2xl hover:border-blue-400 transition-all cursor-pointer relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Layers size={80} />
+              </div>
+              <div className="relative z-10 space-y-4">
+                <div className="flex justify-between items-start">
+                  <div className="p-3 bg-slate-900 text-yellow-400 rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
+                    <BookOpen size={24} />
+                  </div>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Set #{idx + 1}</span>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight group-hover:text-blue-600 transition-colors">{set.name}</h3>
+                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">{set.count} {type === TestType.TAT ? 'Images' : type === TestType.WAT ? 'Words' : 'Situations'}</p>
+                </div>
+                <div className="pt-4 flex items-center justify-between">
+                  <span className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                    Start Now <FastForward size={14} className="text-blue-600" />
+                  </span>
+                  <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+                    <ChevronDown className="text-slate-300 group-hover:text-blue-600 -rotate-90" size={16} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          {/* Custom Mode Card */}
+          <div 
+            onClick={() => setPhase(PsychologyPhase.IDLE)}
+            className="group bg-slate-50 p-8 rounded-[3rem] border-2 border-dashed border-slate-200 hover:border-slate-400 transition-all cursor-pointer flex flex-col items-center justify-center text-center space-y-4"
+          >
+            <div className="p-4 bg-white rounded-2xl shadow-sm text-slate-400 group-hover:text-slate-600 transition-colors">
+              <Edit size={32} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Custom Practice</h3>
+              <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Upload your own stimuli</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (phase === PsychologyPhase.IDLE) {
     return (
