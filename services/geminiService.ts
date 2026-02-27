@@ -55,9 +55,12 @@ export async function extractCustomStimuli(fileBase64: string, mimeType: string,
 async function generateWithRetry(
     model: string, 
     params: any, 
-    retries = 2,
-    timeoutMs = 60000
+    retries = 3, // Increased from 2
+    timeoutMs = 90000 // Increased from 60000
 ): Promise<GenerateContentResponse> {
+    const maxRetries = 3;
+    const currentAttempt = maxRetries - retries + 1;
+
     try {
         // Race API call against the specified timeout
         return await Promise.race([
@@ -65,46 +68,50 @@ async function generateWithRetry(
             timeoutPromise(timeoutMs)
         ]) as GenerateContentResponse;
     } catch (e: any) {
-        // Extensive Error Parsing for 503/Overloaded/Unavailable/Timeout
+        // Extensive Error Parsing for 503/Overloaded/Unavailable/Timeout/500
         const errorCode = e.status || e.code || (e.error ? e.error.code : 0);
         const errorMessage = (e.message || (e.error ? e.error.message : "") || JSON.stringify(e)).toLowerCase();
         const errorStatus = e.statusText || (e.error ? e.error.status : "");
 
-        const isOverloaded = 
+        const isRetryable = 
             errorCode === 503 || 
             errorCode === 429 || 
             errorCode === 504 ||
+            errorCode === 500 ||
             errorStatus === "UNAVAILABLE" ||
             errorMessage.includes("high demand") || 
             errorMessage.includes("overloaded") ||
             errorMessage.includes("quota") ||
             errorMessage.includes("deadline") ||
             errorMessage.includes("timeout") ||
+            errorMessage.includes("unavailable") ||
             errorMessage === "request timeout";
         
         // IMMEDIATE FALLBACK STRATEGY
-        if (isOverloaded && retries > 0) {
-            console.warn(`Model ${model} failed/overloaded (Code: ${errorCode}). Attempting fallback...`);
+        if (isRetryable && retries > 0) {
+            console.warn(`Attempt ${currentAttempt} failed (Code: ${errorCode}). Retrying...`);
             
-            let fallbackModel = 'gemini-3-flash-preview';
-            if (model === 'gemini-3-flash-preview' || model === 'gemini-3.1-pro-preview') {
-                fallbackModel = 'gemini-flash-latest';
-            }
+            // Exponential backoff with jitter
+            const baseDelay = 3000;
+            const delay = Math.min(15000, baseDelay * Math.pow(2, currentAttempt - 1)) + Math.random() * 1000;
             
-            if (fallbackModel !== model) {
-                console.warn(`Switching to fallback model: ${fallbackModel}`);
-                // Use a slightly longer timeout for fallback if it was a timeout
-                const nextTimeout = errorMessage.includes("timeout") ? timeoutMs + 30000 : timeoutMs;
-                return await generateWithRetry(fallbackModel, params, retries - 1, nextTimeout);
-            }
-        }
+            console.warn(`Retrying in ${Math.round(delay)}ms... (${retries} attempts left)`);
+            await wait(delay);
 
-        // Standard Retry Logic (Exponential Backoff)
-        if (retries > 0) {
-            const delay = 2000 * (3 - retries); // 2000ms, 4000ms
-            console.warn(`Retrying request in ${delay}ms... (${retries} attempts left)`);
-            await wait(delay); 
-            return generateWithRetry(model, params, retries - 1);
+            let nextModel = model;
+            // If Pro is failing with 503, switch to Flash which is more resilient
+            if (errorCode === 503 && model === 'gemini-3.1-pro-preview') {
+                nextModel = 'gemini-3-flash-preview';
+                console.warn(`Switching to Flash model for retry due to 503 on Pro`);
+            } else if (errorCode === 503 && model === 'gemini-3-flash-preview') {
+                // If Flash is failing, try the latest stable flash
+                nextModel = 'gemini-flash-lite-latest';
+                console.warn(`Switching to Flash Lite for retry due to 503 on Flash`);
+            }
+            
+            // Increase timeout for next attempt
+            const nextTimeout = timeoutMs + 30000;
+            return await generateWithRetry(nextModel, params, retries - 1, nextTimeout);
         }
 
         throw e;
@@ -313,7 +320,8 @@ IMPORTANT RULES:
 3. If the majority of items are 'Not Attempted' or invalid, the overall score MUST be very low (e.g., 0-3) and the generalFeedback MUST state that the test was largely unattempted or invalid.
 4. Do not generate a positive overall assessment or high score if the user failed to attempt the test properly.
 5. Assess the candidate's handwriting legibility (is it neat, readable, and understandable?) from the provided images.
-6. For each item in 'detailedAnalysis', provide an individual 'score' (0-10) and a brief 'textAssessment'.`
+6. For each item in 'detailedAnalysis', provide an individual 'score' (0-10) and a brief 'textAssessment'.
+7. BE CONCISE in your feedback to avoid token limits.`
                 : `Evaluate Situation Reaction Test responses. Check for quick decision making, social responsibility, and effectiveness. Map the user's responses (from typed JSON or handwritten transcripts) to the provided Situations by ID or Content. 
 IMPORTANT RULES:
 1. Return analysis for ALL items. If a situation has no response, mark 'userResponse' as 'Not Attempted', but YOU MUST PROVIDE an 'idealResponse' for it.
@@ -321,7 +329,8 @@ IMPORTANT RULES:
 3. If the majority of items are 'Not Attempted' or invalid, the overall score MUST be very low (e.g., 0-3) and the generalFeedback MUST state that the test was largely unattempted or invalid.
 4. Do not generate a positive overall assessment or high score if the user failed to attempt the test properly.
 5. Assess the candidate's handwriting legibility (is it neat, readable, and understandable?) from the provided images.
-6. For each item in 'detailedAnalysis', provide an individual 'score' (0-10) and a brief 'textAssessment'.`;
+6. For each item in 'detailedAnalysis', provide an individual 'score' (0-10) and a brief 'textAssessment'.
+7. BE CONCISE in your feedback to avoid token limits.`;
 
             const parts: Part[] = [{ text: promptText }];
             
@@ -508,7 +517,7 @@ IMPORTANT RULES:
 
         // 4. TAT EVALUATION
         else if (testType === 'TAT') {
-            const parts: Part[] = [{ text: "Evaluate TAT Dossier. For each story, provide a detailed assessment including: 1. Hero Analysis, 2. Detailed Overview (logic/structure), 3. Observation Accuracy (matching stimulus), 4. Key Strengths, 5. OLQ Gaps/Mistakes, 6. Action Analysis, 7. Outcome Analysis, 8. Improvement Tips. Analyze for OLQs (Officer Like Qualities) and check consistency across all 12 stories. Also, assess the candidate's handwriting legibility (is it neat, readable, and understandable?) and count the total number of stories attempted out of 12. IMPORTANT: The overall score must be penalized if the candidate attempts fewer than 12 stories." }];
+            const parts: Part[] = [{ text: "Evaluate TAT Dossier. For each story, provide a detailed assessment including: 1. Hero Analysis, 2. Detailed Overview (logic/structure), 3. Observation Accuracy (matching stimulus), 4. Key Strengths, 5. OLQ Gaps/Mistakes, 6. Action Analysis, 7. Outcome Analysis, 8. Improvement Tips. Analyze for OLQs (Officer Like Qualities) and check consistency across all 12 stories. Also, assess the candidate's handwriting legibility (is it neat, readable, and understandable?) and count the total number of stories attempted out of 12. IMPORTANT: The overall score must be penalized if the candidate attempts fewer than 12 stories. BE CONCISE in your feedback to avoid token limits and timeouts." }];
             if (userData.tatPairs) {
                 for (const pair of userData.tatPairs) {
                     if (pair.stimulusImage) {

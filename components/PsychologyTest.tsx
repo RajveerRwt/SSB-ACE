@@ -194,6 +194,38 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
   const activeUploadIndex = useRef<number | null>(null);
   const customTatInputRef = useRef<HTMLInputElement>(null);
 
+  const resizeImage = (base64: string, maxWidth: number = 1024, maxHeight: number = 1024): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = `data:image/jpeg;base64,${base64}`;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // 0.7 quality
+        resolve(dataUrl.split(',')[1]);
+      };
+      img.onerror = () => resolve(base64); // Fallback to original if error
+    });
+  };
+
   const playBuzzer = (freq: number = 200, duration: number = 0.5) => {
     if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     const ctx = audioCtxRef.current;
@@ -547,7 +579,9 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
       const index = activeUploadIndex.current;
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const base64 = (reader.result as string).split(',')[1];
+        let base64 = (reader.result as string).split(',')[1];
+        // Resize image to reduce payload size
+        base64 = await resizeImage(base64, 1024, 1024);
         processTATImage(index, base64, file.type);
       };
       reader.readAsDataURL(file);
@@ -564,11 +598,13 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
       } catch (err) { console.error("Transcription Failed", err); } finally { setTranscribingIndices(prev => prev.filter(i => i !== index)); }
   };
 
-  const handleCameraCapture = (base64: string) => {
+  const handleCameraCapture = async (base64: string) => {
+      // Resize image to reduce payload size
+      const resizedBase64 = await resizeImage(base64, 1024, 1024);
       if (typeof activeCameraKey === 'number') {
-          processTATImage(activeCameraKey, base64);
+          processTATImage(activeCameraKey, resizedBase64);
       } else if (typeof activeCameraKey === 'string') {
-          setSdtImages(prev => ({ ...prev, [activeCameraKey]: { data: base64, mimeType: 'image/jpeg' } }));
+          setSdtImages(prev => ({ ...prev, [activeCameraKey]: { data: resizedBase64, mimeType: 'image/jpeg' } }));
       }
       setActiveCameraKey(null);
   };
@@ -617,9 +653,16 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
           });
       });
       const processedFiles = await Promise.all(fileProcessingPromises);
-      setWatSheetUploads(prev => [...prev, ...processedFiles.map(f => f.base64)]);
-      setWatSheetTexts(prev => [...prev, ...new Array(processedFiles.length).fill('')]);
-      processedFiles.forEach(async (fileData, i) => {
+      
+      // Resize all images
+      const resizedFiles = await Promise.all(processedFiles.map(async (f) => ({
+          ...f,
+          base64: await resizeImage(f.base64, 1024, 1024)
+      })));
+
+      setWatSheetUploads(prev => [...prev, ...resizedFiles.map(f => f.base64)]);
+      setWatSheetTexts(prev => [...prev, ...new Array(resizedFiles.length).fill('')]);
+      resizedFiles.forEach(async (fileData, i) => {
           const globalIndex = startIdx + i;
           setWatTranscribingIndices(prev => [...prev, globalIndex]);
           try {
@@ -651,9 +694,16 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
           });
       });
       const processedFiles = await Promise.all(fileProcessingPromises);
-      setSrtSheetUploads(prev => [...prev, ...processedFiles.map(f => f.base64)]);
-      setSrtSheetTexts(prev => [...prev, ...new Array(processedFiles.length).fill('')]);
-      processedFiles.forEach(async (fileData, i) => {
+
+      // Resize all images
+      const resizedFiles = await Promise.all(processedFiles.map(async (f) => ({
+          ...f,
+          base64: await resizeImage(f.base64, 1024, 1024)
+      })));
+
+      setSrtSheetUploads(prev => [...prev, ...resizedFiles.map(f => f.base64)]);
+      setSrtSheetTexts(prev => [...prev, ...new Array(resizedFiles.length).fill('')]);
+      resizedFiles.forEach(async (fileData, i) => {
           const globalIndex = startIdx + i;
           setSrtTranscribingIndices(prev => [...prev, globalIndex]);
           try {
