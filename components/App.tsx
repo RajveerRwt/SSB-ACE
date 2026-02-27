@@ -23,7 +23,8 @@ import Footer from './Footer';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES } from '../services/supabaseService';
 import { evaluatePerformance } from '../services/geminiService';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2 } from 'lucide-react';
+import FreeCoinModal from './FreeCoinModal';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, Gift } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // --- GAMIFICATION COMPONENTS ---
@@ -77,6 +78,7 @@ const Dashboard: React.FC<{
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [showFullHistory, setShowFullHistory] = useState(false);
   const [isEarlyRiser, setIsEarlyRiser] = useState(false);
+  const [showFreeCoinPopup, setShowFreeCoinPopup] = useState(false);
   
   const [stats, setStats] = useState({
       ppdtAvg: 0,
@@ -253,6 +255,9 @@ const Dashboard: React.FC<{
                     <button onClick={() => onStartTest(TestType.LOGIN)} className="px-8 md:px-10 py-5 bg-white/5 text-white rounded-2xl font-black uppercase text-xs border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3">
                         <LogIn size={16} /> Login
                     </button>
+                    <button onClick={() => setShowFreeCoinPopup(true)} className="px-8 md:px-10 py-5 bg-green-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-green-600/20 hover:bg-green-500 hover:scale-105 transition-all flex items-center justify-center gap-3">
+                        <Gift size={16} /> GET more free 50 coin
+                    </button>
                   </div>
                   <button 
                     onClick={scrollToQuickActions}
@@ -269,9 +274,17 @@ const Dashboard: React.FC<{
                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                             <Zap size={14} className="text-yellow-400" /> Wallet Status
                         </p>
-                        <button onClick={onOpenPayment} className="text-[9px] font-bold px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-500 transition-colors uppercase tracking-widest">
-                           Add Coins
-                        </button>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => setShowFreeCoinPopup(true)}
+                                className="text-[9px] font-bold px-3 py-1 rounded bg-green-600 text-white hover:bg-green-500 transition-colors uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-green-600/20"
+                            >
+                                <Gift size={10} /> Get Free 50 Coins
+                            </button>
+                            <button onClick={onOpenPayment} className="text-[9px] font-bold px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-500 transition-colors uppercase tracking-widest">
+                               Add Coins
+                            </button>
+                        </div>
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="text-3xl font-black text-white flex items-center gap-2">
@@ -594,6 +607,12 @@ const Dashboard: React.FC<{
       </div>
 
       <Footer onNavigate={onStartTest} />
+      
+      {/* FREE COIN POPUP */}
+      <FreeCoinModal 
+        isOpen={showFreeCoinPopup} 
+        onClose={() => setShowFreeCoinPopup(false)} 
+      />
     </div>
   );
 };
