@@ -27,6 +27,7 @@ enum PsychologyPhase {
   UPLOADING_STORIES, 
   UPLOADING_WAT,
   UPLOADING_SRT,
+  CUSTOM_PREP,
   EVALUATING,        
   COMPLETED
 }
@@ -83,6 +84,12 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
   const [isExtractingCustom, setIsExtractingCustom] = useState(false);
 
   useEffect(() => {
+    if (phase === PsychologyPhase.IDLE || phase === PsychologyPhase.SET_SELECTION) {
+      setShowCustomOptions(false);
+    }
+  }, [phase]);
+
+  useEffect(() => {
     if (isGuest || type === TestType.SDT) return;
     
     const fetchSets = async () => {
@@ -133,9 +140,18 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
     fetchSets();
   }, [type, isGuest]);
   
-  const startDirectEvaluation = () => {
+  const startDirectEvaluation = async () => {
     setIsLoading(true);
     setActiveSetName('Direct Assessment (Custom)');
+    
+    if (onConsumeCoins && !isGuest) {
+        const cost = 10; // Custom upload always 10 coins
+        const success = await onConsumeCoins(cost);
+        if (!success) {
+            setIsLoading(false);
+            return;
+        }
+    }
     
     const finalItems = customTatImages.map((url, i) => ({
         id: `tat-custom-${i}`,
@@ -156,7 +172,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
     setIsLoading(false);
   };
 
-  const startDirectEvaluationWat = () => {
+  const startDirectEvaluationWat = async () => {
     setIsLoading(true);
     setActiveSetName('Direct Assessment (Custom WAT)');
     const words = customWatWords.split('\n').map(w => w.trim()).filter(w => w);
@@ -164,6 +180,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
         alert("Please enter at least one word.");
         setIsLoading(false);
         return;
+    }
+    if (onConsumeCoins && !isGuest) {
+        const cost = 10; // Custom upload always 10 coins
+        const success = await onConsumeCoins(cost);
+        if (!success) {
+            setIsLoading(false);
+            return;
+        }
     }
     const finalItems = words.map((word, i) => ({
         id: `wat-custom-${i}`,
@@ -177,7 +201,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
     setIsLoading(false);
   };
 
-  const startDirectEvaluationSrt = () => {
+  const startDirectEvaluationSrt = async () => {
     setIsLoading(true);
     setActiveSetName('Direct Assessment (Custom SRT)');
     const situations = customSrtSituations.split('\n').map(s => s.trim()).filter(s => s);
@@ -185,6 +209,14 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
         alert("Please enter at least one situation.");
         setIsLoading(false);
         return;
+    }
+    if (onConsumeCoins && !isGuest) {
+        const cost = 10; // Custom upload always 10 coins
+        const success = await onConsumeCoins(cost);
+        if (!success) {
+            setIsLoading(false);
+            return;
+        }
     }
     const finalItems = situations.map((sit, i) => ({
         id: `srt-custom-${i}`,
@@ -241,6 +273,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
   // Camera State
   const [showCamera, setShowCamera] = useState(false);
   const [activeCameraKey, setActiveCameraKey] = useState<string | number | null>(null); // Number for TAT index, String for SDT key
+  const [showCustomOptions, setShowCustomOptions] = useState(false);
+  const [customMode, setCustomMode] = useState<'practice' | 'evaluation' | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -333,7 +367,8 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
 
     // Coin Deduction Logic
     if (onConsumeCoins && !isGuest) {
-        const cost = (TEST_RATES as any)[type] || 5;
+        const isCustom = !selectedSet;
+        const cost = isCustom ? 10 : ((TEST_RATES as any)[type] || 5);
         const success = await onConsumeCoins(cost);
         if (!success) {
             setIsLoading(false);
@@ -958,24 +993,60 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {/* Custom Mode Card - Moved to Top */}
           <div 
-            onClick={() => setPhase(PsychologyPhase.IDLE)}
             className="group bg-blue-600 p-8 rounded-[3rem] border-4 border-blue-500 shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all cursor-pointer flex flex-col items-center justify-center text-center space-y-4 relative overflow-hidden"
           >
             <div className="absolute top-0 right-0 p-6 opacity-10">
                 <Edit size={100} className="text-white" />
             </div>
-            <div className="p-4 bg-white/20 backdrop-blur-md rounded-2xl shadow-sm text-white group-hover:bg-white/30 transition-colors relative z-10">
-              <Upload size={32} />
-            </div>
-            <div className="relative z-10">
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Custom Practice</h3>
-              <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mt-1">Upload your own {type === TestType.TAT ? 'Images' : type === TestType.WAT ? 'Words' : 'Situations'}</p>
-            </div>
-            <div className="pt-2 relative z-10">
-                <span className="px-4 py-1.5 bg-white text-blue-600 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
-                    Pro Feature
-                </span>
-            </div>
+            {!showCustomOptions ? (
+              <div onClick={() => setShowCustomOptions(true)} className="w-full h-full flex flex-col items-center justify-center space-y-4">
+                <div className="p-4 bg-white/20 backdrop-blur-md rounded-2xl shadow-sm text-white group-hover:bg-white/30 transition-colors relative z-10">
+                  <Upload size={32} />
+                </div>
+                <div className="relative z-10">
+                  <h3 className="text-xl font-black text-white uppercase tracking-tight">Custom Upload</h3>
+                  <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mt-1">Practice or Direct Evaluation</p>
+                </div>
+                <div className="pt-2 relative z-10">
+                    <span className="px-4 py-1.5 bg-white text-blue-600 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
+                        Pro Feature
+                    </span>
+                </div>
+              </div>
+            ) : (
+              <div className="relative z-10 w-full space-y-4 animate-in fade-in zoom-in duration-300">
+                <button 
+                  onClick={() => {
+                    setCustomMode('practice');
+                    if (type === TestType.TAT) setUseCustomTat(true);
+                    if (type === TestType.WAT) setUseCustomWat(true);
+                    if (type === TestType.SRT) setUseCustomSrt(true);
+                    setPhase(PsychologyPhase.CUSTOM_PREP);
+                  }}
+                  className="w-full py-4 bg-white text-blue-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-50 transition-all shadow-lg"
+                >
+                  Practice Mode
+                </button>
+                <button 
+                  onClick={() => {
+                    setCustomMode('evaluation');
+                    if (type === TestType.TAT) setUseCustomTat(true);
+                    if (type === TestType.WAT) setUseCustomWat(true);
+                    if (type === TestType.SRT) setUseCustomSrt(true);
+                    setPhase(PsychologyPhase.CUSTOM_PREP);
+                  }}
+                  className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all shadow-lg"
+                >
+                  Direct Evaluation
+                </button>
+                <button 
+                  onClick={() => setShowCustomOptions(false)}
+                  className="w-full py-2 text-white/60 font-black uppercase text-[10px] tracking-widest hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
 
           {availableSets.map((set, idx) => (
@@ -1029,7 +1100,37 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
             </div>
         )}
 
-        {/* Custom Upload Sections - Moved to Top of IDLE phase */}
+        <div className="bg-slate-50 p-8 rounded-[2rem] mb-12 text-left border border-slate-200">
+           <h4 className="font-black text-xs uppercase tracking-widest text-blue-600 mb-4 underline">Board Briefing:</h4>
+           <div className="text-slate-600 font-medium text-sm md:text-lg leading-relaxed italic space-y-4">
+             {type === TestType.TAT ? (
+               <p>• 12 Pictures (11 from DB + 1 Blank). 30s viewing, 4m writing per slide. All images are retrieved from authorized board sets.</p>
+             ) : type === TestType.SDT ? (
+               <p>• Write 5 distinct paragraphs describing opinions of Parents, Teachers, Friends, Self, and Future Aims. Total time: 15 Minutes. Be realistic and honest.</p>
+             ) : type === TestType.SRT ? (
+               <p>• 60 Situations (30 Minutes). Respond to each situation naturally. <br/>• <strong>Note:</strong> You can type responses in the boxes below OR write on paper and upload a photo at the end.</p>
+             ) : (
+               <p>• 60 Words (15s each). Write the first thought that comes to mind. <br/>• <strong>Note:</strong> You can type responses in real-time OR write on paper and upload a photo at the end.</p>
+              )}
+            </div>
+         </div>
+
+        <button onClick={startTest} disabled={isLoading} className="bg-slate-900 text-white px-16 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-6 mx-auto">
+          {isLoading ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
+          Begin Test
+        </button>
+      </div>
+    );
+  }
+
+  if (phase === PsychologyPhase.CUSTOM_PREP) {
+    return (
+      <div className="max-w-6xl mx-auto py-12 px-6 animate-in fade-in slide-in-from-bottom-8">
+        <div className="text-center mb-12 space-y-4">
+          <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Prepare Your Custom Set</h2>
+          <p className="text-slate-500 font-medium">Upload or enter your stimuli for {customMode === 'practice' ? 'Practice' : 'Direct Evaluation'}.</p>
+        </div>
+
         {type === TestType.TAT && (
             <div className="mb-12 p-10 bg-white rounded-[3rem] border-4 border-slate-50 shadow-xl text-left relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-32 -mt-32 transition-transform group-hover:scale-110 duration-700"></div>
@@ -1042,68 +1143,52 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
                             </h4>
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest opacity-60">Upload your own images for practice</p>
                         </div>
-                        <button 
-                            onClick={() => {
-                                if (isGuest) {
-                                    if (onLoginRedirect) onLoginRedirect();
-                                    return;
-                                }
-                                setUseCustomTat(!useCustomTat);
-                            }}
-                            className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-lg flex items-center gap-3 ${useCustomTat ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                        >
-                            {useCustomTat ? <><CheckCircle size={16}/> Using Custom Set</> : <><RefreshCw size={16}/> Use Platform Set</>}
-                        </button>
                     </div>
                     
-                    {useCustomTat && (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {customTatImages.map((img, idx) => (
-                                <div key={idx} className="relative aspect-[3/4] bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 overflow-hidden group/item transition-all hover:border-blue-400 hover:shadow-lg">
-                                    {img ? (
-                                        <>
-                                            <img src={img} className="w-full h-full object-cover" alt={`Custom ${idx + 1}`} />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center justify-center">
-                                                <button 
-                                                    onClick={() => setCustomTatImages(prev => { const next = [...prev]; next[idx] = ''; return next; })}
-                                                    className="bg-red-500 text-white p-2 rounded-xl shadow-xl hover:scale-110 transition-transform"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </div>
-                                            <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-900">
-                                                #{idx + 1}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-white transition-colors">
-                                            <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center mb-2 group-hover/item:scale-110 transition-transform">
-                                                <Upload size={18} className="text-blue-600" />
-                                            </div>
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Image {idx + 1}</span>
-                                            <input 
-                                                type="file" 
-                                                accept="image/*" 
-                                                className="hidden" 
-                                                onChange={(e) => handleCustomTatUpload(idx, e)} 
-                                            />
-                                        </label>
-                                    )}
-                                </div>
-                            ))}
-                            <div className="aspect-[3/4] bg-slate-900 rounded-2xl flex flex-col items-center justify-center text-center p-4 border-2 border-slate-800">
-                                <div className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-1">Blank</div>
-                                <div className="text-[8px] font-bold text-slate-500 uppercase leading-tight">Auto-Added Slide 12</div>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {customTatImages.map((img, idx) => (
+                            <div key={idx} className="relative aspect-[3/4] bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 overflow-hidden group/item transition-all hover:border-blue-400 hover:shadow-lg">
+                                {img ? (
+                                    <>
+                                        <img src={img} className="w-full h-full object-cover" alt={`Custom ${idx + 1}`} />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center justify-center">
+                                            <button 
+                                                onClick={() => setCustomTatImages(prev => { const next = [...prev]; next[idx] = ''; return next; })}
+                                                className="bg-red-500 text-white p-2 rounded-xl shadow-xl hover:scale-110 transition-transform"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                        <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-900">
+                                            #{idx + 1}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-white transition-colors">
+                                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center mb-2 group-hover/item:scale-110 transition-transform">
+                                            <Upload size={18} className="text-blue-600" />
+                                        </div>
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Image {idx + 1}</span>
+                                        <input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            className="hidden" 
+                                            onChange={(e) => handleCustomTatUpload(idx, e)} 
+                                        />
+                                    </label>
+                                )}
                             </div>
+                        ))}
+                        <div className="aspect-[3/4] bg-slate-900 rounded-2xl flex flex-col items-center justify-center text-center p-4 border-2 border-slate-800">
+                            <div className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-1">Blank</div>
+                            <div className="text-[8px] font-bold text-slate-500 uppercase leading-tight">Auto-Added Slide 12</div>
                         </div>
-                    )}
+                    </div>
                     
                     <div className="mt-8 flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                         <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
                         <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                            {useCustomTat 
-                                ? "You are using a custom set. Ensure you upload all 11 images for a complete board experience. The 12th slide will be a standard blank slide for your final story." 
-                                : "The platform uses board-authorized image sets by default. These are curated to test specific Officer Like Qualities (OLQs)."}
+                            You are using a custom set. Ensure you upload all 11 images for a complete board experience. The 12th slide will be a standard blank slide for your final story.
                         </p>
                     </div>
                 </div>
@@ -1122,62 +1207,46 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
                             </h4>
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest opacity-60">Enter your own words for practice</p>
                         </div>
-                        <button 
-                            onClick={() => {
-                                if (isGuest) {
-                                    if (onLoginRedirect) onLoginRedirect();
-                                    return;
-                                }
-                                setUseCustomWat(!useCustomWat);
-                            }}
-                            className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-lg flex items-center gap-3 ${useCustomWat ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                        >
-                            {useCustomWat ? <><CheckCircle size={16}/> Using Custom Set</> : <><RefreshCw size={16}/> Use Platform Set</>}
-                        </button>
                     </div>
                     
-                    {useCustomWat && (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
-                            <div className="flex items-center gap-4">
-                                <label className="flex-1 flex items-center justify-center gap-3 p-4 bg-emerald-50 border-2 border-dashed border-emerald-200 rounded-2xl cursor-pointer hover:bg-emerald-100 transition-all group/upload">
-                                    {isExtractingCustom ? (
-                                        <Loader2 size={20} className="animate-spin text-emerald-600" />
-                                    ) : (
-                                        <Upload size={20} className="text-emerald-600 group-hover/upload:scale-110 transition-transform" />
-                                    )}
-                                    <span className="text-xs font-black uppercase tracking-widest text-emerald-700">
-                                        {isExtractingCustom ? "Extracting..." : "Upload Image/PDF of Words"}
-                                    </span>
-                                    <input 
-                                        type="file" 
-                                        className="hidden" 
-                                        accept="image/*,application/pdf" 
-                                        onChange={(e) => handleCustomStimuliUpload(e, 'WAT')}
-                                        disabled={isExtractingCustom}
-                                    />
-                                </label>
-                            </div>
-
-                            <textarea 
-                                value={customWatWords}
-                                onChange={(e) => setCustomWatWords(e.target.value)}
-                                placeholder="Enter words here (one per line)..."
-                                className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 text-sm font-medium focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none resize-none"
-                            />
-                            <div className="mt-4 flex justify-between items-center px-4">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Total Words: {customWatWords.split('\n').filter(w => w.trim()).length} / 60 Recommended
-                                </p>
-                            </div>
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+                        <div className="flex items-center gap-4">
+                            <label className="flex-1 flex items-center justify-center gap-3 p-4 bg-emerald-50 border-2 border-dashed border-emerald-200 rounded-2xl cursor-pointer hover:bg-emerald-100 transition-all group/upload">
+                                {isExtractingCustom ? (
+                                    <Loader2 size={20} className="animate-spin text-emerald-600" />
+                                ) : (
+                                    <Upload size={20} className="text-emerald-600 group-hover/upload:scale-110 transition-transform" />
+                                )}
+                                <span className="text-xs font-black uppercase tracking-widest text-emerald-700">
+                                    {isExtractingCustom ? "Extracting..." : "Upload Image/PDF of Words"}
+                                </span>
+                                <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    accept="image/*,application/pdf" 
+                                    onChange={(e) => handleCustomStimuliUpload(e, 'WAT')}
+                                    disabled={isExtractingCustom}
+                                />
+                            </label>
                         </div>
-                    )}
+
+                        <textarea 
+                            value={customWatWords}
+                            onChange={(e) => setCustomWatWords(e.target.value)}
+                            placeholder="Enter words here (one per line)..."
+                            className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 text-sm font-medium focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none resize-none"
+                        />
+                        <div className="mt-4 flex justify-between items-center px-4">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                Total Words: {customWatWords.split('\n').filter(w => w.trim()).length} / 60 Recommended
+                            </p>
+                        </div>
+                    </div>
                     
                     <div className="mt-8 flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                         <Info size={16} className="text-emerald-500 shrink-0 mt-0.5" />
                         <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                            {useCustomWat 
-                                ? "Enter one word per line. The test will automatically cycle through these words at 15-second intervals." 
-                                : "The platform provides standardized word sets designed to trigger psychological responses related to OLQs."}
+                            Enter one word per line. The test will automatically cycle through these words at 15-second intervals.
                         </p>
                     </div>
                 </div>
@@ -1196,122 +1265,75 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
                             </h4>
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest opacity-60">Enter your own situations for practice</p>
                         </div>
-                        <button 
-                            onClick={() => {
-                                if (isGuest) {
-                                    if (onLoginRedirect) onLoginRedirect();
-                                    return;
-                                }
-                                setUseCustomSrt(!useCustomSrt);
-                            }}
-                            className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-lg flex items-center gap-3 ${useCustomSrt ? 'bg-orange-600 text-white shadow-orange-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                        >
-                            {useCustomSrt ? <><CheckCircle size={16}/> Using Custom Set</> : <><RefreshCw size={16}/> Use Platform Set</>}
-                        </button>
                     </div>
                     
-                    {useCustomSrt && (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
-                            <div className="flex items-center gap-4">
-                                <label className="flex-1 flex items-center justify-center gap-3 p-4 bg-orange-50 border-2 border-dashed border-orange-200 rounded-2xl cursor-pointer hover:bg-orange-100 transition-all group/upload">
-                                    {isExtractingCustom ? (
-                                        <Loader2 size={20} className="animate-spin text-orange-600" />
-                                    ) : (
-                                        <Upload size={20} className="text-orange-600 group-hover/upload:scale-110 transition-transform" />
-                                    )}
-                                    <span className="text-xs font-black uppercase tracking-widest text-orange-700">
-                                        {isExtractingCustom ? "Extracting..." : "Upload Image/PDF of Situations"}
-                                    </span>
-                                    <input 
-                                        type="file" 
-                                        className="hidden" 
-                                        accept="image/*,application/pdf" 
-                                        onChange={(e) => handleCustomStimuliUpload(e, 'SRT')}
-                                        disabled={isExtractingCustom}
-                                    />
-                                </label>
-                            </div>
-
-                            <textarea 
-                                value={customSrtSituations}
-                                onChange={(e) => setCustomSrtSituations(e.target.value)}
-                                placeholder="Enter situations here (one per line)..."
-                                className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 text-sm font-medium focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 transition-all outline-none resize-none"
-                            />
-                            <div className="mt-4 flex justify-between items-center px-4">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Total Situations: {customSrtSituations.split('\n').filter(w => w.trim()).length} / 60 Recommended
-                                </p>
-                            </div>
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+                        <div className="flex items-center gap-4">
+                            <label className="flex-1 flex items-center justify-center gap-3 p-4 bg-orange-50 border-2 border-dashed border-orange-200 rounded-2xl cursor-pointer hover:bg-orange-100 transition-all group/upload">
+                                {isExtractingCustom ? (
+                                    <Loader2 size={20} className="animate-spin text-orange-600" />
+                                ) : (
+                                    <Upload size={20} className="text-orange-600 group-hover/upload:scale-110 transition-transform" />
+                                )}
+                                <span className="text-xs font-black uppercase tracking-widest text-orange-700">
+                                    {isExtractingCustom ? "Extracting..." : "Upload Image/PDF of Situations"}
+                                </span>
+                                <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    accept="image/*,application/pdf" 
+                                    onChange={(e) => handleCustomStimuliUpload(e, 'SRT')}
+                                    disabled={isExtractingCustom}
+                                />
+                            </label>
                         </div>
-                    )}
+
+                        <textarea 
+                            value={customSrtSituations}
+                            onChange={(e) => setCustomSrtSituations(e.target.value)}
+                            placeholder="Enter situations here (one per line)..."
+                            className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 text-sm font-medium focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 transition-all outline-none resize-none"
+                        />
+                        <div className="mt-4 flex justify-between items-center px-4">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                Total Situations: {customSrtSituations.split('\n').filter(w => w.trim()).length} / 60 Recommended
+                            </p>
+                        </div>
+                    </div>
                     
                     <div className="mt-8 flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                         <Info size={16} className="text-orange-500 shrink-0 mt-0.5" />
                         <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                            {useCustomSrt 
-                                ? "Enter one situation per line. The test will display these situations for 30 seconds each." 
-                                : "The platform provides realistic situations designed to assess your spontaneous reactions and decision-making."}
+                            Enter one situation per line. The test will display these situations for 30 seconds each.
                         </p>
                     </div>
                 </div>
             </div>
         )}
 
-        <div className="bg-slate-50 p-8 rounded-[2rem] mb-12 text-left border border-slate-200">
-           <h4 className="font-black text-xs uppercase tracking-widest text-blue-600 mb-4 underline">Board Briefing:</h4>
-           <div className="text-slate-600 font-medium text-sm md:text-lg leading-relaxed italic space-y-4">
-             {type === TestType.TAT ? (
-               <p>• 12 Pictures (11 from DB + 1 Blank). 30s viewing, 4m writing per slide. All images are retrieved from authorized board sets.</p>
-             ) : type === TestType.SDT ? (
-               <p>• Write 5 distinct paragraphs describing opinions of Parents, Teachers, Friends, Self, and Future Aims. Total time: 15 Minutes. Be realistic and honest.</p>
-             ) : type === TestType.SRT ? (
-               <p>• 60 Situations (30 Minutes). Respond to each situation naturally. <br/>• <strong>Note:</strong> You can type responses in the boxes below OR write on paper and upload a photo at the end.</p>
-             ) : (
-               <p>• 60 Words (15s each). Write the first thought that comes to mind. <br/>• <strong>Note:</strong> You can type responses in real-time OR write on paper and upload a photo at the end.</p>
-              )}
-            </div>
-         </div>
-
-        {type === TestType.TAT && useCustomTat ? (
-          <div className="flex flex-col md:flex-row gap-4 justify-center">
-            <button onClick={startTest} disabled={isLoading} className="bg-slate-900 text-white px-12 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-4">
-              {isLoading ? <Loader2 className="animate-spin" /> : <PenTool size={24} />}
-              Start Practice
+        <div className="flex justify-center gap-4">
+            <button 
+                onClick={() => setPhase(PsychologyPhase.SET_SELECTION)}
+                className="px-8 py-4 bg-slate-100 text-slate-500 rounded-full font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all"
+            >
+                Back
             </button>
-            <button onClick={startDirectEvaluation} disabled={isLoading} className="bg-blue-600 text-white px-12 py-6 rounded-full font-black text-lg hover:bg-blue-700 transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-4">
-              {isLoading ? <Loader2 className="animate-spin" /> : <FileText size={24} />}
-              Direct Evaluation
+            <button 
+                onClick={() => {
+                    if (customMode === 'practice') startTest();
+                    else {
+                        if (type === TestType.TAT) startDirectEvaluation();
+                        else if (type === TestType.WAT) startDirectEvaluationWat();
+                        else if (type === TestType.SRT) startDirectEvaluationSrt();
+                    }
+                }}
+                disabled={isLoading}
+                className="px-12 py-4 bg-slate-900 text-white rounded-full font-black uppercase text-xs tracking-widest hover:bg-black transition-all shadow-xl flex items-center gap-3"
+            >
+                {isLoading ? <Loader2 className="animate-spin" /> : <ShieldCheck size={18} />}
+                Begin {customMode === 'practice' ? 'Practice' : 'Evaluation'}
             </button>
-          </div>
-        ) : type === TestType.WAT && useCustomWat ? (
-            <div className="flex flex-col md:flex-row gap-4 justify-center">
-              <button onClick={startTest} disabled={isLoading} className="bg-slate-900 text-white px-12 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-4">
-                {isLoading ? <Loader2 className="animate-spin" /> : <PenTool size={24} />}
-                Start Practice
-              </button>
-              <button onClick={startDirectEvaluationWat} disabled={isLoading} className="bg-emerald-600 text-white px-12 py-6 rounded-full font-black text-lg hover:bg-emerald-700 transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-4">
-                {isLoading ? <Loader2 className="animate-spin" /> : <FileText size={24} />}
-                Direct Evaluation
-              </button>
-            </div>
-        ) : type === TestType.SRT && useCustomSrt ? (
-            <div className="flex flex-col md:flex-row gap-4 justify-center">
-              <button onClick={startTest} disabled={isLoading} className="bg-slate-900 text-white px-12 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-4">
-                {isLoading ? <Loader2 className="animate-spin" /> : <PenTool size={24} />}
-                Start Practice
-              </button>
-              <button onClick={startDirectEvaluationSrt} disabled={isLoading} className="bg-orange-600 text-white px-12 py-6 rounded-full font-black text-lg hover:bg-orange-700 transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-4">
-                {isLoading ? <Loader2 className="animate-spin" /> : <FileText size={24} />}
-                Direct Evaluation
-              </button>
-            </div>
-        ) : (
-          <button onClick={startTest} disabled={isLoading} className="bg-slate-900 text-white px-16 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-6 mx-auto">
-            {isLoading ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
-            Begin Test
-          </button>
-        )}
+        </div>
       </div>
     );
   }

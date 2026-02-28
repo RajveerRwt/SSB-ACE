@@ -255,10 +255,7 @@ const Dashboard: React.FC<{
                     <button onClick={() => onStartTest(TestType.LOGIN)} className="px-8 md:px-10 py-5 bg-white/5 text-white rounded-2xl font-black uppercase text-xs border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3">
                         <LogIn size={16} /> Login
                     </button>
-                    <button onClick={() => setShowFreeCoinPopup(true)} className="px-8 md:px-10 py-5 bg-green-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-green-600/20 hover:bg-green-500 hover:scale-105 transition-all flex items-center justify-center gap-3">
-                        <Gift size={16} /> GET more free 50 coin
-                    </button>
-                  </div>
+                   </div>
                   <button 
                     onClick={scrollToQuickActions}
                     className="w-full md:w-auto px-6 py-3 bg-white/5 border border-white/10 text-slate-300 rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2 group backdrop-blur-sm"
@@ -797,7 +794,7 @@ const App: React.FC = () => {
   };
 
   const handleShowGuestWarning = () => {
-      if (window.confirm("Restricted Area. Please login or create a free account (Get 50 Coins).")) {
+      if (window.confirm("Restricted Area. Please login or create a free account to continue.")) {
           setActiveTest(TestType.LOGIN);
       }
   };
@@ -811,7 +808,7 @@ const App: React.FC = () => {
       case TestType.TAT: return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
       case TestType.WAT: return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
       case TestType.SRT: return <PsychologyTest type={TestType.SRT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
-      case TestType.SDT: return <PsychologyTest type={TestType.SDT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.SDT: return <PsychologyTest type={TestType.SDT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
       case TestType.GPE: return <GPETest onComplete={handleTestComplete} onPendingSave={handlePendingSave} onConsumeCoins={async (amount) => await handleCoinConsumption(amount)} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.INTERVIEW: return <Interview piqData={piqData || undefined} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
       case TestType.CONTACT: return <ContactForm piqData={piqData || undefined} />;
