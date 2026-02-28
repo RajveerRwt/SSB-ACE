@@ -156,7 +156,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   }, [step]);
 
   useEffect(() => {
-    if (isGuest || step !== PPDTStep.IDLE) return;
+    if (step !== PPDTStep.IDLE && step !== PPDTStep.SET_SELECTION) return;
     
     const fetchSets = async () => {
         setIsLoading(true);
@@ -177,6 +177,15 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                 count: sets[name].length,
                 items: sets[name]
             })).filter(s => s.count > 0);
+
+            // Ensure 'Trial' sets come first
+            setList.sort((a, b) => {
+                const aTrial = a.name.toLowerCase().includes('trial');
+                const bTrial = b.name.toLowerCase().includes('trial');
+                if (aTrial && !bTrial) return -1;
+                if (!aTrial && bTrial) return 1;
+                return 0;
+            });
             
             setAvailableSets(setList);
         } catch (e) {
@@ -564,30 +573,42 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* Custom Mode Card */}
               <div 
-                className="group bg-blue-600 p-8 rounded-[3rem] border-4 border-blue-500 shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all cursor-pointer flex flex-col items-center justify-center text-center space-y-4 relative overflow-hidden"
+                onClick={() => {
+                    if (isGuest) {
+                        onLoginRedirect?.();
+                        return;
+                    }
+                    setShowCustomOptions(true);
+                }}
+                className={`group p-8 rounded-[3rem] border-4 shadow-xl transition-all cursor-pointer flex flex-col items-center justify-center text-center space-y-4 relative overflow-hidden ${isGuest ? 'bg-slate-100 border-slate-200 grayscale opacity-80' : 'bg-blue-600 border-blue-500 hover:shadow-2xl hover:scale-[1.02]'}`}
               >
                 <div className="absolute top-0 right-0 p-6 opacity-10">
-                    <Edit3 size={100} className="text-white" />
+                    {isGuest ? <Lock size={100} className="text-slate-400" /> : <Edit3 size={100} className="text-white" />}
                 </div>
                 {!showCustomOptions ? (
-                  <div onClick={() => setShowCustomOptions(true)} className="w-full h-full flex flex-col items-center justify-center space-y-4">
-                    <div className="p-4 bg-white/20 backdrop-blur-md rounded-2xl shadow-sm text-white group-hover:bg-white/30 transition-colors relative z-10">
-                      <Upload size={32} />
+                  <div className="w-full h-full flex flex-col items-center justify-center space-y-4">
+                    <div className={`p-4 backdrop-blur-md rounded-2xl shadow-sm transition-colors relative z-10 ${isGuest ? 'bg-slate-200 text-slate-400' : 'bg-white/20 text-white group-hover:bg-white/30'}`}>
+                      {isGuest ? <Lock size={32} /> : <Upload size={32} />}
                     </div>
                     <div className="relative z-10">
-                      <h3 className="text-xl font-black text-white uppercase tracking-tight">Custom Upload</h3>
-                      <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mt-1">Practice or Direct Evaluation</p>
+                      <h3 className={`text-xl font-black uppercase tracking-tight ${isGuest ? 'text-slate-500' : 'text-white'}`}>Custom Upload</h3>
+                      <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isGuest ? 'text-slate-400' : 'text-blue-100'}`}>
+                        {isGuest ? 'Login to Unlock' : 'Practice or Direct Evaluation'}
+                      </p>
                     </div>
-                    <div className="pt-2 relative z-10">
-                        <span className="px-4 py-1.5 bg-white text-blue-600 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
-                            Pro Feature
-                        </span>
-                    </div>
+                    {!isGuest && (
+                        <div className="pt-2 relative z-10">
+                            <span className="px-4 py-1.5 bg-white text-blue-600 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
+                                Pro Feature
+                            </span>
+                        </div>
+                    )}
                   </div>
                 ) : (
                   <div className="relative z-10 w-full space-y-4 animate-in fade-in zoom-in duration-300">
                     <button 
-                      onClick={async () => {
+                      onClick={async (e) => {
+                        e.stopPropagation();
                         if (onConsumeCoins) {
                             const success = await onConsumeCoins(10);
                             if (!success) return;
@@ -600,7 +621,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                       Practice Mode
                     </button>
                     <button 
-                      onClick={async () => {
+                      onClick={async (e) => {
+                        e.stopPropagation();
                         if (onConsumeCoins) {
                             const success = await onConsumeCoins(10);
                             if (!success) return;
@@ -613,7 +635,10 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                       Direct Evaluation
                     </button>
                     <button 
-                      onClick={() => setShowCustomOptions(false)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowCustomOptions(false);
+                      }}
                       className="w-full py-2 text-white/60 font-black uppercase text-[10px] tracking-widest hover:text-white transition-colors"
                     >
                       Cancel
@@ -622,45 +647,61 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                 )}
               </div>
 
-              {availableSets.map((set, idx) => (
-                <div 
-                  key={idx}
-                  onClick={async () => {
-                      if (onConsumeCoins) {
-                          const success = await onConsumeCoins(TEST_RATES.PPDT);
-                          if (!success) return;
-                      }
-                      setActiveSetName(set.name);
-                      setSelectedScenario(set);
-                      startTestSequence(set);
-                  }}
-                  className="group bg-white p-8 rounded-[3rem] border-2 border-slate-100 shadow-xl hover:shadow-2xl hover:border-blue-400 transition-all cursor-pointer relative overflow-hidden"
-                >
-                  <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <ImageIcon size={80} />
-                  </div>
-                  <div className="relative z-10 space-y-4">
-                    <div className="flex justify-between items-start">
-                      <div className="p-3 bg-slate-900 text-yellow-400 rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
-                        <BookOpen size={24} />
+              {availableSets.map((set, idx) => {
+                const isTrialSet = idx === 0 || set.name.toLowerCase().includes('trial');
+                const isLocked = isGuest && !isTrialSet;
+                const displayName = (isGuest && isTrialSet) ? "Free Trial Set" : set.name;
+
+                return (
+                  <div 
+                    key={idx}
+                    onClick={async () => {
+                        if (isLocked) {
+                            onLoginRedirect?.();
+                            return;
+                        }
+                        if (onConsumeCoins && !isGuest) {
+                            const success = await onConsumeCoins(TEST_RATES.PPDT);
+                            if (!success) return;
+                        }
+                        setActiveSetName(set.name);
+                        setSelectedScenario(set);
+                        startTestSequence(set);
+                    }}
+                    className={`group p-8 rounded-[3rem] border-2 shadow-xl transition-all cursor-pointer relative overflow-hidden ${isLocked ? 'bg-slate-50 border-slate-100 grayscale-[0.5] opacity-80' : 'bg-white border-slate-100 hover:shadow-2xl hover:border-blue-400'}`}
+                  >
+                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                      {isLocked ? <Lock size={80} /> : <ImageIcon size={80} />}
+                    </div>
+                    <div className="relative z-10 space-y-4">
+                      <div className="flex justify-between items-start">
+                        <div className={`p-3 rounded-2xl shadow-lg transition-transform ${isLocked ? 'bg-slate-200 text-slate-400' : 'bg-slate-900 text-yellow-400 group-hover:scale-110'}`}>
+                          {isLocked ? <Lock size={24} /> : <BookOpen size={24} />}
+                        </div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            {isLocked ? 'Locked' : (isGuest && isTrialSet ? 'Free Access' : `Set #${idx + 1}`)}
+                        </span>
                       </div>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Set #{idx + 1}</span>
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight group-hover:text-blue-600 transition-colors">{set.name}</h3>
-                      <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">{set.count} Scenarios</p>
-                    </div>
-                    <div className="pt-4 flex items-center justify-between">
-                      <span className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                        Start Now <FastForward size={14} className="text-blue-600" />
-                      </span>
-                      <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
-                        <ChevronDown className="text-slate-300 group-hover:text-blue-600 -rotate-90" size={16} />
+                      <div>
+                        <h3 className={`text-2xl font-black uppercase tracking-tight transition-colors ${isLocked ? 'text-slate-400' : 'text-slate-900 group-hover:text-blue-600'}`}>
+                            {displayName}
+                        </h3>
+                        <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
+                            {isLocked ? 'Login to Unlock' : `${set.count} Scenarios`}
+                        </p>
+                      </div>
+                      <div className="pt-4 flex items-center justify-between">
+                        <span className={`text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isLocked ? 'text-slate-300' : 'text-slate-900'}`}>
+                          {isLocked ? 'Premium Set' : 'Start Now'} {!isLocked && <FastForward size={14} className="text-blue-600" />}
+                        </span>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isLocked ? 'bg-slate-100' : 'bg-slate-50 group-hover:bg-blue-50'}`}>
+                          {isLocked ? <Lock size={16} className="text-slate-300" /> : <ChevronDown className="text-slate-300 group-hover:text-blue-600 -rotate-90" size={16} />}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             
             <div className="mt-12 text-center">
