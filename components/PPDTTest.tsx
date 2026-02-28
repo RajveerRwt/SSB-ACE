@@ -20,8 +20,9 @@ const PPDT_TIPS = [
 
 enum PPDTStep {
   IDLE,
+  SET_SELECTION,
+  CUSTOM_PREP,
   INSTRUCTIONS,
-  CUSTOM_MODE_SELECTION,
   LOADING_IMAGE,
   IMAGE,
   CHARACTER_MARKING,
@@ -39,9 +40,10 @@ interface PPDTProps {
   userId?: string;
   isGuest?: boolean;
   onLoginRedirect?: () => void;
+  onConsumeCoins?: (cost: number) => Promise<boolean>;
 }
 
-const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId, isGuest = false, onLoginRedirect }) => {
+const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId, isGuest = false, onLoginRedirect, onConsumeCoins }) => {
   const [step, setStep] = useState<PPDTStep>(PPDTStep.IDLE);
   const [isDirectEvaluation, setIsDirectEvaluation] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -62,6 +64,11 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   const [verifyingLimit, setVerifyingLimit] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
+  const [availableSets, setAvailableSets] = useState<any[]>([]);
+  const [showCustomOptions, setShowCustomOptions] = useState(false);
+  const [customMode, setCustomMode] = useState<'practice' | 'evaluation'>('practice');
+  const [activeSetName, setActiveSetName] = useState('');
+  const [selectedScenario, setSelectedScenario] = useState<any>(null);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -142,6 +149,46 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
     setStep(PPDTStep.INSTRUCTIONS);
   };
 
+  useEffect(() => {
+    if (step === PPDTStep.IDLE) {
+      setShowCustomOptions(false);
+    }
+  }, [step]);
+
+  useEffect(() => {
+    if (isGuest || step !== PPDTStep.IDLE) return;
+    
+    const fetchSets = async () => {
+        setIsLoading(true);
+        try {
+            const data = await getPPDTScenarios();
+            // Since PPDT doesn't have set_tag in the provided schema, 
+            // we'll treat each scenario as a "Set" or group them into one "General" set.
+            // Let's check if there's a set_tag property anyway.
+            const sets = data.reduce((acc: any, img: any) => {
+                const tag = img.set_tag || 'Board Authorized';
+                if (!acc[tag]) acc[tag] = [];
+                acc[tag].push(img);
+                return acc;
+            }, {});
+            
+            const setList = Object.keys(sets).map(name => ({
+                name,
+                count: sets[name].length,
+                items: sets[name]
+            })).filter(s => s.count > 0);
+            
+            setAvailableSets(setList);
+        } catch (e) {
+            console.error("Failed to fetch PPDT sets", e);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    fetchSets();
+  }, [isGuest, step]);
+
   const handleStandardStart = async () => {
     setIsDirectEvaluation(false);
     if (isGuest) {
@@ -162,7 +209,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
     
     if (allowed) {
         setCustomStimulus(null);
-        handleShowInstructions();
+        setStep(PPDTStep.SET_SELECTION);
     } else {
         alert(message);
     }
@@ -174,13 +221,13 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
         const reader = new FileReader();
         reader.onloadend = () => {
             setCustomStimulus(reader.result as string);
-            setStep(PPDTStep.CUSTOM_MODE_SELECTION);
+            // Stay in CUSTOM_PREP
         };
         reader.readAsDataURL(file);
     }
   };
 
-  const startTestSequence = async () => {
+  const startTestSequence = async (set?: any) => {
     initAudio();
     
     if (customStimulus) {
@@ -191,45 +238,54 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
     } else {
         setStep(PPDTStep.LOADING_IMAGE);
         try {
-          // Fetch from Database for BOTH Guest and Logged In users
-          const dbImages = await getPPDTScenarios();
-          
-          if (dbImages && dbImages.length > 0) {
-            let selectedImage;
-            
-            if (isGuest) {
-                // GUEST MODE: Always pick the first image from DB to ensure a fixed set
-                selectedImage = dbImages[0];
-            } else if (userId) {
-                // LOGGED IN: Rotate based on usage
-                const subscription = await getUserSubscription(userId);
-                const count = subscription.usage.ppdt_used;
-                const index = count % dbImages.length;
-                selectedImage = dbImages[index];
-            } else {
-                // FALLBACK: Random
-                selectedImage = dbImages[Math.floor(Math.random() * dbImages.length)];
-            }
-
-            setCurrentImageUrl(selectedImage.image_url);
-            setImageDescription(selectedImage.description || "Database Scenario");
+          if (set) {
+              setActiveSetName(set.name);
+              // Pick one image from the set
+              const index = Math.floor(Math.random() * set.items.length);
+              const selectedImage = set.items[index];
+              setCurrentImageUrl(selectedImage.image_url);
+              setImageDescription(selectedImage.description || "Database Scenario");
           } else {
-            // FALLBACK IF DB EMPTY (or Network Error)
-            // Use specific fixed image for guest if DB fails
-            if (isGuest) {
-                 setCurrentImageUrl("https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80");
-                 setImageDescription("Guest Trial Image: Group Discussion");
-            } else {
-                 const scenarios = [
-                  "A group of people discussing something near a damaged vehicle on a road.",
-                  "A person helping another climb a steep ledge in a village.",
-                  "People standing near a building with smoke coming out of windows."
-                ];
-                const selectedScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
-                setImageDescription(selectedScenario);
-                const aiImage = await generatePPDTStimulus(selectedScenario);
-                setCurrentImageUrl(aiImage);
-            }
+              // Fetch from Database for BOTH Guest and Logged In users
+              const dbImages = await getPPDTScenarios();
+              
+              if (dbImages && dbImages.length > 0) {
+                let selectedImage;
+                
+                if (isGuest) {
+                    // GUEST MODE: Always pick the first image from DB to ensure a fixed set
+                    selectedImage = dbImages[0];
+                } else if (userId) {
+                    // LOGGED IN: Rotate based on usage
+                    const subscription = await getUserSubscription(userId);
+                    const count = subscription.usage.ppdt_used;
+                    const index = count % dbImages.length;
+                    selectedImage = dbImages[index];
+                } else {
+                    // FALLBACK: Random
+                    selectedImage = dbImages[Math.floor(Math.random() * dbImages.length)];
+                }
+
+                setCurrentImageUrl(selectedImage.image_url);
+                setImageDescription(selectedImage.description || "Database Scenario");
+              } else {
+                // FALLBACK IF DB EMPTY (or Network Error)
+                // Use specific fixed image for guest if DB fails
+                if (isGuest) {
+                     setCurrentImageUrl("https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80");
+                     setImageDescription("Guest Trial Image: Group Discussion");
+                } else {
+                     const scenarios = [
+                      "A group of people discussing something near a damaged vehicle on a road.",
+                      "A person helping another climb a steep ledge in a village.",
+                      "People standing near a building with smoke coming out of windows."
+                    ];
+                    const selectedScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+                    setImageDescription(selectedScenario);
+                    const aiImage = await generatePPDTStimulus(selectedScenario);
+                    setCurrentImageUrl(aiImage);
+                }
+              }
           }
 
           setStep(PPDTStep.IMAGE);
@@ -464,113 +520,210 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                </p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto pt-8">
+            <div className="flex justify-center pt-8">
                 <button 
                     onClick={handleStandardStart}
                     disabled={verifyingLimit}
-                    className="bg-white p-8 rounded-[2rem] border-2 border-slate-100 hover:border-slate-900 hover:shadow-2xl transition-all group relative overflow-hidden text-left"
+                    className="bg-slate-900 text-white px-16 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-6 mx-auto"
                 >
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Target size={100} />
-                    </div>
-                    <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                        {verifyingLimit ? <Loader2 className="animate-spin" /> : <Target size={24} />}
-                    </div>
-                    <h4 className="text-xl font-black uppercase text-slate-900 mb-2 tracking-tight">Standard Board Assessment</h4>
-                    <p className="text-xs text-slate-500 font-medium">{isGuest ? "Trial Mode: Fixed Image Set. Login to unlock randomized sets." : "Official database images. Full psychological evaluation."}</p>
+                    {verifyingLimit ? <Loader2 className="animate-spin" /> : <ShieldCheck size={24} />}
+                    Begin Test
                 </button>
-
-                <button 
-                    onClick={() => customStimulusInputRef.current?.click()}
-                    className="bg-blue-50 p-8 rounded-[2rem] border-2 border-blue-100 hover:border-blue-500 hover:shadow-2xl transition-all group relative overflow-hidden text-left"
-                >
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-blue-600">
-                        <ImagePlus size={100} />
-                    </div>
-                    <div className="w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                        <Upload size={24} />
-                    </div>
-                    {/* Changed description and removed Free badge as requested */}
-                    <div className="absolute top-6 right-6 bg-slate-900 text-yellow-400 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-md flex items-center gap-1">
-                        <Coins size={8} /> {TEST_RATES.PPDT}
-                    </div>
-                    <h4 className="text-xl font-black uppercase text-blue-900 mb-2 tracking-tight">Upload Custom Image</h4>
-                    <p className="text-xs text-blue-700/70 font-medium">Practice with your own pictures. Standard assessment rates apply.</p>
-                </button>
-                <input 
-                    type="file" 
-                    ref={customStimulusInputRef} 
-                    className="hidden" 
-                    accept="image/*" 
-                    onChange={handleCustomUpload} 
-                />
             </div>
           </div>
         );
 
-      case PPDTStep.CUSTOM_MODE_SELECTION:
+      case PPDTStep.SET_SELECTION:
         return (
-          <div className="max-w-4xl mx-auto text-center py-20 md:py-28 space-y-12 animate-in fade-in zoom-in duration-500">
-            <div className="w-24 h-24 md:w-32 md:h-32 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-2xl rotate-3 border-8 border-slate-50 ring-4 ring-slate-100">
-              <ImagePlus size={48} />
-            </div>
-            
-            <div className="space-y-4">
-               <h3 className="text-4xl md:text-6xl font-black text-slate-900 uppercase tracking-tighter">Choose Mode</h3>
-               <p className="text-slate-500 text-lg md:text-2xl font-medium italic max-w-lg mx-auto leading-relaxed">
-                 "How would you like to proceed with your custom stimulus?"
-               </p>
+          <div className="max-w-6xl mx-auto py-12 px-6 animate-in fade-in slide-in-from-bottom-8">
+            <div className="text-center mb-12 space-y-4">
+              <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Select Your PPDT Set</h2>
+              <p className="text-slate-500 font-medium">Choose a board-authorized set to begin your assessment.</p>
+              <div className="flex justify-center gap-4 mt-6">
+                 <div className="bg-yellow-400 text-black px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                    <Star size={14} /> Cost: {TEST_RATES.PPDT} Coins
+                 </div>
+              </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto pt-8">
-                <button 
-                    onClick={() => {
-                        setIsDirectEvaluation(false);
-                        handleShowInstructions();
-                    }}
-                    className="bg-white p-8 rounded-[2rem] border-2 border-slate-100 hover:border-blue-600 hover:shadow-2xl transition-all group relative overflow-hidden text-left"
-                >
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Activity size={100} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {/* Custom Mode Card */}
+              <div 
+                className="group bg-blue-600 p-8 rounded-[3rem] border-4 border-blue-500 shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all cursor-pointer flex flex-col items-center justify-center text-center space-y-4 relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 p-6 opacity-10">
+                    <Edit3 size={100} className="text-white" />
+                </div>
+                {!showCustomOptions ? (
+                  <div onClick={() => setShowCustomOptions(true)} className="w-full h-full flex flex-col items-center justify-center space-y-4">
+                    <div className="p-4 bg-white/20 backdrop-blur-md rounded-2xl shadow-sm text-white group-hover:bg-white/30 transition-colors relative z-10">
+                      <Upload size={32} />
                     </div>
-                    <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <div className="relative z-10">
+                      <h3 className="text-xl font-black text-white uppercase tracking-tight">Custom Upload</h3>
+                      <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mt-1">Practice or Direct Evaluation</p>
+                    </div>
+                    <div className="pt-2 relative z-10">
+                        <span className="px-4 py-1.5 bg-white text-blue-600 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
+                            Pro Feature
+                        </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative z-10 w-full space-y-4 animate-in fade-in zoom-in duration-300">
+                    <button 
+                      onClick={() => {
+                        setCustomMode('practice');
+                        setStep(PPDTStep.CUSTOM_PREP);
+                      }}
+                      className="w-full py-4 bg-white text-blue-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-50 transition-all shadow-lg"
+                    >
+                      Practice Mode
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setCustomMode('evaluation');
+                        setStep(PPDTStep.CUSTOM_PREP);
+                      }}
+                      className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all shadow-lg"
+                    >
+                      Direct Evaluation
+                    </button>
+                    <button 
+                      onClick={() => setShowCustomOptions(false)}
+                      className="w-full py-2 text-white/60 font-black uppercase text-[10px] tracking-widest hover:text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {availableSets.map((set, idx) => (
+                <div 
+                  key={idx}
+                  onClick={() => {
+                      setActiveSetName(set.name);
+                      handleShowInstructions();
+                      setSelectedScenario(set);
+                  }}
+                  className="group bg-white p-8 rounded-[3rem] border-2 border-slate-100 shadow-xl hover:shadow-2xl hover:border-blue-400 transition-all cursor-pointer relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <ImageIcon size={80} />
+                  </div>
+                  <div className="relative z-10 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div className="p-3 bg-slate-900 text-yellow-400 rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
                         <BookOpen size={24} />
+                      </div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Set #{idx + 1}</span>
                     </div>
-                    <h4 className="text-xl font-black uppercase text-slate-900 mb-2 tracking-tight">Practice Mode</h4>
-                    <p className="text-xs text-slate-500 font-medium">Full simulation including Narration and AI Evaluation.</p>
-                </button>
-
-                <button 
-                    onClick={() => {
-                        setIsDirectEvaluation(true);
-                        setCurrentImageUrl(customStimulus || '');
-                        setImageDescription("Custom Upload - Direct Evaluation");
-                        setStep(PPDTStep.STORY_WRITING);
-                        setTimeLeft(0); // No timer
-                    }}
-                    className="bg-slate-900 p-8 rounded-[2rem] border-2 border-slate-800 hover:border-yellow-400 hover:shadow-2xl transition-all group relative overflow-hidden text-left text-white"
-                >
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-yellow-400">
-                        <ShieldCheck size={100} />
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight group-hover:text-blue-600 transition-colors">{set.name}</h3>
+                      <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">{set.count} Scenarios</p>
                     </div>
-                    <div className="w-14 h-14 bg-yellow-400 text-black rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                        <FileText size={24} />
+                    <div className="pt-4 flex items-center justify-between">
+                      <span className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                        Start Now <FastForward size={14} className="text-blue-600" />
+                      </span>
+                      <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+                        <ChevronDown className="text-slate-300 group-hover:text-blue-600 -rotate-90" size={16} />
+                      </div>
                     </div>
-                    <h4 className="text-xl font-black uppercase text-white mb-2 tracking-tight">Direct Evaluation</h4>
-                    <p className="text-xs text-slate-400 font-medium">Evaluate written story only. No narration required. Focus on content quality.</p>
-                </button>
+                  </div>
+                </div>
+              ))}
             </div>
             
-            <button 
-                onClick={() => { 
-                    setStep(PPDTStep.IDLE); 
-                    setCustomStimulus(null); 
-                    setIsDirectEvaluation(false);
-                }}
-                className="text-slate-400 font-black uppercase tracking-widest text-xs hover:text-slate-600"
-            >
-                Back to Dashboard
-            </button>
+            <div className="mt-12 text-center">
+                <button 
+                    onClick={() => setStep(PPDTStep.IDLE)}
+                    className="px-8 py-4 bg-slate-100 text-slate-500 rounded-full font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all"
+                >
+                    Back to Dashboard
+                </button>
+            </div>
+          </div>
+        );
+
+      case PPDTStep.CUSTOM_PREP:
+        return (
+          <div className="max-w-4xl mx-auto py-12 px-6 animate-in fade-in slide-in-from-bottom-8">
+            <div className="text-center mb-12 space-y-4">
+              <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Prepare Custom PPDT</h2>
+              <p className="text-slate-500 font-medium">Upload your stimulus for {customMode === 'practice' ? 'Practice' : 'Direct Evaluation'}.</p>
+            </div>
+
+            <div className="bg-white p-10 rounded-[3rem] border-4 border-slate-50 shadow-xl text-center space-y-8">
+                <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto">
+                    <ImageIcon size={48} />
+                </div>
+                
+                {customStimulus ? (
+                    <div className="space-y-6">
+                        <div className="relative w-64 h-64 mx-auto rounded-2xl overflow-hidden border-4 border-slate-100 shadow-lg">
+                            <img src={customStimulus} className="w-full h-full object-cover" alt="Custom Preview" />
+                            <button 
+                                onClick={() => setCustomStimulus(null)}
+                                className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-xl shadow-xl hover:scale-110 transition-transform"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Image Loaded Successfully</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <button 
+                            onClick={() => customStimulusInputRef.current?.click()}
+                            className="px-12 py-6 bg-blue-600 text-white rounded-full font-black uppercase tracking-widest text-sm shadow-xl hover:bg-blue-700 transition-all flex items-center gap-3 mx-auto"
+                        >
+                            <Upload size={20} /> Select Image
+                        </button>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Supports JPG, PNG (Max 5MB)</p>
+                    </div>
+                )}
+
+                <div className="flex justify-center gap-4 pt-4">
+                    <button 
+                        onClick={() => setStep(PPDTStep.SET_SELECTION)}
+                        className="px-8 py-4 bg-slate-100 text-slate-500 rounded-full font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all"
+                    >
+                        Back
+                    </button>
+                    <button 
+                        onClick={async () => {
+                            // Deduct coins for custom upload
+                            if (onConsumeCoins) {
+                                const success = await onConsumeCoins(10);
+                                if (!success) return;
+                            }
+
+                            if (customMode === 'practice') handleShowInstructions();
+                            else {
+                                setIsDirectEvaluation(true);
+                                setCurrentImageUrl(customStimulus || '');
+                                setImageDescription("Custom Upload - Direct Evaluation");
+                                setStep(PPDTStep.STORY_WRITING);
+                                setTimeLeft(0);
+                            }
+                        }}
+                        disabled={!customStimulus}
+                        className="px-12 py-4 bg-slate-900 text-white rounded-full font-black uppercase text-xs tracking-widest hover:bg-black transition-all shadow-xl flex items-center gap-3 disabled:opacity-30"
+                    >
+                        <ShieldCheck size={18} />
+                        Begin {customMode === 'practice' ? 'Practice' : 'Evaluation'}
+                    </button>
+                </div>
+            </div>
+            <input 
+                type="file" 
+                ref={customStimulusInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handleCustomUpload} 
+            />
           </div>
         );
 
@@ -627,7 +780,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                   Cancel
                </button>
                <button 
-                  onClick={startTestSequence}
+                  onClick={() => startTestSequence(selectedScenario)}
                   className="px-16 md:px-24 py-6 md:py-8 bg-blue-600 text-white rounded-full font-black uppercase tracking-[0.2em] text-sm shadow-2xl hover:bg-blue-700 transition-all hover:scale-105"
                >
                  Start {isDirectEvaluation ? 'Evaluation' : (customStimulus ? 'Practice' : 'Test')}

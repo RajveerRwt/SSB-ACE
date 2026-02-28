@@ -484,15 +484,24 @@ const App: React.FC = () => {
             }
         }} initialData={piqData || undefined} />;
       case TestType.PPDT:
-        return <PPDTTest onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} />;
+        return (
+          <PPDTTest 
+            onSave={handleTestComplete} 
+            isAdmin={isUserAdmin(userEmail)} 
+            userId={user || undefined}
+            isGuest={!user}
+            onLoginRedirect={() => setActiveTest(TestType.LOGIN)}
+            onConsumeCoins={handleConsumeCoins}
+          />
+        );
       case TestType.TAT:
-        return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} />;
+        return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleConsumeCoins} />;
       case TestType.WAT:
-        return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} />;
+        return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleConsumeCoins} />;
       case TestType.SRT:
-        return <PsychologyTest type={TestType.SRT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} />;
+        return <PsychologyTest type={TestType.SRT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleConsumeCoins} />;
       case TestType.SDT:
-        return <PsychologyTest type={TestType.SDT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} />;
+        return <PsychologyTest type={TestType.SDT} onSave={handleTestComplete} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleConsumeCoins} />;
       case TestType.INTERVIEW:
         return (
           <Interview 

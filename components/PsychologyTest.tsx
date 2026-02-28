@@ -387,6 +387,17 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
     setPhase(PsychologyPhase.PREPARING_STIMULI);
     
     try {
+      // Deduct coins for custom practice
+      if (userId && !isGuest && (useCustomTat || useCustomWat || useCustomSrt)) {
+          if (onConsumeCoins) {
+              const success = await onConsumeCoins(10);
+              if (!success) {
+                  setPhase(PsychologyPhase.SET_SELECTION);
+                  return;
+              }
+          }
+      }
+
       let finalItems: any[] = [];
       let usageCount = 0;
       
