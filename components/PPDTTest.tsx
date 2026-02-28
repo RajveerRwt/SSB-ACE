@@ -156,7 +156,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   }, [step]);
 
   useEffect(() => {
-    if (step !== PPDTStep.IDLE && step !== PPDTStep.SET_SELECTION) return;
+    if (isGuest || step !== PPDTStep.IDLE) return;
     
     const fetchSets = async () => {
         setIsLoading(true);
@@ -177,15 +177,6 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                 count: sets[name].length,
                 items: sets[name]
             })).filter(s => s.count > 0);
-
-            // Ensure 'Trial' sets come first
-            setList.sort((a, b) => {
-                const aTrial = a.name.toLowerCase().includes('trial');
-                const bTrial = b.name.toLowerCase().includes('trial');
-                if (aTrial && !bTrial) return -1;
-                if (!aTrial && bTrial) return 1;
-                return 0;
-            });
             
             setAvailableSets(setList);
         } catch (e) {
@@ -200,8 +191,28 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
 
   const handleStandardStart = async () => {
     setIsDirectEvaluation(false);
-    setCustomStimulus(null);
-    setStep(PPDTStep.SET_SELECTION);
+    if (isGuest) {
+        setCustomStimulus(null);
+        handleShowInstructions();
+        return;
+    }
+
+    if (!userId) {
+        setCustomStimulus(null);
+        handleShowInstructions();
+        return;
+    }
+    
+    setVerifyingLimit(true);
+    const { allowed, message } = await checkLimit(userId, 'PPDT');
+    setVerifyingLimit(false);
+    
+    if (allowed) {
+        setCustomStimulus(null);
+        setStep(PPDTStep.SET_SELECTION);
+    } else {
+        alert(message);
+    }
   };
 
   const handleCustomUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -497,60 +508,25 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
 
       case PPDTStep.IDLE:
         return (
-          <div className="max-w-4xl mx-auto py-12 md:py-16 space-y-8 md:space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-500">
-             <div className="text-center space-y-4">
-               <div className="w-20 h-20 bg-slate-900 text-yellow-400 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl rotate-3 border-4 border-slate-50">
-                 <SSBLogo className="w-10 h-10" />
-               </div>
-               <h3 className="text-3xl md:text-5xl font-black text-slate-900 uppercase tracking-tighter">PPDT Protocol</h3>
-               <div className="flex justify-center gap-3">
-                   <span className="text-slate-500 font-bold uppercase tracking-widest text-xs">Stage 1 Screening Procedure</span>
-               </div>
-             </div>
+          <div className="max-w-4xl mx-auto text-center py-20 md:py-28 space-y-12 animate-in fade-in zoom-in duration-500">
+            <div className="w-24 h-24 md:w-32 md:h-32 bg-slate-900 text-yellow-400 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-2xl rotate-3 border-8 border-slate-50 ring-4 ring-slate-100">
+              <SSBLogo className="w-12 h-12 md:w-16 md:h-16" />
+            </div>
+            
+            <div className="space-y-4">
+               <h3 className="text-4xl md:text-6xl font-black text-slate-900 uppercase tracking-tighter">PPDT Simulation</h3>
+               <p className="text-slate-500 text-lg md:text-2xl font-medium italic max-w-lg mx-auto leading-relaxed">
+                 "Your perception defines your reality. Observe, Analyze, and Lead."
+               </p>
+            </div>
 
-             <div className="grid md:grid-cols-2 gap-6">
-                {[
-                  { time: '30s', title: 'Picture Perception', desc: 'Observe the image details carefully.', icon: Eye, color: 'text-blue-600' },
-                  { time: '1m', title: 'Character Marking', desc: 'Note Age, Sex, Mood & Position in box.', icon: PenTool, color: 'text-purple-600' },
-                  { time: '4m', title: 'Story Writing', desc: 'Write Action, Hero details & Outcome.', icon: BookOpen, color: 'text-slate-900' },
-                  { time: '1m', title: 'Narration', desc: 'Narrate your story clearly.', icon: Volume2, color: 'text-green-600' }
-                ].map((item, i) => (
-                  <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl flex items-center gap-6">
-                     <div className={`w-16 h-16 rounded-2xl bg-slate-50 flex flex-col items-center justify-center shrink-0 border border-slate-100 ${item.color}`}>
-                        <item.icon size={24} />
-                        <span className="text-[10px] font-black uppercase mt-1">{item.time}</span>
-                     </div>
-                     <div>
-                       <h4 className="font-black text-slate-900 uppercase text-sm tracking-wide">{item.title}</h4>
-                       <p className="text-slate-500 text-xs font-medium leading-relaxed">{item.desc}</p>
-                     </div>
-                  </div>
-                ))}
-             </div>
-
-             <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-8 opacity-10">
-                    <SSBLogo className="w-32 h-32" />
-                </div>
-                <h4 className="text-lg font-black uppercase tracking-widest mb-6 flex items-center gap-3">
-                    <Target className="text-yellow-400" /> Pro Tips for Success
-                </h4>
-                <div className="grid md:grid-cols-2 gap-4">
-                    {PPDT_TIPS.map((tip, idx) => (
-                        <div key={idx} className="flex items-start gap-3 text-xs font-medium text-slate-300">
-                            <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 mt-1.5 shrink-0" />
-                            {tip}
-                        </div>
-                    ))}
-                </div>
-             </div>
-
-             <div className="flex justify-center pt-8">
+            <div className="flex justify-center pt-8">
                 <button 
                     onClick={handleStandardStart}
+                    disabled={verifyingLimit}
                     className="bg-slate-900 text-white px-16 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-6 mx-auto"
                 >
-                    <ShieldCheck size={24} />
+                    {verifyingLimit ? <Loader2 className="animate-spin" /> : <ShieldCheck size={24} />}
                     Begin Test
                 </button>
             </div>
@@ -573,46 +549,30 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* Custom Mode Card */}
               <div 
-                onClick={() => {
-                    if (isGuest) {
-                        onLoginRedirect?.();
-                        return;
-                    }
-                    setShowCustomOptions(true);
-                }}
-                className={`group p-8 rounded-[3rem] border-4 shadow-xl transition-all cursor-pointer flex flex-col items-center justify-center text-center space-y-4 relative overflow-hidden ${isGuest ? 'bg-slate-100 border-slate-200 grayscale opacity-80' : 'bg-blue-600 border-blue-500 hover:shadow-2xl hover:scale-[1.02]'}`}
+                className="group bg-blue-600 p-8 rounded-[3rem] border-4 border-blue-500 shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all cursor-pointer flex flex-col items-center justify-center text-center space-y-4 relative overflow-hidden"
               >
                 <div className="absolute top-0 right-0 p-6 opacity-10">
-                    {isGuest ? <Lock size={100} className="text-slate-400" /> : <Edit3 size={100} className="text-white" />}
+                    <Edit3 size={100} className="text-white" />
                 </div>
                 {!showCustomOptions ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center space-y-4">
-                    <div className={`p-4 backdrop-blur-md rounded-2xl shadow-sm transition-colors relative z-10 ${isGuest ? 'bg-slate-200 text-slate-400' : 'bg-white/20 text-white group-hover:bg-white/30'}`}>
-                      {isGuest ? <Lock size={32} /> : <Upload size={32} />}
+                  <div onClick={() => setShowCustomOptions(true)} className="w-full h-full flex flex-col items-center justify-center space-y-4">
+                    <div className="p-4 bg-white/20 backdrop-blur-md rounded-2xl shadow-sm text-white group-hover:bg-white/30 transition-colors relative z-10">
+                      <Upload size={32} />
                     </div>
                     <div className="relative z-10">
-                      <h3 className={`text-xl font-black uppercase tracking-tight ${isGuest ? 'text-slate-500' : 'text-white'}`}>Custom Upload</h3>
-                      <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isGuest ? 'text-slate-400' : 'text-blue-100'}`}>
-                        {isGuest ? 'Login to Unlock' : 'Practice or Direct Evaluation'}
-                      </p>
+                      <h3 className="text-xl font-black text-white uppercase tracking-tight">Custom Upload</h3>
+                      <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mt-1">Practice or Direct Evaluation</p>
                     </div>
-                    {!isGuest && (
-                        <div className="pt-2 relative z-10">
-                            <span className="px-4 py-1.5 bg-white text-blue-600 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
-                                Pro Feature
-                            </span>
-                        </div>
-                    )}
+                    <div className="pt-2 relative z-10">
+                        <span className="px-4 py-1.5 bg-white text-blue-600 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
+                            Pro Feature
+                        </span>
+                    </div>
                   </div>
                 ) : (
                   <div className="relative z-10 w-full space-y-4 animate-in fade-in zoom-in duration-300">
                     <button 
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (onConsumeCoins) {
-                            const success = await onConsumeCoins(10);
-                            if (!success) return;
-                        }
+                      onClick={() => {
                         setCustomMode('practice');
                         setStep(PPDTStep.CUSTOM_PREP);
                       }}
@@ -621,12 +581,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                       Practice Mode
                     </button>
                     <button 
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (onConsumeCoins) {
-                            const success = await onConsumeCoins(10);
-                            if (!success) return;
-                        }
+                      onClick={() => {
                         setCustomMode('evaluation');
                         setStep(PPDTStep.CUSTOM_PREP);
                       }}
@@ -635,10 +590,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                       Direct Evaluation
                     </button>
                     <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowCustomOptions(false);
-                      }}
+                      onClick={() => setShowCustomOptions(false)}
                       className="w-full py-2 text-white/60 font-black uppercase text-[10px] tracking-widest hover:text-white transition-colors"
                     >
                       Cancel
@@ -647,61 +599,41 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                 )}
               </div>
 
-              {availableSets.map((set, idx) => {
-                const isTrialSet = idx === 0 || set.name.toLowerCase().includes('trial');
-                const isLocked = isGuest && !isTrialSet;
-                const displayName = (isGuest && isTrialSet) ? "Free Trial Set" : set.name;
-
-                return (
-                  <div 
-                    key={idx}
-                    onClick={async () => {
-                        if (isLocked) {
-                            onLoginRedirect?.();
-                            return;
-                        }
-                        if (onConsumeCoins && !isGuest) {
-                            const success = await onConsumeCoins(TEST_RATES.PPDT);
-                            if (!success) return;
-                        }
-                        setActiveSetName(set.name);
-                        setSelectedScenario(set);
-                        startTestSequence(set);
-                    }}
-                    className={`group p-8 rounded-[3rem] border-2 shadow-xl transition-all cursor-pointer relative overflow-hidden ${isLocked ? 'bg-slate-50 border-slate-100 grayscale-[0.5] opacity-80' : 'bg-white border-slate-100 hover:shadow-2xl hover:border-blue-400'}`}
-                  >
-                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                      {isLocked ? <Lock size={80} /> : <ImageIcon size={80} />}
+              {availableSets.map((set, idx) => (
+                <div 
+                  key={idx}
+                  onClick={() => {
+                      setActiveSetName(set.name);
+                      handleShowInstructions();
+                      setSelectedScenario(set);
+                  }}
+                  className="group bg-white p-8 rounded-[3rem] border-2 border-slate-100 shadow-xl hover:shadow-2xl hover:border-blue-400 transition-all cursor-pointer relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <ImageIcon size={80} />
+                  </div>
+                  <div className="relative z-10 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div className="p-3 bg-slate-900 text-yellow-400 rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
+                        <BookOpen size={24} />
+                      </div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Set #{idx + 1}</span>
                     </div>
-                    <div className="relative z-10 space-y-4">
-                      <div className="flex justify-between items-start">
-                        <div className={`p-3 rounded-2xl shadow-lg transition-transform ${isLocked ? 'bg-slate-200 text-slate-400' : 'bg-slate-900 text-yellow-400 group-hover:scale-110'}`}>
-                          {isLocked ? <Lock size={24} /> : <BookOpen size={24} />}
-                        </div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            {isLocked ? 'Locked' : (isGuest && isTrialSet ? 'Free Access' : `Set #${idx + 1}`)}
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className={`text-2xl font-black uppercase tracking-tight transition-colors ${isLocked ? 'text-slate-400' : 'text-slate-900 group-hover:text-blue-600'}`}>
-                            {displayName}
-                        </h3>
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
-                            {isLocked ? 'Login to Unlock' : `${set.count} Scenarios`}
-                        </p>
-                      </div>
-                      <div className="pt-4 flex items-center justify-between">
-                        <span className={`text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isLocked ? 'text-slate-300' : 'text-slate-900'}`}>
-                          {isLocked ? 'Premium Set' : 'Start Now'} {!isLocked && <FastForward size={14} className="text-blue-600" />}
-                        </span>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isLocked ? 'bg-slate-100' : 'bg-slate-50 group-hover:bg-blue-50'}`}>
-                          {isLocked ? <Lock size={16} className="text-slate-300" /> : <ChevronDown className="text-slate-300 group-hover:text-blue-600 -rotate-90" size={16} />}
-                        </div>
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight group-hover:text-blue-600 transition-colors">{set.name}</h3>
+                      <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">{set.count} Scenarios</p>
+                    </div>
+                    <div className="pt-4 flex items-center justify-between">
+                      <span className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                        Start Now <FastForward size={14} className="text-blue-600" />
+                      </span>
+                      <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+                        <ChevronDown className="text-slate-300 group-hover:text-blue-600 -rotate-90" size={16} />
                       </div>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
             
             <div className="mt-12 text-center">
@@ -761,8 +693,14 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                         Back
                     </button>
                     <button 
-                        onClick={() => {
-                            if (customMode === 'practice') startTestSequence();
+                        onClick={async () => {
+                            // Deduct coins for custom upload
+                            if (onConsumeCoins) {
+                                const success = await onConsumeCoins(10);
+                                if (!success) return;
+                            }
+
+                            if (customMode === 'practice') handleShowInstructions();
                             else {
                                 setIsDirectEvaluation(true);
                                 setCurrentImageUrl(customStimulus || '');

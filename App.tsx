@@ -428,7 +428,7 @@ const App: React.FC = () => {
          return;
      }
 
-     if ((test === TestType.INTERVIEW || test === TestType.TAT) && user) {
+     if ((test === TestType.INTERVIEW || test === TestType.PPDT || test === TestType.TAT) && user) {
         const { allowed, message } = await checkLimit(user, test);
         if (!allowed) {
             alert(message);
