@@ -191,28 +191,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
 
   const handleStandardStart = async () => {
     setIsDirectEvaluation(false);
-    if (isGuest) {
-        setCustomStimulus(null);
-        handleShowInstructions();
-        return;
-    }
-
-    if (!userId) {
-        setCustomStimulus(null);
-        handleShowInstructions();
-        return;
-    }
-    
-    setVerifyingLimit(true);
-    const { allowed, message } = await checkLimit(userId, 'PPDT');
-    setVerifyingLimit(false);
-    
-    if (allowed) {
-        setCustomStimulus(null);
-        setStep(PPDTStep.SET_SELECTION);
-    } else {
-        alert(message);
-    }
+    setCustomStimulus(null);
+    setStep(PPDTStep.SET_SELECTION);
   };
 
   const handleCustomUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -508,25 +488,60 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
 
       case PPDTStep.IDLE:
         return (
-          <div className="max-w-4xl mx-auto text-center py-20 md:py-28 space-y-12 animate-in fade-in zoom-in duration-500">
-            <div className="w-24 h-24 md:w-32 md:h-32 bg-slate-900 text-yellow-400 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-2xl rotate-3 border-8 border-slate-50 ring-4 ring-slate-100">
-              <SSBLogo className="w-12 h-12 md:w-16 md:h-16" />
-            </div>
-            
-            <div className="space-y-4">
-               <h3 className="text-4xl md:text-6xl font-black text-slate-900 uppercase tracking-tighter">PPDT Simulation</h3>
-               <p className="text-slate-500 text-lg md:text-2xl font-medium italic max-w-lg mx-auto leading-relaxed">
-                 "Your perception defines your reality. Observe, Analyze, and Lead."
-               </p>
-            </div>
+          <div className="max-w-4xl mx-auto py-12 md:py-16 space-y-8 md:space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-500">
+             <div className="text-center space-y-4">
+               <div className="w-20 h-20 bg-slate-900 text-yellow-400 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl rotate-3 border-4 border-slate-50">
+                 <SSBLogo className="w-10 h-10" />
+               </div>
+               <h3 className="text-3xl md:text-5xl font-black text-slate-900 uppercase tracking-tighter">PPDT Protocol</h3>
+               <div className="flex justify-center gap-3">
+                   <span className="text-slate-500 font-bold uppercase tracking-widest text-xs">Stage 1 Screening Procedure</span>
+               </div>
+             </div>
 
-            <div className="flex justify-center pt-8">
+             <div className="grid md:grid-cols-2 gap-6">
+                {[
+                  { time: '30s', title: 'Picture Perception', desc: 'Observe the image details carefully.', icon: Eye, color: 'text-blue-600' },
+                  { time: '1m', title: 'Character Marking', desc: 'Note Age, Sex, Mood & Position in box.', icon: PenTool, color: 'text-purple-600' },
+                  { time: '4m', title: 'Story Writing', desc: 'Write Action, Hero details & Outcome.', icon: BookOpen, color: 'text-slate-900' },
+                  { time: '1m', title: 'Narration', desc: 'Narrate your story clearly.', icon: Volume2, color: 'text-green-600' }
+                ].map((item, i) => (
+                  <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl flex items-center gap-6">
+                     <div className={`w-16 h-16 rounded-2xl bg-slate-50 flex flex-col items-center justify-center shrink-0 border border-slate-100 ${item.color}`}>
+                        <item.icon size={24} />
+                        <span className="text-[10px] font-black uppercase mt-1">{item.time}</span>
+                     </div>
+                     <div>
+                       <h4 className="font-black text-slate-900 uppercase text-sm tracking-wide">{item.title}</h4>
+                       <p className="text-slate-500 text-xs font-medium leading-relaxed">{item.desc}</p>
+                     </div>
+                  </div>
+                ))}
+             </div>
+
+             <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-10">
+                    <SSBLogo className="w-32 h-32" />
+                </div>
+                <h4 className="text-lg font-black uppercase tracking-widest mb-6 flex items-center gap-3">
+                    <Target className="text-yellow-400" /> Pro Tips for Success
+                </h4>
+                <div className="grid md:grid-cols-2 gap-4">
+                    {PPDT_TIPS.map((tip, idx) => (
+                        <div key={idx} className="flex items-start gap-3 text-xs font-medium text-slate-300">
+                            <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 mt-1.5 shrink-0" />
+                            {tip}
+                        </div>
+                    ))}
+                </div>
+             </div>
+
+             <div className="flex justify-center pt-8">
                 <button 
                     onClick={handleStandardStart}
-                    disabled={verifyingLimit}
                     className="bg-slate-900 text-white px-16 py-6 rounded-full font-black text-lg hover:bg-black transition-all shadow-2xl uppercase tracking-widest flex items-center justify-center gap-6 mx-auto"
                 >
-                    {verifyingLimit ? <Loader2 className="animate-spin" /> : <ShieldCheck size={24} />}
+                    <ShieldCheck size={24} />
                     Begin Test
                 </button>
             </div>
@@ -572,7 +587,11 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                 ) : (
                   <div className="relative z-10 w-full space-y-4 animate-in fade-in zoom-in duration-300">
                     <button 
-                      onClick={() => {
+                      onClick={async () => {
+                        if (onConsumeCoins) {
+                            const success = await onConsumeCoins(10);
+                            if (!success) return;
+                        }
                         setCustomMode('practice');
                         setStep(PPDTStep.CUSTOM_PREP);
                       }}
@@ -581,7 +600,11 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                       Practice Mode
                     </button>
                     <button 
-                      onClick={() => {
+                      onClick={async () => {
+                        if (onConsumeCoins) {
+                            const success = await onConsumeCoins(10);
+                            if (!success) return;
+                        }
                         setCustomMode('evaluation');
                         setStep(PPDTStep.CUSTOM_PREP);
                       }}
@@ -602,10 +625,14 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
               {availableSets.map((set, idx) => (
                 <div 
                   key={idx}
-                  onClick={() => {
+                  onClick={async () => {
+                      if (onConsumeCoins) {
+                          const success = await onConsumeCoins(TEST_RATES.PPDT);
+                          if (!success) return;
+                      }
                       setActiveSetName(set.name);
-                      handleShowInstructions();
                       setSelectedScenario(set);
+                      startTestSequence(set);
                   }}
                   className="group bg-white p-8 rounded-[3rem] border-2 border-slate-100 shadow-xl hover:shadow-2xl hover:border-blue-400 transition-all cursor-pointer relative overflow-hidden"
                 >
@@ -693,14 +720,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                         Back
                     </button>
                     <button 
-                        onClick={async () => {
-                            // Deduct coins for custom upload
-                            if (onConsumeCoins) {
-                                const success = await onConsumeCoins(10);
-                                if (!success) return;
-                            }
-
-                            if (customMode === 'practice') handleShowInstructions();
+                        onClick={() => {
+                            if (customMode === 'practice') startTestSequence();
                             else {
                                 setIsDirectEvaluation(true);
                                 setCurrentImageUrl(customStimulus || '');
