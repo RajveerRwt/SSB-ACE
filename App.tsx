@@ -399,7 +399,12 @@ const App: React.FC = () => {
   const handleLogin = (uid: string, email?: string) => {
     setUser(uid);
     setUserEmail(email || '');
-    setActiveTest(TestType.DASHBOARD);
+    // Only redirect to dashboard if we were on login page specifically.
+    // If we were on a protected page (like ASSESSMENTS) that rendered the Login component,
+    // activeTest will be that page, so we stay there.
+    if (activeTest === TestType.LOGIN) {
+      setActiveTest(TestType.DASHBOARD);
+    }
     getUserData(uid).then(d => d && setPiqData(d));
   };
 
