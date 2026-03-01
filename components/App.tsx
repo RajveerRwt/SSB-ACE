@@ -226,8 +226,7 @@ const Dashboard: React.FC<{
              </div>
              <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Master Your SSB Preparation<br/><span className="text-yellow-400">with India's most Advanced AI</span></h1>
              <p className="text-slate-300 text-sm md:text-lg leading-relaxed font-medium opacity-90 max-w-2xl">
-               Practice exactly like real SSB with full detailed and personalised assessment. Use Coins to unlock tests.
-             </p>
+               Practice exactly like real SSB with full detailed and personalised assessment.
              
              {isLoggedIn ? (
                <div className="flex flex-wrap gap-4 pt-4">
