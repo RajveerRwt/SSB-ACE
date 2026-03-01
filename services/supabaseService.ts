@@ -355,7 +355,7 @@ export const getUserHistory = async (userId: string) => {
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(100);
+    .limit(10);
     
   return data?.map((item: any) => ({
       id: item.id,
