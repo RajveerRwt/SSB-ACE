@@ -23,8 +23,8 @@ const Assessments: React.FC<AssessmentsProps> = ({ userId, onRetry }) => {
           getNewPendingAssessments(userId),
           getNewCompletedAssessments(userId)
         ]);
-        setPending(pendingData);
-        setCompleted(completedData);
+        setPending(pendingData || []);
+        setCompleted(completedData || []);
       } catch (error) {
         console.error("Error fetching assessments:", error);
       } finally {
@@ -200,18 +200,19 @@ const Assessments: React.FC<AssessmentsProps> = ({ userId, onRetry }) => {
       ) : (
         <div className="grid gap-4">
           {/* Group by test type for "test-wise" display */}
-          {Array.from(new Set(completed.map(c => c.test_type))).map(type => {
+          {Array.from(new Set(completed.map(c => c.test_type))).filter(Boolean).map(type => {
             const lastAttempt = completed.find(c => c.test_type === type);
+            if (!lastAttempt) return null;
             return (
               <div key={type} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center font-black">
-                    {type.substring(0, 2).toUpperCase()}
+                    {String(type).substring(0, 2).toUpperCase()}
                   </div>
                   <div>
                     <h4 className="font-black text-slate-900 uppercase tracking-tight">{type}</h4>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                      Last Attempt: {new Date(lastAttempt.created_at).toLocaleDateString()}
+                      Last Attempt: {lastAttempt.created_at ? new Date(lastAttempt.created_at).toLocaleDateString() : 'N/A'}
                     </p>
                   </div>
                 </div>
