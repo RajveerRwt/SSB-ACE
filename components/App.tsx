@@ -240,9 +240,9 @@ const Dashboard: React.FC<{
                  
                  <button 
                     onClick={() => onStartTest(TestType.DAILY_PRACTICE)}
-                    className="flex-1 md:flex-none px-8 md:px-12 py-4 md:py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] md:text-[12px] hover:bg-emerald-600 hover:scale-105 transition-all shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3"
+                    className="flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 bg-blue-600/20 text-blue-300 border border-blue-500/30 backdrop-blur-sm rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-[11px] hover:bg-blue-600/40 transition-all flex items-center justify-center gap-3"
                  >
-                    <Zap size={18} className="fill-current" /> Start Free Practice Now
+                    <Clock size={16} /> Daily Practice (Free)
                  </button>
                </div>
              ) : (
