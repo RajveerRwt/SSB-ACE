@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { getNewPendingAssessments, getNewCompletedAssessments, deleteNewPendingAssessment, updateNewCompletedAssessment } from '../services/supabaseService';
 import { evaluatePerformance } from '../services/geminiService';
 import { Clock, CheckCircle, RotateCcw, Loader2, ChevronRight, FileText, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
+import ReportModal from './ReportModal';
 
 interface AssessmentsProps {
   userId: string;
@@ -14,6 +15,8 @@ const Assessments: React.FC<AssessmentsProps> = ({ userId, onRetry }) => {
   const [pending, setPending] = useState<any[]>([]);
   const [completed, setCompleted] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [isReportOpen, setIsReportOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -75,6 +78,11 @@ const Assessments: React.FC<AssessmentsProps> = ({ userId, onRetry }) => {
     }
   };
 
+  const handleViewReport = (item: any) => {
+    setSelectedReport(item);
+    setIsReportOpen(true);
+  };
+
   const renderCompleted = () => {
     const grouped = completed.reduce((acc: any, item: any) => {
       if (!acc[item.test_type]) acc[item.test_type] = [];
@@ -118,7 +126,10 @@ const Assessments: React.FC<AssessmentsProps> = ({ userId, onRetry }) => {
                         <Loader2 size={12} className="animate-spin" /> Processing
                       </div>
                     ) : (
-                      <button className="px-4 py-2 bg-slate-50 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all">
+                      <button 
+                        onClick={() => handleViewReport(item)}
+                        className="px-4 py-2 bg-slate-50 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all"
+                      >
                         View Report
                       </button>
                     )}
@@ -273,6 +284,15 @@ const Assessments: React.FC<AssessmentsProps> = ({ userId, onRetry }) => {
           {activeTab === 'pending' && renderPending()}
           {activeTab === 'retry' && renderRetry()}
         </div>
+      )}
+
+      {selectedReport && (
+        <ReportModal 
+          isOpen={isReportOpen}
+          onClose={() => setIsReportOpen(false)}
+          data={selectedReport}
+          testType={selectedReport.test_type}
+        />
       )}
 
       <div className="bg-blue-50 border border-blue-100 rounded-3xl p-6 flex items-start gap-4">
