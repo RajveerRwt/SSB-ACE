@@ -74,3 +74,33 @@ alter table public.test_history enable row level security;
 create policy "Users can read their own history" on public.test_history for select using (auth.uid() = user_id);
 create policy "Users can insert their own history" on public.test_history for insert with check (auth.uid() = user_id);
 create policy "Users can update their own history" on public.test_history for update using (auth.uid() = user_id);
+
+-- PENDING ASSESSMENTS
+create table if not exists public.pending_assessments (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid not null,
+  test_type text not null,
+  original_data jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.pending_assessments enable row level security;
+create policy "Users can read their own pending assessments" on public.pending_assessments for select using (auth.uid() = user_id);
+create policy "Users can insert their own pending assessments" on public.pending_assessments for insert with check (auth.uid() = user_id);
+create policy "Users can delete their own pending assessments" on public.pending_assessments for delete using (auth.uid() = user_id);
+
+-- COMPLETED ASSESSMENTS
+create table if not exists public.completed_assessments (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid not null,
+  test_type text not null,
+  score float default 0,
+  result_data jsonb,
+  feedback text,
+  status text default 'completed', -- 'completed', 'processing', 'failed'
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.completed_assessments enable row level security;
+create policy "Users can read their own completed assessments" on public.completed_assessments for select using (auth.uid() = user_id);
+create policy "Users can insert their own completed assessments" on public.completed_assessments for insert with check (auth.uid() = user_id);

@@ -20,6 +20,7 @@ import LecturetteTest from './LecturetteTest';
 import OIRTest from './OIRTest';
 import { GPETest } from './GPETest';
 import Footer from './Footer';
+import ReportModal from './ReportModal';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES } from '../services/supabaseService';
 import { evaluatePerformance } from '../services/geminiService';
@@ -79,6 +80,7 @@ const Dashboard: React.FC<{
   const [showFullHistory, setShowFullHistory] = useState(false);
   const [isEarlyRiser, setIsEarlyRiser] = useState(false);
   const [showFreeCoinPopup, setShowFreeCoinPopup] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<any>(null);
   
   const [stats, setStats] = useState({
       ppdtAvg: 0,
@@ -451,17 +453,27 @@ const Dashboard: React.FC<{
                                         <p className="text-[9px] text-slate-400 font-bold">{new Date(h.timestamp).toLocaleDateString()}</p>
                                     </div>
                                     </div>
-                                    <div className="text-right flex md:block w-full md:w-auto justify-between items-center">
-                                    <p className="text-xs font-black text-slate-900">
-                                        {h.status === 'pending' ? (
-                                            <span className="flex items-center gap-1 text-blue-600 animate-pulse">
-                                                <Loader2 size={10} className="animate-spin" /> Processing...
-                                            </span>
-                                        ) : `Score: ${h.score}`}
-                                    </p>
-                                    <p className={`text-[9px] font-bold uppercase tracking-widest ${h.status === 'pending' ? 'text-blue-500' : 'text-green-600'}`}>
-                                        {h.status === 'pending' ? 'In Queue' : 'Logged'}
-                                    </p>
+                                    <div className="text-right flex md:block w-full md:w-auto justify-between items-center gap-4">
+                                    <div>
+                                      <p className="text-xs font-black text-slate-900">
+                                          {h.status === 'pending' ? (
+                                              <span className="flex items-center gap-1 text-blue-600 animate-pulse">
+                                                  <Loader2 size={10} className="animate-spin" /> Processing...
+                                              </span>
+                                          ) : `Score: ${h.score}`}
+                                      </p>
+                                      <p className={`text-[9px] font-bold uppercase tracking-widest ${h.status === 'pending' ? 'text-blue-500' : 'text-green-600'}`}>
+                                          {h.status === 'pending' ? 'In Queue' : 'Logged'}
+                                      </p>
+                                    </div>
+                                    {h.status !== 'pending' && (
+                                      <button 
+                                        onClick={() => setSelectedReport(h)}
+                                        className="px-3 py-1.5 bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-slate-300 transition-colors"
+                                      >
+                                        View Report
+                                      </button>
+                                    )}
                                     </div>
                                 </div>
                             ))
@@ -609,6 +621,16 @@ const Dashboard: React.FC<{
         isOpen={showFreeCoinPopup} 
         onClose={() => setShowFreeCoinPopup(false)} 
       />
+
+      {/* REPORT MODAL */}
+      {selectedReport && (
+        <ReportModal 
+          isOpen={!!selectedReport} 
+          onClose={() => setSelectedReport(null)} 
+          data={{ ...selectedReport.result, id: selectedReport.id }} 
+          testType={selectedReport.type} 
+        />
+      )}
     </div>
   );
 };
@@ -696,6 +718,7 @@ const App: React.FC = () => {
   const handleUserAuthenticated = async (u: any) => {
       setUser(u.id);
       setUserEmail(u.email || '');
+      syncUserProfile(u);
       getUserData(u.id).then((d: any) => d && setPiqData(d));
       getUserSubscription(u.id).then((sub: any) => setSubscription(sub));
       const hasSeenWelcome = localStorage.getItem(`ssb_welcome_seen_${u.id}`);

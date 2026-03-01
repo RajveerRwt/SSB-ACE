@@ -161,6 +161,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
   // Updated Navigation Order based on user request
   const navItems = [
     { id: TestType.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
+    { id: TestType.ASSESSMENTS, label: 'Assessment Center', icon: ClipboardList },
     { id: TestType.GUIDE, label: 'Platform Guide (SOP)', icon: BookOpenCheck },
     { id: TestType.STAGES, label: 'SSB Journey', icon: Map },
     { id: TestType.DAILY_PRACTICE, label: 'Daily Practice', icon: Clock },

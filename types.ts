@@ -21,6 +21,7 @@ export enum TestType {
   STAGES = 'STAGES',
   AI_BOT = 'AI_BOT',
   ADMIN = 'ADMIN',
+  ASSESSMENTS = 'ASSESSMENTS',
   TERMS = 'TERMS',
   PRIVACY = 'PRIVACY',
   REFUND = 'REFUND'

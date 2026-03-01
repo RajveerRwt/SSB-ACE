@@ -802,3 +802,88 @@ export const getAllFeedback = async () => {
 };
 
 export const deleteFeedback = async (id: string) => { await supabase.from('user_feedback').delete().eq('id', id); };
+
+// --- NEW ASSESSMENT SECTION FUNCTIONS ---
+export const getNewPendingAssessments = async (userId: string) => {
+    const { data, error } = await supabase
+        .from('pending_assessments')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+    
+    if (error) {
+        console.error("Error fetching new pending assessments:", error);
+        return [];
+    }
+    return data;
+};
+
+export const getNewCompletedAssessments = async (userId: string) => {
+    const { data, error } = await supabase
+        .from('completed_assessments')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+    
+    if (error) {
+        console.error("Error fetching new completed assessments:", error);
+        return [];
+    }
+    return data;
+};
+
+export const saveNewPendingAssessment = async (userId: string, testType: string, originalData: any) => {
+    const { data, error } = await supabase
+        .from('pending_assessments')
+        .insert({
+            user_id: userId,
+            test_type: testType,
+            original_data: originalData
+        })
+        .select()
+        .single();
+    
+    if (error) console.error("Error saving new pending assessment:", error);
+    return data;
+};
+
+export const saveNewCompletedAssessment = async (userId: string, testType: string, score: number, resultData: any, feedback?: string, status: 'completed' | 'processing' | 'failed' = 'completed') => {
+    const { data, error } = await supabase
+        .from('completed_assessments')
+        .insert({
+            user_id: userId,
+            test_type: testType,
+            score,
+            result_data: resultData,
+            feedback,
+            status
+        })
+        .select()
+        .single();
+    
+    if (error) console.error("Error saving new completed assessment:", error);
+    return data;
+};
+
+export const updateNewCompletedAssessment = async (id: string, score: number, resultData: any, feedback?: string, status: 'completed' | 'failed' = 'completed') => {
+    const { error } = await supabase
+        .from('completed_assessments')
+        .update({
+            score,
+            result_data: resultData,
+            feedback,
+            status
+        })
+        .eq('id', id);
+    
+    if (error) console.error("Error updating new completed assessment:", error);
+};
+
+export const deleteNewPendingAssessment = async (id: string) => {
+    const { error } = await supabase
+        .from('pending_assessments')
+        .delete()
+        .eq('id', id);
+    
+    if (error) console.error("Error deleting new pending assessment:", error);
+};

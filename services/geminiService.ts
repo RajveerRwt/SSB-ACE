@@ -305,7 +305,10 @@ export async function evaluatePerformance(testType: string, userData: any) {
             );
             // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
-            return parsed || { ...generateErrorEvaluation(), ...userData };
+            if (!parsed) {
+                return { ...generateErrorEvaluation(), ...userData, _needs_reprocessing: true };
+            }
+            return parsed;
         }
 
         // 2. WAT / SRT EVALUATION
@@ -410,7 +413,10 @@ IMPORTANT RULES:
             );
             // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
-            return parsed || { ...generateErrorEvaluation(), ...userData };
+            if (!parsed) {
+                return { ...generateErrorEvaluation(), ...userData, _needs_reprocessing: true };
+            }
+            return parsed;
         }
 
         // 3. PPDT EVALUATION
@@ -503,7 +509,10 @@ IMPORTANT RULES:
             );
             // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
-            return parsed || { ...generateErrorEvaluation(), ...userData };
+            if (!parsed) {
+                return { ...generateErrorEvaluation(), ...userData, _needs_reprocessing: true };
+            }
+            return parsed;
         }
 
         // 4. TAT EVALUATION
@@ -571,7 +580,10 @@ IMPORTANT RULES:
             );
             // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
-            return parsed || { ...generateErrorEvaluation(), ...userData };
+            if (!parsed) {
+                return { ...generateErrorEvaluation(), ...userData, _needs_reprocessing: true };
+            }
+            return parsed;
         }
 
         // 5. SDT EVALUATION
@@ -619,16 +631,20 @@ IMPORTANT RULES:
             );
             // MERGE USERDATA ON FAILURE
             const parsed = safeJSONParse(response.text || "");
-            return parsed || { ...generateErrorEvaluation(), ...userData };
+            if (!parsed) {
+                return { ...generateErrorEvaluation(), ...userData, _needs_reprocessing: true };
+            }
+            return parsed;
         }
 
-        return generateErrorEvaluation();
+        return { ...generateErrorEvaluation(), _needs_reprocessing: true };
     } catch (e) {
         console.error("Evaluation API Error:", e);
         // CRITICAL FIX: Return inputs so they can be saved to Supabase for later retry
         return { 
             ...generateErrorEvaluation(), 
-            ...userData 
+            ...userData,
+            _needs_reprocessing: true
         };
     }
 }

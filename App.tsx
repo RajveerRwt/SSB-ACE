@@ -10,14 +10,15 @@ import ContactForm from './components/ContactForm';
 import SSBStages from './components/SSBStages';
 import SSBBot from './components/SSBBot';
 import AdminPanel from './components/AdminPanel';
+import Assessments from './components/Assessments';
 import PaymentModal from './components/PaymentModal';
 import LegalPages from './components/LegalPages';
 import OIRTest from './components/OIRTest';
 import LecturetteTest from './components/LecturetteTest';
 import DailyPractice from './components/DailyPractice';
 import { TestType, PIQData } from './types';
-import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, deductCoins, TEST_RATES } from './services/supabaseService';
-import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle } from 'lucide-react';
+import { getUserData, saveUserData, saveTestAttempt, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, checkLimit, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, deductCoins, TEST_RATES, saveNewCompletedAssessment, saveNewPendingAssessment } from './services/supabaseService';
+import { ShieldCheck, Brain, FileText, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, Cloud, History, Crown, Clock, AlertCircle, ClipboardCheck } from 'lucide-react';
 import { SSBLogo } from './components/Logo';
 
 // Dashboard Component
@@ -443,15 +444,25 @@ const App: React.FC = () => {
         return;
      }
 
+     // Save as Pending Assessment (Requirement)
+     if (user && [TestType.PPDT, TestType.TAT, TestType.WAT, TestType.SRT, TestType.SDT, TestType.INTERVIEW, TestType.OIR, TestType.LECTURETTE].includes(test)) {
+        saveNewPendingAssessment(user, test.toString(), null);
+     }
+
      setActiveTest(test);
   };
   
   const handleTestComplete = async (result: any) => {
       if (!user) return;
       
-      // Save Attempt
+      // Save Attempt (Existing)
       let typeStr = activeTest.toString();
       await saveTestAttempt(user, typeStr, result);
+      
+      // Save to New Independent Table (Requirement)
+      // If result has _needs_reprocessing, set status to 'processing'
+      const status = result._needs_reprocessing ? 'processing' : 'completed';
+      await saveNewCompletedAssessment(user, typeStr, result.score || 0, result, result.feedback, status);
       
       // Increment Usage (Limits)
       await incrementUsage(user, typeStr);
@@ -539,6 +550,16 @@ const App: React.FC = () => {
         return <SSBStages />;
       case TestType.AI_BOT:
         return <SSBBot />;
+      case TestType.ASSESSMENTS:
+        return user ? (
+          <Assessments 
+            userId={user} 
+            onRetry={(type, data) => {
+              // Logic to retry a test with original data if applicable
+              setActiveTest(type as TestType);
+            }} 
+          />
+        ) : <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.ADMIN:
         return isUserAdmin(userEmail) ? <AdminPanel /> : <Dashboard 
             onStartTest={navigateTo} 
