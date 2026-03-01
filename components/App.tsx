@@ -22,7 +22,7 @@ import { GPETest } from './GPETest';
 import Footer from './Footer';
 import Assessments from './Assessments';
 import { TestType, PIQData, UserSubscription } from '../types';
-import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES } from '../services/supabaseService';
+import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment } from '../services/supabaseService';
 import { evaluatePerformance } from '../services/geminiService';
 import FreeCoinModal from './FreeCoinModal';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, Gift } from 'lucide-react';
@@ -831,7 +831,7 @@ const App: React.FC = () => {
       case TestType.CURRENT_AFFAIRS: return <CurrentAffairs />;
       case TestType.DAILY_PRACTICE: return <DailyPractice onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.RESOURCES: return <ResourceCenter />;
-      case TestType.LECTURETTE: return <LecturetteTest onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.LECTURETTE: return <LecturetteTest onSave={handleTestComplete} onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.OIR: return <OIRTest onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onExit={() => setActiveTest(TestType.DASHBOARD)} />;
       default: return <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} />;
     }

@@ -234,11 +234,12 @@ const LECTURETTE_TOPICS = [
 
 interface LecturetteTestProps {
   onConsumeCoins?: (cost: number) => Promise<boolean>;
+  onSave?: (result: any) => void;
   isGuest?: boolean;
   onLoginRedirect?: () => void;
 }
 
-const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, isGuest = false, onLoginRedirect }) => {
+const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave, isGuest = false, onLoginRedirect }) => {
   const [selectedLecturette, setSelectedLecturette] = useState<string | null>(null);
   const [lecturetteContent, setLecturetteContent] = useState<any>(null);
   const [loadingLecturette, setLoadingLecturette] = useState(false);
@@ -498,6 +499,16 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, isGuest
       try {
           const result = await evaluateLecturette(selectedLecturette || "Topic", transcriptRef.current, speechTimer);
           setFeedback(result);
+          
+          // Save result to database
+          if (onSave && !isGuest) {
+              onSave({
+                  ...result,
+                  topic: selectedLecturette,
+                  transcript: transcriptRef.current,
+                  duration: speechTimer
+              });
+          }
       } catch (e) {
           console.error("Eval failed", e);
       } finally {

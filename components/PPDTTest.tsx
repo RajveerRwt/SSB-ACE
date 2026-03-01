@@ -69,6 +69,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   const [customMode, setCustomMode] = useState<'practice' | 'evaluation'>('practice');
   const [activeSetName, setActiveSetName] = useState('');
   const [selectedScenario, setSelectedScenario] = useState<any>(null);
+  const [pendingId, setPendingId] = useState<string | undefined>(undefined);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -472,6 +473,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
 
     setStep(PPDTStep.FINISHED);
     setIsLoading(true);
+    let currentId = pendingId;
+
     try {
       let stimulusBase64 = null;
       if (currentImageUrl) {
@@ -498,28 +501,39 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
           }
       }
 
-      const result = await evaluatePerformance('PPDT Screening Board (Stage-1)', { 
+      const originalData = { 
         story, 
         narration: finalNarration || narrationText,
         visualStimulusProvided: imageDescription,
         uploadedStoryImage: uploadedImageBase64,
         stimulusImage: stimulusBase64,
         isDirectEvaluation // Pass the flag
-      });
+      };
+
+      // Save as pending first to ensure data is recorded even if AI fails
+      if (onPendingSave && !isGuest) {
+          currentId = await onPendingSave('PPDT', originalData);
+          setPendingId(currentId);
+      }
+
+      const result = await evaluatePerformance('PPDT Screening Board (Stage-1)', originalData);
       setFeedback(result);
       
       // Pass isCustomAttempt flag to prevent usage increment in App.tsx
-      if (onSave && !isGuest) onSave({ ...result, uploadedStoryImage: uploadedImageBase64, isCustomAttempt: !!customStimulus });
+      if (onSave && !isGuest) onSave({ ...result, uploadedStoryImage: uploadedImageBase64, isCustomAttempt: !!customStimulus }, currentId);
     } catch (e) {
       console.error(e);
       // Fallback feedback on critical error
-      setFeedback({
+      const fallback = {
           score: 0,
           recommendations: "Evaluation failed due to network or server error. Please try again.",
           strengths: ["Persistence"],
           weaknesses: ["Connection Issue"],
-          scoreDetails: { perception: 0, content: 0, expression: 0 }
-      });
+          scoreDetails: { perception: 0, content: 0, expression: 0 },
+          error: true
+      };
+      setFeedback(fallback);
+      if (onSave && !isGuest) onSave(fallback, currentId);
     } finally {
       setIsLoading(false);
     }

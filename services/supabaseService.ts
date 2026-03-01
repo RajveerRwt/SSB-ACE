@@ -392,13 +392,29 @@ export const saveTestAttempt = async (userId: string, testType: string, resultDa
     .select()
     .single();
     
-    if (error) console.error("Error saving test attempt:", error);
+    if (error) {
+        console.error("Error saving test attempt:", error);
+        return null;
+    }
+
+    // --- ALSO SAVE TO NEW ASSESSMENT TABLES ---
+    try {
+        if (status === 'pending') {
+            await saveNewPendingAssessment(userId, testType, originalData);
+        } else {
+            await saveNewCompletedAssessment(userId, testType, resultData.score || 0, resultData, resultData.feedback, 'completed');
+        }
+    } catch (newTableError) {
+        console.error("Error saving to new assessment tables:", newTableError);
+    }
+    
     return data;
 };
 
 // ** NEW: Update existing test record with new analysis **
 export const updateTestAttempt = async (id: string, resultData: any, status: 'completed' | 'failed' = 'completed') => {
-    const { error } = await supabase
+    // 1. Update legacy test_history
+    const { data: updatedHistory, error } = await supabase
       .from('test_history')
       .update({
           score: resultData.score || 0,
@@ -407,9 +423,47 @@ export const updateTestAttempt = async (id: string, resultData: any, status: 'co
               _status: status
           }
       })
-      .eq('id', id);
+      .eq('id', id)
+      .select()
+      .single();
       
-    if (error) console.error("Error updating test attempt:", error);
+    if (error) {
+        console.error("Error updating test attempt:", error);
+        return;
+    }
+
+    // 2. Update NEW completed_assessments table
+    // Since we don't have a direct link between IDs, we'll just insert a new completed record
+    // if the status is completed. This ensures it shows up in the Assessment Center.
+    if (status === 'completed' && updatedHistory) {
+        try {
+            await saveNewCompletedAssessment(
+                updatedHistory.user_id, 
+                updatedHistory.test_type, 
+                resultData.score || 0, 
+                resultData, 
+                resultData.feedback, 
+                'completed'
+            );
+            
+            // Optional: Try to find and delete from pending_assessments if it exists
+            // We can try to match by user_id and test_type (most recent)
+            const { data: pending } = await supabase
+                .from('pending_assessments')
+                .select('id')
+                .eq('user_id', updatedHistory.user_id)
+                .eq('test_type', updatedHistory.test_type)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            
+            if (pending) {
+                await deleteNewPendingAssessment(pending.id);
+            }
+        } catch (newTableError) {
+            console.error("Error updating new assessment tables:", newTableError);
+        }
+    }
 };
 
 export const getPendingAssessments = async (userId: string) => {
