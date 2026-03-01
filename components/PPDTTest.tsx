@@ -76,6 +76,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   const recognitionRef = useRef<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isRecordingRef = useRef(false);
+  const narrationTextRef = useRef('');
+  const interimTextRef = useRef('');
 
   const resizeImage = (base64: string, maxWidth: number = 1024, maxHeight: number = 1024): Promise<string> => {
     return new Promise((resolve) => {
@@ -339,6 +341,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   const startNarration = () => {
     initAudio();
     setNarrationText('');
+    narrationTextRef.current = '';
+    interimTextRef.current = '';
     setTranscriptionError(null);
     setIsRecording(true);
     isRecordingRef.current = true;
@@ -361,10 +365,19 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
 
       recognition.onresult = (event: any) => {
         let finalTranscript = '';
+        let interimTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
+          else interimTranscript += event.results[i][0].transcript;
         }
-        if (finalTranscript) setNarrationText(prev => prev + (prev ? " " : "") + finalTranscript);
+        
+        if (finalTranscript) {
+          narrationTextRef.current += (narrationTextRef.current ? " " : "") + finalTranscript;
+        }
+        interimTextRef.current = interimTranscript;
+        
+        const fullText = narrationTextRef.current + (narrationTextRef.current && interimTranscript ? " " : "") + interimTranscript;
+        setNarrationText(fullText);
       };
 
       recognition.onerror = (event: any) => {
@@ -380,6 +393,9 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
       recognition.onend = () => {
         if (isRecordingRef.current) {
           try { recognition.start(); } catch(e) {}
+        } else {
+          // When recording is stopped intentionally, trigger evaluation
+          finishTest();
         }
       };
       recognition.start();
@@ -391,8 +407,11 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   const stopNarration = () => {
     isRecordingRef.current = false;
     setIsRecording(false);
-    if (recognitionRef.current) recognitionRef.current.stop();
-    finishTest();
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    } else {
+      finishTest();
+    }
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -440,12 +459,16 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   };
 
   const finishTest = async () => {
+    if (isLoading) return; // Prevent double trigger
+    
     // 1. BLOCK GUEST ON CUSTOM IMAGE
     if (isGuest && customStimulus) {
         setStep(PPDTStep.FINISHED);
         // Do not trigger AI Evaluation
         return;
     }
+
+    const finalNarration = narrationTextRef.current + (narrationTextRef.current && interimTextRef.current ? " " : "") + interimTextRef.current;
 
     setStep(PPDTStep.FINISHED);
     setIsLoading(true);
@@ -477,7 +500,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
 
       const result = await evaluatePerformance('PPDT Screening Board (Stage-1)', { 
         story, 
-        narration: narrationText,
+        narration: finalNarration || narrationText,
         visualStimulusProvided: imageDescription,
         uploadedStoryImage: uploadedImageBase64,
         stimulusImage: stimulusBase64,
