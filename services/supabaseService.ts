@@ -363,7 +363,7 @@ export const getUserHistory = async (userId: string) => {
       timestamp: item.created_at,
       score: item.score,
       result: item.result_data,
-      status: item.status || 'completed'
+      status: item.result_data?._status || 'completed'
   })) || [];
 };
 
@@ -383,9 +383,11 @@ export const saveTestAttempt = async (userId: string, testType: string, resultDa
         user_id: userId,
         test_type: testType,
         score: resultData.score || 0,
-        result_data: resultData,
-        original_data: originalData,
-        status: status
+        result_data: {
+            ...resultData,
+            _status: status,
+            _original_data: originalData
+        }
     })
     .select()
     .single();
@@ -400,8 +402,10 @@ export const updateTestAttempt = async (id: string, resultData: any, status: 'co
       .from('test_history')
       .update({
           score: resultData.score || 0,
-          result_data: resultData,
-          status: status
+          result_data: {
+              ...resultData,
+              _status: status
+          }
       })
       .eq('id', id);
       
@@ -413,13 +417,18 @@ export const getPendingAssessments = async (userId: string) => {
         .from('test_history')
         .select('*')
         .eq('user_id', userId)
-        .eq('status', 'pending');
+        .eq('result_data->>_status', 'pending');
     
     if (error) {
         console.error("Error fetching pending assessments:", error);
         return [];
     }
-    return data;
+    
+    return data.map(item => ({
+        ...item,
+        status: item.result_data?._status || 'completed',
+        original_data: item.result_data?._original_data || null
+    }));
 };
 
 export const getAllUsers = async () => {
