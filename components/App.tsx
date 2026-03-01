@@ -226,7 +226,7 @@ const Dashboard: React.FC<{
              </div>
              <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Master Your SSB Preparation<br/><span className="text-yellow-400">with India's most Advanced AI</span></h1>
              <p className="text-slate-300 text-sm md:text-lg leading-relaxed font-medium opacity-90 max-w-2xl">
-               Practice exactly like real SSB with full detailed and personalised assessment.
+               Practice exactly like real SSB with full detailed and personalised assessment.</p>
              
              {isLoggedIn ? (
                <div className="flex flex-wrap gap-4 pt-4">
@@ -240,16 +240,16 @@ const Dashboard: React.FC<{
                  
                  <button 
                     onClick={() => onStartTest(TestType.DAILY_PRACTICE)}
-                    className="flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 bg-blue-600/20 text-blue-300 border border-blue-500/30 backdrop-blur-sm rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-[11px] hover:bg-blue-600/40 transition-all flex items-center justify-center gap-3"
+                    className="flex-1 md:flex-none px-8 md:px-12 py-4 md:py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] md:text-[12px] hover:bg-emerald-600 hover:scale-105 transition-all shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3"
                  >
-                    <Clock size={16} /> Daily Challenge (Free)
+                    <Zap size={18} className="fill-current" /> Start Free Practice Now
                  </button>
                </div>
              ) : (
                <div className="pt-4 space-y-4">
                   <div className="flex flex-col md:flex-row gap-4 w-full">
-                    <button onClick={() => onStartTest(TestType.REGISTER)} className="px-8 md:px-10 py-5 bg-yellow-400 text-black rounded-2xl font-black uppercase text-xs shadow-xl shadow-yellow-400/20 hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center gap-3">
-                        <UserPlus size={16} /> Sign Up
+                    <button onClick={() => onStartTest(TestType.REGISTER)} className="px-10 md:px-14 py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-emerald-500/20 hover:bg-emerald-600 hover:scale-105 transition-all flex items-center justify-center gap-3">
+                        <Zap size={18} className="fill-current" /> Start Free Practice Now
                     </button>
                     <button onClick={() => onStartTest(TestType.LOGIN)} className="px-8 md:px-10 py-5 bg-white/5 text-white rounded-2xl font-black uppercase text-xs border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3">
                         <LogIn size={16} /> Login
