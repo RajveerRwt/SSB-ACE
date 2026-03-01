@@ -112,7 +112,7 @@ const HowToUse: React.FC<{ onNavigate: (t: TestType) => void }> = ({ onNavigate 
                <div className="space-y-2">
                   <h4 className="text-lg md:text-xl font-black text-slate-800 uppercase tracking-wide">1:1 Virtual Interview</h4>
                   <p className="text-slate-500 text-xs md:text-sm font-medium leading-relaxed">
-                     Interact with <strong>Col. Arjun Singh (Virtual IO)</strong>.
+                     Interact with <strong>Col. Arjun Singh (Virtual IO AI)</strong>.
                      <br/>- Speak clearly and confidently.
                      <br/>- Greet the officer immediately ("Good Morning Sir").
                      <br/>- Maintain eye contact with the camera.
