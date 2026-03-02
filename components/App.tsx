@@ -862,7 +862,7 @@ const App: React.FC = () => {
             }} 
           />
         ) : <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
-      case TestType.ADMIN: return isUserAdmin(userEmail) ? <AdminPanel /> : <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} />;
+      case TestType.ADMIN: return isUserAdmin(userEmail) ? <AdminPanel adminEmail={userEmail || undefined} /> : <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} />;
       case TestType.TERMS: case TestType.PRIVACY: case TestType.REFUND: return <LegalPages type={activeTest} onBack={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.GUIDE: return <HowToUse onNavigate={navigateTo} />;
       case TestType.CURRENT_AFFAIRS: return <CurrentAffairs />;

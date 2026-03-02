@@ -128,15 +128,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
     }
 
     // Robust Key Retrieval
-    let keyId = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID;
-    if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE') {
-        if (typeof process !== 'undefined' && (process as any).env) {
-            keyId = (process as any).env.RAZORPAY_KEY_ID;
-        }
-    }
-    if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE') {
-        keyId = "rzp_live_S6bUN9RquDzbeY";
-    }
+    let keyId = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || (process as any).env?.VITE_RAZORPAY_KEY_ID;
     
     if (!keyId) {
         console.error("Razorpay Key is missing.");
@@ -154,19 +146,32 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
       image: "https://ssbprep.online/logo.svg",
       handler: async function (response: any) {
         try {
-            await processRazorpayTransaction(
-                userId, 
-                response.razorpay_payment_id, 
-                finalAmount, 
-                selectedPlan, 
-                appliedCoupon,
-                coinsToCredit // Pass calculated coins explicitly
-            );
+            // CALL SERVER-SIDE VERIFICATION ENDPOINT
+            const verifyRes = await fetch("/api/payments/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_signature: response.razorpay_signature,
+                    userId,
+                    amount: finalAmount,
+                    planType: selectedPlan,
+                    coinsToCredit,
+                    couponCode: appliedCoupon
+                })
+            });
+
+            if (!verifyRes.ok) {
+                const errorData = await verifyRes.json();
+                throw new Error(errorData.error || "Verification failed");
+            }
+
             setStep('SUCCESS');
             setProcessing(false);
             onSuccess(); 
         } catch (e: any) {
-            setError("Payment successful but coin credit failed. Contact Support: " + response.razorpay_payment_id);
+            setError("Payment successful but verification failed. Contact Support: " + response.razorpay_payment_id);
             setProcessing(false);
         }
       },
