@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio, MapPin, Filter, Star, Coins, Lock, PenTool } from 'lucide-react';
 import { generateLecturette, evaluateLecturette } from '../services/geminiService';
 import { getLecturetteContent, saveLecturetteContent, TEST_RATES } from '../services/supabaseService';
@@ -301,6 +301,50 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
     return () => clearInterval(interval);
   }, [isPrepTimerRunning, lecturetteTimer]);
 
+  const handleEvaluation = useCallback(async () => {
+      setIsEvaluating(true);
+      try {
+          const result = await evaluateLecturette(selectedLecturette || "Topic", transcriptRef.current, speechTimer);
+          setFeedback(result);
+          
+          // Save result to database
+          if (onSave && !isGuest) {
+              onSave({
+                  ...result,
+                  topic: selectedLecturette,
+                  transcript: transcriptRef.current,
+                  duration: speechTimer
+              });
+          }
+      } catch (e) {
+          console.error("Eval failed", e);
+      } finally {
+          setIsEvaluating(false);
+      }
+  }, [selectedLecturette, speechTimer, onSave, isGuest]);
+
+  const stopRecording = useCallback(async () => {
+      setIsRecording(false);
+      
+      // Stop Recognition
+      if (recognitionRef.current) recognitionRef.current.stop();
+      
+      // Stop Media Recorder
+      if (mediaRecorderRef.current) {
+          mediaRecorderRef.current.stop();
+          mediaRecorderRef.current.onstop = async () => {
+              const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+              const url = URL.createObjectURL(audioBlob);
+              setAudioUrl(url);
+              
+              // Proceed to Evaluation
+              handleEvaluation();
+          };
+      } else {
+          handleEvaluation();
+      }
+  }, [handleEvaluation]);
+
   // Speech Timer Logic
   useEffect(() => {
       let interval: any;
@@ -312,12 +356,17 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
                   if (newVal === 150) {
                       playBuzzer(400, 1.0); 
                   }
+                  // AUTO STOP AT 3 MINUTES (180 seconds)
+                  if (newVal >= 180) {
+                      clearInterval(interval);
+                      stopRecording();
+                  }
                   return newVal;
               });
           }, 1000);
       }
       return () => clearInterval(interval);
-  }, [isRecording]);
+  }, [isRecording, stopRecording]);
 
   const handleLecturetteClick = async (topicData: any) => {
       // GUEST RESTRICTION LOGIC
@@ -461,58 +510,23 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
                       transcriptRef.current += finalTranscript;
                   }
               };
+              
+              recognition.onerror = (event: any) => {
+                  console.error("Speech recognition error", event.error);
+                  if (event.error === 'no-speech') {
+                      // Just ignore or log, don't stop everything
+                  }
+              };
+
               recognition.start();
           } else {
               console.warn("Speech Recognition API not supported");
+              alert("Your browser does not support Speech Recognition. Please use Chrome or Edge for the best experience.");
           }
 
       } catch (err) {
           console.error("Microphone Access Denied", err);
           alert("Microphone access is required for the Lecturette test.");
-      }
-  };
-
-  const stopRecording = async () => {
-      setIsRecording(false);
-      
-      // Stop Recognition
-      if (recognitionRef.current) recognitionRef.current.stop();
-      
-      // Stop Media Recorder
-      if (mediaRecorderRef.current) {
-          mediaRecorderRef.current.stop();
-          mediaRecorderRef.current.onstop = async () => {
-              const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-              const url = URL.createObjectURL(audioBlob);
-              setAudioUrl(url);
-              
-              // Proceed to Evaluation
-              handleEvaluation();
-          };
-      } else {
-          handleEvaluation();
-      }
-  };
-
-  const handleEvaluation = async () => {
-      setIsEvaluating(true);
-      try {
-          const result = await evaluateLecturette(selectedLecturette || "Topic", transcriptRef.current, speechTimer);
-          setFeedback(result);
-          
-          // Save result to database
-          if (onSave && !isGuest) {
-              onSave({
-                  ...result,
-                  topic: selectedLecturette,
-                  transcript: transcriptRef.current,
-                  duration: speechTimer
-              });
-          }
-      } catch (e) {
-          console.error("Eval failed", e);
-      } finally {
-          setIsEvaluating(false);
       }
   };
 

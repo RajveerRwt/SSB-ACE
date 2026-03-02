@@ -178,6 +178,19 @@ export async function generateTestContent(testType: string) {
 }
 
 export async function evaluateLecturette(topic: string, transcript: string, durationSeconds: number) {
+    if (!transcript || transcript.trim().length < 10) {
+        return {
+            score: 0,
+            structureAnalysis: "N/A",
+            contentAnalysis: "N/A",
+            poeAnalysis: "N/A",
+            timeManagementRemark: "Insufficient duration or no speech detected.",
+            verdict: "Insufficient Data",
+            improvementTips: ["Ensure your microphone is working.", "Speak clearly and for at least 2-3 minutes."],
+            transcript: transcript || "No speech detected"
+        };
+    }
+
     const prompt = `
     Act as a GTO (Group Testing Officer) in SSB. Evaluate the candidate's Lecturette performance.
     
