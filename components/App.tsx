@@ -21,11 +21,12 @@ import OIRTest from './OIRTest';
 import { GPETest } from './GPETest';
 import Footer from './Footer';
 import Assessments from './Assessments';
+import ReportModal from './ReportModal';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment } from '../services/supabaseService';
 import { evaluatePerformance } from '../services/geminiService';
 import FreeCoinModal from './FreeCoinModal';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, Gift } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, Gift, RotateCcw, FileText } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // --- GAMIFICATION COMPONENTS ---
@@ -80,6 +81,8 @@ const Dashboard: React.FC<{
   const [showFullHistory, setShowFullHistory] = useState(false);
   const [isEarlyRiser, setIsEarlyRiser] = useState(false);
   const [showFreeCoinPopup, setShowFreeCoinPopup] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [isReportOpen, setIsReportOpen] = useState(false);
   
   const [stats, setStats] = useState({
       ppdtAvg: 0,
@@ -442,27 +445,52 @@ const Dashboard: React.FC<{
                             </div>
                           ) : (
                             history.map((h, i) => (
-                                <div key={i} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors gap-3">
+                                <div key={i} className="flex flex-col md:flex-row justify-between items-start md:items-center p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors gap-4">
                                     <div className="flex items-center gap-4">
-                                    <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-black text-[10px]">
-                                        {h.type.substring(0,2)}
+                                        <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-500 flex items-center justify-center font-black text-xs shadow-sm">
+                                            {h.type.substring(0,2).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-black uppercase text-slate-800 tracking-wide">{h.type}</p>
+                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                                                {new Date(h.timestamp).toLocaleDateString()} • {new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-xs font-black uppercase text-slate-800 tracking-wide">{h.type}</p>
-                                        <p className="text-[9px] text-slate-400 font-bold">{new Date(h.timestamp).toLocaleDateString()}</p>
-                                    </div>
-                                    </div>
-                                    <div className="text-right flex md:block w-full md:w-auto justify-between items-center">
-                                    <p className="text-xs font-black text-slate-900">
-                                        {h.status === 'pending' ? (
-                                            <span className="flex items-center gap-1 text-blue-600 animate-pulse">
-                                                <Loader2 size={10} className="animate-spin" /> Processing...
-                                            </span>
-                                        ) : `Score: ${h.score}`}
-                                    </p>
-                                    <p className={`text-[9px] font-bold uppercase tracking-widest ${h.status === 'pending' ? 'text-blue-500' : 'text-green-600'}`}>
-                                        {h.status === 'pending' ? 'In Queue' : 'Logged'}
-                                    </p>
+                                    
+                                    <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full md:w-auto">
+                                        <div className="text-left md:text-right">
+                                            <p className="text-xs font-black text-slate-900">
+                                                {h.status === 'pending' ? (
+                                                    <span className="flex items-center gap-1 text-blue-600 animate-pulse">
+                                                        <Loader2 size={10} className="animate-spin" /> Processing...
+                                                    </span>
+                                                ) : `Score: ${h.score}/10`}
+                                            </p>
+                                            <p className={`text-[9px] font-bold uppercase tracking-widest ${h.status === 'pending' ? 'text-blue-500' : 'text-green-600'}`}>
+                                                {h.status === 'pending' ? 'In Queue' : 'Logged'}
+                                            </p>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 w-full md:w-auto">
+                                            {h.status !== 'pending' && (
+                                                <button 
+                                                    onClick={() => {
+                                                        setSelectedReport({ ...h, result_data: h.result || h.result_data, test_type: h.type });
+                                                        setIsReportOpen(true);
+                                                    }}
+                                                    className="flex-1 md:flex-none px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-1.5"
+                                                >
+                                                    <FileText size={12} /> Report
+                                                </button>
+                                            )}
+                                            <button 
+                                                onClick={() => onStartTest(h.type as TestType, h.result?._original_data)}
+                                                className="flex-1 md:flex-none px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all flex items-center justify-center gap-1.5"
+                                            >
+                                                <RotateCcw size={12} /> Retry
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))
@@ -472,6 +500,15 @@ const Dashboard: React.FC<{
               </div>
               <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-slate-50 rounded-full blur-3xl opacity-50 pointer-events-none" />
             </div>
+          )}
+
+          {selectedReport && (
+            <ReportModal 
+                isOpen={isReportOpen}
+                onClose={() => setIsReportOpen(false)}
+                data={selectedReport}
+                testType={selectedReport.test_type}
+            />
           )}
 
           {/* QUICK ACTION GRID - WITH COIN COSTS */}
