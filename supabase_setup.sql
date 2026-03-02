@@ -104,32 +104,3 @@ create table if not exists public.completed_assessments (
 alter table public.completed_assessments enable row level security;
 create policy "Users can read their own completed assessments" on public.completed_assessments for select using (auth.uid() = user_id);
 create policy "Users can insert their own completed assessments" on public.completed_assessments for insert with check (auth.uid() = user_id);
-
--- USER SUBSCRIPTIONS (Strict Security)
-create table if not exists public.user_subscriptions (
-  user_id uuid primary key,
-  tier text default 'FREE',
-  coins integer default 0,
-  usage jsonb default '{}'::jsonb,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
-alter table public.user_subscriptions enable row level security;
-create policy "Users can read their own subscription" on public.user_subscriptions for select using (auth.uid() = user_id);
--- NOTE: NO UPDATE/INSERT POLICY FOR USERS. Only server-side (Service Role) can modify coins.
-
--- PAYMENT REQUESTS
-create table if not exists public.payment_requests (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid not null,
-  utr text,
-  amount float not null,
-  plan_type text not null,
-  status text default 'PENDING',
-  coupon_code text,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
-alter table public.payment_requests enable row level security;
-create policy "Users can read their own payments" on public.payment_requests for select using (auth.uid() = user_id);
--- NOTE: NO INSERT/UPDATE POLICY FOR USERS. Only server-side (Service Role) can record payments.

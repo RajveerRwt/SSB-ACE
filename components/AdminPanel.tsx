@@ -14,11 +14,7 @@ import {
   getGPEScenarios, addGPEScenario, deleteGPEScenario
 } from '../services/supabaseService';
 
-interface AdminPanelProps {
-    adminEmail?: string;
-}
-
-const AdminPanel: React.FC<AdminPanelProps> = ({ adminEmail }) => {
+const AdminPanel: React.FC = () => {
   const [items, setItems] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -318,21 +314,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminEmail }) => {
       if (!window.confirm(`${adjustCoins > 0 ? 'Credit' : 'Debit'} ${Math.abs(adjustCoins)} Coins for this user?`)) return;
       
       try {
-          const res = await fetch("/api/admin/adjust-coins", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                  adminEmail,
-                  targetUserId: userId,
-                  amount: adjustCoins
-              })
-          });
-
-          if (!res.ok) {
-              const err = await res.json();
-              throw new Error(err.error || "Failed to adjust coins");
-          }
-
+          await activatePlanForUser(userId, 'ADMIN_ADJUST', 0, adjustCoins);
           alert("Wallet Updated!");
           setAdjustCoins(0);
           fetchData(); 

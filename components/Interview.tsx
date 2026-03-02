@@ -281,13 +281,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
           videoRef.current.play().catch(e => console.error("Video play failed", e));
       }
       
-      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-      if (!apiKey) {
-          setError("Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your environment.");
-          setConnectionStatus('DISCONNECTED');
-          return;
-      }
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
       
       const getLatestNewsTool: FunctionDeclaration = {
         name: "get_latest_news",

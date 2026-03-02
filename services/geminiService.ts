@@ -7,13 +7,7 @@ import { GoogleGenAI, Type, Chat, Part, GenerateContentResponse, Modality } from
  * Complex Text Tasks: 'gemini-3.1-pro-preview'
  * Image Generation: 'gemini-2.5-flash-image'
  */
-function getAI() {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-    if (!apiKey) {
-        throw new Error("Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your environment.");
-    }
-    return new GoogleGenAI({ apiKey });
-}
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
 
 export const STANDARD_WAT_SET = [
   "Blood", "Army", "War", "Victory", "Defeat", "Leader", "Follow", "Mother", "Father", "Sister",
@@ -38,7 +32,6 @@ export async function extractCustomStimuli(fileBase64: string, mimeType: string,
         : "Extract a list of situations/sentences from this image/PDF for a Situation Reaction Test. Return ONLY the situations separated by new lines. No numbers, no extra text.";
 
     try {
-        const ai = getAI();
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: {
@@ -69,7 +62,6 @@ async function generateWithRetry(
     const currentAttempt = maxRetries - retries + 1;
 
     try {
-        const ai = getAI();
         // Race API call against the specified timeout
         return await Promise.race([
             ai.models.generateContent({ ...params, model }),
@@ -672,7 +664,6 @@ IMPORTANT RULES:
 
 export async function transcribeAudio(base64: string, mimeType: string) {
     try {
-        const ai = getAI();
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: {
@@ -734,7 +725,6 @@ export async function extractPIQFromImage(base64: string, mimeType: string) {
 
 export async function fetchDailyNews() {
     try {
-        const ai = getAI();
         const response = await generateWithRetry(
             'gemini-3-flash-preview',
             {
@@ -752,7 +742,6 @@ export async function fetchDailyNews() {
 }
 
 export function createSSBChat(): Chat {
-    const ai = getAI();
     return ai.chats.create({
         model: 'gemini-3-flash-preview',
         config: {
@@ -789,7 +778,6 @@ export async function generateLecturette(topic: string) {
 
 export async function textToSpeech(text: string) {
     try {
-        const ai = getAI();
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash-preview-tts",
             contents: [{ parts: [{ text: `Narrate this as a GTO (Group Testing Officer) in a professional, authoritative but helpful tone: ${text}` }] }],
@@ -918,7 +906,6 @@ export async function evaluateGPE(narrative: string, individualSolution: string,
 
 export async function generatePPDTStimulus(promptText: string) {
     try {
-        const ai = getAI();
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
             contents: {
