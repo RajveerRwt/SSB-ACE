@@ -29,6 +29,7 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onPendingSave, onC
     const [selectedScenario, setSelectedScenario] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
     const [timer, setTimer] = useState(0);
+    const [isFullScreen, setIsFullScreen] = useState(false);
     const [solutionText, setSolutionText] = useState('');
     const [finalPlanText, setFinalPlanText] = useState('');
     const [feedback, setFeedback] = useState<any | null>(null);
@@ -46,11 +47,39 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onPendingSave, onC
     const [isTranscribing, setIsTranscribing] = useState(false);
     const [isImageEnlarged, setIsImageEnlarged] = useState(false);
     const [zoomLevel, setZoomLevel] = useState(1);
+    const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [userCounters, setUserCounters] = useState<any[]>([]);
     const [counterInput, setCounterInput] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const finalFileInputRef = useRef<HTMLInputElement>(null);
     const gtoAudioRef = useRef<HTMLAudioElement>(null);
+    const chatEndRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (phase === GPEPhase.GROUP_DISCUSSION) {
+            chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [discussionPoints, userCounters, phase]);
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (!isImageEnlarged || zoomLevel <= 1) return;
+        setIsDragging(true);
+        setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging) return;
+        setPanOffset({
+            x: e.clientX - dragStart.x,
+            y: e.clientY - dragStart.y
+        });
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
+    };
 
     useEffect(() => {
         if (gtoAudio && gtoAudioRef.current) {
@@ -297,7 +326,16 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onPendingSave, onC
     }
 
     return (
-        <div className="max-w-4xl mx-auto">
+        <div className={`${isFullScreen ? 'fixed inset-0 z-[100] bg-white overflow-auto p-4 md:p-10' : 'max-w-4xl mx-auto'}`}>
+            {phase !== GPEPhase.COMPLETED && (
+                <button 
+                    onClick={() => setIsFullScreen(!isFullScreen)}
+                    className={`fixed bottom-6 right-6 z-[110] p-4 rounded-full shadow-2xl transition-all ${isFullScreen ? 'bg-slate-900 text-white' : 'bg-blue-600 text-white hover:scale-110'}`}
+                    title={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
+                >
+                    {isFullScreen ? <Square size={24} /> : <Users size={24} />}
+                </button>
+            )}
             {phase === GPEPhase.SELECTION && (
                 <div className="bg-white rounded-[2.5rem] p-6 md:p-10 border border-slate-100 shadow-xl">
                     <div className="mb-8">
@@ -359,20 +397,31 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onPendingSave, onC
                     </div>
 
                     <div className="space-y-6">
-                        {/* Always show model image if available */}
-                        {selectedScenario?.image_url && (
+                        {/* Show model image in stages 1-3 */}
+                        {selectedScenario?.image_url && (phase === GPEPhase.MODEL_EXPLANATION || phase === GPEPhase.STORY_READING || phase === GPEPhase.CORRELATION) && (
                             <div className={`relative transition-all duration-500 ${isImageEnlarged ? 'fixed inset-0 z-50 bg-black/95 p-4 flex flex-col items-center justify-center' : 'bg-slate-100 p-2 rounded-2xl'}`}>
-                                <div className={`overflow-auto custom-scrollbar flex items-center justify-center w-full h-full ${isImageEnlarged ? '' : 'max-h-[400px]'}`}>
+                                <div 
+                                    className={`overflow-hidden flex items-center justify-center w-full h-full ${isImageEnlarged ? '' : 'max-h-[400px]'}`}
+                                    onMouseDown={handleMouseDown}
+                                    onMouseMove={handleMouseMove}
+                                    onMouseUp={handleMouseUp}
+                                    onMouseLeave={handleMouseUp}
+                                >
                                     <img 
                                         src={selectedScenario.image_url} 
                                         alt="GPE Model" 
-                                        style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'center' }}
-                                        className={`rounded-xl transition-transform duration-200 ${isImageEnlarged ? '' : 'w-full h-auto object-contain cursor-zoom-in'}`}
+                                        style={{ 
+                                            transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`, 
+                                            transformOrigin: 'center',
+                                            cursor: isImageEnlarged && zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : (isImageEnlarged ? 'default' : 'zoom-in')
+                                        }}
+                                        className={`rounded-xl transition-transform duration-200 ${isImageEnlarged ? 'max-w-none' : 'w-full h-auto object-contain'}`}
                                         onClick={() => !isImageEnlarged && setIsImageEnlarged(true)}
+                                        draggable={false}
                                     />
                                 </div>
                                 
-                                <div className="absolute top-4 right-4 flex gap-2">
+                                <div className="absolute top-4 right-4 flex gap-2 z-[60]">
                                     {isImageEnlarged && (
                                         <>
                                             <button 
@@ -383,18 +432,37 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onPendingSave, onC
                                                 <Play size={20} className="-rotate-90" />
                                             </button>
                                             <button 
-                                                onClick={() => setZoomLevel(prev => Math.max(prev - 0.5, 0.5))}
+                                                onClick={() => {
+                                                    setZoomLevel(prev => {
+                                                        const next = Math.max(prev - 0.5, 0.5);
+                                                        if (next <= 1) setPanOffset({ x: 0, y: 0 });
+                                                        return next;
+                                                    });
+                                                }}
                                                 className="p-3 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md transition-all"
                                                 title="Zoom Out"
                                             >
                                                 <Play size={20} className="rotate-90" />
+                                            </button>
+                                            <button 
+                                                onClick={() => {
+                                                    setZoomLevel(1);
+                                                    setPanOffset({ x: 0, y: 0 });
+                                                }}
+                                                className="p-3 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md transition-all"
+                                                title="Reset View"
+                                            >
+                                                <RefreshCw size={20} />
                                             </button>
                                         </>
                                     )}
                                     <button 
                                         onClick={() => {
                                             setIsImageEnlarged(!isImageEnlarged);
-                                            if (isImageEnlarged) setZoomLevel(1);
+                                            if (isImageEnlarged) {
+                                                setZoomLevel(1);
+                                                setPanOffset({ x: 0, y: 0 });
+                                            }
                                         }}
                                         className="p-3 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md transition-all"
                                     >
@@ -403,9 +471,9 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onPendingSave, onC
                                 </div>
                                 
                                 {isImageEnlarged && (
-                                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+                                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none">
                                         <p className="text-white/60 font-black uppercase tracking-widest text-[10px]">Zoom: {Math.round(zoomLevel * 100)}%</p>
-                                        <p className="text-white/40 font-bold uppercase tracking-widest text-[8px]">Click icon or press ESC to close</p>
+                                        <p className="text-white/40 font-bold uppercase tracking-widest text-[8px]">Drag to pan • Click icon to close</p>
                                     </div>
                                 )}
                             </div>
@@ -546,6 +614,7 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onPendingSave, onC
                                                     <p className="text-sm text-blue-900 font-bold leading-relaxed text-right">{c.text}</p>
                                                 </div>
                                             ))}
+                                            <div ref={chatEndRef} />
                                         </>
                                     )}
                                 </div>
@@ -650,14 +719,28 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onPendingSave, onC
                         <p className="text-slate-500 font-medium mt-2">Here is the AI analysis of your GPE performance.</p>
                     </div>
 
-                    {isEvaluating ? (
-                        <div className="flex flex-col items-center justify-center py-10">
-                            <Loader2 size={40} className="animate-spin text-blue-600 mb-4" />
-                            <p className="text-slate-500 font-bold uppercase tracking-widest">Analyzing your plans...</p>
-                        </div>
-                    ) : feedback ? (
-                        <div className="space-y-6">
-                            {feedback.error ? (
+                        {isEvaluating ? (
+                            <div className="flex flex-col items-center justify-center py-10">
+                                <Loader2 size={40} className="animate-spin text-blue-600 mb-4" />
+                                <p className="text-slate-500 font-bold uppercase tracking-widest">Analyzing your plans...</p>
+                            </div>
+                        ) : feedback ? (
+                            <div className="space-y-6">
+                                {/* Show map in final assessment */}
+                                {selectedScenario?.image_url && (
+                                    <div className="bg-slate-100 p-2 rounded-2xl mb-6">
+                                        <div className="overflow-hidden flex items-center justify-center w-full max-h-[300px]">
+                                            <img 
+                                                src={selectedScenario.image_url} 
+                                                alt="GPE Model Reference" 
+                                                className="rounded-xl w-full h-auto object-contain"
+                                            />
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest text-center mt-2">Map Reference</p>
+                                    </div>
+                                )}
+
+                                {feedback.error ? (
                                 <div className="bg-red-50 text-red-700 p-6 rounded-2xl border border-red-200">
                                     <AlertTriangle size={24} className="mb-2" />
                                     <h4 className="font-bold">Evaluation Error</h4>
