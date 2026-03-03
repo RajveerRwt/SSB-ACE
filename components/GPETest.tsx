@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Square, Loader2, CheckCircle, FileText, Clock, AlertTriangle, Map, Mic, RefreshCw, Volume2, Users, ImageIcon } from 'lucide-react';
-import { evaluateGPE, textToSpeech, simulateGPEDiscussion, transcribeHandwrittenStory, transcribeAudio } from '../services/geminiService';
+import { evaluateGPE, textToSpeech, simulateGPEDiscussion, transcribeHandwrittenStory, transcribeAudio, getAIResponseToCounter } from '../services/geminiService';
 import { getGPEScenarios, TEST_RATES } from '../services/supabaseService';
 
 interface GPETestProps {
@@ -45,6 +45,7 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onPendingSave, onC
     const [isNarrating, setIsNarrating] = useState(false);
     const [discussionPoints, setDiscussionPoints] = useState<any[]>([]);
     const [isTranscribing, setIsTranscribing] = useState(false);
+    const [isAIResponding, setIsAIResponding] = useState(false);
     const [isImageEnlarged, setIsImageEnlarged] = useState(false);
     const [zoomLevel, setZoomLevel] = useState(1);
     const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -204,10 +205,25 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onPendingSave, onC
         }
     };
 
-    const handleCounterSubmit = () => {
+    const handleCounterSubmit = async () => {
         if (!counterInput.trim()) return;
-        setUserCounters([...userCounters, { text: counterInput, timestamp: new Date() }]);
+        const newUserCounter = { text: counterInput, timestamp: new Date() };
+        setUserCounters([...userCounters, newUserCounter]);
+        const currentCounterInput = counterInput;
         setCounterInput('');
+
+        // AI Response to user counter
+        setIsAIResponding(true);
+        try {
+            const aiResponse = await getAIResponseToCounter(selectedScenario.narrative, currentCounterInput, discussionPoints);
+            if (aiResponse) {
+                setDiscussionPoints(prev => [...prev, aiResponse]);
+            }
+        } catch (e) {
+            console.error("AI response failed", e);
+        } finally {
+            setIsAIResponding(false);
+        }
     };
 
     const skipDiscussion = () => {
@@ -614,6 +630,12 @@ export const GPETest: React.FC<GPETestProps> = ({ onComplete, onPendingSave, onC
                                                     <p className="text-sm text-blue-900 font-bold leading-relaxed text-right">{c.text}</p>
                                                 </div>
                                             ))}
+                                            {isAIResponding && (
+                                                <div className="flex items-center gap-2 py-2 px-4 bg-slate-50 rounded-xl border border-slate-100 w-fit animate-pulse">
+                                                    <Loader2 size={14} className="animate-spin text-blue-400" />
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AI is countering...</span>
+                                                </div>
+                                            )}
                                             <div ref={chatEndRef} />
                                         </>
                                     )}

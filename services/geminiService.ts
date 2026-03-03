@@ -664,15 +664,17 @@ IMPORTANT RULES:
 
 export async function transcribeAudio(base64: string, mimeType: string) {
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: {
-                parts: [
-                    { inlineData: { data: base64, mimeType } },
-                    { text: "Transcribe this audio accurately. Return only the text content." }
-                ]
+        const response = await generateWithRetry(
+            'gemini-3-flash-preview',
+            {
+                contents: {
+                    parts: [
+                        { inlineData: { data: base64, mimeType } },
+                        { text: "Transcribe this audio accurately. Return only the text content." }
+                    ]
+                }
             }
-        });
+        );
         return response.text || "";
     } catch (e) {
         console.error("Audio transcription failed", e);
@@ -901,6 +903,40 @@ export async function evaluateGPE(narrative: string, individualSolution: string,
             weaknesses: [],
             detailedAnalysis: ""
         };
+    }
+}
+
+export async function getAIResponseToCounter(narrative: string, userCounter: string, previousDiscussion: any[]) {
+    try {
+        const discussionHistory = previousDiscussion.map(p => `Chest No ${p.chestNo}: ${p.point}`).join("\n");
+        const response = await generateWithRetry(
+            'gemini-3-flash-preview',
+            {
+                contents: `Continue a group discussion for GPE. 
+                Narrative: ${narrative}
+                Previous Discussion:
+                ${discussionHistory}
+                
+                User's Latest Counter/Point: "${userCounter}"
+                
+                Act as another group member (Chest No 2, 5, 8, or 12) and respond to the user's point. You can either agree with a valid reason, disagree with a logical counter-argument, or suggest a modification to the plan.
+                Return as a JSON object with 'chestNo' and 'point'.`,
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            chestNo: { type: Type.STRING },
+                            point: { type: Type.STRING }
+                        }
+                    }
+                }
+            }
+        );
+        return safeJSONParse(response.text || "");
+    } catch (e) {
+        console.error("AI counter response failed", e);
+        return null;
     }
 }
 
