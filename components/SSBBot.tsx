@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, User, Bot, Shield, Loader2, RefreshCw } from 'lucide-react';
-import { createSSBChat } from '../services/geminiService';
+import { createSSBChat, sendMessageWithRetry } from '../services/geminiService';
 import { Chat, GenerateContentResponse } from "@google/genai";
 
 interface Message {
@@ -44,7 +44,7 @@ const SSBBot: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const result: GenerateContentResponse = await chatRef.current.sendMessage({ message: userMsg });
+      const result: GenerateContentResponse = await sendMessageWithRetry(chatRef.current, userMsg);
       const responseText = result.text || "I copy you, but I'm unable to process that request right now. Please rephrase.";
       setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     } catch (error) {

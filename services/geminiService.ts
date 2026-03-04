@@ -752,6 +752,30 @@ export function createSSBChat(): Chat {
     });
 }
 
+export async function sendMessageWithRetry(chat: Chat, message: string, retries = 3): Promise<GenerateContentResponse> {
+    try {
+        return await chat.sendMessage({ message });
+    } catch (e: any) {
+        const errorCode = e.status || e.code || (e.error ? e.error.code : 0);
+        const errorMessage = (e.message || (e.error ? e.error.message : "") || JSON.stringify(e)).toLowerCase();
+        
+        const isRetryable = 
+            errorCode === 503 || 
+            errorCode === 429 || 
+            errorCode === 504 ||
+            errorMessage.includes("high demand") || 
+            errorMessage.includes("overloaded") ||
+            errorMessage.includes("unavailable");
+
+        if (isRetryable && retries > 0) {
+            console.warn(`Chat attempt failed (Code: ${errorCode}). Retrying in ${3000 * (4 - retries)}ms...`);
+            await new Promise(resolve => setTimeout(resolve, 3000 * (4 - retries)));
+            return await sendMessageWithRetry(chat, message, retries - 1);
+        }
+        throw e;
+    }
+}
+
 export async function generateLecturette(topic: string) {
     try {
         const response = await generateWithRetry(
