@@ -79,7 +79,7 @@ const HowToUse: React.FC<{ onNavigate: (t: TestType) => void }> = ({ onNavigate 
                <div className="space-y-2">
                   <h4 className="text-lg md:text-xl font-black text-slate-800 uppercase tracking-wide">PIQ Form (Mandatory)</h4>
                   <p className="text-slate-500 text-xs md:text-sm font-medium leading-relaxed">
-                     The <span className="text-red-500 font-bold">Personal Information Questionnaire</span> is the basis of your interview. The AI IO reads this data to ask personalized questions about your hobbies, education, and family.
+                     The <span className="text-red-500 font-bold">Personal Information Questionnaire</span> is the basis of your interview(upload filled piq). The AI IO reads this data to ask personalized questions about your hobbies, education, and family.
                   </p>
                   <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200 inline-block">
                      <p className="text-[10px] font-bold text-yellow-800 flex items-center gap-2"><AlertTriangle size={12} /> Without PIQ, the Interview module is locked.</p>
