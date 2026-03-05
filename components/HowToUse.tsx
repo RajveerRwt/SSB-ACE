@@ -136,7 +136,7 @@ const HowToUse: React.FC<{ onNavigate: (t: TestType) => void }> = ({ onNavigate 
                <li className="flex gap-3"><span className="text-green-500">✔</span> Sit in a well-lit room facing the light.</li>
                <li className="flex gap-3"><span className="text-green-500">✔</span> Wear formal attire or neat casuals.</li>
                <li className="flex gap-3"><span className="text-green-500">✔</span> close background apps/tabs </li>
-               <li className="flex gap-3"><span className="text-green-500">✔</span> Be honest. The IO cross-checks your PIQ data.</li>
+               <li className="flex gap-3"><span className="text-green-500">✔</span> Be honest.The IO cross-checks your PIQ data.</li>
             </ul>
          </div>
          
