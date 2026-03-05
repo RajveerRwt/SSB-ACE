@@ -11,7 +11,8 @@ import {
   uploadDailyChallenge, sendAnnouncement, getAllFeedback, deleteFeedback,
   getLatestDailyChallenge, getTickerConfig, updateTickerConfig,
   getOIRSets, createOIRSet, deleteOIRSet, getOIRQuestions, addOIRQuestion, deleteOIRQuestion, activatePlanForUser, supabase,
-  getGPEScenarios, addGPEScenario, deleteGPEScenario
+  getGPEScenarios, addGPEScenario, deleteGPEScenario,
+  getScreeningConfig, updateScreeningConfig
 } from '../services/supabaseService';
 
 const AdminPanel: React.FC = () => {
@@ -89,9 +90,15 @@ const AdminPanel: React.FC = () => {
   // SQL Help Toggle
   const [showSqlHelp, setShowSqlHelp] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'GPE' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK' | 'OIR'>('PAYMENTS');
+  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'GPE' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK' | 'OIR' | 'SCREENING'>('PAYMENTS');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Screening Config States
+  const [screeningOir1, setScreeningOir1] = useState('');
+  const [screeningOir2, setScreeningOir2] = useState('');
+  const [screeningPpdt, setScreeningPpdt] = useState('');
+  const [ppdtScenarios, setPpdtScenarios] = useState<any[]>([]);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -125,6 +132,19 @@ const AdminPanel: React.FC = () => {
         if (activeOirSetId) {
             const qs = await getOIRQuestions(activeOirSetId);
             setOirQuestions(qs);
+        }
+      } else if (activeTab === 'SCREENING') {
+        const [sets, scenarios, config] = await Promise.all([
+          getOIRSets(),
+          getPPDTScenarios(),
+          getScreeningConfig()
+        ]);
+        setOirSets(sets);
+        setPpdtScenarios(scenarios);
+        if (config) {
+          setScreeningOir1(config.oir1_id || '');
+          setScreeningOir2(config.oir2_id || '');
+          setScreeningPpdt(config.ppdt_id || '');
         }
       } else {
         let data;
@@ -217,6 +237,14 @@ const AdminPanel: React.FC = () => {
         await addGPEScenario(gpeTitle, gpeNarrative, imageUrl, gpeDifficulty);
         setGpeTitle(''); setGpeNarrative(''); setGpeDifficulty('Medium');
         if (fileInputRef.current) fileInputRef.current.value = '';
+      } else if (activeTab === 'SCREENING') {
+        if (!screeningOir1 || !screeningOir2 || !screeningPpdt) throw new Error("Please select all components for Mock Screening.");
+        await updateScreeningConfig({
+          oir1_id: screeningOir1,
+          oir2_id: screeningOir2,
+          ppdt_id: screeningPpdt
+        });
+        alert("Mock Screening Configuration Updated!");
       } else if (activeTab === 'COUPONS') {
         if (!couponCode || !couponDiscount || !influencerName) throw new Error("All fields required.");
         await createCoupon(couponCode, parseInt(couponDiscount), influencerName);
@@ -370,6 +398,7 @@ const AdminPanel: React.FC = () => {
       { id: 'PAYMENTS', label: 'Payments', icon: IndianRupee, color: 'bg-yellow-400 text-black', count: payments.length },
       { id: 'USERS', label: 'Cadets', icon: User, color: 'bg-indigo-600 text-white' },
       { id: 'OIR', label: 'OIR Test', icon: Lightbulb, color: 'bg-teal-600 text-white' },
+      { id: 'SCREENING', label: 'Mock Screening', icon: ShieldAlert, color: 'bg-purple-600 text-white' },
       { id: 'PPDT', label: 'PPDT', icon: ImageIcon, color: 'bg-slate-900 text-white' },
       { id: 'TAT', label: 'TAT', icon: Layers, color: 'bg-slate-900 text-white' },
       { id: 'WAT', label: 'WAT', icon: Zap, color: 'bg-slate-900 text-white' },
@@ -633,6 +662,57 @@ create policy "Admin delete gpe" on public.gpe_scenarios for delete using (true)
                       </div>
                   </>
               )}
+          </div>
+      )}
+
+      {/* SCREENING TAB */}
+      {activeTab === 'SCREENING' && (
+          <div className="space-y-8 animate-in fade-in">
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                  <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-widest flex items-center gap-2"><ShieldAlert size={24} className="text-purple-600"/> Mock Screening Configuration</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                      <div className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR 1 Set</label>
+                          <select 
+                            value={screeningOir1} 
+                            onChange={e => setScreeningOir1(e.target.value)}
+                            className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm"
+                          >
+                              <option value="">Select OIR Set 1</option>
+                              {oirSets.map(set => <option key={set.id} value={set.id}>{set.title}</option>)}
+                          </select>
+                      </div>
+                      <div className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR 2 Set</label>
+                          <select 
+                            value={screeningOir2} 
+                            onChange={e => setScreeningOir2(e.target.value)}
+                            className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm"
+                          >
+                              <option value="">Select OIR Set 2</option>
+                              {oirSets.map(set => <option key={set.id} value={set.id}>{set.title}</option>)}
+                          </select>
+                      </div>
+                      <div className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PPDT Scenario</label>
+                          <select 
+                            value={screeningPpdt} 
+                            onChange={e => setScreeningPpdt(e.target.value)}
+                            className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm"
+                          >
+                              <option value="">Select PPDT Scenario</option>
+                              {ppdtScenarios.map(sc => <option key={sc.id} value={sc.id}>{sc.description || `Scenario ${sc.id.slice(0,5)}`}</option>)}
+                          </select>
+                      </div>
+                  </div>
+                  <button onClick={handleUpload} disabled={isUploading} className="w-full py-4 bg-purple-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-purple-700 transition-all flex items-center justify-center gap-2">
+                      {isUploading ? <Loader2 className="animate-spin" /> : <CheckCircle size={16} />} Save Configuration
+                  </button>
+                  <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Info size={12}/> Fallback Logic</p>
+                      <p className="text-xs text-slate-500 leading-relaxed">If no configuration is saved, the system will default to: <strong>OIR 1 (Set 2)</strong>, <strong>OIR 2 (Set 3)</strong>, and the <strong>Latest PPDT Image</strong>.</p>
+                  </div>
+              </div>
           </div>
       )}
 

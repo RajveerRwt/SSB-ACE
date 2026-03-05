@@ -20,9 +20,28 @@ export const TEST_RATES = {
     OIR: 10, 
     OIR_SUDDEN_DEATH: 5, 
     INTERVIEW_TRIAL: 20, 
-    INTERVIEW_FULL: 100   
+    INTERVIEW_FULL: 100,
+    MOCK_SCREENING: 0
 };
 
+
+export const getScreeningConfig = async () => {
+  const { data } = await supabase
+    .from('daily_cache')
+    .select('content')
+    .eq('category', 'SCREENING_CONFIG')
+    .eq('date_key', 'LATEST')
+    .maybeSingle();
+  return data?.content || null;
+};
+
+export const updateScreeningConfig = async (config: { oir1_id: string, oir2_id: string, ppdt_id: string }) => {
+  await supabase.from('daily_cache').upsert({
+    category: 'SCREENING_CONFIG',
+    date_key: 'LATEST',
+    content: config
+  }, { onConflict: 'category,date_key' });
+};
 
 export const getGPEScenarios = async () => {
   const { data } = await supabase.from('gpe_scenarios').select('*').order('created_at', { ascending: false });

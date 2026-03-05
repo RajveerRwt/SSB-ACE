@@ -18,6 +18,7 @@ import DailyPractice from './DailyPractice';
 import ResourceCenter from './ResourceCenter';
 import LecturetteTest from './LecturetteTest';
 import OIRTest from './OIRTest';
+import MockScreening from './MockScreening';
 import { GPETest } from './GPETest';
 import Footer from './Footer';
 import Assessments from './Assessments';
@@ -113,6 +114,7 @@ const Dashboard: React.FC<{
 
   const quickActions = [
     { id: TestType.OIR, label: 'OIR Test', sub: 'Intelligence', icon: Lightbulb, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-100', cost: TEST_RATES.OIR },
+    { id: TestType.MOCK_SCREENING, label: 'Mock Screening', sub: 'Stage-1', icon: ShieldCheck, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-100', cost: TEST_RATES.MOCK_SCREENING },
     { id: TestType.PPDT, label: 'PPDT', sub: 'Screening', icon: ImageIcon, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100', cost: TEST_RATES.PPDT },
     { id: TestType.TAT, label: 'TAT', sub: 'Psychology', icon: PenTool, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100', cost: TEST_RATES.TAT },
     { id: TestType.WAT, label: 'WAT', sub: 'Psychology', icon: Zap, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100', cost: TEST_RATES.WAT },
@@ -538,8 +540,8 @@ const Dashboard: React.FC<{
                                 return;
                             }
 
-                            // OIR & LECTURETTE: Cost handled internally
-                            if (action.id === TestType.LECTURETTE || action.id === TestType.OIR) {
+                            // OIR, LECTURETTE & MOCK SCREENING: Cost handled internally
+                            if (action.id === TestType.LECTURETTE || action.id === TestType.OIR || action.id === TestType.MOCK_SCREENING) {
                                 onStartTest(action.id, { cost: 0 });
                                 return;
                             }
@@ -870,6 +872,7 @@ const App: React.FC = () => {
       case TestType.RESOURCES: return <ResourceCenter />;
       case TestType.LECTURETTE: return <LecturetteTest onSave={handleTestComplete} onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.OIR: return <OIRTest onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onExit={() => setActiveTest(TestType.DASHBOARD)} />;
+      case TestType.MOCK_SCREENING: return <MockScreening onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onExit={() => setActiveTest(TestType.DASHBOARD)} userId={user || undefined} />;
       default: return <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} />;
     }
   };

@@ -24,7 +24,8 @@ export enum TestType {
   ASSESSMENTS = 'ASSESSMENTS',
   TERMS = 'TERMS',
   PRIVACY = 'PRIVACY',
-  REFUND = 'REFUND'
+  REFUND = 'REFUND',
+  MOCK_SCREENING = 'MOCK_SCREENING'
 }
 
 export interface PIQData {
