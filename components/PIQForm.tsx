@@ -287,8 +287,11 @@ const PIQForm: React.FC<{ onSave: (data: PIQData) => void, initialData?: PIQData
         <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-400/10 blur-[100px] rounded-full" />
         <div className="flex flex-col md:flex-row justify-between items-center relative z-10 gap-6 md:gap-8 text-center md:text-left">
           <div className="space-y-2">
-            <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter">PIQ Manual Entry</h2>
-            <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[8px] md:text-[10px]">DIPR Official Form 107-A</p>
+            <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter">PIQ Entry</h2>
+            <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[8px] md:text-[10px]">write correct details</p>
+            <p className="text-yellow-400/80 font-bold uppercase text-[9px] tracking-widest flex items-center gap-2 mt-2">
+              <Upload size={12} /> You can also upload your filled PIQ form for automatic AI extraction
+            </p>
           </div>
           <div className="flex flex-wrap justify-center gap-4">
             <input type="file" ref={fileInputRef} onChange={handleUpload} className="hidden" accept="image/*"/>
@@ -298,7 +301,7 @@ const PIQForm: React.FC<{ onSave: (data: PIQData) => void, initialData?: PIQData
               className="px-6 md:px-8 py-3 md:py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 transition-all backdrop-blur-xl border border-white/5"
             >
               {isProcessing ? <Loader2 className="animate-spin" /> : <Upload size={18} />}
-              AI OCR
+              UPLOAD PIQ
             </button>
             <button 
               onClick={() => onSave(data)}
@@ -334,7 +337,21 @@ const PIQForm: React.FC<{ onSave: (data: PIQData) => void, initialData?: PIQData
           
           <div className="mt-12 md:mt-16 pt-8 md:pt-10 border-t flex justify-between">
             <button disabled={step === 0} onClick={() => setStep(step - 1)} className="px-8 md:px-10 py-4 md:py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 disabled:opacity-30">Previous</button>
-            <button disabled={step === steps.length - 1} onClick={() => setStep(step + 1)} className="px-8 md:px-10 py-4 md:py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black">Next</button>
+            {step === steps.length - 1 ? (
+              <button 
+                onClick={() => onSave(data)} 
+                className="px-8 md:px-10 py-4 md:py-5 bg-yellow-400 text-black rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-yellow-500 shadow-xl flex items-center gap-2"
+              >
+                <Save size={16} /> Save PIQ
+              </button>
+            ) : (
+              <button 
+                onClick={() => setStep(step + 1)} 
+                className="px-8 md:px-10 py-4 md:py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black"
+              >
+                Next
+              </button>
+            )}
           </div>
         </div>
       </div>
