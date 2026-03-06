@@ -178,7 +178,21 @@ const MockScreening: React.FC<MockScreeningProps> = ({ onConsumeCoins, isGuest =
     reader.readAsDataURL(file);
   };
 
+  const fetchWithTimeout = async (url: string, timeout = 5000) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(id);
+      return response;
+    } catch (error) {
+      clearTimeout(id);
+      throw error;
+    }
+  };
+
   const startNarration = () => {
+    initAudio();
     setNarrationText('');
     narrationTextRef.current = '';
     interimTextRef.current = '';
@@ -211,7 +225,19 @@ const MockScreening: React.FC<MockScreeningProps> = ({ onConsumeCoins, isGuest =
         }
         if (finalTranscript) narrationTextRef.current += (narrationTextRef.current ? " " : "") + finalTranscript;
         interimTextRef.current = interimTranscript;
-        setNarrationText(narrationTextRef.current + (narrationTextRef.current && interimTranscript ? " " : "") + interimTranscript);
+        
+        const fullText = narrationTextRef.current + (narrationTextRef.current && interimTranscript ? " " : "") + interimTranscript;
+        setNarrationText(fullText);
+      };
+
+      recognition.onerror = (event: any) => {
+        if (event.error === 'no-speech') return;
+        if (event.error === 'aborted') return;
+        console.error("Speech Recognition Error:", event.error);
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setIsRecording(false);
+          isRecordingRef.current = false;
+        }
       };
 
       recognition.onend = () => {
@@ -390,14 +416,32 @@ const MockScreening: React.FC<MockScreeningProps> = ({ onConsumeCoins, isGuest =
   const finishPPDT = async () => {
     setStage(ScreeningStage.PROCESSING);
     
+    const finalNarration = narrationTextRef.current + (narrationTextRef.current && interimTextRef.current ? " " : "") + interimTextRef.current;
+
     // Evaluate PPDT via Gemini
     try {
-      const result = await evaluatePerformance(TestType.PPDT, {
+      let stimulusBase64 = null;
+      if (selectedPpdt.image_url) {
+        try {
+          const response = await fetchWithTimeout(selectedPpdt.image_url, 5000);
+          const blob = await response.blob();
+          const rawBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+            reader.readAsDataURL(blob);
+          });
+          stimulusBase64 = await resizeImage(rawBase64, 1024, 1024);
+        } catch (err) {
+          console.warn("Failed to fetch stimulus within timeout:", err);
+        }
+      }
+
+      const result = await evaluatePerformance('PPDT Screening Board (Stage-1)', {
         story: ppdtStory,
-        narration: narrationText,
-        imageUrl: selectedPpdt.image_url,
-        imageDescription: selectedPpdt.description,
-        uploadedStoryImage: uploadedImageBase64
+        narration: finalNarration || narrationText,
+        visualStimulusProvided: selectedPpdt.description,
+        uploadedStoryImage: uploadedImageBase64,
+        stimulusImage: stimulusBase64
       });
       setPpdtResult(result);
       calculateFinalResult(result);
