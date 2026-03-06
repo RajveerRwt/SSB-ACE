@@ -145,7 +145,7 @@ const HowToUse: React.FC<{ onNavigate: (t: TestType) => void }> = ({ onNavigate 
                <Lock size={18} /> Strict Prohibitions
             </h4>
             <ul className="space-y-3 text-xs md:text-sm text-red-900/80 font-bold">
-               <li className="flex gap-3"><span className="text-red-500">✖</span> Do not refresh the page during a test.</li>
+               <li className="flex gap-3"><span className="text-red-500">✖</span> Do not refresh the page during a test</li>
                <li className="flex gap-3"><span className="text-red-500">✖</span> Do not use background noise (TV/Music).</li>
                <li className="flex gap-3"><span className="text-red-500">✖</span> Avoid one-word answers in the interview.</li>
                <li className="flex gap-3"><span className="text-red-500">✖</span> Do not turn off your camera during the call.</li>
