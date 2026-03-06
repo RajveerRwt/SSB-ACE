@@ -348,8 +348,7 @@ const MockScreening: React.FC<MockScreeningProps> = ({ onConsumeCoins, isGuest =
       ScreeningStage.OIR2_TEST, 
       ScreeningStage.PPDT_IMAGE, 
       ScreeningStage.PPDT_CHARACTER_MARKING,
-      ScreeningStage.PPDT_STORY,
-      ScreeningStage.PPDT_UPLOAD_GRACE_PERIOD
+      ScreeningStage.PPDT_STORY
     ].includes(stage);
 
     if ((isTimedPhase || isNarrationTimed) && timeLeft > 0) {
@@ -359,8 +358,7 @@ const MockScreening: React.FC<MockScreeningProps> = ({ onConsumeCoins, isGuest =
       else if (stage === ScreeningStage.OIR2_TEST) finishOIR2();
       else if (stage === ScreeningStage.PPDT_IMAGE) { triggerBuzzer(); startPPDTCharacterMarking(); }
       else if (stage === ScreeningStage.PPDT_CHARACTER_MARKING) { triggerBuzzer(); startPPDTStory(); }
-      else if (stage === ScreeningStage.PPDT_STORY) { triggerBuzzer(); setStage(ScreeningStage.PPDT_UPLOAD_GRACE_PERIOD); setTimeLeft(30); }
-      else if (stage === ScreeningStage.PPDT_UPLOAD_GRACE_PERIOD) setStage(ScreeningStage.PPDT_STORY_SUBMITTED);
+      else if (stage === ScreeningStage.PPDT_STORY) { triggerBuzzer(); setStage(ScreeningStage.PPDT_UPLOAD_GRACE_PERIOD); }
       else if (stage === ScreeningStage.PPDT_NARRATION) stopNarration();
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
@@ -900,7 +898,7 @@ const MockScreening: React.FC<MockScreeningProps> = ({ onConsumeCoins, isGuest =
             </div>
             <button 
               onClick={() => { triggerBuzzer(); setStage(ScreeningStage.PPDT_STORY_SUBMITTED); }}
-              disabled={!ppdtStory.trim() || isTranscribing}
+              disabled={(!ppdtStory.trim() && !uploadedImageBase64) || isTranscribing}
               className="w-full md:w-auto px-16 py-5 bg-green-600 text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-green-700 transition-all shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-30"
             >
               Confirm Submission
