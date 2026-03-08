@@ -639,7 +639,11 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
               {availableSets.map((set, idx) => (
                 <div 
                   key={idx}
-                  onClick={() => {
+                  onClick={async () => {
+                      if (onConsumeCoins && !isGuest) {
+                          const success = await onConsumeCoins(TEST_RATES.PPDT);
+                          if (!success) return;
+                      }
                       setActiveSetName(set.name);
                       handleShowInstructions();
                       setSelectedScenario(set);
@@ -732,8 +736,8 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                     <button 
                         onClick={async () => {
                             // Deduct coins for custom upload
-                            if (onConsumeCoins) {
-                                const success = await onConsumeCoins(10);
+                            if (onConsumeCoins && !isGuest) {
+                                const success = await onConsumeCoins(TEST_RATES.PPDT);
                                 if (!success) return;
                             }
 
