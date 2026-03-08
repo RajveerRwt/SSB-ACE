@@ -15,6 +15,7 @@ import {
 } from '../services/supabaseService';
 import { evaluatePerformance, transcribeHandwrittenStory } from '../services/geminiService';
 import CameraModal from './CameraModal';
+import SessionFeedback from './SessionFeedback';
 import { TestType } from '../types';
 
 interface MockScreeningProps {
@@ -1151,6 +1152,12 @@ const MockScreening: React.FC<MockScreeningProps> = ({ onConsumeCoins, isGuest =
                 <p className="text-slate-600 font-medium leading-relaxed italic">"{finalAssessment.observation}"</p>
               </div>
             </div>
+
+            {userId && (
+              <div className="pt-6 border-t border-slate-100">
+                <SessionFeedback testType="Mock Screening" userId={userId} />
+              </div>
+            )}
 
             <div className="flex flex-col md:flex-row gap-4">
               <button 
