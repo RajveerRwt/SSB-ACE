@@ -521,13 +521,13 @@ const MockScreening: React.FC<MockScreeningProps> = ({ onConsumeCoins, isGuest =
       ppdtScore,
       ppdtDetails: ppdtEval.scoreDetails || { perception: 0, content: 0, expression: 0 },
       finalScore,
+      score: finalScore, // Standard field for compatibility
       rejectionReason,
       observation: ppdtEval.recommendations || ppdtEval.feedback?.recommendations || "Good effort. Focus on consistency across all stages.",
-      color,
-      icon
+      recommendations: ppdtEval.recommendations || ppdtEval.feedback?.recommendations || "Good effort. Focus on consistency across all stages.", // Standard field
     };
 
-    setFinalAssessment(assessment);
+    setFinalAssessment({ ...assessment, color, icon });
     setStage(ScreeningStage.RESULT);
 
     // Save to history

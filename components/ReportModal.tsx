@@ -163,11 +163,79 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, data, testTy
             {/* Analysis Content (If Available) */}
             {!isError && result.recommendations && (
                 <div className="space-y-6">
+                    {/* Mock Screening Specific Summary */}
+                    {testType === 'MOCK_SCREENING' && (
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">OIR Performance</p>
+                                <div className="flex justify-between items-end">
+                                    <div>
+                                        <p className="text-2xl font-black">{Math.round(result.oirAvgPerc || 0)}%</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Average Rating</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-lg font-bold text-yellow-400">Rating {result.oirScore ? Math.max(1, Math.min(5, Math.round(6 - result.oirScore))) : 'N/A'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">PPDT Performance</p>
+                                <div className="flex justify-between items-end">
+                                    <div>
+                                        <p className="text-2xl font-black">{result.ppdtScore || 0}/10</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Psychologist Score</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className={`text-lg font-bold ${result.status === 'SCREENED IN' ? 'text-green-400' : result.status === 'BORDERLINE' ? 'text-yellow-400' : 'text-red-400'}`}>
+                                            {result.status}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="bg-blue-50 p-6 rounded-[2rem] border border-blue-100 print:border-slate-300">
                         <h4 className="text-blue-800 font-black uppercase text-xs tracking-widest mb-3 print:text-black">Psychologist's Remarks</h4>
-                        <p className="text-slate-700 font-medium italic leading-relaxed">"{result.recommendations}"</p>
+                        <p className="text-slate-700 font-medium italic leading-relaxed">"{result.recommendations || result.observation}"</p>
                     </div>
                     
+                    {/* Mock Screening Detailed Breakdown */}
+                    {testType === 'MOCK_SCREENING' && result.ppdtDetails && (
+                        <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 space-y-6">
+                            <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest">PPDT Component Breakdown</h4>
+                            <div className="grid md:grid-cols-3 gap-6">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                                        <span>Perception</span>
+                                        <span>{result.ppdtDetails.perception}/3</span>
+                                    </div>
+                                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                                        <div className="h-full bg-blue-500" style={{ width: `${(result.ppdtDetails.perception / 3) * 100}%` }} />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                                        <span>Content</span>
+                                        <span>{result.ppdtDetails.content}/5</span>
+                                    </div>
+                                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                                        <div className="h-full bg-blue-500" style={{ width: `${(result.ppdtDetails.content / 5) * 100}%` }} />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                                        <span>Expression</span>
+                                        <span>{result.ppdtDetails.expression}/2</span>
+                                    </div>
+                                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                                        <div className="h-full bg-blue-500" style={{ width: `${(result.ppdtDetails.expression / 2) * 100}%` }} />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid md:grid-cols-2 gap-6 print:block print:space-y-4">
                         <div className="p-6 rounded-[2rem] border border-green-100 bg-green-50/50 print:border-slate-300">
                             <h4 className="text-green-700 font-black uppercase text-xs tracking-widest mb-4 flex items-center gap-2 print:text-black"><CheckCircle size={14}/> Strengths</h4>

@@ -83,10 +83,16 @@ const Assessments: React.FC<AssessmentsProps> = ({ userId, onRetry }) => {
     setIsReportOpen(true);
   };
 
+  const formatTestType = (type: string) => {
+    if (!type) return 'Unknown Test';
+    return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+  };
+
   const renderCompleted = () => {
     const grouped = completed.reduce((acc: any, item: any) => {
-      if (!acc[item.test_type]) acc[item.test_type] = [];
-      acc[item.test_type].push(item);
+      const type = item.test_type || 'Unknown';
+      if (!acc[type]) acc[type] = [];
+      acc[type].push(item);
       return acc;
     }, {});
 
@@ -101,7 +107,7 @@ const Assessments: React.FC<AssessmentsProps> = ({ userId, onRetry }) => {
           Object.keys(grouped).map(type => (
             <div key={type} className="space-y-4">
               <h3 className="text-xs font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2 px-2">
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div> {type}
+                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div> {formatTestType(type)}
               </h3>
               <div className="grid gap-3">
                 {grouped[type].map((item: any) => (
@@ -117,7 +123,7 @@ const Assessments: React.FC<AssessmentsProps> = ({ userId, onRetry }) => {
                         <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">
                           {item.status === 'processing' 
                             ? 'AI is analyzing your data in the background' 
-                            : `Score: ${item.score} • ${new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                            : `Score: ${item.score || 0} • ${new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                         </p>
                       </div>
                     </div>
@@ -145,8 +151,9 @@ const Assessments: React.FC<AssessmentsProps> = ({ userId, onRetry }) => {
 
   const renderPending = () => {
     const grouped = pending.reduce((acc: any, item: any) => {
-      if (!acc[item.test_type]) acc[item.test_type] = [];
-      acc[item.test_type].push(item);
+      const type = item.test_type || 'Unknown';
+      if (!acc[type]) acc[type] = [];
+      acc[type].push(item);
       return acc;
     }, {});
 
@@ -161,7 +168,7 @@ const Assessments: React.FC<AssessmentsProps> = ({ userId, onRetry }) => {
           Object.keys(grouped).map(type => (
             <div key={type} className="space-y-4">
               <h3 className="text-xs font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2 px-2">
-                <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div> {type}
+                <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div> {formatTestType(type)}
               </h3>
               <div className="grid gap-3">
                 {grouped[type].map((item: any) => (
@@ -221,7 +228,7 @@ const Assessments: React.FC<AssessmentsProps> = ({ userId, onRetry }) => {
                     {String(type).substring(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <h4 className="font-black text-slate-900 uppercase tracking-tight">{type}</h4>
+                    <h4 className="font-black text-slate-900 uppercase tracking-tight">{formatTestType(type)}</h4>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
                       Last Attempt: {lastAttempt.created_at ? new Date(lastAttempt.created_at).toLocaleDateString() : 'N/A'}
                     </p>
