@@ -158,8 +158,9 @@ const Dashboard: React.FC<{
         setHistory(data);
         
         // Calculate Stats
+        const validData = data.filter((h: any) => h.status !== 'failed');
         const breakdown: Record<string, { count: number, avg: number }> = {};
-        data.forEach((h: any) => {
+        validData.forEach((h: any) => {
             const type = h.type;
             if (!breakdown[type]) {
                 breakdown[type] = { count: 0, avg: 0 };
@@ -172,15 +173,15 @@ const Dashboard: React.FC<{
             breakdown[key].avg = breakdown[key].avg / breakdown[key].count;
         });
 
-        const ppdtLogs = data.filter((h: any) => h.type.includes('PPDT'));
-        const psychLogs = data.filter((h: any) => ['TAT', 'WAT', 'SRT', 'SDT'].some(t => h.type.includes(t)));
-        const interviewLogs = data.filter((h: any) => h.type.includes('INTERVIEW'));
+        const ppdtLogs = validData.filter((h: any) => h.type.includes('PPDT'));
+        const psychLogs = validData.filter((h: any) => ['TAT', 'WAT', 'SRT', 'SDT'].some(t => h.type.includes(t)));
+        const interviewLogs = validData.filter((h: any) => h.type.includes('INTERVIEW'));
 
         const ppdtAvg = ppdtLogs.length ? ppdtLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / ppdtLogs.length : 0;
         const psychAvg = psychLogs.length ? psychLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / psychLogs.length : 0;
         const interviewAvg = interviewLogs.length ? interviewLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / interviewLogs.length : 0;
         
-        const totalTests = data.length;
+        const totalTests = validData.length;
         let rank = 'Cadet';
         if (totalTests > 5) rank = 'Lieutenant';
         if (totalTests > 15) rank = 'Captain';
@@ -467,15 +468,17 @@ const Dashboard: React.FC<{
                                                     <span className="flex items-center gap-1 text-blue-600 animate-pulse">
                                                         <Loader2 size={10} className="animate-spin" /> Processing...
                                                     </span>
+                                                ) : h.status === 'failed' ? (
+                                                    <span className="text-red-500">Failed</span>
                                                 ) : `Score: ${h.score}/10`}
                                             </p>
-                                            <p className={`text-[9px] font-bold uppercase tracking-widest ${h.status === 'pending' ? 'text-blue-500' : 'text-green-600'}`}>
-                                                {h.status === 'pending' ? 'In Queue' : 'Logged'}
+                                            <p className={`text-[9px] font-bold uppercase tracking-widest ${h.status === 'pending' ? 'text-blue-500' : h.status === 'failed' ? 'text-red-500' : 'text-green-600'}`}>
+                                                {h.status === 'pending' ? 'In Queue' : h.status === 'failed' ? 'Error' : 'Logged'}
                                             </p>
                                         </div>
 
                                         <div className="flex items-center gap-2 w-full md:w-auto">
-                                            {h.status !== 'pending' && (
+                                            {h.status !== 'pending' && h.status !== 'failed' && (
                                                 <button 
                                                     onClick={() => {
                                                         setSelectedReport({ ...h, result_data: h.result || h.result_data, test_type: h.type });

@@ -373,8 +373,7 @@ export const getUserHistory = async (userId: string) => {
     .from('test_history')
     .select('*')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(10);
+    .order('created_at', { ascending: false });
     
   return data?.map((item: any) => ({
       id: item.id,
