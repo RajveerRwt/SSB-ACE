@@ -91,7 +91,7 @@ const Dashboard: React.FC<{
       interviewAvg: 0,
       totalTests: 0,
       rank: 'Cadet',
-      breakdown: {} as Record<string, { count: number, avg: number }>
+      breakdown: {} as Record<string, { count: number, avg: number, completedCount: number }>
   });
   
   const quotes = [
@@ -154,38 +154,46 @@ const Dashboard: React.FC<{
   useEffect(() => {
     if (isLoggedIn && user && !user.startsWith('demo')) {
       setLoadingHistory(true);
-      getUserHistory(user).then((data: any[]) => {
+      getUserHistory(user, 100).then((data: any[]) => {
         setHistory(data);
         
         // Calculate Stats
-        const breakdown: Record<string, { count: number, avg: number }> = {};
+        const breakdown: Record<string, { count: number, avg: number, completedCount: number }> = {};
         data.forEach((h: any) => {
             const type = h.type;
             if (!breakdown[type]) {
-                breakdown[type] = { count: 0, avg: 0 };
+                breakdown[type] = { count: 0, avg: 0, completedCount: 0 };
             }
             breakdown[type].count += 1;
-            breakdown[type].avg += (Number(h.score) || 0);
+            if (h.status !== 'pending') {
+                breakdown[type].avg += (Number(h.score) || 0);
+                breakdown[type].completedCount += 1;
+            }
         });
 
         Object.keys(breakdown).forEach(key => {
-            breakdown[key].avg = breakdown[key].avg / breakdown[key].count;
+            if (breakdown[key].completedCount > 0) {
+                breakdown[key].avg = breakdown[key].avg / breakdown[key].completedCount;
+            } else {
+                breakdown[key].avg = 0;
+            }
         });
 
-        const ppdtLogs = data.filter((h: any) => h.type.includes('PPDT'));
-        const psychLogs = data.filter((h: any) => ['TAT', 'WAT', 'SRT', 'SDT'].some(t => h.type.includes(t)));
-        const interviewLogs = data.filter((h: any) => h.type.includes('INTERVIEW'));
+        const completedLogs = data.filter((h: any) => h.status !== 'pending');
+        const ppdtLogs = completedLogs.filter((h: any) => h.type.includes('PPDT'));
+        const psychLogs = completedLogs.filter((h: any) => ['TAT', 'WAT', 'SRT', 'SDT'].some(t => h.type.includes(t)));
+        const interviewLogs = completedLogs.filter((h: any) => h.type.includes('INTERVIEW'));
 
         const ppdtAvg = ppdtLogs.length ? ppdtLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / ppdtLogs.length : 0;
         const psychAvg = psychLogs.length ? psychLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / psychLogs.length : 0;
         const interviewAvg = interviewLogs.length ? interviewLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / interviewLogs.length : 0;
         
-        const totalTests = data.length;
+        const totalTests = completedLogs.length;
         let rank = 'Cadet';
         if (totalTests > 5) rank = 'Lieutenant';
         if (totalTests > 15) rank = 'Captain';
         if (totalTests > 30) rank = 'Major';
-        if (ppdtAvg > 8 && interviewAvg > 8) rank = 'Commando';
+        if (ppdtAvg > 8 && interviewAvg > 8 && totalTests > 10) rank = 'Commando';
 
         setStats({ ppdtAvg, psychAvg, interviewAvg, totalTests, rank, breakdown });
         setLoadingHistory(false);

@@ -368,13 +368,13 @@ export const saveUserData = async (userId: string, data: PIQData) => {
     .eq('user_id', userId);
 };
 
-export const getUserHistory = async (userId: string) => {
+export const getUserHistory = async (userId: string, limit: number = 10) => {
   const { data } = await supabase
     .from('test_history')
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(10);
+    .limit(limit);
     
   return data?.map((item: any) => ({
       id: item.id,
