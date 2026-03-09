@@ -216,9 +216,28 @@ const Dashboard: React.FC<{
       if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(true);
+  
+  useEffect(() => {
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    if (!url || url.includes('placeholder')) {
+        setIsSupabaseConfigured(false);
+    }
+  }, []);
+
   return (
     <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-0">
       
+      {!isSupabaseConfigured && (
+          <div className="bg-red-500 text-white p-4 rounded-2xl flex items-center gap-3 shadow-lg animate-pulse">
+              <AlertCircle size={24} />
+              <div>
+                  <p className="text-xs font-black uppercase tracking-widest">Configuration Error</p>
+                  <p className="text-[10px] font-bold opacity-90">Supabase environment variables are missing. Please check your app settings.</p>
+              </div>
+          </div>
+      )}
+
       {/* EARLY RISER BONUS TOAST */}
       {isLoggedIn && isEarlyRiser && (
           <div className="fixed top-24 right-4 z-50 bg-orange-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-1000 border-2 border-orange-400">
@@ -744,6 +763,11 @@ const App: React.FC = () => {
   const handleUserAuthenticated = async (u: any) => {
       setUser(u.id);
       setUserEmail(u.email || '');
+      try {
+        await syncUserProfile(u);
+      } catch (e) {
+        console.error("Profile Sync Failed:", e);
+      }
       getUserData(u.id).then((d: any) => d && setPiqData(d));
       getUserSubscription(u.id).then((sub: any) => setSubscription(sub));
       const hasSeenWelcome = localStorage.getItem(`ssb_welcome_seen_${u.id}`);

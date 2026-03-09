@@ -6,6 +6,10 @@ import { PIQData, UserSubscription, Announcement } from '../types';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_KEY || process.env.REACT_APP_SUPABASE_KEY || 'placeholder';
 
+if (supabaseUrl.includes('placeholder')) {
+    console.warn("Supabase URL is not configured. Live data will not be available.");
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // --- COIN RATES CONFIGURATION ---
@@ -369,21 +373,31 @@ export const saveUserData = async (userId: string, data: PIQData) => {
 };
 
 export const getUserHistory = async (userId: string, limit: number = 10) => {
-  const { data } = await supabase
-    .from('test_history')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-    
-  return data?.map((item: any) => ({
-      id: item.id,
-      type: item.test_type,
-      timestamp: item.created_at,
-      score: item.score,
-      result: item.result_data,
-      status: item.result_data?._status || 'completed'
-  })) || [];
+  try {
+    const { data, error } = await supabase
+      .from('test_history')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+      
+    if (error) {
+        console.error("Error fetching user history:", error);
+        return [];
+    }
+
+    return data?.map((item: any) => ({
+        id: item.id,
+        type: item.test_type,
+        timestamp: item.created_at,
+        score: item.score,
+        result: item.result_data,
+        status: item.result_data?._status || 'completed'
+    })) || [];
+  } catch (err) {
+    console.error("Critical error in getUserHistory:", err);
+    return [];
+  }
 };
 
 export const getUserStreak = async (userId: string) => {
