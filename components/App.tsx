@@ -158,24 +158,30 @@ const Dashboard: React.FC<{
         setHistory(data);
         
         // Calculate Stats
-        const validData = data.filter((h: any) => h.status !== 'failed');
+        const validData = (data || []).filter((h: any) => h && h.status !== 'failed');
         const breakdown: Record<string, { count: number, avg: number }> = {};
+        
         validData.forEach((h: any) => {
-            const type = h.type;
+            const type = h.type || 'Unknown';
             if (!breakdown[type]) {
                 breakdown[type] = { count: 0, avg: 0 };
             }
-            breakdown[type].count += 1;
-            breakdown[type].avg += (Number(h.score) || 0);
+            // Only count completed tests for average score
+            if (h.status === 'completed') {
+                breakdown[type].count += 1;
+                breakdown[type].avg += (Number(h.score) || 0);
+            }
         });
 
         Object.keys(breakdown).forEach(key => {
-            breakdown[key].avg = breakdown[key].avg / breakdown[key].count;
+            if (breakdown[key].count > 0) {
+                breakdown[key].avg = breakdown[key].avg / breakdown[key].count;
+            }
         });
 
-        const ppdtLogs = validData.filter((h: any) => h.type.includes('PPDT'));
-        const psychLogs = validData.filter((h: any) => ['TAT', 'WAT', 'SRT', 'SDT'].some(t => h.type.includes(t)));
-        const interviewLogs = validData.filter((h: any) => h.type.includes('INTERVIEW'));
+        const ppdtLogs = validData.filter((h: any) => h.type && h.type.includes('PPDT') && h.status === 'completed');
+        const psychLogs = validData.filter((h: any) => h.type && ['TAT', 'WAT', 'SRT', 'SDT'].some(t => h.type.includes(t)) && h.status === 'completed');
+        const interviewLogs = validData.filter((h: any) => h.type && h.type.includes('INTERVIEW') && h.status === 'completed');
 
         const ppdtAvg = ppdtLogs.length ? ppdtLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / ppdtLogs.length : 0;
         const psychAvg = psychLogs.length ? psychLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / psychLogs.length : 0;

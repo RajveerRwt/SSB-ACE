@@ -369,20 +369,43 @@ export const saveUserData = async (userId: string, data: PIQData) => {
 };
 
 export const getUserHistory = async (userId: string) => {
-  const { data } = await supabase
-    .from('test_history')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-    
-  return data?.map((item: any) => ({
-      id: item.id,
-      type: item.test_type,
-      timestamp: item.created_at,
-      score: item.score,
-      result: item.result_data,
-      status: item.result_data?._status || 'completed'
-  })) || [];
+  try {
+    const { data, error } = await supabase
+      .from('test_history')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1000);
+      
+    if (error) {
+      console.error("Error fetching user history:", error);
+      return [];
+    }
+      
+    return data?.map((item: any) => {
+        let resultData = item.result_data;
+        // Handle case where result_data might be a string (though it should be an object)
+        if (typeof resultData === 'string') {
+            try {
+                resultData = JSON.parse(resultData);
+            } catch (e) {
+                console.error("Error parsing result_data:", e);
+            }
+        }
+        
+        return {
+            id: item.id,
+            type: item.test_type,
+            timestamp: item.created_at,
+            score: item.score,
+            result: resultData,
+            status: resultData?._status || 'completed'
+        };
+    }) || [];
+  } catch (err) {
+    console.error("Unexpected error in getUserHistory:", err);
+    return [];
+  }
 };
 
 export const getUserStreak = async (userId: string) => {
