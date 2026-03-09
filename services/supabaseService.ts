@@ -369,27 +369,52 @@ export const saveUserData = async (userId: string, data: PIQData) => {
 };
 
 export const getUserHistory = async (userId: string) => {
+  if (!userId) {
+    console.warn("getUserHistory called without userId");
+    return [];
+  }
+  
+  console.log("Fetching history for userId:", userId);
+  
   try {
+    // Try with a smaller limit first to avoid timeouts
     const { data, error } = await supabase
       .from('test_history')
-      .select('*')
+      .select('id, test_type, created_at, score, result_data')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(1000);
+      .limit(50);
       
     if (error) {
-      console.error("Error fetching user history:", error);
-      return [];
+      console.error("Supabase error fetching history:", JSON.stringify(error));
+      // If it's a 500 or timeout, try an even simpler query
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('test_history')
+        .select('id, test_type, created_at, score')
+        .eq('user_id', userId)
+        .limit(10);
+        
+      if (fallbackError) {
+        console.error("Fallback fetch also failed:", JSON.stringify(fallbackError));
+        return [];
+      }
+      return fallbackData?.map((item: any) => ({
+          id: item.id,
+          type: item.test_type,
+          timestamp: item.created_at,
+          score: item.score,
+          result: null,
+          status: 'completed'
+      })) || [];
     }
       
     return data?.map((item: any) => {
         let resultData = item.result_data;
-        // Handle case where result_data might be a string (though it should be an object)
         if (typeof resultData === 'string') {
             try {
                 resultData = JSON.parse(resultData);
             } catch (e) {
-                console.error("Error parsing result_data:", e);
+                console.error("Error parsing result_data for item", item.id);
             }
         }
         
