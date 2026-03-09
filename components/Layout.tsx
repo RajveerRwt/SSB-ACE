@@ -16,6 +16,7 @@ import {
   LogOut,
   LogIn,
   User,
+  UserPlus,
   Menu,
   X,
   Lock,
@@ -50,11 +51,13 @@ interface LayoutProps {
   user?: string;
   isLoggedIn: boolean;
   isAdmin?: boolean;
+  isMentor?: boolean;
+  mentorStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   subscription?: UserSubscription | null;
   onOpenPayment?: () => void; // Added callback to open payment modal from header
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLogout, onLogin, user, isLoggedIn, isAdmin, subscription, onOpenPayment }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLogout, onLogin, user, isLoggedIn, isAdmin, isMentor, mentorStatus, subscription, onOpenPayment }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   
@@ -178,6 +181,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     { id: TestType.LECTURETTE, label: 'Lecturette', icon: BookOpen },
     { id: TestType.INTERVIEW, label: '1:1 Personal Interview (Virtual)', icon: Mic }, 
     { id: TestType.AI_BOT, label: 'SSB AI Guide', icon: Bot },
+    { id: TestType.STUDENT_BATCHES, label: 'My Batches', icon: ClipboardList },
     { id: TestType.CONTACT, label: 'Support Desk', icon: MessageSquare },
   ];
 
@@ -313,6 +317,26 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                 </button>
               </>
             )}
+
+            {/* Mentor Links */}
+            {isLoggedIn && (
+              <>
+                <div className="my-2 border-t border-white/10 mx-6" />
+                {isMentor ? (
+                  <button
+                    onClick={() => handleNavClick(TestType.MENTOR_DASHBOARD)}
+                    className={`w-full flex items-center gap-3 px-6 py-3 transition-colors text-left ${
+                      activeTest === TestType.MENTOR_DASHBOARD
+                        ? 'bg-white/10 text-emerald-400 border-r-4 border-emerald-500' 
+                        : 'text-slate-400 hover:bg-white/5 hover:text-emerald-400'
+                    }`}
+                  >
+                    <User className="w-4 h-4 shrink-0" />
+                    <span className="font-medium text-xs truncate uppercase tracking-widest">Mentor Dashboard</span>
+                  </button>
+                ) : null}
+              </>
+            )}
           </nav>
           
           {/* User & Logout Section */}
@@ -374,6 +398,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                || (activeTest === TestType.DAILY_PRACTICE ? 'Daily Challenge' : '')
                || (activeTest === TestType.RESOURCES ? 'SSB Knowledge Bank' : '')
                || (activeTest === TestType.LECTURETTE ? 'Lecturette Simulator' : '')
+               || (activeTest === TestType.MENTOR_DASHBOARD ? 'Mentor Command Center' : '')
+               || (activeTest === TestType.MENTOR_REGISTRATION ? 'Mentor Application' : '')
+               || (activeTest === TestType.STUDENT_BATCHES ? 'My Learning Batches' : '')
                || (activeTest === TestType.OIR ? 'OIR Test' : '')}
             </h2>
 

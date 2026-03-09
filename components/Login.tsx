@@ -5,7 +5,7 @@ import { signInWithEmail, signUpWithEmail, signInWithGoogle, resendConfirmationE
 import { SSBLogo } from './Logo';
 
 interface LoginProps {
-  onLogin: (identifier: string, email?: string) => void;
+  onLogin: (identifier: string, email?: string, metadata?: any) => void;
   onCancel?: () => void;
   initialIsSignUp?: boolean;
 }
@@ -43,7 +43,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
         if (error) throw error;
         if (data.user) {
           if (data.session) {
-            onLogin(data.user.id, data.user.email);
+            onLogin(data.user.id, data.user.email, data.user.user_metadata);
           } else {
             setSuccessMsg("Registration Successful! Please check your email to confirm your account.");
             setIsLoading(false);
@@ -58,7 +58,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
           throw error;
         }
         if (data.user) {
-          onLogin(data.user.id, data.user.email);
+          onLogin(data.user.id, data.user.email, data.user.user_metadata);
         }
       }
     } catch (err: any) {
@@ -86,9 +86,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onCancel, initialIsSignUp = fals
     setIsLoading(true);
     setError('');
     try {
-      const { error } = await signInWithGoogle();
+      const { data, error } = await signInWithGoogle();
       if (error) throw error;
-      // OAuth redirects, so execution might not continue here if redirect happens instantly
+      if (data && data.user) {
+        onLogin(data.user.id, data.user.email, data.user.user_metadata);
+      }
     } catch (err: any) {
       console.error("Google Login Error:", err);
       setError(err.message || "Google authentication failed.");

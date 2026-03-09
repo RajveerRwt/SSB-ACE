@@ -90,7 +90,12 @@ const AdminPanel: React.FC = () => {
   // SQL Help Toggle
   const [showSqlHelp, setShowSqlHelp] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'GPE' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK' | 'OIR' | 'SCREENING'>('PAYMENTS');
+  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'GPE' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK' | 'OIR' | 'SCREENING' | 'MENTORS'>('PAYMENTS');
+  const [mentors, setMentors] = useState<any[]>([]);
+  const [mentorEmail, setMentorEmail] = useState('');
+  const [mentorName, setMentorName] = useState('');
+  const [mentorSpec, setMentorSpec] = useState('');
+  const [mentorBio, setMentorBio] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -146,6 +151,9 @@ const AdminPanel: React.FC = () => {
           setScreeningOir2(config.oir2_id || '');
           setScreeningPpdt(config.ppdt_id || '');
         }
+      } else if (activeTab === 'MENTORS') {
+        const { data, error } = await supabase.from('mentors').select('*').order('created_at', { ascending: false });
+        if (data) setMentors(data);
       } else {
         let data;
         if (activeTab === 'PPDT') data = await getPPDTScenarios();
@@ -369,6 +377,170 @@ const AdminPanel: React.FC = () => {
       alert("SQL Copied to Clipboard!");
   };
 
+  const handleApproveMentor = async (id: string, status: 'APPROVED' | 'REJECTED' | 'PENDING') => {
+    const { error } = await supabase.from('mentors').update({ status: status }).eq('id', id);
+    if (!error) {
+      setMentors(mentors.map(m => m.id === id ? { ...m, status: status } : m));
+    }
+  };
+
+  const handleAddMentor = async () => {
+    if (!mentorEmail || !mentorName || !mentorSpec || !mentorBio) {
+      setErrorMsg("All mentor fields are required.");
+      return;
+    }
+    setIsUploading(true);
+    setErrorMsg(null);
+    try {
+      // Find user by email
+      const { data: user, error: userError } = await supabase
+        .from('aspirants')
+        .select('user_id')
+        .eq('email', mentorEmail)
+        .single();
+        
+      if (userError || !user) throw new Error("User not found with this email. They must sign up first.");
+
+      // Add to mentors table
+      const { data, error } = await supabase
+        .from('mentors')
+        .insert({
+          id: user.user_id,
+          full_name: mentorName,
+          email: mentorEmail,
+          specialization: mentorSpec,
+          bio: mentorBio,
+          status: 'APPROVED'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      setMentors([data, ...mentors]);
+      setMentorEmail('');
+      setMentorName('');
+      setMentorSpec('');
+      setMentorBio('');
+      alert("Mentor added successfully!");
+    } catch (e: any) {
+      setErrorMsg(e.message || "Failed to add mentor.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const renderMentors = () => (
+    <div className="space-y-8 animate-in fade-in duration-700">
+      <div className="flex justify-between items-center">
+        <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Mentor Management</h3>
+        <span className="px-4 py-1 bg-blue-100 text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-full">
+          {mentors.filter(m => m.status === 'PENDING').length} Pending Requests
+        </span>
+      </div>
+
+      <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+        <h4 className="font-black text-slate-900 uppercase tracking-tight text-sm">Add New Mentor</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input 
+            type="email" 
+            placeholder="User Email (Must be registered)" 
+            value={mentorEmail} 
+            onChange={e => setMentorEmail(e.target.value)} 
+            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input 
+            type="text" 
+            placeholder="Full Name" 
+            value={mentorName} 
+            onChange={e => setMentorName(e.target.value)} 
+            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input 
+            type="text" 
+            placeholder="Specialization (e.g., Psychologist, GTO)" 
+            value={mentorSpec} 
+            onChange={e => setMentorSpec(e.target.value)} 
+            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input 
+            type="text" 
+            placeholder="Short Bio" 
+            value={mentorBio} 
+            onChange={e => setMentorBio(e.target.value)} 
+            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <button 
+          onClick={handleAddMentor} 
+          disabled={isUploading}
+          className="px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 w-full md:w-auto"
+        >
+          {isUploading ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
+          Add Mentor
+        </button>
+      </div>
+
+      <div className="grid gap-4">
+        {mentors.length === 0 ? (
+          <div className="text-center py-20 bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
+            <Users className="mx-auto text-slate-300 mb-4" size={48} />
+            <p className="text-slate-500 font-medium italic">No mentor applications found.</p>
+          </div>
+        ) : (
+          mentors.map(m => (
+            <div key={m.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div className="flex items-center gap-6">
+                <div className="w-14 h-14 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center font-black text-xl border border-slate-100">
+                  {m.full_name.substring(0,1).toUpperCase()}
+                </div>
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h4 className="font-black text-slate-900 uppercase tracking-tight text-lg">{m.full_name}</h4>
+                    {m.status === 'APPROVED' && <BadgeCheck className="text-blue-600" size={18} />}
+                    {m.status === 'REJECTED' && <X className="text-red-600" size={18} />}
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">{m.email} • <span className="text-blue-600 font-bold">{m.specialization}</span></p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Applied on {new Date(m.created_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              <div className="flex-1 max-w-md">
+                <p className="text-xs text-slate-600 italic leading-relaxed line-clamp-2">"{m.bio}"</p>
+              </div>
+
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                {m.status === 'PENDING' ? (
+                  <>
+                    <button 
+                      onClick={() => handleApproveMentor(m.id, 'APPROVED')}
+                      className="flex-1 md:flex-none px-6 py-3 bg-green-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-700 transition-all shadow-lg shadow-green-600/20"
+                    >
+                      Approve Mentor
+                    </button>
+                    <button 
+                      onClick={() => handleApproveMentor(m.id, 'REJECTED')}
+                      className="flex-1 md:flex-none px-6 py-3 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all"
+                    >
+                      Reject
+                    </button>
+                  </>
+                ) : (
+                  <button 
+                    onClick={() => handleApproveMentor(m.id, 'PENDING')}
+                    className="flex-1 md:flex-none px-6 py-3 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                  >
+                    Reset to Pending
+                  </button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
   const groupedItems = items.reduce((acc: any, item: any) => {
       const tag = item.set_tag || 'General';
       if (!acc[tag]) acc[tag] = [];
@@ -397,6 +569,7 @@ const AdminPanel: React.FC = () => {
   const tabs = [
       { id: 'PAYMENTS', label: 'Payments', icon: IndianRupee, color: 'bg-yellow-400 text-black', count: payments.length },
       { id: 'USERS', label: 'Cadets', icon: User, color: 'bg-indigo-600 text-white' },
+      { id: 'MENTORS', label: 'Mentors', icon: Users, color: 'bg-blue-600 text-white' },
       { id: 'OIR', label: 'OIR Test', icon: Lightbulb, color: 'bg-teal-600 text-white' },
       { id: 'SCREENING', label: 'Mock Screening', icon: ShieldAlert, color: 'bg-purple-600 text-white' },
       { id: 'PPDT', label: 'PPDT', icon: ImageIcon, color: 'bg-slate-900 text-white' },
@@ -913,25 +1086,27 @@ create policy "Admin delete gpe" on public.gpe_scenarios for delete using (true)
       )}
 
       {/* FEEDBACK */}
-      {activeTab === 'FEEDBACK' && (
-          <div className="space-y-6">
-              {feedbackList.map((f: any) => (
-                  <div key={f.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
-                      <div className="flex justify-between items-start mb-2">
-                          <div>
-                              <h4 className="font-bold text-slate-900 text-sm">{f.aspirants?.full_name || 'Anonymous'}</h4>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{f.test_type} • {new Date(f.created_at).toLocaleDateString()}</p>
-                          </div>
-                          <div className="flex gap-1 text-yellow-400">
-                              {[...Array(f.rating)].map((_, i) => <Star key={i} size={14} fill="currentColor" />)}
-                          </div>
-                      </div>
-                      <p className="text-sm font-medium text-slate-600 bg-slate-50 p-4 rounded-xl">{f.comments}</p>
-                      <button onClick={() => handleDelete(f.id)} className="mt-4 text-red-400 text-xs font-bold uppercase tracking-widest hover:text-red-600">Delete Feedback</button>
-                  </div>
-              ))}
-          </div>
-      )}
+            {activeTab === 'FEEDBACK' && (
+                <div className="space-y-6">
+                    {feedbackList.map((f: any) => (
+                        <div key={f.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                            <div className="flex justify-between items-start mb-2">
+                                <div>
+                                    <h4 className="font-bold text-slate-900 text-sm">{f.aspirants?.full_name || 'Anonymous'}</h4>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{f.test_type} • {new Date(f.created_at).toLocaleDateString()}</p>
+                                </div>
+                                <div className="flex gap-1 text-yellow-400">
+                                    {[...Array(f.rating)].map((_, i) => <Star key={i} size={14} fill="currentColor" />)}
+                                </div>
+                            </div>
+                            <p className="text-sm font-medium text-slate-600 bg-slate-50 p-4 rounded-xl">{f.comments}</p>
+                            <button onClick={() => handleDelete(f.id)} className="mt-4 text-red-400 text-xs font-bold uppercase tracking-widest hover:text-red-600">Delete Feedback</button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {activeTab === 'MENTORS' && renderMentors()}
 
       {activeTab === 'PAYMENTS' && (
           <div className="space-y-6">

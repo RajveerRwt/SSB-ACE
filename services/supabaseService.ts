@@ -1009,3 +1009,212 @@ export const deleteNewPendingAssessment = async (id: string) => {
     
     if (error) console.error("Error deleting new pending assessment:", error);
 };
+
+// --- MENTOR FUNCTIONS ---
+
+export const getMentorProfile = async (userId: string) => {
+    const { data, error } = await supabase
+        .from('mentors')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+    
+    if (error) console.error("Error fetching mentor profile:", error);
+    return data;
+};
+
+export const requestMentorApproval = async (userId: string, fullName: string, email: string, bio: string, specialization: string) => {
+    const { data, error } = await supabase
+        .from('mentors')
+        .upsert({
+            id: userId,
+            full_name: fullName,
+            email: email,
+            bio: bio,
+            specialization: specialization,
+            status: 'PENDING' // Always reset to PENDING on update/request
+        })
+        .select()
+        .single();
+    
+    if (error) throw error;
+    return data;
+};
+
+export const getAllMentors = async () => {
+    const { data, error } = await supabase
+        .from('mentors')
+        .select('*')
+        .order('created_at', { ascending: false });
+    
+    if (error) console.error("Error fetching all mentors:", error);
+    return data || [];
+};
+
+export const approveMentor = async (mentorId: string, status: 'APPROVED' | 'REJECTED' | 'PENDING') => {
+    const { error } = await supabase
+        .from('mentors')
+        .update({ status: status })
+        .eq('id', mentorId);
+    
+    if (error) throw error;
+};
+
+export const createBatch = async (mentorId: string, name: string, description: string) => {
+    // Generate a unique 6-character batch code
+    const batchCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    const { data, error } = await supabase
+        .from('batches')
+        .insert({
+            mentor_id: mentorId,
+            name,
+            description,
+            batch_code: batchCode
+        })
+        .select()
+        .single();
+    
+    if (error) throw error;
+    return data;
+};
+
+export const getMentorBatches = async (mentorId: string) => {
+    const { data, error } = await supabase
+        .from('batches')
+        .select('*')
+        .eq('mentor_id', mentorId)
+        .order('created_at', { ascending: false });
+    
+    if (error) console.error("Error fetching mentor batches:", error);
+    return data || [];
+};
+
+export const getStudentBatches = async (userId: string) => {
+    const { data, error } = await supabase
+        .from('batch_members')
+        .select('*, batches(*, mentors(full_name))')
+        .eq('user_id', userId);
+    
+    if (error) console.error("Error fetching student batches:", error);
+    return data || [];
+};
+
+export const joinBatch = async (userId: string, batchCode: string) => {
+    // First find the batch by code
+    const { data: batch, error: batchError } = await supabase
+        .from('batches')
+        .select('id')
+        .eq('batch_code', batchCode.toUpperCase())
+        .single();
+    
+    if (batchError || !batch) throw new Error("Batch not found. Please check the code.");
+    
+    const { data, error } = await supabase
+        .from('batch_members')
+        .insert({
+            batch_id: batch.id,
+            user_id: userId
+        })
+        .select()
+        .single();
+    
+    if (error) {
+        if (error.code === '23505') throw new Error("You are already a member of this batch.");
+        throw error;
+    }
+    return data;
+};
+
+export const getBatchMembers = async (batchId: string) => {
+    const { data, error } = await supabase
+        .from('batch_members')
+        .select('*, aspirants(full_name, email)')
+        .eq('batch_id', batchId);
+    
+    if (error) console.error("Error fetching batch members:", error);
+    return data || [];
+};
+
+export const scheduleBatchTest = async (batchId: string, testType: string, testConfig: any, scheduledAt: string, deadline?: string) => {
+    const { data, error } = await supabase
+        .from('batch_tests')
+        .insert({
+            batch_id: batchId,
+            test_type: testType,
+            test_config: testConfig,
+            scheduled_at: scheduledAt,
+            deadline: deadline
+        })
+        .select()
+        .single();
+    
+    if (error) throw error;
+    return data;
+};
+
+export const getBatchTests = async (batchId: string) => {
+    const { data, error } = await supabase
+        .from('batch_tests')
+        .select('*')
+        .eq('batch_id', batchId)
+        .order('scheduled_at', { ascending: true });
+    
+    if (error) console.error("Error fetching batch tests:", error);
+    return data || [];
+};
+
+export const submitBatchTest = async (batchTestId: string, userId: string, responseData: any) => {
+    const { data, error } = await supabase
+        .from('batch_test_submissions')
+        .insert({
+            batch_test_id: batchTestId,
+            user_id: userId,
+            response_data: responseData,
+            status: 'submitted'
+        })
+        .select()
+        .single();
+    
+    if (error) {
+        if (error.code === '23505') throw new Error("You have already submitted this test.");
+        throw error;
+    }
+    return data;
+};
+
+export const getBatchSubmissions = async (batchTestId: string) => {
+    const { data, error } = await supabase
+        .from('batch_test_submissions')
+        .select('*, aspirants(full_name, email)')
+        .eq('batch_test_id', batchTestId);
+    
+    if (error) console.error("Error fetching batch submissions:", error);
+    return data || [];
+};
+
+export const getStudentSubmissions = async (userId: string) => {
+    const { data, error } = await supabase
+        .from('batch_test_submissions')
+        .select('*, batch_tests(*, batches(name))')
+        .eq('user_id', userId);
+    
+    if (error) console.error("Error fetching student submissions:", error);
+    return data || [];
+};
+
+export const reviewBatchSubmission = async (submissionId: string, score: number, remarks: string) => {
+    const { data, error } = await supabase
+        .from('batch_test_submissions')
+        .update({
+            score,
+            mentor_remarks: remarks,
+            status: 'reviewed'
+        })
+        .eq('id', submissionId)
+        .select()
+        .single();
+    
+    if (error) throw error;
+    return data;
+};

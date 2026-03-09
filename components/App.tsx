@@ -23,8 +23,11 @@ import { GPETest } from './GPETest';
 import Footer from './Footer';
 import Assessments from './Assessments';
 import ReportModal from './ReportModal';
+import MentorRegistration from './MentorRegistration';
+import MentorDashboard from './MentorDashboard';
+import StudentBatchView from './StudentBatchView';
 import { TestType, PIQData, UserSubscription } from '../types';
-import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, getTestReport, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment } from '../services/supabaseService';
+import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, getTestReport, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment, getMentorProfile } from '../services/supabaseService';
 import { evaluatePerformance } from '../services/geminiService';
 import FreeCoinModal from './FreeCoinModal';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, Gift, RotateCcw, FileText } from 'lucide-react';
@@ -734,10 +737,13 @@ const App: React.FC = () => {
   const [activeTest, setActiveTest] = useState<TestType>(TestType.DASHBOARD);
   const [user, setUser] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>('Cadet');
   const [piqData, setPiqData] = useState<PIQData | null>(null);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentOpen, setPaymentOpen] = useState(false);
+  const [isMentor, setIsMentor] = useState(false);
+  const [mentorStatus, setMentorStatus] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
@@ -760,20 +766,47 @@ const App: React.FC = () => {
   const handleUserAuthenticated = async (u: any) => {
       setUser(u.id);
       setUserEmail(u.email || '');
+      setUserName(u.user_metadata?.full_name || u.user_metadata?.name || 'Cadet');
       getUserData(u.id).then((d: any) => d && setPiqData(d));
       getUserSubscription(u.id).then((sub: any) => setSubscription(sub));
+      
+      // Check mentor status
+      getMentorProfile(u.id).then(profile => {
+        if (profile) {
+          setIsMentor(profile.status === 'APPROVED');
+          setMentorStatus(profile.status);
+        } else {
+          setIsMentor(false);
+          setMentorStatus(null);
+        }
+      });
+
       const hasSeenWelcome = localStorage.getItem(`ssb_welcome_seen_${u.id}`);
       if (!hasSeenWelcome) setShowWelcome(true);
   };
 
-  const handleLogin = (uid: string, email?: string) => {
+  const handleLogin = (uid: string, email?: string, metadata?: any) => {
     setUser(uid);
     setUserEmail(email || '');
+    if (metadata) {
+      setUserName(metadata.full_name || metadata.name || 'Cadet');
+    }
     if (activeTest === TestType.LOGIN) {
       setActiveTest(TestType.DASHBOARD);
     }
     getUserData(uid).then((d: any) => d && setPiqData(d));
     getUserSubscription(uid).then((sub: any) => setSubscription(sub));
+    
+    // Check mentor status
+    getMentorProfile(uid).then(profile => {
+      if (profile) {
+        setIsMentor(profile.status === 'APPROVED');
+        setMentorStatus(profile.status);
+      } else {
+        setIsMentor(false);
+        setMentorStatus(null);
+      }
+    });
   };
 
   const handleLogoutAction = async () => {
@@ -897,6 +930,12 @@ const App: React.FC = () => {
       case TestType.LECTURETTE: return <LecturetteTest onSave={handleTestComplete} onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.OIR: return <OIRTest onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onExit={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.MOCK_SCREENING: return <MockScreening onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onExit={() => setActiveTest(TestType.DASHBOARD)} userId={user || undefined} />;
+      case TestType.MENTOR_REGISTRATION: return user ? <MentorRegistration userId={user} userEmail={userEmail || ''} userName={userName} onSuccess={() => setActiveTest(TestType.DASHBOARD)} /> : <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
+      case TestType.MENTOR_DASHBOARD: return isMentor ? <MentorDashboard userId={user!} userEmail={userEmail || ''} userName={userName} /> : <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} />;
+      case TestType.STUDENT_BATCHES: return user ? <StudentBatchView userId={user} onStartTest={(type, config, batchTestId) => {
+          // Handle starting a test from a batch
+          navigateTo(type as TestType, { ...config, batchTestId });
+      }} /> : <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
       default: return <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} />;
     }
   };
@@ -910,6 +949,8 @@ const App: React.FC = () => {
       user={userEmail || undefined}
       isLoggedIn={!!user}
       isAdmin={isUserAdmin(userEmail)}
+      isMentor={isMentor}
+      mentorStatus={mentorStatus}
       subscription={subscription}
       onOpenPayment={() => setPaymentOpen(true)}
     >
