@@ -24,7 +24,7 @@ import Footer from './Footer';
 import Assessments from './Assessments';
 import ReportModal from './ReportModal';
 import { TestType, PIQData, UserSubscription } from '../types';
-import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment } from '../services/supabaseService';
+import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, getTestReport, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment } from '../services/supabaseService';
 import { evaluatePerformance } from '../services/geminiService';
 import FreeCoinModal from './FreeCoinModal';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, Gift, RotateCcw, FileText } from 'lucide-react';
@@ -155,6 +155,7 @@ const Dashboard: React.FC<{
     if (isLoggedIn && user && !user.startsWith('demo')) {
       setLoadingHistory(true);
       getUserHistory(user).then((data: any[]) => {
+        console.log("History data received in App:", data.length);
         setHistory(data);
         
         // Calculate Stats
@@ -486,11 +487,25 @@ const Dashboard: React.FC<{
                                         <div className="flex items-center gap-2 w-full md:w-auto">
                                             {h.status !== 'pending' && h.status !== 'failed' && (
                                                 <button 
-                                                    onClick={() => {
-                                                        setSelectedReport({ ...h, result_data: h.result || h.result_data, test_type: h.type });
-                                                        setIsReportOpen(true);
+                                                    onClick={async (e) => {
+                                                        const btn = e.currentTarget;
+                                                        const originalText = btn.innerHTML;
+                                                        btn.disabled = true;
+                                                        btn.innerHTML = '<span class="animate-spin">⏳</span> Loading...';
+                                                        
+                                                        try {
+                                                            let reportData = h.result || h.result_data;
+                                                            if (!reportData) {
+                                                                reportData = await getTestReport(h.id);
+                                                            }
+                                                            setSelectedReport({ ...h, result_data: reportData, test_type: h.type });
+                                                            setIsReportOpen(true);
+                                                        } finally {
+                                                            btn.disabled = false;
+                                                            btn.innerHTML = originalText;
+                                                        }
                                                     }}
-                                                    className="flex-1 md:flex-none px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-1.5"
+                                                    className="flex-1 md:flex-none px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                                                 >
                                                     <FileText size={12} /> Report
                                                 </button>

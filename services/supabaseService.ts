@@ -377,36 +377,21 @@ export const getUserHistory = async (userId: string) => {
   console.log("Fetching history for userId:", userId);
   
   try {
-    // Try with a smaller limit first to avoid timeouts
+    // Fetch more records but keep a reasonable limit to avoid timeouts
+    // We fetch the whole result_data to ensure we have the status and other info
     const { data, error } = await supabase
       .from('test_history')
-      .select('id, test_type, created_at, score, result_data')
+      .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(500);
       
     if (error) {
       console.error("Supabase error fetching history:", JSON.stringify(error));
-      // If it's a 500 or timeout, try an even simpler query
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('test_history')
-        .select('id, test_type, created_at, score')
-        .eq('user_id', userId)
-        .limit(10);
-        
-      if (fallbackError) {
-        console.error("Fallback fetch also failed:", JSON.stringify(fallbackError));
-        return [];
-      }
-      return fallbackData?.map((item: any) => ({
-          id: item.id,
-          type: item.test_type,
-          timestamp: item.created_at,
-          score: item.score,
-          result: null,
-          status: 'completed'
-      })) || [];
+      return [];
     }
+    
+    console.log(`Successfully fetched ${data?.length || 0} history records`);
       
     return data?.map((item: any) => {
         let resultData = item.result_data;
@@ -431,6 +416,34 @@ export const getUserHistory = async (userId: string) => {
     console.error("Unexpected error in getUserHistory:", err);
     return [];
   }
+};
+
+export const getTestReport = async (reportId: string) => {
+    try {
+        const { data, error } = await supabase
+            .from('test_history')
+            .select('result_data')
+            .eq('id', reportId)
+            .single();
+            
+        if (error) {
+            console.error("Error fetching test report:", error);
+            return null;
+        }
+        
+        let resultData = data.result_data;
+        if (typeof resultData === 'string') {
+            try {
+                resultData = JSON.parse(resultData);
+            } catch (e) {
+                console.error("Error parsing result_data for report", reportId);
+            }
+        }
+        return resultData;
+    } catch (err) {
+        console.error("Unexpected error in getTestReport:", err);
+        return null;
+    }
 };
 
 export const getUserStreak = async (userId: string) => {
