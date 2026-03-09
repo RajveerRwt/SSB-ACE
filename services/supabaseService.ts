@@ -377,41 +377,30 @@ export const getUserHistory = async (userId: string) => {
   console.log("Fetching history for userId:", userId);
   
   try {
-    // Fetch more records but keep a reasonable limit to avoid timeouts
-    // We fetch the whole result_data to ensure we have the status and other info
+    // Fetch metadata only to avoid timeouts from large JSON blobs
+    // We extract the status from the JSON column directly in the query
     const { data, error } = await supabase
       .from('test_history')
-      .select('*')
+      .select('id, test_type, created_at, score, status:result_data->>_status')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(500);
+      .limit(300);
       
     if (error) {
       console.error("Supabase error fetching history:", JSON.stringify(error));
       return [];
     }
     
-    console.log(`Successfully fetched ${data?.length || 0} history records`);
+    console.log(`Successfully fetched ${data?.length || 0} history records (metadata only)`);
       
-    return data?.map((item: any) => {
-        let resultData = item.result_data;
-        if (typeof resultData === 'string') {
-            try {
-                resultData = JSON.parse(resultData);
-            } catch (e) {
-                console.error("Error parsing result_data for item", item.id);
-            }
-        }
-        
-        return {
-            id: item.id,
-            type: item.test_type,
-            timestamp: item.created_at,
-            score: item.score,
-            result: resultData,
-            status: resultData?._status || 'completed'
-        };
-    }) || [];
+    return data?.map((item: any) => ({
+        id: item.id,
+        type: item.test_type,
+        timestamp: item.created_at,
+        score: item.score,
+        result: null, // We'll fetch this on demand using getTestReport
+        status: item.status || 'completed'
+    })) || [];
   } catch (err) {
     console.error("Unexpected error in getUserHistory:", err);
     return [];
