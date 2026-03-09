@@ -91,7 +91,7 @@ const Dashboard: React.FC<{
       interviewAvg: 0,
       totalTests: 0,
       rank: 'Cadet',
-      breakdown: {} as Record<string, { count: number, avg: number, completedCount: number }>
+      breakdown: {} as Record<string, { count: number, avg: number }>
   });
   
   const quotes = [
@@ -154,46 +154,38 @@ const Dashboard: React.FC<{
   useEffect(() => {
     if (isLoggedIn && user && !user.startsWith('demo')) {
       setLoadingHistory(true);
-      getUserHistory(user, 100).then((data: any[]) => {
+      getUserHistory(user).then((data: any[]) => {
         setHistory(data);
         
         // Calculate Stats
-        const breakdown: Record<string, { count: number, avg: number, completedCount: number }> = {};
+        const breakdown: Record<string, { count: number, avg: number }> = {};
         data.forEach((h: any) => {
             const type = h.type;
             if (!breakdown[type]) {
-                breakdown[type] = { count: 0, avg: 0, completedCount: 0 };
+                breakdown[type] = { count: 0, avg: 0 };
             }
             breakdown[type].count += 1;
-            if (h.status !== 'pending') {
-                breakdown[type].avg += (Number(h.score) || 0);
-                breakdown[type].completedCount += 1;
-            }
+            breakdown[type].avg += (Number(h.score) || 0);
         });
 
         Object.keys(breakdown).forEach(key => {
-            if (breakdown[key].completedCount > 0) {
-                breakdown[key].avg = breakdown[key].avg / breakdown[key].completedCount;
-            } else {
-                breakdown[key].avg = 0;
-            }
+            breakdown[key].avg = breakdown[key].avg / breakdown[key].count;
         });
 
-        const completedLogs = data.filter((h: any) => h.status !== 'pending');
-        const ppdtLogs = completedLogs.filter((h: any) => h.type.includes('PPDT'));
-        const psychLogs = completedLogs.filter((h: any) => ['TAT', 'WAT', 'SRT', 'SDT'].some(t => h.type.includes(t)));
-        const interviewLogs = completedLogs.filter((h: any) => h.type.includes('INTERVIEW'));
+        const ppdtLogs = data.filter((h: any) => h.type.includes('PPDT'));
+        const psychLogs = data.filter((h: any) => ['TAT', 'WAT', 'SRT', 'SDT'].some(t => h.type.includes(t)));
+        const interviewLogs = data.filter((h: any) => h.type.includes('INTERVIEW'));
 
         const ppdtAvg = ppdtLogs.length ? ppdtLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / ppdtLogs.length : 0;
         const psychAvg = psychLogs.length ? psychLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / psychLogs.length : 0;
         const interviewAvg = interviewLogs.length ? interviewLogs.reduce((a: number, b: any) => a + (Number(b.score) || 0), 0) / interviewLogs.length : 0;
         
-        const totalTests = completedLogs.length;
+        const totalTests = data.length;
         let rank = 'Cadet';
         if (totalTests > 5) rank = 'Lieutenant';
         if (totalTests > 15) rank = 'Captain';
         if (totalTests > 30) rank = 'Major';
-        if (ppdtAvg > 8 && interviewAvg > 8 && totalTests > 10) rank = 'Commando';
+        if (ppdtAvg > 8 && interviewAvg > 8) rank = 'Commando';
 
         setStats({ ppdtAvg, psychAvg, interviewAvg, totalTests, rank, breakdown });
         setLoadingHistory(false);
@@ -216,28 +208,9 @@ const Dashboard: React.FC<{
       if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(true);
-  
-  useEffect(() => {
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    if (!url || url.includes('placeholder')) {
-        setIsSupabaseConfigured(false);
-    }
-  }, []);
-
   return (
     <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-0">
       
-      {!isSupabaseConfigured && (
-          <div className="bg-red-500 text-white p-4 rounded-2xl flex items-center gap-3 shadow-lg animate-pulse">
-              <AlertCircle size={24} />
-              <div>
-                  <p className="text-xs font-black uppercase tracking-widest">Configuration Error</p>
-                  <p className="text-[10px] font-bold opacity-90">Supabase environment variables are missing. Please check your app settings.</p>
-              </div>
-          </div>
-      )}
-
       {/* EARLY RISER BONUS TOAST */}
       {isLoggedIn && isEarlyRiser && (
           <div className="fixed top-24 right-4 z-50 bg-orange-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-1000 border-2 border-orange-400">
@@ -763,11 +736,6 @@ const App: React.FC = () => {
   const handleUserAuthenticated = async (u: any) => {
       setUser(u.id);
       setUserEmail(u.email || '');
-      try {
-        await syncUserProfile(u);
-      } catch (e) {
-        console.error("Profile Sync Failed:", e);
-      }
       getUserData(u.id).then((d: any) => d && setPiqData(d));
       getUserSubscription(u.id).then((sub: any) => setSubscription(sub));
       const hasSeenWelcome = localStorage.getItem(`ssb_welcome_seen_${u.id}`);
