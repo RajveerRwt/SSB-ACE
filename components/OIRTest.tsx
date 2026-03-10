@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Clock, CheckCircle, AlertTriangle, ChevronRight, ChevronLeft, Flag, HelpCircle, Loader2, Play, Lock, RefreshCw, Send, MessageSquare, Lightbulb, X, Coins, Maximize2, Trophy, Flame, Timer, Skull, Crown, Medal, Share2, Linkedin, Twitter, Instagram, Filter, Target } from 'lucide-react';
-import { getOIRSets, getOIRQuestions, getOIRDoubts, postOIRDoubt, checkAuthSession, TEST_RATES, getOIRLeaderboard, getAllOIRQuestionsRandom, saveTestAttempt } from '../services/supabaseService';
+import { getOIRSets, getOIRQuestions, getOIRDoubts, postOIRDoubt, checkAuthSession, TEST_RATES, getOIRLeaderboard, getAllOIRQuestionsRandom, saveTestAttempt, submitBatchTest } from '../services/supabaseService';
 
 interface OIRTestProps {
   onConsumeCoins?: (cost: number) => Promise<boolean>;
   isGuest?: boolean;
   onLoginRedirect?: () => void;
   onExit: () => void;
+  batchTestId?: string;
+  config?: any;
 }
 
-const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLoginRedirect, onExit }) => {
+const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLoginRedirect, onExit, batchTestId, config }) => {
   const [sets, setSets] = useState<any[]>([]);
   const [activeSet, setActiveSet] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
@@ -38,6 +40,42 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
     loadSets();
     checkAuthSession().then(u => setCurrentUser(u));
   }, []);
+
+  // Auto-start if batch test
+  useEffect(() => {
+    if (batchTestId && sets.length > 0 && mode === 'LOBBY') {
+      const setId = config?.setId;
+      if (setId) {
+        const set = sets.find(s => s.id === setId);
+        if (set) {
+          startBatchTest(set);
+        } else {
+          // Fallback to random or first set if not found
+          startBatchTest(sets[0]);
+        }
+      } else {
+        // Random set for batch if not specified
+        startBatchTest(sets[Math.floor(Math.random() * sets.length)]);
+      }
+    }
+  }, [batchTestId, sets, mode, config]);
+
+  const startBatchTest = async (set: any) => {
+    setIsLoading(true);
+    try {
+        const qs = await getOIRQuestions(set.id);
+        setQuestions(qs);
+        setUserAnswers(new Array(qs.length).fill(-1));
+        setActiveSet(set);
+        setTimeLeft(set.time_limit_seconds);
+        setMode('TEST');
+        setCurrentQIndex(0);
+    } catch (e) {
+        alert("Failed to load questions.");
+    } finally {
+        setIsLoading(false);
+    }
+  };
 
   const loadSets = async () => {
     try {
@@ -198,7 +236,12 @@ const OIRTest: React.FC<OIRTestProps> = ({ onConsumeCoins, isGuest = false, onLo
               correct: res.score,
               setId: activeSet?.id // IMPORTANT: Save Set ID for filtering
           };
-          await saveTestAttempt(currentUser.id, 'OIR', { score: res.score, ...resultData });
+          
+          if (batchTestId) {
+            await submitBatchTest(batchTestId, currentUser.id, resultData);
+          } else {
+            await saveTestAttempt(currentUser.id, 'OIR', { score: res.score, ...resultData });
+          }
       }
       
       // Load doubts for first question immediately

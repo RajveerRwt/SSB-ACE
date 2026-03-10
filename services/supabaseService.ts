@@ -1193,11 +1193,29 @@ export const submitBatchTest = async (batchTestId: string, userId: string, respo
 export const getBatchSubmissions = async (batchTestId: string) => {
     const { data, error } = await supabase
         .from('batch_test_submissions')
-        .select('*, aspirants(full_name, email)')
+        .select('*, aspirants!user_id(full_name, user_id), batch_tests(test_type)')
         .eq('batch_test_id', batchTestId);
     
-    if (error) console.error("Error fetching batch submissions:", error);
-    return data || [];
+    if (error) {
+        console.error("Error fetching batch submissions:", error);
+        // Fallback: fetch without join if join fails
+        const { data: simpleData, error: simpleError } = await supabase
+            .from('batch_test_submissions')
+            .select('*, batch_tests(test_type)')
+            .eq('batch_test_id', batchTestId);
+        return simpleData || [];
+    }
+    
+    // Flatten the test_type for easier access
+    const flattenedData = data?.map(s => {
+        const batchTest = Array.isArray(s.batch_tests) ? s.batch_tests[0] : s.batch_tests;
+        return {
+            ...s,
+            test_type: batchTest?.test_type
+        };
+    });
+    
+    return flattenedData || [];
 };
 
 export const getStudentSubmissions = async (userId: string) => {
@@ -1207,7 +1225,14 @@ export const getStudentSubmissions = async (userId: string) => {
         .eq('user_id', userId);
     
     if (error) console.error("Error fetching student submissions:", error);
-    return data || [];
+    
+    // Flatten for easier access
+    const flattenedData = data?.map(s => ({
+        ...s,
+        test_type: s.batch_tests?.test_type
+    }));
+    
+    return flattenedData || [];
 };
 
 export const reviewBatchSubmission = async (submissionId: string, score: number, remarks: string) => {

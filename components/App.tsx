@@ -26,6 +26,7 @@ import ReportModal from './ReportModal';
 import MentorRegistration from './MentorRegistration';
 import MentorDashboard from './MentorDashboard';
 import StudentBatchView from './StudentBatchView';
+import BatchPPDTTest from './BatchPPDTTest';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, getTestReport, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment, getMentorProfile } from '../services/supabaseService';
 import { evaluatePerformance } from '../services/geminiService';
@@ -735,6 +736,7 @@ const BackgroundAssessmentManager: React.FC<{ userId: string }> = ({ userId }) =
 
 const App: React.FC = () => {
   const [activeTest, setActiveTest] = useState<TestType>(TestType.DASHBOARD);
+  const [activeTestParams, setActiveTestParams] = useState<any>(null);
   const [user, setUser] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>('Cadet');
@@ -852,6 +854,7 @@ const App: React.FC = () => {
      }
 
      setActiveTest(test);
+     setActiveTestParams(params);
   };
   
   const handleCoinConsumption = async (cost: number): Promise<boolean> => {
@@ -902,7 +905,18 @@ const App: React.FC = () => {
       case TestType.LOGIN: return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.REGISTER: return <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} initialIsSignUp={true} />;
       case TestType.PIQ: return <PIQForm onSave={async (data: PIQData) => { if(user) { await saveUserData(user, data); setPiqData(data); alert("PIQ Saved"); setActiveTest(TestType.DASHBOARD); } else { alert("Please login."); setActiveTest(TestType.LOGIN); } }} initialData={piqData || undefined} />;
-      case TestType.PPDT: return <PPDTTest onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
+      case TestType.PPDT: 
+        if (activeTestParams?.batchTestId) {
+          return (
+            <BatchPPDTTest 
+              userId={user!} 
+              batchTestId={activeTestParams.batchTestId} 
+              config={activeTestParams} 
+              onComplete={() => setActiveTest(TestType.STUDENT_BATCHES)} 
+            />
+          );
+        }
+        return <PPDTTest onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
       case TestType.TAT: return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
       case TestType.WAT: return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
       case TestType.SRT: return <PsychologyTest type={TestType.SRT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
@@ -928,7 +942,16 @@ const App: React.FC = () => {
       case TestType.DAILY_PRACTICE: return <DailyPractice onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.RESOURCES: return <ResourceCenter />;
       case TestType.LECTURETTE: return <LecturetteTest onSave={handleTestComplete} onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
-      case TestType.OIR: return <OIRTest onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onExit={() => setActiveTest(TestType.DASHBOARD)} />;
+      case TestType.OIR: return (
+        <OIRTest 
+          onConsumeCoins={handleCoinConsumption} 
+          isGuest={!user} 
+          onLoginRedirect={() => setActiveTest(TestType.LOGIN)} 
+          onExit={() => setActiveTest(activeTestParams?.batchTestId ? TestType.STUDENT_BATCHES : TestType.DASHBOARD)} 
+          batchTestId={activeTestParams?.batchTestId}
+          config={activeTestParams}
+        />
+      );
       case TestType.MOCK_SCREENING: return <MockScreening onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onExit={() => setActiveTest(TestType.DASHBOARD)} userId={user || undefined} />;
       case TestType.MENTOR_REGISTRATION: return user ? <MentorRegistration userId={user} userEmail={userEmail || ''} userName={userName} onSuccess={() => setActiveTest(TestType.DASHBOARD)} /> : <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.MENTOR_DASHBOARD: return isMentor ? <MentorDashboard userId={user!} userEmail={userEmail || ''} userName={userName} /> : <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} />;
