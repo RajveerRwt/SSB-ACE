@@ -15,7 +15,11 @@ import {
   getScreeningConfig, updateScreeningConfig
 } from '../services/supabaseService';
 
-const AdminPanel: React.FC = () => {
+interface AdminPanelProps {
+  isMentorMode?: boolean;
+}
+
+const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
   const [items, setItems] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -90,7 +94,7 @@ const AdminPanel: React.FC = () => {
   // SQL Help Toggle
   const [showSqlHelp, setShowSqlHelp] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'GPE' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK' | 'OIR' | 'SCREENING' | 'MENTORS'>('PAYMENTS');
+  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'GPE' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK' | 'OIR' | 'SCREENING' | 'MENTORS'>(isMentorMode ? 'PPDT' : 'PAYMENTS');
   const [mentors, setMentors] = useState<any[]>([]);
   const [mentorEmail, setMentorEmail] = useState('');
   const [mentorName, setMentorName] = useState('');
@@ -566,7 +570,7 @@ const AdminPanel: React.FC = () => {
       setOirOptions(newOpts);
   };
 
-  const tabs = [
+  const allTabs = [
       { id: 'PAYMENTS', label: 'Payments', icon: IndianRupee, color: 'bg-yellow-400 text-black', count: payments.length },
       { id: 'USERS', label: 'Cadets', icon: User, color: 'bg-indigo-600 text-white' },
       { id: 'MENTORS', label: 'Mentors', icon: Users, color: 'bg-blue-600 text-white' },
@@ -583,20 +587,29 @@ const AdminPanel: React.FC = () => {
       { id: 'FEEDBACK', label: 'Feedback', icon: MessageSquare, color: 'bg-orange-600 text-white' },
   ];
 
+  const tabs = isMentorMode 
+    ? allTabs.filter(t => ['OIR', 'PPDT', 'TAT', 'WAT', 'SRT', 'GPE'].includes(t.id))
+    : allTabs;
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700">
       {/* HEADER */}
       <div className="bg-slate-900 rounded-[2rem] p-8 md:p-12 text-white shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
         <div>
           <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter flex items-center gap-4">
-             <Lock className="text-red-500" /> Admin Command
+             {isMentorMode ? <Layers className="text-blue-500" /> : <Lock className="text-red-500" />} 
+             {isMentorMode ? 'Content Library' : 'Admin Command'}
           </h1>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-xs mt-2">Resource Management & Deployment</p>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-xs mt-2">
+            {isMentorMode ? 'Manage Test Sets & Scenarios' : 'Resource Management & Deployment'}
+          </p>
         </div>
         <div className="flex gap-4">
-            <button onClick={() => setShowSqlHelp(!showSqlHelp)} className="p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all text-white flex items-center gap-2" title="Database Setup Help">
-                <Database size={20} /> <span className="hidden md:inline font-bold text-xs uppercase tracking-widest">Fix Permissions</span>
-            </button>
+            {!isMentorMode && (
+              <button onClick={() => setShowSqlHelp(!showSqlHelp)} className="p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all text-white flex items-center gap-2" title="Database Setup Help">
+                  <Database size={20} /> <span className="hidden md:inline font-bold text-xs uppercase tracking-widest">Fix Permissions</span>
+              </button>
+            )}
             <button onClick={fetchData} className="p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all text-white">
                 <RefreshCw size={20} className={isLoading ? "animate-spin" : ""} />
             </button>

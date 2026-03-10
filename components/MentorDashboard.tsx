@@ -6,11 +6,13 @@ import {
   Award, BarChart3, Settings, ExternalLink, Trash2,
   Video, BookOpen, ClipboardList, AlertCircle, Loader2
 } from 'lucide-react';
+import AdminPanel from './AdminPanel';
 import { 
   getMentorProfile, getMentorBatches, createBatch, 
   getBatchMembers, getBatchTests, scheduleBatchTest,
   getBatchSubmissions, reviewBatchSubmission,
-  getOIRSets, getGPEScenarios, getPPDTScenarios, getTATScenarios
+  getOIRSets, getGPEScenarios, getPPDTScenarios, getTATScenarios,
+  uploadCustomScenario
 } from '../services/supabaseService';
 
 interface MentorDashboardProps {
@@ -29,7 +31,7 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'batches' | 'submissions'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'batches' | 'submissions' | 'library'>('overview');
   
   // Form States
   const [showCreateBatch, setShowCreateBatch] = useState(false);
@@ -41,7 +43,10 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
   const [scheduledAt, setScheduledAt] = useState('');
   const [deadline, setDeadline] = useState('');
   const [selectedSetId, setSelectedSetId] = useState('');
+  const [customFile, setCustomFile] = useState<File | null>(null);
   
+  const [isLiveTest, setIsLiveTest] = useState(false);
+
   // Review States
   const [reviewScore, setReviewScore] = useState(5);
   const [reviewRemarks, setReviewRemarks] = useState('');
@@ -92,8 +97,9 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
       setShowCreateBatch(false);
       setNewBatchName('');
       setNewBatchDesc('');
-    } catch (error) {
-      alert("Error creating batch");
+    } catch (error: any) {
+      console.error("Batch creation error:", error);
+      alert("Error creating batch: " + (error.message || JSON.stringify(error)));
     }
   };
 
@@ -117,12 +123,20 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
   const handleScheduleTest = async () => {
     if (!selectedBatch || !testType || !scheduledAt) return;
     try {
-      const config = { setId: selectedSetId };
+      let config: any = { setId: selectedSetId };
+      
+      if (customFile) {
+        const url = await uploadCustomScenario(customFile);
+        config.customImages = [url];
+      }
+
       const newTest = await scheduleBatchTest(selectedBatch.id, testType, config, scheduledAt, deadline);
       setBatchTests([...batchTests, newTest]);
       setShowScheduleTest(false);
-    } catch (error) {
-      alert("Error scheduling test");
+      setCustomFile(null);
+    } catch (error: any) {
+      console.error("Error scheduling test:", error);
+      alert("Error scheduling test: " + (error.message || JSON.stringify(error)));
     }
   };
 
@@ -208,10 +222,21 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
           >
             Batches
           </button>
+          <button 
+            onClick={() => setActiveTab('library')}
+            className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'library' ? 'bg-white text-slate-900' : 'bg-white/10 text-white hover:bg-white/20'}`}
+          >
+            Library
+          </button>
         </div>
       </div>
 
       {/* Main Content */}
+      {activeTab === 'library' ? (
+        <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm">
+          <AdminPanel isMentorMode={true} />
+        </div>
+      ) : (
       <div className="grid lg:grid-cols-12 gap-8">
         {/* Sidebar: Batch List */}
         <div className="lg:col-span-4 space-y-6">
@@ -375,6 +400,7 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
           )}
         </div>
       </div>
+      )}
 
       {/* Modals */}
       {showCreateBatch && (
@@ -456,6 +482,17 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
                 </div>
               </div>
 
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Upload Custom Set (Optional)</label>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => setCustomFile(e.target.files?.[0] || null)}
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold text-slate-800 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                <p className="text-[10px] text-slate-400 mt-2 italic">Upload an image for custom PPDT/TAT scenarios. This will override the selected set.</p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Scheduled At</label>
@@ -463,7 +500,8 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
                     type="datetime-local" 
                     value={scheduledAt}
                     onChange={(e) => setScheduledAt(e.target.value)}
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold text-slate-800"
+                    disabled={isLiveTest}
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold text-slate-800 disabled:opacity-50"
                   />
                 </div>
                 <div>
@@ -475,6 +513,27 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
                     className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold text-slate-800"
                   />
                 </div>
+              </div>
+
+              <div className="flex items-center gap-3 bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                <input 
+                  type="checkbox" 
+                  id="liveTest"
+                  checked={isLiveTest}
+                  onChange={(e) => {
+                    setIsLiveTest(e.target.checked);
+                    if (e.target.checked) {
+                      const now = new Date();
+                      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                      setScheduledAt(now.toISOString().slice(0, 16));
+                    }
+                  }}
+                  className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="liveTest" className="text-sm font-bold text-blue-900 cursor-pointer">
+                  Start Live Test Now
+                  <span className="block text-[10px] font-medium text-blue-600 uppercase tracking-widest mt-0.5">Students can join immediately</span>
+                </label>
               </div>
 
               <div className="flex gap-3 pt-4">

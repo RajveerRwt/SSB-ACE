@@ -73,6 +73,22 @@ create table if not exists public.batch_test_submissions (
 );
 
 -- RLS POLICIES
+
+-- Helper functions to prevent infinite recursion in RLS
+create or replace function public.is_mentor_of_batch(b_id uuid)
+returns boolean as $$
+begin
+  return exists (select 1 from public.batches where id = b_id and mentor_id = auth.uid());
+end;
+$$ language plpgsql security definer;
+
+create or replace function public.is_batch_member(b_id uuid)
+returns boolean as $$
+begin
+  return exists (select 1 from public.batch_members where batch_id = b_id and user_id = auth.uid());
+end;
+$$ language plpgsql security definer;
+
 alter table public.mentors enable row level security;
 drop policy if exists "Public read approved mentors" on public.mentors;
 drop policy if exists "Mentors can read own profile" on public.mentors;
@@ -90,7 +106,7 @@ drop policy if exists "Mentors can manage own batches" on public.batches;
 drop policy if exists "Batch members can view batch" on public.batches;
 create policy "Mentors can manage own batches" on public.batches for all using (auth.uid() = mentor_id);
 create policy "Batch members can view batch" on public.batches for select using (
-  exists (select 1 from public.batch_members where batch_id = public.batches.id and user_id = auth.uid())
+  public.is_batch_member(id)
 );
 
 alter table public.batch_members enable row level security;
@@ -98,7 +114,7 @@ drop policy if exists "Mentors can view batch members" on public.batch_members;
 drop policy if exists "Users can join batches" on public.batch_members;
 drop policy if exists "Users can view own memberships" on public.batch_members;
 create policy "Mentors can view batch members" on public.batch_members for select using (
-  exists (select 1 from public.batches where id = public.batch_members.batch_id and mentor_id = auth.uid())
+  public.is_mentor_of_batch(batch_id)
 );
 create policy "Users can join batches" on public.batch_members for insert with check (auth.uid() = user_id);
 create policy "Users can view own memberships" on public.batch_members for select using (auth.uid() = user_id);
@@ -107,10 +123,10 @@ alter table public.batch_tests enable row level security;
 drop policy if exists "Mentors can manage batch tests" on public.batch_tests;
 drop policy if exists "Batch members can view tests" on public.batch_tests;
 create policy "Mentors can manage batch tests" on public.batch_tests for all using (
-  exists (select 1 from public.batches where id = public.batch_tests.batch_id and mentor_id = auth.uid())
+  public.is_mentor_of_batch(batch_id)
 );
 create policy "Batch members can view tests" on public.batch_tests for select using (
-  exists (select 1 from public.batch_members where batch_id = public.batch_tests.batch_id and user_id = auth.uid())
+  public.is_batch_member(batch_id)
 );
 
 alter table public.batch_test_submissions enable row level security;
@@ -120,7 +136,6 @@ create policy "Users can manage own submissions" on public.batch_test_submission
 create policy "Mentors can view and update submissions" on public.batch_test_submissions for all using (
   exists (
     select 1 from public.batch_tests bt
-    join public.batches b on bt.batch_id = b.id
-    where bt.id = public.batch_test_submissions.batch_test_id and b.mentor_id = auth.uid()
+    where bt.id = public.batch_test_submissions.batch_test_id and public.is_mentor_of_batch(bt.batch_id)
   )
 );

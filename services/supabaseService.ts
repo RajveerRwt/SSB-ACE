@@ -785,6 +785,13 @@ export const processRazorpayTransaction = async (userId: string, paymentId: stri
 };
 
 export const getPPDTScenarios = async () => { const { data } = await supabase.from('ppdt_scenarios').select('*'); return data || []; };
+export const uploadCustomScenario = async (file: File) => {
+  const fileName = `custom-${Date.now()}-${file.name}`;
+  await supabase.storage.from('scenarios').upload(fileName, file);
+  const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
+  return publicUrl;
+};
+
 export const uploadPPDTScenario = async (file: File, description: string) => { const fileName = `ppdt-${Date.now()}-${file.name}`; await supabase.storage.from('scenarios').upload(fileName, file); const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName); await supabase.from('ppdt_scenarios').insert({ image_url: publicUrl, description }); };
 export const deletePPDTScenario = async (id: string, url: string) => { const fileName = url.split('/').pop(); if (fileName) await supabase.storage.from('scenarios').remove([fileName]); await supabase.from('ppdt_scenarios').delete().eq('id', id); };
 export const getTATScenarios = async () => { const { data } = await supabase.from('tat_scenarios').select('*').order('set_tag'); return data || []; };
@@ -1144,7 +1151,7 @@ export const scheduleBatchTest = async (batchId: string, testType: string, testC
             test_type: testType,
             test_config: testConfig,
             scheduled_at: scheduledAt,
-            deadline: deadline
+            deadline: deadline || null
         })
         .select()
         .single();
