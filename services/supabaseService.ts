@@ -1112,10 +1112,13 @@ export const joinBatch = async (userId: string, batchCode: string) => {
     const { data: batch, error: batchError } = await supabase
         .from('batches')
         .select('id')
-        .eq('batch_code', batchCode.toUpperCase())
+        .eq('batch_code', batchCode.trim().toUpperCase())
         .single();
     
-    if (batchError || !batch) throw new Error("Batch not found. Please check the code.");
+    if (batchError || !batch) {
+        console.error("Batch fetch error:", batchError);
+        throw new Error("Batch not found. Please check the code.");
+    }
     
     const { data, error } = await supabase
         .from('batch_members')
@@ -1203,7 +1206,12 @@ export const getBatchSubmissions = async (batchTestId: string) => {
             .from('batch_test_submissions')
             .select('*, batch_tests(test_type)')
             .eq('batch_test_id', batchTestId);
-        return simpleData || [];
+        
+        const flattenedFallback = simpleData?.map(s => ({
+            ...s,
+            test_type: s.batch_tests?.test_type
+        }));
+        return flattenedFallback || [];
     }
     
     // Flatten the test_type for easier access
@@ -1227,10 +1235,13 @@ export const getStudentSubmissions = async (userId: string) => {
     if (error) console.error("Error fetching student submissions:", error);
     
     // Flatten for easier access
-    const flattenedData = data?.map(s => ({
-        ...s,
-        test_type: s.batch_tests?.test_type
-    }));
+    const flattenedData = data?.map(s => {
+        const batchTest = Array.isArray(s.batch_tests) ? s.batch_tests[0] : s.batch_tests;
+        return {
+            ...s,
+            test_type: batchTest?.test_type
+        };
+    });
     
     return flattenedData || [];
 };

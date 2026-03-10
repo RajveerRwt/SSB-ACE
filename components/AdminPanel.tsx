@@ -708,6 +708,85 @@ create policy "Admin insert gpe" on public.gpe_scenarios for insert with check (
 create policy "Admin delete gpe" on public.gpe_scenarios for delete using (true);`}
                       </pre>
                   </div>
+
+                  {/* Batch Permissions Fix Block */}
+                  <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+                      <div className="flex justify-between items-center mb-2">
+                          <p className="font-bold text-xs text-blue-800">3. Fix Batch Permissions (Join Batch Error Fix)</p>
+                          <button onClick={() => copyToClipboard(`-- Fix RLS policies for batches and batch_members
+-- Drop existing restrictive policies if they exist
+DROP POLICY IF EXISTS "Mentors can manage own batches" ON public.batches;
+DROP POLICY IF EXISTS "Allow all authenticated users to view batches" ON public.batches;
+DROP POLICY IF EXISTS "Batch members can view batch" ON public.batches;
+DROP POLICY IF EXISTS "Users can join batches" ON public.batch_members;
+DROP POLICY IF EXISTS "Batch members can view their membership" ON public.batch_members;
+
+-- Enable RLS
+ALTER TABLE public.batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.batch_members ENABLE ROW LEVEL SECURITY;
+
+-- Create broad policies for viewing and joining
+CREATE POLICY "Allow all authenticated users to view batches" 
+ON public.batches FOR SELECT 
+USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Mentors can manage own batches" 
+ON public.batches FOR ALL 
+USING (auth.uid() = mentor_id);
+
+CREATE POLICY "Users can join batches" 
+ON public.batch_members FOR INSERT 
+WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Batch members can view their membership" 
+ON public.batch_members FOR SELECT 
+USING (auth.uid() = user_id);
+
+-- Ensure aspirants table is accessible
+ALTER TABLE public.aspirants ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own profile" ON public.aspirants;
+CREATE POLICY "Users can view own profile" ON public.aspirants FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own profile" ON public.aspirants;
+CREATE POLICY "Users can update own profile" ON public.aspirants FOR UPDATE USING (auth.uid() = user_id);`)} className="flex items-center gap-1 text-[10px] font-black uppercase text-blue-500 hover:text-blue-700"><Copy size={12}/> Copy SQL</button>
+                      </div>
+                      <pre className="bg-slate-900 text-slate-300 p-3 rounded-lg text-[10px] font-mono overflow-x-auto">
+{`-- Fix RLS policies for batches and batch_members
+-- Drop existing restrictive policies if they exist
+DROP POLICY IF EXISTS "Mentors can manage own batches" ON public.batches;
+DROP POLICY IF EXISTS "Allow all authenticated users to view batches" ON public.batches;
+DROP POLICY IF EXISTS "Batch members can view batch" ON public.batches;
+DROP POLICY IF EXISTS "Users can join batches" ON public.batch_members;
+DROP POLICY IF EXISTS "Batch members can view their membership" ON public.batch_members;
+
+-- Enable RLS
+ALTER TABLE public.batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.batch_members ENABLE ROW LEVEL SECURITY;
+
+-- Create broad policies for viewing and joining
+CREATE POLICY "Allow all authenticated users to view batches" 
+ON public.batches FOR SELECT 
+USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Mentors can manage own batches" 
+ON public.batches FOR ALL 
+USING (auth.uid() = mentor_id);
+
+CREATE POLICY "Users can join batches" 
+ON public.batch_members FOR INSERT 
+WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Batch members can view their membership" 
+ON public.batch_members FOR SELECT 
+USING (auth.uid() = user_id);
+
+-- Ensure aspirants table is accessible
+ALTER TABLE public.aspirants ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own profile" ON public.aspirants;
+CREATE POLICY "Users can view own profile" ON public.aspirants FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own profile" ON public.aspirants;
+CREATE POLICY "Users can update own profile" ON public.aspirants FOR UPDATE USING (auth.uid() = user_id);`}
+                      </pre>
+                  </div>
               </div>
           )}
         </div>

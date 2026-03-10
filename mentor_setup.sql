@@ -104,7 +104,9 @@ create policy "Admins can manage mentors" on public.mentors for all using (
 alter table public.batches enable row level security;
 drop policy if exists "Mentors can manage own batches" on public.batches;
 drop policy if exists "Batch members can view batch" on public.batches;
+drop policy if exists "Allow all authenticated users to view batches" on public.batches;
 create policy "Mentors can manage own batches" on public.batches for all using (auth.uid() = mentor_id);
+create policy "Allow all authenticated users to view batches" on public.batches for select using (auth.uid() is not null);
 create policy "Batch members can view batch" on public.batches for select using (
   public.is_batch_member(id)
 );
@@ -116,7 +118,7 @@ drop policy if exists "Users can view own memberships" on public.batch_members;
 create policy "Mentors can view batch members" on public.batch_members for select using (
   public.is_mentor_of_batch(batch_id)
 );
-create policy "Users can join batches" on public.batch_members for insert with check (auth.uid() = user_id);
+create policy "Users can join batches" on public.batch_members for insert with check (auth.uid() is not null); -- Allow any logged in user to join as themselves
 create policy "Users can view own memberships" on public.batch_members for select using (auth.uid() = user_id);
 
 alter table public.batch_tests enable row level security;

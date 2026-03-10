@@ -675,114 +675,134 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
                         </div>
 
                         <div className="bg-white p-6 rounded-2xl border border-slate-200 mb-4 max-h-[500px] overflow-y-auto space-y-6">
-                          {s.test_type?.toUpperCase() === 'PPDT' || s.test_type?.toUpperCase() === 'TAT' ? (
-                            <div className="space-y-6">
-                              {/* Character Data */}
-                              {s.response_data?.characters && (
-                                <div>
-                                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Character Assessment</h5>
-                                  <div className="flex flex-wrap gap-2">
-                                    {s.response_data.characters.map((char: any, idx: number) => (
-                                      <div key={idx} className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold">
-                                        {char.sex} • {char.age} • {char.mood}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
+                          {(() => {
+                                    const currentTestType = (s.test_type || s.batch_tests?.test_type)?.toUpperCase();
+                                    if (currentTestType === 'PPDT' || currentTestType === 'TAT') {
+                                      return (
+                                        <div className="space-y-6">
+                                          {/* Character Data */}
+                                          {s.response_data?.characters && (
+                                            <div>
+                                              <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Character Assessment</h5>
+                                              <div className="flex flex-wrap gap-2">
+                                                {s.response_data.characters.map((char: any, idx: number) => (
+                                                  <div key={idx} className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold">
+                                                    {char.sex} • {char.age} • {char.mood}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
 
-                              {/* Story Content */}
-                              <div>
-                                <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Written Story</h5>
-                                <div className="p-4 bg-blue-50/30 rounded-xl border border-blue-100/50 text-slate-700 text-sm leading-relaxed whitespace-pre-wrap font-medium italic">
-                                  {s.response_data?.story || s.response_data?.transcribedStory || "No story content provided."}
-                                </div>
-                              </div>
+                                          {/* Story Content */}
+                                          <div>
+                                            <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Written Story</h5>
+                                            <div className="p-4 bg-blue-50/30 rounded-xl border border-blue-100/50 text-slate-700 text-sm leading-relaxed whitespace-pre-wrap font-medium italic">
+                                              {s.response_data?.story || s.response_data?.transcribedStory || "No story content provided."}
+                                            </div>
+                                          </div>
 
-                              {/* Handwritten Image if available */}
-                              {(s.response_data?.handwrittenImageUrl || s.response_data?.uploadedImage) && (
-                                <div>
-                                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Handwritten Submission</h5>
-                                  <img 
-                                    src={s.response_data.handwrittenImageUrl || `data:image/jpeg;base64,${s.response_data.uploadedImage}`} 
-                                    alt="Handwritten Story" 
-                                    className="w-full rounded-2xl border border-slate-200 shadow-sm"
-                                    referrerPolicy="no-referrer"
-                                  />
-                                  {s.response_data.transcribedStory && (
-                                    <div className="mt-4">
-                                      <h6 className="text-[9px] font-black uppercase tracking-widest text-blue-500 mb-2">AI Transcription</h6>
-                                      <p className="text-xs text-slate-500 italic leading-relaxed">{s.response_data.transcribedStory}</p>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ) : s.test_type?.toUpperCase() === 'OIR' ? (
-                            <div className="space-y-6">
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 text-center">
-                                  <p className="text-[10px] font-black uppercase text-blue-400 mb-1">Score</p>
-                                  <p className="text-2xl font-black text-blue-600">{s.response_data?.correct || 0}/{s.response_data?.totalQuestions || 0}</p>
-                                </div>
-                                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-center">
-                                  <p className="text-[10px] font-black uppercase text-emerald-400 mb-1">Accuracy</p>
-                                  <p className="text-2xl font-black text-emerald-600">{Math.round(s.response_data?.percentage || 0)}%</p>
-                                </div>
-                                <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100 text-center">
-                                  <p className="text-[10px] font-black uppercase text-purple-400 mb-1">OIR Rating</p>
-                                  <p className="text-2xl font-black text-purple-600">{s.response_data?.oir || 'N/A'}</p>
-                                </div>
-                                <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100 text-center">
-                                  <p className="text-[10px] font-black uppercase text-orange-400 mb-1">Status</p>
-                                  <p className="text-sm font-black text-orange-600 uppercase">Completed</p>
-                                </div>
-                              </div>
-                              
-                              <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                                <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Performance Summary</h5>
-                                <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                                  The student attempted {s.response_data?.totalQuestions} questions and correctly answered {s.response_data?.correct}. 
-                                  Based on the performance, the calculated OIR rating is {s.response_data?.oir}.
-                                </p>
-                              </div>
-                            </div>
-                          ) : s.test_type?.toUpperCase() === 'WAT' || s.test_type?.toUpperCase() === 'SRT' ? (
-                            <div className="space-y-6">
-                              <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Responses</h5>
-                              <div className="space-y-4">
-                                {s.response_data?.responses?.map((res: any, idx: number) => (
-                                  <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                    <p className="text-[10px] font-black text-slate-400 mb-1">#{idx + 1} {res.word || res.situation}</p>
-                                    <p className="text-sm text-slate-700 font-medium">{res.response}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ) : s.test_type?.toUpperCase() === 'GPE' ? (
-                            <div className="space-y-6">
-                              <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Group Planning Exercise</h5>
-                              <div className="p-4 bg-blue-50/30 rounded-xl border border-blue-100/50 text-slate-700 text-sm leading-relaxed whitespace-pre-wrap font-medium italic">
-                                {s.response_data?.plan || "No plan provided."}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="space-y-4">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Raw Intel Data</p>
-                              <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-slate-50 p-4 rounded-xl border border-slate-100 overflow-x-auto">
-                                <pre className="font-mono">
-                                  {(() => {
-                                    try {
-                                      const data = typeof s.response_data === 'string' ? JSON.parse(s.response_data) : s.response_data;
-                                      return JSON.stringify(data, null, 2);
-                                    } catch (e) {
-                                      return String(s.response_data);
+                                          {/* Handwritten Image if available */}
+                                          {(s.response_data?.handwrittenImageUrl || s.response_data?.uploadedImage) && (
+                                            <div>
+                                              <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Handwritten Submission</h5>
+                                              <img 
+                                                src={s.response_data.handwrittenImageUrl || `data:image/jpeg;base64,${s.response_data.uploadedImage}`} 
+                                                alt="Handwritten Story" 
+                                                className="w-full rounded-2xl border border-slate-200 shadow-sm"
+                                                referrerPolicy="no-referrer"
+                                              />
+                                              {s.response_data.transcribedStory && (
+                                                <div className="mt-4">
+                                                  <h6 className="text-[9px] font-black uppercase tracking-widest text-blue-500 mb-2">AI Transcription</h6>
+                                                  <p className="text-xs text-slate-500 italic leading-relaxed">{s.response_data.transcribedStory}</p>
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    } else if (currentTestType === 'OIR') {
+                                      return (
+                                        <div className="space-y-6">
+                                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 text-center">
+                                              <p className="text-[10px] font-black uppercase text-blue-400 mb-1">Score</p>
+                                              <p className="text-2xl font-black text-blue-600">{s.response_data?.correct || 0}/{s.response_data?.totalQuestions || 0}</p>
+                                            </div>
+                                            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-center">
+                                              <p className="text-[10px] font-black uppercase text-emerald-400 mb-1">Accuracy</p>
+                                              <p className="text-2xl font-black text-emerald-600">{Math.round(s.response_data?.percentage || 0)}%</p>
+                                            </div>
+                                            <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100 text-center">
+                                              <p className="text-[10px] font-black uppercase text-purple-400 mb-1">OIR Rating</p>
+                                              <p className="text-2xl font-black text-purple-600">{s.response_data?.oir || 'N/A'}</p>
+                                            </div>
+                                            <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100 text-center">
+                                              <p className="text-[10px] font-black uppercase text-orange-400 mb-1">Status</p>
+                                              <p className="text-sm font-black text-orange-600 uppercase">Completed</p>
+                                            </div>
+                                          </div>
+                                          
+                                          <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                                            <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Performance Summary</h5>
+                                            <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                                              The student attempted {s.response_data?.totalQuestions} questions and correctly answered {s.response_data?.correct}. 
+                                              Based on the performance, the calculated OIR rating is {s.response_data?.oir}.
+                                            </p>
+                                          </div>
+                                        </div>
+                                      );
+                                    } else if (currentTestType === 'WAT' || currentTestType === 'SRT') {
+                                      return (
+                                        <div className="space-y-6">
+                                          <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Responses</h5>
+                                          <div className="space-y-4">
+                                            {s.response_data?.responses?.map((res: any, idx: number) => (
+                                              <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                                <p className="text-[10px] font-black text-slate-400 mb-1">#{idx + 1} {res.word || res.situation}</p>
+                                                <p className="text-sm text-slate-700 font-medium">{res.response}</p>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      );
+                                    } else if (currentTestType === 'GPE') {
+                                      return (
+                                        <div className="space-y-6">
+                                          <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Group Planning Exercise</h5>
+                                          <div className="p-4 bg-blue-50/30 rounded-xl border border-blue-100/50 text-slate-700 text-sm leading-relaxed whitespace-pre-wrap font-medium italic">
+                                            {s.response_data?.plan || "No plan provided."}
+                                          </div>
+                                        </div>
+                                      );
+                                    } else {
+                                      return (
+                                        <div className="space-y-4">
+                                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tactical Intel Data</p>
+                                          <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-slate-50 p-6 rounded-[2rem] border border-slate-100 overflow-x-auto">
+                                            {(() => {
+                                              try {
+                                                const data = typeof s.response_data === 'string' ? JSON.parse(s.response_data) : s.response_data;
+                                                return (
+                                                  <div className="space-y-3">
+                                                    {Object.entries(data).map(([key, value]: [string, any]) => (
+                                                      <div key={key} className="flex flex-col border-b border-slate-200/50 pb-2 last:border-0">
+                                                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">{key.replace(/_/g, ' ')}</span>
+                                                        <span className="text-sm text-slate-800 font-medium">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                );
+                                              } catch (e) {
+                                                return <pre className="font-mono">{String(s.response_data)}</pre>;
+                                              }
+                                            })()}
+                                          </div>
+                                        </div>
+                                      );
                                     }
                                   })()}
-                                </pre>
-                              </div>
-                            </div>
-                          )}
                         </div>
 
                         {s.status === 'reviewed' && (
@@ -791,49 +811,61 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
                               <ShieldCheck size={14} /> Mentor Assessment
                             </h5>
                             <p className="text-sm text-blue-700 font-medium leading-relaxed italic">"{s.mentor_remarks}"</p>
-                            {s.test_type?.toUpperCase() !== 'OIR' && (
-                              <div className="mt-4 pt-4 border-t border-blue-200/50 flex items-center justify-between">
-                                <p className="text-xs font-black text-blue-900">Tactical Score</p>
-                                <p className="text-xl font-black text-blue-600">{s.score}/10</p>
-                              </div>
-                            )}
+                            {(() => {
+                              const currentTestType = (s.test_type || s.batch_tests?.test_type)?.toUpperCase();
+                              return currentTestType !== 'OIR' && (
+                                <div className="mt-4 pt-4 border-t border-blue-200/50 flex items-center justify-between">
+                                  <p className="text-xs font-black text-blue-900">Tactical Score</p>
+                                  <p className="text-xl font-black text-blue-600">{s.score}/10</p>
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>
 
                       <div className="w-full md:w-64 space-y-4">
                         <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Add Review</h5>
-                        {s.test_type?.toUpperCase() !== 'OIR' && (
-                          <div>
-                            <label className="block text-[9px] font-bold uppercase text-slate-500 mb-1">Score (0-10)</label>
-                            <input 
-                              type="range" min="0" max="10" step="0.5"
-                              value={selectedSubmission?.id === s.id ? reviewScore : s.score || 5}
-                              onChange={(e) => {
-                                setSelectedSubmission(s);
-                                setReviewScore(parseFloat(e.target.value));
-                              }}
-                              className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                            />
-                            <div className="flex justify-between text-[9px] font-bold text-slate-400 mt-1">
-                              <span>0</span>
-                              <span className="text-blue-600 font-black">{selectedSubmission?.id === s.id ? reviewScore : s.score || 5}/10</span>
-                              <span>10</span>
-                            </div>
-                          </div>
-                        )}
-                        <div>
-                          <label className="block text-[9px] font-bold uppercase text-slate-500 mb-1">Remarks</label>
-                          <textarea 
-                            value={selectedSubmission?.id === s.id ? reviewRemarks : ''}
-                            onChange={(e) => {
-                              setSelectedSubmission(s);
-                              setReviewRemarks(e.target.value);
-                            }}
-                            placeholder={s.test_type?.toUpperCase() === 'PPDT' ? "Review the story, characterization, and theme..." : "Great work, but focus on..."}
-                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-xs font-medium h-24 resize-none"
-                          />
-                        </div>
+                        {(() => {
+                          const currentTestType = (s.test_type || s.batch_tests?.test_type)?.toUpperCase();
+                          return (
+                            <>
+                              {currentTestType !== 'OIR' && (
+                                <div>
+                                  <label className="block text-[9px] font-bold uppercase text-slate-500 mb-1">Score (0-10)</label>
+                                  <input 
+                                    type="range" min="0" max="10" step="0.5"
+                                    value={selectedSubmission?.id === s.id ? reviewScore : s.score || 5}
+                                    onChange={(e) => {
+                                      setSelectedSubmission(s);
+                                      setReviewScore(parseFloat(e.target.value));
+                                    }}
+                                    className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                  />
+                                  <div className="flex justify-between text-[9px] font-bold text-slate-400 mt-1">
+                                    <span>0</span>
+                                    <span className="text-blue-600 font-black">{selectedSubmission?.id === s.id ? reviewScore : s.score || 5}/10</span>
+                                    <span>10</span>
+                                  </div>
+                                </div>
+                              )}
+                              <div>
+                                <label className="block text-[9px] font-bold uppercase text-slate-500 mb-1">
+                                  {currentTestType === 'PPDT' || currentTestType === 'TAT' ? 'Detailed Intel Feedback' : 'Remarks'}
+                                </label>
+                                <textarea 
+                                  value={selectedSubmission?.id === s.id ? reviewRemarks : ''}
+                                  onChange={(e) => {
+                                    setSelectedSubmission(s);
+                                    setReviewRemarks(e.target.value);
+                                  }}
+                                  placeholder={currentTestType === 'PPDT' ? "Review the story, characterization, and theme..." : "Great work, but focus on..."}
+                                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-xs font-medium h-32 resize-none shadow-inner"
+                                />
+                              </div>
+                            </>
+                          );
+                        })()}
                         <button 
                           onClick={() => {
                             setSelectedSubmission(s);
