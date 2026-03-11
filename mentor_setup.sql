@@ -36,6 +36,7 @@ create table if not exists public.batches (
   name text not null,
   description text,
   batch_code text unique not null, -- For students to join
+  meeting_link text, -- Google Meet / Zoom link
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -44,7 +45,6 @@ create table if not exists public.batch_members (
   id uuid default gen_random_uuid() primary key,
   batch_id uuid references public.batches(id) on delete cascade not null,
   user_id uuid not null, -- references aspirants.user_id
-  status text default 'pending' check (status in ('pending', 'accepted', 'rejected')),
   joined_at timestamp with time zone default timezone('utc'::text, now()) not null,
   unique(batch_id, user_id)
 );
@@ -117,9 +117,6 @@ drop policy if exists "Mentors can view batch members" on public.batch_members;
 drop policy if exists "Users can join batches" on public.batch_members;
 drop policy if exists "Users can view own memberships" on public.batch_members;
 create policy "Mentors can view batch members" on public.batch_members for select using (
-  public.is_mentor_of_batch(batch_id)
-);
-create policy "Mentors can update batch members" on public.batch_members for update using (
   public.is_mentor_of_batch(batch_id)
 );
 create policy "Users can join batches" on public.batch_members for insert with check (auth.uid() is not null); -- Allow any logged in user to join as themselves

@@ -1089,16 +1089,24 @@ export const createBatch = async (mentorId: string, name: string, description: s
 export const getMentorBatches = async (mentorId: string) => {
     const { data, error } = await supabase
         .from('batches')
-        .select('*, batch_members(count)')
+        .select('*')
         .eq('mentor_id', mentorId)
         .order('created_at', { ascending: false });
     
     if (error) console.error("Error fetching mentor batches:", error);
+    return data || [];
+};
+
+export const updateBatchMeetingLink = async (batchId: string, meetingLink: string | null) => {
+    const { data, error } = await supabase
+        .from('batches')
+        .update({ meeting_link: meetingLink })
+        .eq('id', batchId)
+        .select()
+        .single();
     
-    return data?.map(b => ({
-        ...b,
-        member_count: b.batch_members?.[0]?.count || 0
-    })) || [];
+    if (error) throw error;
+    return data;
 };
 
 export const getStudentBatches = async (userId: string) => {
@@ -1143,22 +1151,11 @@ export const joinBatch = async (userId: string, batchCode: string) => {
 export const getBatchMembers = async (batchId: string) => {
     const { data, error } = await supabase
         .from('batch_members')
-        .select('*, aspirants!user_id(full_name, email)')
+        .select('*, aspirants(full_name, email)')
         .eq('batch_id', batchId);
     
     if (error) console.error("Error fetching batch members:", error);
     return data || [];
-};
-
-export const updateBatchMemberStatus = async (memberId: string, status: 'accepted' | 'rejected') => {
-    const { data, error } = await supabase
-        .from('batch_members')
-        .update({ status })
-        .eq('id', memberId)
-        .select();
-    
-    if (error) throw error;
-    return data;
 };
 
 export const scheduleBatchTest = async (batchId: string, testType: string, testConfig: any, scheduledAt: string, deadline?: string) => {
