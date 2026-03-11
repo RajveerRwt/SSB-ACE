@@ -14,7 +14,8 @@ import {
   getBatchMembers, getBatchTests, scheduleBatchTest,
   getBatchSubmissions, reviewBatchSubmission,
   getOIRSets, getGPEScenarios, getPPDTScenarios, getTATScenarios,
-  uploadCustomScenario, updateBatchMeetingLink
+  uploadCustomScenario, updateBatchMeetingLink,
+  updateBatchMemberStatus, removeBatchMember
 } from '../services/supabaseService';
 
 interface MentorDashboardProps {
@@ -34,6 +35,7 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
   
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'batches' | 'submissions' | 'library'>('overview');
+  const [batchViewTab, setBatchViewTab] = useState<'history' | 'roster'>('history');
   const [refreshing, setRefreshing] = useState(false);
   
   // Form States
@@ -217,6 +219,26 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
       setReviewRemarks('');
     } catch (error) {
       alert("Error submitting review");
+    }
+  };
+
+  const handleUpdateMemberStatus = async (userId: string, status: 'APPROVED' | 'REJECTED') => {
+    if (!selectedBatch) return;
+    try {
+      await updateBatchMemberStatus(selectedBatch.id, userId, status);
+      setBatchMembers(batchMembers.map(m => m.user_id === userId ? { ...m, status } : m));
+    } catch (error: any) {
+      console.error("Error updating member status: ", error);
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!selectedBatch) return;
+    try {
+      await removeBatchMember(selectedBatch.id, userId);
+      setBatchMembers(batchMembers.filter(m => m.user_id !== userId));
+    } catch (error: any) {
+      console.error("Error removing member: ", error);
     }
   };
 
@@ -475,69 +497,166 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
               {/* Tabs for Batch View */}
               <div className="space-y-8">
                 <div className="flex items-center gap-12 border-b border-slate-100 px-8">
-                  <button className="pb-6 text-[10px] font-black uppercase tracking-[0.3em] text-blue-600 border-b-4 border-blue-600 transition-all">Deployment History</button>
-                  <button className="pb-6 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-slate-600 transition-all">Personnel Roster</button>
+                  <button 
+                    onClick={() => setBatchViewTab('history')}
+                    className={`pb-6 text-[10px] font-black uppercase tracking-[0.3em] transition-all ${batchViewTab === 'history' ? 'text-blue-600 border-b-4 border-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    Deployment History
+                  </button>
+                  <button 
+                    onClick={() => setBatchViewTab('roster')}
+                    className={`pb-6 text-[10px] font-black uppercase tracking-[0.3em] transition-all ${batchViewTab === 'roster' ? 'text-blue-600 border-b-4 border-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    Personnel Roster
+                  </button>
                 </div>
 
                 <div className="grid gap-6">
-                  {batchTests.length === 0 ? (
-                    <div className="text-center py-24 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
-                      <div className="w-20 h-20 bg-white rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl text-slate-200">
-                        <ClipboardList size={40} />
+                  {batchViewTab === 'history' ? (
+                    batchTests.length === 0 ? (
+                      <div className="text-center py-24 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
+                        <div className="w-20 h-20 bg-white rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl text-slate-200">
+                          <ClipboardList size={40} />
+                        </div>
+                        <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">No active deployments in this sector</p>
+                        <button 
+                          onClick={() => {
+                            const now = new Date();
+                            const offset = now.getTimezoneOffset() * 60000;
+                            const localISOTime = new Date(now.getTime() - offset).toISOString().slice(0, 16);
+                            setScheduledAt(localISOTime);
+                            setShowScheduleTest(true);
+                          }}
+                          className="mt-6 text-blue-600 font-black text-[10px] uppercase tracking-[0.3em] hover:text-blue-700 transition-all flex items-center gap-2 mx-auto"
+                        >
+                          Initiate First Sortie <ChevronRight size={14} />
+                        </button>
                       </div>
-                      <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">No active deployments in this sector</p>
-                      <button 
-                        onClick={() => {
-                          const now = new Date();
-                          const offset = now.getTimezoneOffset() * 60000;
-                          const localISOTime = new Date(now.getTime() - offset).toISOString().slice(0, 16);
-                          setScheduledAt(localISOTime);
-                          setShowScheduleTest(true);
-                        }}
-                        className="mt-6 text-blue-600 font-black text-[10px] uppercase tracking-[0.3em] hover:text-blue-700 transition-all flex items-center gap-2 mx-auto"
-                      >
-                        Initiate First Sortie <ChevronRight size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    batchTests.map(t => (
-                      <div key={t.id} className="group bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-md hover:shadow-2xl transition-all duration-500 flex flex-col md:flex-row justify-between items-start md:items-center gap-8 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-2 h-full bg-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <div className="flex items-center gap-8 relative z-10">
-                          <div className="w-16 h-16 bg-slate-900 text-white rounded-[1.5rem] flex items-center justify-center font-black text-lg shadow-xl group-hover:scale-110 transition-transform duration-500">
-                            {t.test_type.substring(0,2).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-3 mb-2">
-                              <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter">{t.test_type} Assessment</h4>
-                              <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[8px] font-black uppercase tracking-widest rounded border border-blue-100">Verified</span>
+                    ) : (
+                      batchTests.map(t => (
+                        <div key={t.id} className="group bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-md hover:shadow-2xl transition-all duration-500 flex flex-col md:flex-row justify-between items-start md:items-center gap-8 relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-2 h-full bg-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                          <div className="flex items-center gap-8 relative z-10">
+                            <div className="w-16 h-16 bg-slate-900 text-white rounded-[1.5rem] flex items-center justify-center font-black text-lg shadow-xl group-hover:scale-110 transition-transform duration-500">
+                              {t.test_type.substring(0,2).toUpperCase()}
                             </div>
-                            <div className="flex items-center gap-6">
-                              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest flex items-center gap-2">
-                                <Clock size={12} className="text-blue-500" /> {new Date(t.scheduled_at).toLocaleString()}
-                              </p>
-                              {t.deadline && (
-                                <p className="text-[10px] text-red-500 font-black uppercase tracking-widest flex items-center gap-2">
-                                  <AlertCircle size={12} /> Deadline: {new Date(t.deadline).toLocaleDateString()}
+                            <div>
+                              <div className="flex items-center gap-3 mb-2">
+                                <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter">{t.test_type} Assessment</h4>
+                                <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[8px] font-black uppercase tracking-widest rounded border border-blue-100">Verified</span>
+                              </div>
+                              <div className="flex items-center gap-6">
+                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest flex items-center gap-2">
+                                  <Clock size={12} className="text-blue-500" /> {new Date(t.scheduled_at).toLocaleString()}
                                 </p>
-                              )}
+                                {t.deadline && (
+                                  <p className="text-[10px] text-red-500 font-black uppercase tracking-widest flex items-center gap-2">
+                                    <AlertCircle size={12} /> Deadline: {new Date(t.deadline).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </div>
+                          
+                          <div className="flex items-center gap-4 w-full md:w-auto relative z-10">
+                            <button 
+                              onClick={() => handleViewSubmissions(t.id)}
+                              className="flex-1 md:flex-none px-10 py-5 bg-blue-600 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-700 transition-all duration-500 flex items-center justify-center gap-3 shadow-xl shadow-blue-600/20"
+                            >
+                              <FileText size={18} /> Review Intel
+                            </button>
+                            <button className="w-14 h-14 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all duration-500">
+                              <Trash2 size={20} />
+                            </button>
+                          </div>
                         </div>
-                        
-                        <div className="flex items-center gap-4 w-full md:w-auto relative z-10">
-                          <button 
-                            onClick={() => handleViewSubmissions(t.id)}
-                            className="flex-1 md:flex-none px-10 py-5 bg-blue-600 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-700 transition-all duration-500 flex items-center justify-center gap-3 shadow-xl shadow-blue-600/20"
-                          >
-                            <FileText size={18} /> Review Intel
-                          </button>
-                          <button className="w-14 h-14 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all duration-500">
-                            <Trash2 size={20} />
-                          </button>
+                      ))
+                    )
+                  ) : (
+                    batchMembers.length === 0 ? (
+                      <div className="text-center py-24 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
+                        <div className="w-20 h-20 bg-white rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl text-slate-200">
+                          <Users size={40} />
+                        </div>
+                        <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">No personnel assigned to this unit</p>
+                      </div>
+                    ) : (
+                      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-md overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-slate-50 border-b border-slate-100">
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Name</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Email</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Joined</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Status</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {batchMembers.map(member => (
+                                <tr key={member.id} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-8 py-5">
+                                    <div className="flex items-center gap-4">
+                                      <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                                        {member.aspirants?.full_name?.charAt(0) || '?'}
+                                      </div>
+                                      <span className="font-bold text-slate-900">{member.aspirants?.full_name || 'Unknown User'}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-8 py-5 text-sm text-slate-500 font-medium">
+                                    {member.aspirants?.email || 'No email provided'}
+                                  </td>
+                                  <td className="px-8 py-5 text-sm text-slate-500 font-medium">
+                                    {new Date(member.created_at).toLocaleDateString()}
+                                  </td>
+                                  <td className="px-8 py-5">
+                                    <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border ${
+                                      member.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                      member.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-100' :
+                                      'bg-amber-50 text-amber-600 border-amber-100'
+                                    }`}>
+                                      {member.status || 'PENDING'}
+                                    </span>
+                                  </td>
+                                  <td className="px-8 py-5 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      {(!member.status || member.status === 'PENDING') && (
+                                        <>
+                                          <button 
+                                            onClick={() => handleUpdateMemberStatus(member.user_id, 'APPROVED')}
+                                            className="w-8 h-8 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
+                                            title="Accept"
+                                          >
+                                            <CheckCircle size={16} />
+                                          </button>
+                                          <button 
+                                            onClick={() => handleUpdateMemberStatus(member.user_id, 'REJECTED')}
+                                            className="w-8 h-8 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                            title="Reject"
+                                          >
+                                            <Trash2 size={16} />
+                                          </button>
+                                        </>
+                                      )}
+                                      {member.status === 'APPROVED' && (
+                                        <button 
+                                          onClick={() => handleRemoveMember(member.user_id)}
+                                          className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                          title="Remove from batch"
+                                        >
+                                          <Trash2 size={16} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
-                    ))
+                    )
                   )}
                 </div>
               </div>

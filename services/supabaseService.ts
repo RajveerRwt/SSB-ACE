@@ -1136,7 +1136,8 @@ export const joinBatch = async (userId: string, batchCode: string) => {
         .from('batch_members')
         .insert({
             batch_id: batch.id,
-            user_id: userId
+            user_id: userId,
+            status: 'PENDING'
         })
         .select()
         .single();
@@ -1149,13 +1150,56 @@ export const joinBatch = async (userId: string, batchCode: string) => {
 };
 
 export const getBatchMembers = async (batchId: string) => {
-    const { data, error } = await supabase
+    const { data: members, error } = await supabase
         .from('batch_members')
-        .select('*, aspirants(full_name, email)')
+        .select('*')
         .eq('batch_id', batchId);
     
-    if (error) console.error("Error fetching batch members:", error);
-    return data || [];
+    if (error) {
+        console.error("Error fetching batch members:", error);
+        return [];
+    }
+    
+    if (!members || members.length === 0) return [];
+    
+    const userIds = members.map(m => m.user_id);
+    
+    const { data: aspirants, error: aspError } = await supabase
+        .from('aspirants')
+        .select('user_id, full_name, email')
+        .in('user_id', userIds);
+        
+    if (aspError) {
+        console.error("Error fetching aspirants for batch members:", aspError);
+    }
+    
+    return members.map(m => {
+        const aspirant = aspirants?.find(a => a.user_id === m.user_id);
+        return {
+            ...m,
+            aspirants: aspirant || null
+        };
+    });
+};
+
+export const updateBatchMemberStatus = async (batchId: string, userId: string, status: 'APPROVED' | 'REJECTED') => {
+    const { error } = await supabase
+        .from('batch_members')
+        .update({ status })
+        .eq('batch_id', batchId)
+        .eq('user_id', userId);
+    
+    if (error) throw error;
+};
+
+export const removeBatchMember = async (batchId: string, userId: string) => {
+    const { error } = await supabase
+        .from('batch_members')
+        .delete()
+        .eq('batch_id', batchId)
+        .eq('user_id', userId);
+    
+    if (error) throw error;
 };
 
 export const scheduleBatchTest = async (batchId: string, testType: string, testConfig: any, scheduledAt: string, deadline?: string) => {

@@ -45,6 +45,7 @@ create table if not exists public.batch_members (
   id uuid default gen_random_uuid() primary key,
   batch_id uuid references public.batches(id) on delete cascade not null,
   user_id uuid not null, -- references aspirants.user_id
+  status text default 'PENDING', -- 'PENDING', 'APPROVED', 'REJECTED'
   joined_at timestamp with time zone default timezone('utc'::text, now()) not null,
   unique(batch_id, user_id)
 );
@@ -86,7 +87,7 @@ $$ language plpgsql security definer;
 create or replace function public.is_batch_member(b_id uuid)
 returns boolean as $$
 begin
-  return exists (select 1 from public.batch_members where batch_id = b_id and user_id = auth.uid());
+  return exists (select 1 from public.batch_members where batch_id = b_id and user_id = auth.uid() and status = 'APPROVED');
 end;
 $$ language plpgsql security definer;
 
@@ -114,9 +115,13 @@ create policy "Batch members can view batch" on public.batches for select using 
 
 alter table public.batch_members enable row level security;
 drop policy if exists "Mentors can view batch members" on public.batch_members;
+drop policy if exists "Mentors can update batch members" on public.batch_members;
 drop policy if exists "Users can join batches" on public.batch_members;
 drop policy if exists "Users can view own memberships" on public.batch_members;
 create policy "Mentors can view batch members" on public.batch_members for select using (
+  public.is_mentor_of_batch(batch_id)
+);
+create policy "Mentors can update batch members" on public.batch_members for update using (
   public.is_mentor_of_batch(batch_id)
 );
 create policy "Users can join batches" on public.batch_members for insert with check (auth.uid() is not null); -- Allow any logged in user to join as themselves
