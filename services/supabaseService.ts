@@ -1146,18 +1146,6 @@ export const getBatchMembers = async (batchId: string) => {
     return data || [];
 };
 
-export const updateBatchMemberStatus = async (membershipId: string, status: 'ACCEPTED' | 'REJECTED' | 'PENDING') => {
-    const { data, error } = await supabase
-        .from('batch_members')
-        .update({ status })
-        .eq('id', membershipId)
-        .select()
-        .single();
-    
-    if (error) throw error;
-    return data;
-};
-
 export const scheduleBatchTest = async (batchId: string, testType: string, testConfig: any, scheduledAt: string, deadline?: string) => {
     const { data, error } = await supabase
         .from('batch_tests')
