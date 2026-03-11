@@ -14,6 +14,7 @@ import {
   getGPEScenarios, addGPEScenario, deleteGPEScenario,
   getScreeningConfig, updateScreeningConfig
 } from '../services/supabaseService';
+import ChallengeAdmin from './ChallengeAdmin';
 
 interface AdminPanelProps {
   isMentorMode?: boolean;
@@ -94,7 +95,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
   // SQL Help Toggle
   const [showSqlHelp, setShowSqlHelp] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'GPE' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK' | 'OIR' | 'SCREENING' | 'MENTORS'>(isMentorMode ? 'PPDT' : 'PAYMENTS');
+  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'GPE' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK' | 'OIR' | 'SCREENING' | 'MENTORS' | 'CHALLENGES'>(isMentorMode ? 'PPDT' : 'PAYMENTS');
   const [mentors, setMentors] = useState<any[]>([]);
   const [mentorEmail, setMentorEmail] = useState('');
   const [mentorName, setMentorName] = useState('');
@@ -582,6 +583,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
       { id: 'SRT', label: 'SRT', icon: Brain, color: 'bg-slate-900 text-white' },
       { id: 'GPE', label: 'GPE', icon: Map, color: 'bg-slate-900 text-white' },
       { id: 'DAILY', label: 'Daily', icon: Clock, color: 'bg-rose-600 text-white' },
+      { id: 'CHALLENGES', label: '14-Day Challenge', icon: Target, color: 'bg-blue-600 text-white' },
       { id: 'COUPONS', label: 'Coupons', icon: Tag, color: 'bg-pink-600 text-white' },
       { id: 'BROADCAST', label: 'Broadcast', icon: Megaphone, color: 'bg-red-600 text-white' },
       { id: 'FEEDBACK', label: 'Feedback', icon: MessageSquare, color: 'bg-orange-600 text-white' },
@@ -1095,6 +1097,13 @@ CREATE POLICY "Users can update own profile" ON public.aspirants FOR UPDATE USIN
                       ))}
                   </div>
               </div>
+          </div>
+      )}
+
+      {/* 14-DAY CHALLENGE ADMIN */}
+      {activeTab === 'CHALLENGES' && (
+          <div className="space-y-8 animate-in fade-in">
+              <ChallengeAdmin />
           </div>
       )}
 

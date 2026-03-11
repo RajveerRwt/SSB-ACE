@@ -104,3 +104,17 @@ create table if not exists public.completed_assessments (
 alter table public.completed_assessments enable row level security;
 create policy "Users can read their own completed assessments" on public.completed_assessments for select using (auth.uid() = user_id);
 create policy "Users can insert their own completed assessments" on public.completed_assessments for insert with check (auth.uid() = user_id);
+
+-- 14-Day Challenge Resources
+create table if not exists public.challenge_resources (
+    id uuid default gen_random_uuid() primary key,
+    day_number integer not null,
+    resource_type text not null, -- 'TAT', 'WAT', 'SRT'
+    content text not null, -- URL for TAT, word for WAT, situation for SRT
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.challenge_resources enable row level security;
+create policy "Public read challenge resources" on public.challenge_resources for select using (true);
+create policy "Admin insert challenge resources" on public.challenge_resources for insert with check (true);
+create policy "Admin delete challenge resources" on public.challenge_resources for delete using (true);
