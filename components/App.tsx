@@ -27,6 +27,7 @@ import MentorRegistration from './MentorRegistration';
 import MentorDashboard from './MentorDashboard';
 import StudentBatchView from './StudentBatchView';
 import BatchPPDTTest from './BatchPPDTTest';
+import Challenge14Day from './Challenge14Day';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, getTestReport, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment, getMentorProfile } from '../services/supabaseService';
 import { evaluatePerformance } from '../services/geminiService';
@@ -127,9 +128,9 @@ const Dashboard: React.FC<{
     { id: TestType.GPE, label: 'GPE', sub: 'Group Plan', icon: Map, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100', cost: TEST_RATES.GPE || 0 },
     { id: TestType.LECTURETTE, label: 'Lecturette', sub: 'Topics', icon: BookOpen, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100', cost: TEST_RATES.LECTURETTE },
     { id: TestType.INTERVIEW, label: '1:1 Interview', sub: 'Virtual IO', icon: Mic, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', cost: 0 },
+    { id: TestType.CHALLENGE_14_DAY, label: '12-Day Full Psyc Challenge', sub: 'Practice', icon: Target, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-100', cost: 0 },
     { id: TestType.DAILY_PRACTICE, label: 'Daily Dose', sub: 'Practice', icon: Clock, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-100', cost: 0 },
     { id: TestType.CURRENT_AFFAIRS, label: 'Daily News', sub: 'Updates', icon: Globe, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100', cost: 0 },
-    { id: TestType.AI_BOT, label: 'AI Guide', sub: 'ChatBot', icon: Bot, color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-100', cost: 0 },
     { id: TestType.RESOURCES, label: 'Free Resources', sub: 'Library', icon: Library, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100', cost: 0 },
   ];
 
@@ -262,11 +263,18 @@ const Dashboard: React.FC<{
                  >
                     <Clock size={16} /> Daily Practice (Free)
                  </button>
+                 
+                 <button 
+                    onClick={() => onStartTest(TestType.CHALLENGE_14_DAY)}
+                    className="flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 bg-yellow-600/20 text-yellow-300 border border-yellow-500/30 backdrop-blur-sm rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-[11px] hover:bg-yellow-600/40 transition-all flex items-center justify-center gap-3"
+                 >
+                    <Target size={16} /> 12-Day Full Psyc Challenge
+                 </button>
                </div>
              ) : (
                <div className="pt-4 space-y-4">
                   <div className="flex flex-col md:flex-row gap-4 w-full">
-                    <button onClick={() => onStartTest(TestType.REGISTER)} className="px-10 md:px-14 py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-emerald-500/20 hover:bg-emerald-600 hover:scale-105 transition-all flex items-center justify-center gap-3">
+                    <button onClick={() => onStartTest(TestType.REGISTER)} className="px-10 md:px-14 py-5 bg-yellow-500 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-yellow-500/20 hover:bg-yellow-600 hover:scale-105 transition-all flex items-center justify-center gap-3">
                         <Zap size={18} className="fill-current" /> Start Free Practice Now
                     </button>
                     <button onClick={() => onStartTest(TestType.LOGIN)} className="px-8 md:px-10 py-5 bg-white/5 text-white rounded-2xl font-black uppercase text-xs border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3">
@@ -481,6 +489,8 @@ const Dashboard: React.FC<{
                                                     </span>
                                                 ) : h.status === 'failed' ? (
                                                     <span className="text-red-500">Failed</span>
+                                                ) : h.type === 'CHALLENGE_14_DAY' ? (
+                                                    <span className="text-green-600">Completed</span>
                                                 ) : `Score: ${h.score}/10`}
                                             </p>
                                             <p className={`text-[9px] font-bold uppercase tracking-widest ${h.status === 'pending' ? 'text-blue-500' : h.status === 'failed' ? 'text-red-500' : 'text-green-600'}`}>
@@ -925,7 +935,6 @@ const App: React.FC = () => {
       case TestType.INTERVIEW: return <Interview piqData={piqData || undefined} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
       case TestType.CONTACT: return <ContactForm piqData={piqData || undefined} />;
       case TestType.STAGES: return <SSBStages />;
-      case TestType.AI_BOT: return <SSBBot />;
       case TestType.ASSESSMENTS: 
         return user ? (
           <Assessments 
@@ -940,6 +949,7 @@ const App: React.FC = () => {
       case TestType.GUIDE: return <HowToUse onNavigate={navigateTo} />;
       case TestType.CURRENT_AFFAIRS: return <CurrentAffairs />;
       case TestType.DAILY_PRACTICE: return <DailyPractice onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.CHALLENGE_14_DAY: return <Challenge14Day onBack={() => setActiveTest(TestType.DASHBOARD)} userId={user || undefined} piqData={piqData || undefined} />;
       case TestType.RESOURCES: return <ResourceCenter />;
       case TestType.LECTURETTE: return <LecturetteTest onSave={handleTestComplete} onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.OIR: return (
@@ -979,6 +989,7 @@ const App: React.FC = () => {
     >
       {user && !user.startsWith('demo') && <BackgroundAssessmentManager userId={user} />}
       {renderContent()}
+      <SSBBot />
       {user && (
         <PaymentModal 
             userId={user} 

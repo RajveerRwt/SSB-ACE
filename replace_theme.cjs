@@ -1,0 +1,18 @@
+const fs = require('fs');
+const path = './components/Challenge14Day.tsx';
+let content = fs.readFileSync(path, 'utf8');
+content = content.replace(/stone-/g, 'slate-');
+content = content.replace(/bg-green-700/g, 'bg-yellow-500');
+content = content.replace(/text-green-400/g, 'text-yellow-400');
+content = content.replace(/text-green-500/g, 'text-yellow-500');
+content = content.replace(/bg-green-500\/20/g, 'bg-yellow-500\/20');
+content = content.replace(/bg-green-500\/30/g, 'bg-yellow-500\/30');
+content = content.replace(/border-green-500\/50/g, 'border-yellow-500\/50');
+content = content.replace(/hover:text-green-300/g, 'hover:text-yellow-300');
+content = content.replace(/shadow-green-700\/30/g, 'shadow-yellow-500\/30');
+content = content.replace(/hover:bg-green-800/g, 'hover:bg-yellow-600');
+content = content.replace(/bg-green-600/g, 'bg-yellow-500');
+content = content.replace(/hover:bg-green-700/g, 'hover:bg-yellow-600');
+content = content.replace(/shadow-green-600\/20/g, 'shadow-yellow-500\/20');
+fs.writeFileSync(path, content);
+console.log('Done');

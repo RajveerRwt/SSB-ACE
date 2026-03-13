@@ -61,12 +61,21 @@ const ChallengeAdmin = () => {
                 await supabase.storage.from('scenarios').upload(fileName, imageFile);
                 const { data: { publicUrl } } = supabase.storage.from('scenarios').getPublicUrl(fileName);
                 
-                await supabase.from('challenge_resources').insert({
+                const { error } = await supabase.from('challenge_resources').insert({
                     day_number: selectedDay,
                     resource_type: 'TAT',
                     content: publicUrl
                 });
+                if (error) throw error;
                 setImageFile(null);
+            } else if (resourceType === 'TAT' && bulkInput === 'BLANK') {
+                const { error } = await supabase.from('challenge_resources').insert({
+                    day_number: selectedDay,
+                    resource_type: 'TAT',
+                    content: 'BLANK'
+                });
+                if (error) throw error;
+                setBulkInput('');
             } else if ((resourceType === 'WAT' || resourceType === 'SRT') && bulkInput.trim()) {
                 const items = bulkInput.split('\n').map(i => i.trim()).filter(i => i);
                 const payload = items.map(item => ({
@@ -75,7 +84,8 @@ const ChallengeAdmin = () => {
                     content: item
                 }));
                 
-                await supabase.from('challenge_resources').insert(payload);
+                const { error } = await supabase.from('challenge_resources').insert(payload);
+                if (error) throw error;
                 setBulkInput('');
             }
             
@@ -98,7 +108,7 @@ const ChallengeAdmin = () => {
     return (
         <div className="bg-slate-900 rounded-2xl p-6 text-white shadow-xl border border-slate-800">
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                <Calendar className="text-blue-500" /> 14-Day Challenge Admin
+                <Calendar className="text-blue-500" /> 14 Days PSYC Challenge Admin
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -144,7 +154,7 @@ const ChallengeAdmin = () => {
                             {/* Add Resource Form */}
                             <div className="bg-slate-900 p-5 rounded-xl border border-slate-700">
                                 <h4 className="font-semibold mb-4 flex items-center gap-2">
-                                    <Plus size={18} className="text-green-400" /> Add Fresh Resources
+                                    <Plus size={18} className="text-yellow-400" /> Add Fresh Resources
                                 </h4>
                                 
                                 <div className="flex gap-4 mb-4">
@@ -170,12 +180,27 @@ const ChallengeAdmin = () => {
                                 
                                 {resourceType === 'TAT' ? (
                                     <div className="space-y-4">
-                                        <input 
-                                            type="file" 
-                                            accept="image/*"
-                                            onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                                            className="w-full bg-slate-800 text-white border border-slate-700 rounded-xl p-3"
-                                        />
+                                        <div className="flex items-center gap-4 mb-4">
+                                            <button
+                                                onClick={() => {
+                                                    setBulkInput('BLANK');
+                                                    setImageFile(null);
+                                                }}
+                                                className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors ${bulkInput === 'BLANK' ? 'bg-orange-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                                            >
+                                                Use Blank Slide
+                                            </button>
+                                            <span className="text-slate-500 text-sm">OR</span>
+                                            <input 
+                                                type="file" 
+                                                accept="image/*"
+                                                onChange={(e) => {
+                                                    setImageFile(e.target.files?.[0] || null);
+                                                    setBulkInput('');
+                                                }}
+                                                className="w-full bg-slate-800 text-white border border-slate-700 rounded-xl p-3"
+                                            />
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
@@ -190,8 +215,8 @@ const ChallengeAdmin = () => {
                                 
                                 <button
                                     onClick={handleAddResources}
-                                    disabled={uploading || (resourceType === 'TAT' ? !imageFile : !bulkInput.trim())}
-                                    className="mt-4 w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+                                    disabled={uploading || (resourceType === 'TAT' && !imageFile && bulkInput !== 'BLANK') || (resourceType !== 'TAT' && !bulkInput.trim())}
+                                    className="mt-4 w-full bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
                                 >
                                     {uploading ? <Loader2 className="animate-spin" /> : <Save size={18} />}
                                     Save Resources to Day {selectedDay}
