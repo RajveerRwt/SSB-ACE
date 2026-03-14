@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, saveTestAttempt } from '../services/supabaseService';
+import { supabase, saveTestAttempt, submitUserFeedback } from '../services/supabaseService';
 import { Target, Calendar, CheckCircle, Lock, Play, Loader2, ArrowLeft, Brain, Zap, Image as ImageIcon, Send, Upload, Timer, FastForward, Eye, X, FileText, Camera, Trash2, Edit, Activity, MessageCircle, Star } from 'lucide-react';
 import { PIQData } from '../types';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -1065,6 +1065,10 @@ const Challenge14Day: React.FC<Challenge14DayProps> = ({ onBack, userId, piqData
                     .from('test_history')
                     .update({ result_data: updatedResultData })
                     .eq('id', currentAttemptId);
+                    
+                if (userId) {
+                    await submitUserFeedback(userId, `12-Day Challenge (Day ${selectedDay})`, feedbackRating, feedbackText);
+                }
                     
                 setFeedbackSubmitted(true);
                 await fetchUserProgress(); // Refresh progress data
