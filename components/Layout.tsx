@@ -72,7 +72,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
   const [notifications, setNotifications] = useState<Announcement[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Scroll to top on navigation change
@@ -137,6 +139,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
     const handleClickOutside = (event: MouseEvent) => {
         if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
             setShowNotifications(false);
+        }
+        if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
+            setShowProfileMenu(false);
         }
     };
 
@@ -339,38 +344,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
           </nav>
           
           {/* User & Logout Section */}
-          <div className="p-4 bg-black/20 border-t border-white/10 shrink-0">
-             {isLoggedIn ? (
-               <div className="mb-4 px-2">
-                 <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Logged in as</p>
-                 <div className="flex items-center gap-2">
-                    <p className="text-xs font-bold text-slate-300 truncate">{user}</p>
-                 </div>
-                 {isAdmin && <span className="text-[8px] bg-red-600 px-1.5 py-0.5 rounded text-white font-black uppercase tracking-widest mt-1 inline-block">Admin</span>}
-               </div>
-             ) : (
-               <div className="mb-4 px-2">
-                 <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Status</p>
-                 <p className="text-xs font-bold text-slate-300">Guest User</p>
-               </div>
-             )}
-             
-             {isLoggedIn ? (
-               <button 
-                 onClick={onLogout}
-                 className="w-full flex items-center gap-3 px-4 py-2 text-red-400 hover:text-red-300 hover:bg-white/5 rounded-xl transition-all text-xs font-black uppercase tracking-widest"
-               >
-                 <LogOut size={14} /> Logout
-               </button>
-             ) : (
-               <button 
-                 onClick={onLogin}
-                 className="w-full flex items-center gap-3 px-4 py-2 text-yellow-400 hover:text-yellow-300 hover:bg-white/5 rounded-xl transition-all text-xs font-black uppercase tracking-widest"
-               >
-                 <LogIn size={14} /> Login
-               </button>
-             )}
-          </div>
+          {/* Removed from sidebar to be placed in header dropdown */}
         </div>
       </aside>
 
@@ -499,8 +473,56 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                 )}
             </div>
 
-            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl border flex items-center justify-center text-white font-black text-xs ${isLoggedIn ? (isAdmin ? 'bg-red-600 border-red-500' : 'bg-slate-900 border-slate-700') : 'bg-slate-200 border-slate-300 text-slate-400'}`}>
-              {isLoggedIn ? (user ? user.substring(0,2).toUpperCase() : 'JD') : <User size={16}/>}
+            {/* Profile Dropdown */}
+            <div className="relative" ref={profileDropdownRef}>
+              <button 
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className={`w-8 h-8 md:w-10 md:h-10 rounded-xl border flex items-center justify-center text-white font-black text-xs transition-transform hover:scale-105 ${isLoggedIn ? (isAdmin ? 'bg-red-600 border-red-500' : 'bg-slate-900 border-slate-700') : 'bg-slate-200 border-slate-300 text-slate-400'}`}
+              >
+                {isLoggedIn ? (user ? user.substring(0,2).toUpperCase() : 'JD') : <User size={16}/>}
+              </button>
+              
+              {showProfileMenu && (
+                <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[100] animate-in slide-in-from-top-2">
+                  <div className="p-4 bg-slate-50 border-b border-slate-100">
+                    {isLoggedIn ? (
+                      <>
+                        <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Logged in as</p>
+                        <p className="text-xs font-bold text-slate-800 truncate" title={user}>{user}</p>
+                        {isAdmin && <span className="text-[8px] bg-red-600 px-1.5 py-0.5 rounded text-white font-black uppercase tracking-widest mt-2 inline-block">Admin</span>}
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Status</p>
+                        <p className="text-xs font-bold text-slate-800">Guest User</p>
+                      </>
+                    )}
+                  </div>
+                  <div className="p-2">
+                    {isLoggedIn ? (
+                      <button 
+                        onClick={() => {
+                          setShowProfileMenu(false);
+                          if (onLogout) onLogout();
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all text-xs font-black uppercase tracking-widest"
+                      >
+                        <LogOut size={14} /> Logout
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => {
+                          setShowProfileMenu(false);
+                          if (onLogin) onLogin();
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-yellow-600 hover:bg-yellow-50 rounded-xl transition-all text-xs font-black uppercase tracking-widest"
+                      >
+                        <LogIn size={14} /> Login
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
