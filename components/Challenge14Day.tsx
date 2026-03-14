@@ -763,7 +763,7 @@ const Challenge14Day: React.FC<Challenge14DayProps> = ({ onBack, userId, piqData
             else if (type === 'WAT') setTranscribingWat(prev => [...prev, key as number]);
             else if (type === 'SRT') setTranscribingSrt(prev => [...prev, key as number]);
 
-            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY || '' });
             const response = await ai.models.generateContent({
                 model: 'gemini-3-flash-preview',
                 contents: {
@@ -820,7 +820,7 @@ const Challenge14Day: React.FC<Challenge14DayProps> = ({ onBack, userId, piqData
     const submitTest = async () => {
         setIsEvaluating(true);
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY || '' });
             
             // Combine all answers
             const finalAnswers: Record<string, string> = { ...answers };
