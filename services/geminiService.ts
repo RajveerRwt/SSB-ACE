@@ -714,7 +714,86 @@ export async function extractPIQFromImage(base64: string, mimeType: string) {
                     ]
                 },
                 config: {
-                    responseMimeType: 'application/json'
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            selectionBoard: { type: Type.STRING },
+                            batchNo: { type: Type.STRING },
+                            chestNo: { type: Type.STRING },
+                            rollNo: { type: Type.STRING },
+                            name: { type: Type.STRING },
+                            fatherName: { type: Type.STRING },
+                            residence: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    max: { type: Type.STRING },
+                                    present: { type: Type.STRING },
+                                    permanent: { type: Type.STRING }
+                                }
+                            },
+                            details: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    religion: { type: Type.STRING },
+                                    category: { type: Type.STRING },
+                                    motherTongue: { type: Type.STRING },
+                                    dob: { type: Type.STRING },
+                                    maritalStatus: { type: Type.STRING }
+                                }
+                            },
+                            family: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        relation: { type: Type.STRING },
+                                        education: { type: Type.STRING },
+                                        occupation: { type: Type.STRING },
+                                        income: { type: Type.STRING }
+                                    }
+                                }
+                            },
+                            education: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        qualification: { type: Type.STRING },
+                                        institution: { type: Type.STRING },
+                                        board: { type: Type.STRING },
+                                        year: { type: Type.STRING },
+                                        marks: { type: Type.STRING },
+                                        medium: { type: Type.STRING },
+                                        status: { type: Type.STRING },
+                                        achievement: { type: Type.STRING }
+                                    }
+                                }
+                            },
+                            activities: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    ncc: { type: Type.STRING },
+                                    games: { type: Type.STRING },
+                                    hobbies: { type: Type.STRING },
+                                    extraCurricular: { type: Type.STRING },
+                                    responsibilities: { type: Type.STRING }
+                                }
+                            },
+                            previousAttempts: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        entry: { type: Type.STRING },
+                                        ssb: { type: Type.STRING },
+                                        date: { type: Type.STRING },
+                                        result: { type: Type.STRING }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         );

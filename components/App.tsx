@@ -60,7 +60,7 @@ const MedalRibbon: React.FC<{
     </div>}
 
     {/* Tooltip */}
-    <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[10px] p-2 rounded-lg w-32 text-center pointer-events-none z-20">
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[10px] p-2 rounded-lg w-32 text-center pointer-events-none z-20">
        <p className="font-bold text-yellow-400 uppercase">{title}</p>
        <p className="text-slate-300 leading-tight mt-1">{desc}</p>
        <p className={`mt-1 font-bold ${earned ? 'text-green-400' : 'text-red-400'}`}>{earned ? 'EARNED' : 'LOCKED'}</p>
@@ -249,16 +249,16 @@ const Dashboard: React.FC<{
                Practice exactly like real SSB with full detailed and personalised assessment.</p>
              
              {isLoggedIn ? (
-               <div className="flex flex-wrap gap-4 pt-4">
+               <div className="flex flex-col md:flex-row flex-wrap gap-4 pt-4">
                  <button 
                    onClick={() => piqLoaded ? onStartTest(TestType.INTERVIEW) : onStartTest(TestType.PIQ)}
-                   className={`flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 font-black rounded-2xl transition-all shadow-xl hover:-translate-y-1 uppercase tracking-widest text-[10px] md:text-[11px] flex items-center justify-center gap-3 ${piqLoaded ? 'bg-yellow-400 text-black hover:bg-yellow-500 shadow-yellow-400/20' : 'bg-slate-800 text-slate-500 border border-white/5'}`}
+                   className={`w-full md:w-auto px-6 md:px-10 py-4 md:py-5 font-black rounded-2xl transition-all shadow-xl hover:-translate-y-1 uppercase tracking-widest text-[10px] md:text-[11px] flex items-center justify-center gap-3 ${piqLoaded ? 'bg-yellow-400 text-black hover:bg-yellow-500 shadow-yellow-400/20' : 'bg-slate-800 text-slate-500 border border-white/5'}`}
                    disabled={isLoading}
                  >
                    {isLoading ? 'Syncing...' : (piqLoaded ? 'Start AI Interview' : 'Unlock Interview (Fill PIQ)')}
                  </button>
                  
-                 <div className="relative flex-1 md:flex-none">
+                 <div className="relative w-full md:w-auto">
                    {isLoggedIn && !hasSubmittedDaily && (
                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] font-bold px-3 py-2 rounded-lg whitespace-nowrap animate-bounce shadow-xl z-20 flex items-center gap-2">
                        <AlertCircle size={12} /> Submit Today's Practice!
@@ -275,7 +275,7 @@ const Dashboard: React.FC<{
                  
                  <button 
                     onClick={() => onStartTest(TestType.CHALLENGE_14_DAY)}
-                    className="flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 bg-yellow-600/20 text-yellow-300 border border-yellow-500/30 backdrop-blur-sm rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-[11px] hover:bg-yellow-600/40 transition-all flex items-center justify-center gap-3"
+                    className="w-full md:w-auto px-6 md:px-10 py-4 md:py-5 bg-yellow-600/20 text-yellow-300 border border-yellow-500/30 backdrop-blur-sm rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-[11px] hover:bg-yellow-600/40 transition-all flex items-center justify-center gap-3"
                  >
                     <Target size={16} /> 12-Day Full Psyc Challenge
                  </button>
@@ -301,18 +301,18 @@ const Dashboard: React.FC<{
 
              {isLoggedIn && subscription && (
                  <div className="mt-4 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                             <Zap size={14} className="text-yellow-400" /> Wallet Status
                         </p>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                             <button 
                                 onClick={() => setShowFreeCoinPopup(true)}
-                                className="text-[9px] font-bold px-3 py-1 rounded bg-green-600 text-white hover:bg-green-500 transition-colors uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-green-600/20"
+                                className="text-[9px] font-bold px-3 py-1.5 rounded bg-green-600 text-white hover:bg-green-500 transition-colors uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-green-600/20"
                             >
                                 <Gift size={10} /> Get Free 50 Coins
                             </button>
-                            <button onClick={onOpenPayment} className="text-[9px] font-bold px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-500 transition-colors uppercase tracking-widest">
+                            <button onClick={onOpenPayment} className="text-[9px] font-bold px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-500 transition-colors uppercase tracking-widest">
                                Add Coins
                             </button>
                         </div>
@@ -362,9 +362,9 @@ const Dashboard: React.FC<{
           
           {isLoggedIn && (
             <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-xl overflow-hidden relative">
-              <div className="flex justify-between items-center mb-8 relative z-10">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 relative z-10">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                    <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0">
                         <Trophy size={24} className="text-yellow-400" />
                     </div>
                     <div>
@@ -374,7 +374,7 @@ const Dashboard: React.FC<{
                         </p>
                     </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                     <span className="block text-2xl font-black text-slate-900">{stats.totalTests}</span>
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Missions Logged</span>
                 </div>
@@ -395,19 +395,19 @@ const Dashboard: React.FC<{
                               </div>
                           ) : (
                               Object.entries(stats.breakdown).map(([type, data]) => (
-                                  <div key={type} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                                      <div className="flex items-center gap-3">
-                                          <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-[10px]">
+                                  <div key={type} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between gap-2">
+                                      <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+                                          <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-[10px] shrink-0">
                                               {type.substring(0, 2)}
                                           </div>
-                                          <div>
-                                              <p className="text-[10px] font-black uppercase text-slate-800 tracking-tight">{type}</p>
+                                          <div className="min-w-0">
+                                              <p className="text-[10px] font-black uppercase text-slate-800 tracking-tight truncate">{type}</p>
                                               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{data.count} Sorties</p>
                                           </div>
                                       </div>
-                                      <div className="text-right">
+                                      <div className="text-right shrink-0">
                                           <p className="text-xs font-black text-slate-900">{data.avg.toFixed(1)}</p>
-                                          <div className="w-16 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                                          <div className="w-12 md:w-16 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
                                               <div 
                                                   className={`h-full rounded-full ${data.avg > 7 ? 'bg-green-500' : data.avg > 5 ? 'bg-yellow-500' : 'bg-red-500'}`} 
                                                   style={{ width: `${(data.avg / 10) * 100}%` }}
@@ -425,7 +425,7 @@ const Dashboard: React.FC<{
                       <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
                           <Award size={12} /> Decorations
                       </h4>
-                      <div className="grid grid-cols-4 gap-4 place-items-center">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 place-items-center">
                           <MedalRibbon 
                              title="Early Bird" 
                              desc="Logged in before 0800 Hours" 
@@ -565,7 +565,7 @@ const Dashboard: React.FC<{
              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter flex items-center gap-2">
                  <Zap className="text-yellow-500" /> Quick Deployment
              </h3>
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                 {quickActions.map((action, i) => (
                     <button
                         key={i}
@@ -602,26 +602,26 @@ const Dashboard: React.FC<{
                             // Check Balance and Prompt
                             onStartTest(action.id, { cost: action.cost });
                         }}
-                        className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center gap-3 transition-all hover:-translate-y-1 hover:shadow-lg ${action.bg} ${action.border} relative overflow-hidden`}
+                        className={`p-3 md:p-4 rounded-2xl border-2 flex flex-col items-center justify-center gap-2 md:gap-3 transition-all hover:-translate-y-1 hover:shadow-lg ${action.bg} ${action.border} relative overflow-hidden`}
                     >
-                        <div className={`p-3 bg-white rounded-xl shadow-sm ${action.color}`}>
-                            <action.icon size={20} />
+                        <div className={`p-2 md:p-3 bg-white rounded-xl shadow-sm ${action.color}`}>
+                            <action.icon size={20} className="w-4 h-4 md:w-5 md:h-5" />
                         </div>
-                        <div className="text-center relative z-10">
-                            <span className="block text-xs font-black text-slate-900 uppercase tracking-tight leading-tight">{action.label}</span>
-                            <span className="block text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1">{action.sub}</span>
+                        <div className="text-center relative z-10 w-full px-1">
+                            <span className="block text-[10px] md:text-xs font-black text-slate-900 uppercase tracking-tight leading-tight break-words">{action.label}</span>
+                            <span className="block text-[7px] md:text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5 md:mt-1">{action.sub}</span>
                         </div>
                         
                         {/* Only show Cost if Logged In */}
                         {isLoggedIn && action.cost > 0 && (
-                            <div className="absolute top-2 right-2 bg-slate-900 text-yellow-400 px-2 py-0.5 rounded text-[8px] font-black flex items-center gap-1 shadow-sm">
-                                <Coins size={8} /> {action.cost}
+                            <div className="absolute top-1.5 right-1.5 md:top-2 md:right-2 bg-slate-900 text-yellow-400 px-1.5 py-0.5 rounded text-[7px] md:text-[8px] font-black flex items-center gap-1 shadow-sm">
+                                <Coins size={8} className="w-2 h-2 md:w-auto md:h-auto" /> {action.cost}
                             </div>
                         )}
                         
                         {/* Only show FREE if explicitly cost 0 AND NOT Interview (Interview has special lobby with costs) */}
                         {action.cost === 0 && action.id !== TestType.INTERVIEW && (
-                            <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-0.5 rounded text-[8px] font-black shadow-sm">
+                            <div className="absolute top-1.5 right-1.5 md:top-2 md:right-2 bg-green-500 text-white px-1.5 py-0.5 rounded text-[7px] md:text-[8px] font-black shadow-sm">
                                 FREE
                             </div>
                         )}
@@ -632,7 +632,7 @@ const Dashboard: React.FC<{
         </div>
 
         <div className="lg:col-span-4 space-y-6 md:space-y-10">
-           <div className="bg-slate-950 p-8 md:p-12 rounded-[2rem] md:rounded-[4rem] text-white shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
+           <div className="bg-slate-950 p-6 md:p-12 rounded-[2rem] md:rounded-[4rem] text-white shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
               <div className="absolute top-0 left-0 w-full h-1.5 bg-yellow-500" />
               <Star className="text-yellow-400 w-12 h-12 md:w-16 md:h-16 mb-6 md:mb-8 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]" />
               <h3 className="text-xl md:text-2xl font-black uppercase tracking-widest mb-4 md:mb-6">The Aspirant's Creed</h3>
@@ -643,7 +643,7 @@ const Dashboard: React.FC<{
               </div>
            </div>
 
-           <div className="bg-blue-600 p-8 md:p-10 rounded-[2rem] md:rounded-[3.5rem] text-white shadow-xl flex flex-col items-center text-center gap-6 group hover:scale-[1.02] transition-all">
+           <div className="bg-blue-600 p-6 md:p-10 rounded-[2rem] md:rounded-[3.5rem] text-white shadow-xl flex flex-col items-center text-center gap-6 group hover:scale-[1.02] transition-all">
               <div className="w-16 h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center border border-white/30 shadow-2xl">
                 <Shield className="w-8 h-8 md:w-10 md:h-10 text-white" />
               </div>

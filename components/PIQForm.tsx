@@ -31,7 +31,7 @@ const InputField = ({ label, value, onChange, placeholder = "" }: any) => (
   <div className="space-y-2">
     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{label}</label>
     <input 
-      value={value} 
+      value={value || ""} 
       onChange={e => onChange(e.target.value)} 
       className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:ring-2 focus:ring-slate-900 outline-none transition-all" 
       placeholder={placeholder}
@@ -64,7 +64,18 @@ const PIQForm: React.FC<{ onSave: (data: PIQData) => void, initialData?: PIQData
       reader.onloadend = async () => {
         const base64 = (reader.result as string).split(',')[1];
         const extracted = await extractPIQFromImage(base64, file.type);
-        setData({ ...data, ...extracted });
+        
+        setData(prevData => ({
+          ...prevData,
+          ...extracted,
+          residence: { ...prevData.residence, ...(extracted.residence || {}) },
+          details: { ...prevData.details, ...(extracted.details || {}) },
+          activities: { ...prevData.activities, ...(extracted.activities || {}) },
+          family: extracted.family?.length ? extracted.family : prevData.family,
+          education: extracted.education?.length ? extracted.education : prevData.education,
+          previousAttempts: extracted.previousAttempts?.length ? extracted.previousAttempts : prevData.previousAttempts
+        }));
+        
         setIsProcessing(false);
       };
       reader.readAsDataURL(file);
@@ -112,7 +123,7 @@ const PIQForm: React.FC<{ onSave: (data: PIQData) => void, initialData?: PIQData
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Marital Status</label>
             <select 
-              value={data.details.maritalStatus} 
+              value={data.details.maritalStatus || "Single"} 
               onChange={e => setData({...data, details: {...data.details, maritalStatus: e.target.value}})}
               className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800"
             >
@@ -126,7 +137,7 @@ const PIQForm: React.FC<{ onSave: (data: PIQData) => void, initialData?: PIQData
           <div className="space-y-2 md:col-span-2">
             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Category (SC / ST / OBC)</label>
             <input 
-              value={data.details.category} 
+              value={data.details.category || ""} 
               onChange={e => setData({...data, details: {...data.details, category: e.target.value}})}
               className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
               placeholder="Leave blank if General"
@@ -219,23 +230,23 @@ const PIQForm: React.FC<{ onSave: (data: PIQData) => void, initialData?: PIQData
           <div className="grid grid-cols-1 gap-8">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">NCC Training</label>
-              <textarea value={data.activities.ncc} onChange={e=>setData({...data, activities: {...data.activities, ncc: e.target.value}})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-24" placeholder="e.g. 2 years, Army Wing, Div I, 'C' Certificate"/>
+              <textarea value={data.activities.ncc || ""} onChange={e=>setData({...data, activities: {...data.activities, ncc: e.target.value}})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-24" placeholder="e.g. 2 years, Army Wing, Div I, 'C' Certificate"/>
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Games / Sports</label>
-              <textarea value={data.activities.games} onChange={e=>setData({...data, activities: {...data.activities, games: e.target.value}})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-24" placeholder="Cricket - School Team Captain - Won Zonal..."/>
+              <textarea value={data.activities.games || ""} onChange={e=>setData({...data, activities: {...data.activities, games: e.target.value}})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-24" placeholder="Cricket - School Team Captain - Won Zonal..."/>
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Hobbies & Interests</label>
-              <textarea value={data.activities.hobbies} onChange={e=>setData({...data, activities: {...data.activities, hobbies: e.target.value}})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-24" placeholder="Philately, Trekking, Blogging..."/>
+              <textarea value={data.activities.hobbies || ""} onChange={e=>setData({...data, activities: {...data.activities, hobbies: e.target.value}})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-24" placeholder="Philately, Trekking, Blogging..."/>
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Extra-Curricular Activities</label>
-              <textarea value={data.activities.extraCurricular} onChange={e=>setData({...data, activities: {...data.activities, extraCurricular: e.target.value}})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-24" placeholder="Debating - 4 years - State Level Winner..."/>
+              <textarea value={data.activities.extraCurricular || ""} onChange={e=>setData({...data, activities: {...data.activities, extraCurricular: e.target.value}})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-24" placeholder="Debating - 4 years - State Level Winner..."/>
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Position of Responsibilities</label>
-              <textarea value={data.activities.responsibilities} onChange={e=>setData({...data, activities: {...data.activities, responsibilities: e.target.value}})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-24" placeholder="School Captain, NCC Under Officer..."/>
+              <textarea value={data.activities.responsibilities || ""} onChange={e=>setData({...data, activities: {...data.activities, responsibilities: e.target.value}})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold h-24" placeholder="School Captain, NCC Under Officer..."/>
             </div>
           </div>
         </div>
