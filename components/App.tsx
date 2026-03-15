@@ -260,10 +260,9 @@ const Dashboard: React.FC<{
                  
                  <div className="relative w-full md:w-auto">
                    {isLoggedIn && !hasSubmittedDaily && (
-                     <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] font-bold px-3 py-2 rounded-lg whitespace-nowrap animate-bounce shadow-xl z-20 flex items-center gap-2">
-                       <AlertCircle size={12} /> Submit Today's Practice!
-                       <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-red-500"></div>
-                     </div>
+                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10">
+                       1
+                     </span>
                    )}
                    <button 
                       onClick={() => onStartTest(TestType.DAILY_PRACTICE)}

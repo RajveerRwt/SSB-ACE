@@ -303,7 +303,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                     <span className="absolute right-4 bg-yellow-400 text-black text-[8px] px-1.5 py-0.5 rounded font-bold uppercase">FREE</span>
                 )}
                 {item.id === TestType.DAILY_PRACTICE && isLoggedIn && !hasSubmittedDaily && (
-                    <span className="absolute right-4 w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" title="Pending Daily Practice" />
+                    <span className="absolute right-4 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" title="Pending Daily Practice">1</span>
                 )}
               </button>
             ))}
