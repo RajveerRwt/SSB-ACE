@@ -603,13 +603,19 @@ IMPORTANT RULES:
         else if (testType === 'SDT') {
             const prompt = `Evaluate Self Description Test (SDT).
             Candidate Inputs:
-            Parents: ${userData.sdtData?.parents}
-            Teachers: ${userData.sdtData?.teachers}
-            Friends: ${userData.sdtData?.friends}
-            Self: ${userData.sdtData?.self}
-            Aim: ${userData.sdtData?.aim}
+            Parents: ${userData.sdtData?.parents || "NOT PROVIDED"}
+            Teachers: ${userData.sdtData?.teachers || "NOT PROVIDED"}
+            Friends: ${userData.sdtData?.friends || "NOT PROVIDED"}
+            Self: ${userData.sdtData?.self || "NOT PROVIDED"}
+            Aim: ${userData.sdtData?.aim || "NOT PROVIDED"}
             
-            Check for consistency, honesty, and OLQs.`;
+            Task:
+            1. Evaluate each of the 5 sections individually (Parents, Teachers, Friends, Self, Aim).
+            2. For each section, provide a score (0-10) and a brief assessment.
+            3. If a section is "NOT PROVIDED" or empty, its score must be 0 and the assessment should state it was missed.
+            4. Calculate an overall score (0-10). If any section is missed, heavily penalize the overall score.
+            5. Check for consistency, honesty, and Officer Like Qualities (OLQs) across the provided sections.
+            `;
 
             const parts: Part[] = [{ text: prompt }];
             if (userData.sdtImages) {
@@ -623,7 +629,7 @@ IMPORTANT RULES:
             }
 
             const response = await generateWithRetry(
-                'gemini-3-flash-preview',
+                'gemini-3.1-pro-preview',
                 {
                     contents: { parts },
                     config: {
@@ -631,9 +637,19 @@ IMPORTANT RULES:
                         responseSchema: {
                             type: Type.OBJECT,
                             properties: {
-                                score: { type: Type.NUMBER },
+                                score: { type: Type.NUMBER, description: "Overall score (0-10). Penalize if any section is missed." },
                                 verdict: { type: Type.STRING },
                                 consistencyAnalysis: { type: Type.STRING },
+                                sectionEvaluations: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        parents: { type: Type.OBJECT, properties: { score: { type: Type.NUMBER }, assessment: { type: Type.STRING } } },
+                                        teachers: { type: Type.OBJECT, properties: { score: { type: Type.NUMBER }, assessment: { type: Type.STRING } } },
+                                        friends: { type: Type.OBJECT, properties: { score: { type: Type.NUMBER }, assessment: { type: Type.STRING } } },
+                                        self: { type: Type.OBJECT, properties: { score: { type: Type.NUMBER }, assessment: { type: Type.STRING } } },
+                                        aim: { type: Type.OBJECT, properties: { score: { type: Type.NUMBER }, assessment: { type: Type.STRING } } }
+                                    }
+                                },
                                 strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
                                 weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
                                 recommendations: { type: Type.STRING }

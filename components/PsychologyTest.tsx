@@ -2023,6 +2023,25 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
                 </div>
             )}
 
+            {type === TestType.SDT && feedback?.sectionEvaluations && (
+                <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl space-y-6 print:border-black print:shadow-none">
+                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3"><FileSignature size={24} className="text-blue-600" /> Section Evaluations</h3>
+                    <div className="grid md:grid-cols-2 gap-6">
+                        {Object.entries(feedback.sectionEvaluations).map(([section, data]: [string, any]) => (
+                            <div key={section} className="p-6 bg-slate-50 rounded-3xl border border-slate-200">
+                                <div className="flex justify-between items-center mb-3">
+                                    <h4 className="font-bold text-slate-800 capitalize">{section} Opinion</h4>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${data.score >= 7 ? 'bg-green-100 text-green-700' : data.score >= 4 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                                        Score: {data.score}/10
+                                    </span>
+                                </div>
+                                <p className="text-sm text-slate-600">{data.assessment}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* General Feedback - Show for all except WAT/SRT which has specific layout */}
             {type !== TestType.WAT && type !== TestType.SRT && (
                 <div className="grid md:grid-cols-2 gap-8 print:block">
