@@ -873,6 +873,16 @@ export const submitDailyEntry = async (challengeId: string, oirAnswer: string, w
   return { rewarded: false };
 };
 
+export const hasUserSubmittedDaily = async (userId: string, challengeId: string) => {
+  const { data, error } = await supabase
+    .from('daily_submissions')
+    .select('id')
+    .eq('challenge_id', challengeId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  return !!data;
+};
+
 export const getDailySubmissions = async (challengeId: string) => {
   const { data: submissions, error: subError } = await supabase
     .from('daily_submissions')

@@ -55,9 +55,10 @@ interface LayoutProps {
   mentorStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   subscription?: UserSubscription | null;
   onOpenPayment?: () => void; // Added callback to open payment modal from header
+  hasSubmittedDaily?: boolean;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLogout, onLogin, user, isLoggedIn, isAdmin, isMentor, mentorStatus, subscription, onOpenPayment }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLogout, onLogin, user, isLoggedIn, isAdmin, isMentor, mentorStatus, subscription, onOpenPayment, hasSubmittedDaily }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   
@@ -300,6 +301,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                 )}
                 {item.id === TestType.RESOURCES && (
                     <span className="absolute right-4 bg-yellow-400 text-black text-[8px] px-1.5 py-0.5 rounded font-bold uppercase">FREE</span>
+                )}
+                {item.id === TestType.DAILY_PRACTICE && isLoggedIn && !hasSubmittedDaily && (
+                    <span className="absolute right-4 w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" title="Pending Daily Practice" />
                 )}
               </button>
             ))}

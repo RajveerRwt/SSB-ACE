@@ -29,7 +29,7 @@ import StudentBatchView from './StudentBatchView';
 import BatchPPDTTest from './BatchPPDTTest';
 import Challenge14Day from './Challenge14Day';
 import { TestType, PIQData, UserSubscription } from '../types';
-import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, getTestReport, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment, getMentorProfile } from '../services/supabaseService';
+import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, getTestReport, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment, getMentorProfile, getLatestDailyChallenge, hasUserSubmittedDaily } from '../services/supabaseService';
 import { evaluatePerformance } from '../services/geminiService';
 import FreeCoinModal from './FreeCoinModal';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, Gift, RotateCcw, FileText } from 'lucide-react';
@@ -77,8 +77,9 @@ const Dashboard: React.FC<{
   user: string,
   onOpenPayment: () => void,
   subscription: UserSubscription | null,
-  onShowGuestWarning: () => void
-}> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user, onOpenPayment, subscription, onShowGuestWarning }) => {
+  onShowGuestWarning: () => void,
+  hasSubmittedDaily: boolean
+}> = ({ onStartTest, piqLoaded, isLoggedIn, isLoading, user, onOpenPayment, subscription, onShowGuestWarning, hasSubmittedDaily }) => {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -257,12 +258,20 @@ const Dashboard: React.FC<{
                    {isLoading ? 'Syncing...' : (piqLoaded ? 'Start AI Interview' : 'Unlock Interview (Fill PIQ)')}
                  </button>
                  
-                 <button 
-                    onClick={() => onStartTest(TestType.DAILY_PRACTICE)}
-                    className="flex-1 md:flex-none px-6 md:px-10 py-4 md:py-5 bg-blue-600/20 text-blue-300 border border-blue-500/30 backdrop-blur-sm rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-[11px] hover:bg-blue-600/40 transition-all flex items-center justify-center gap-3"
-                 >
-                    <Clock size={16} /> Daily Practice (Free)
-                 </button>
+                 <div className="relative flex-1 md:flex-none">
+                   {isLoggedIn && !hasSubmittedDaily && (
+                     <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] font-bold px-3 py-2 rounded-lg whitespace-nowrap animate-bounce shadow-xl z-20 flex items-center gap-2">
+                       <AlertCircle size={12} /> Submit Today's Practice!
+                       <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-red-500"></div>
+                     </div>
+                   )}
+                   <button 
+                      onClick={() => onStartTest(TestType.DAILY_PRACTICE)}
+                      className="w-full px-6 md:px-10 py-4 md:py-5 bg-blue-600/20 text-blue-300 border border-blue-500/30 backdrop-blur-sm rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-[11px] hover:bg-blue-600/40 transition-all flex items-center justify-center gap-3"
+                   >
+                      <Clock size={16} /> Daily Practice (Free)
+                   </button>
+                 </div>
                  
                  <button 
                     onClick={() => onStartTest(TestType.CHALLENGE_14_DAY)}
@@ -757,6 +766,7 @@ const App: React.FC = () => {
   const [isMentor, setIsMentor] = useState(false);
   const [mentorStatus, setMentorStatus] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [hasSubmittedDaily, setHasSubmittedDaily] = useState(false);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -774,6 +784,23 @@ const App: React.FC = () => {
     });
     return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
   }, []);
+
+  useEffect(() => {
+    if (user && !user.startsWith('demo')) {
+      const fetchDailyStatus = async () => {
+          try {
+              const ch = await getLatestDailyChallenge();
+              if (ch) {
+                  const submitted = await hasUserSubmittedDaily(user, ch.id);
+                  setHasSubmittedDaily(submitted);
+              }
+          } catch (e) {
+              console.error("Failed to check daily status", e);
+          }
+      };
+      fetchDailyStatus();
+    }
+  }, [user]);
 
   const handleUserAuthenticated = async (u: any) => {
       setUser(u.id);
@@ -944,7 +971,7 @@ const App: React.FC = () => {
             }} 
           />
         ) : <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
-      case TestType.ADMIN: return isUserAdmin(userEmail) ? <AdminPanel /> : <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} />;
+      case TestType.ADMIN: return isUserAdmin(userEmail) ? <AdminPanel /> : <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} hasSubmittedDaily={hasSubmittedDaily} />;
       case TestType.TERMS: case TestType.PRIVACY: case TestType.REFUND: return <LegalPages type={activeTest} onBack={() => setActiveTest(TestType.DASHBOARD)} />;
       case TestType.GUIDE: return <HowToUse onNavigate={navigateTo} />;
       case TestType.CURRENT_AFFAIRS: return <CurrentAffairs />;
@@ -964,12 +991,12 @@ const App: React.FC = () => {
       );
       case TestType.MOCK_SCREENING: return <MockScreening onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onExit={() => setActiveTest(TestType.DASHBOARD)} userId={user || undefined} />;
       case TestType.MENTOR_REGISTRATION: return user ? <MentorRegistration userId={user} userEmail={userEmail || ''} userName={userName} onSuccess={() => setActiveTest(TestType.DASHBOARD)} /> : <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
-      case TestType.MENTOR_DASHBOARD: return isMentor ? <MentorDashboard userId={user!} userEmail={userEmail || ''} userName={userName} /> : <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} />;
+      case TestType.MENTOR_DASHBOARD: return isMentor ? <MentorDashboard userId={user!} userEmail={userEmail || ''} userName={userName} /> : <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} hasSubmittedDaily={hasSubmittedDaily} />;
       case TestType.STUDENT_BATCHES: return user ? <StudentBatchView userId={user} onStartTest={(type, config, batchTestId) => {
           // Handle starting a test from a batch
           navigateTo(type as TestType, { ...config, batchTestId });
       }} /> : <Login onLogin={handleLogin} onCancel={() => setActiveTest(TestType.DASHBOARD)} />;
-      default: return <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} />;
+      default: return <Dashboard onStartTest={navigateTo} piqLoaded={!!piqData} isLoggedIn={!!user} isLoading={isLoading} user={user || ''} onOpenPayment={() => setPaymentOpen(true)} subscription={subscription} onShowGuestWarning={handleShowGuestWarning} hasSubmittedDaily={hasSubmittedDaily} />;
     }
   };
 
@@ -986,6 +1013,7 @@ const App: React.FC = () => {
       mentorStatus={mentorStatus}
       subscription={subscription}
       onOpenPayment={() => setPaymentOpen(true)}
+      hasSubmittedDaily={hasSubmittedDaily}
     >
       {user && !user.startsWith('demo') && <BackgroundAssessmentManager userId={user} />}
       {renderContent()}
