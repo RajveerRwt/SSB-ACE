@@ -430,7 +430,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
             // 3. Heartbeat removed as mic stream keeps connection alive and heartbeat can cause context issues.
             
             // 2. Video Input Pipeline (Reduced to 0.5 FPS to prevent context overload over long sessions but allow visual observation)
-            const FRAME_RATE = 0.5; 
+            const FRAME_RATE = 0.3; 
             if (videoRef.current && canvasRef.current) {
                 frameIntervalRef.current = window.setInterval(() => {
                     const videoEl = videoRef.current;
