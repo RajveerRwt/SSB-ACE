@@ -128,11 +128,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
     }
 
     // Robust Key Retrieval
-    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID;
+    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID || (process.env as any).RAZORPAY_KEY_ID;
     
-    if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE') {
+    if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE' || keyId === '') {
         console.error("Razorpay Key is missing.");
-        setError("Payment System Error: Merchant Key Missing. Please configure VITE_RAZORPAY_KEY_ID in settings.");
+        setError("Payment System Error: Merchant Key Missing. Please ensure VITE_RAZORPAY_KEY_ID is set in Settings and RE-DEPLOY the app.");
         setProcessing(false);
         return;
     }

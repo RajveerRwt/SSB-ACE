@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
       'process.env.REACT_APP_SUPABASE_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_KEY || env.REACT_APP_SUPABASE_KEY || ''),
       // Robustly handle Razorpay key: check VITE_ prefix (best practice) OR plain name
       'process.env.RAZORPAY_KEY_ID': JSON.stringify(env.VITE_RAZORPAY_KEY_ID || env.RAZORPAY_KEY_ID || ''),
+      'import.meta.env.VITE_RAZORPAY_KEY_ID': JSON.stringify(env.VITE_RAZORPAY_KEY_ID || env.RAZORPAY_KEY_ID || ''),
     },
     server: {
       port: 3000,
