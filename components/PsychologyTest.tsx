@@ -182,7 +182,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
         return;
     }
     if (onConsumeCoins && !isGuest) {
-        const cost = 10; // Custom upload always 10 coins
+        const cost = 5; // WAT is 5 coins
         const success = await onConsumeCoins(cost);
         if (!success) {
             setIsLoading(false);
@@ -211,7 +211,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
         return;
     }
     if (onConsumeCoins && !isGuest) {
-        const cost = 10; // Custom upload always 10 coins
+        const cost = 5; // SRT is 5 coins
         const success = await onConsumeCoins(cost);
         if (!success) {
             setIsLoading(false);
@@ -367,8 +367,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
 
     // Coin Deduction Logic
     if (onConsumeCoins && !isGuest) {
-        const isCustom = !selectedSet;
-        const cost = isCustom ? 10 : ((TEST_RATES as any)[type] || 5);
+        const cost = (TEST_RATES as any)[type] || 5;
         const success = await onConsumeCoins(cost);
         if (!success) {
             setIsLoading(false);
@@ -387,17 +386,6 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
     setPhase(PsychologyPhase.PREPARING_STIMULI);
     
     try {
-      // Deduct coins for custom practice
-      if (userId && !isGuest && (useCustomTat || useCustomWat || useCustomSrt)) {
-          if (onConsumeCoins) {
-              const success = await onConsumeCoins(10);
-              if (!success) {
-                  setPhase(PsychologyPhase.SET_SELECTION);
-                  return;
-              }
-          }
-      }
-
       let finalItems: any[] = [];
       let usageCount = 0;
       
