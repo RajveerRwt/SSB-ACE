@@ -285,7 +285,7 @@ const MentorDashboard: React.FC<MentorDashboardProps> = ({ userId, userEmail, us
               <h2 className="text-3xl font-black uppercase tracking-tighter">Mentor HQ</h2>
             </div>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] opacity-80 flex items-center gap-2">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
               {mentor.full_name} • Operational
             </p>
           </div>
