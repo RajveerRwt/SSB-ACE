@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Loader2, Send, MessageSquare, Clock, User, ImageIcon, FileText, Zap, PenTool, Flame, Trophy, Lock, Heart, Award, Medal, Star, CheckCircle, Mic, RefreshCw, AlertTriangle, Brain, Maximize2, X } from 'lucide-react';
-import { getLatestDailyChallenge, submitDailyEntry, getDailySubmissions, checkAuthSession, toggleLike, getUserStreak } from '../services/supabaseService';
+import { getLatestDailyChallenge, submitDailyEntry, getDailySubmissions, checkAuthSession, toggleLike, getUserStreak, getUserData, updateDailySubmissionAI } from '../services/supabaseService';
+import { evaluateDailyChallengeResponse } from '../services/geminiService';
 
 interface DailyPracticeProps {
     onLoginRedirect?: () => void;
@@ -26,6 +27,10 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   const [watAnswer, setWatAnswer] = useState('');
   const [srtAnswer, setSrtAnswer] = useState('');
   const [interviewAnswer, setInterviewAnswer] = useState('');
+  const [mySubmission, setMySubmission] = useState<any>(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [autoRetryAttempted, setAutoRetryAttempted] = useState(false);
 
   useEffect(() => {
     // Load local likes
@@ -35,6 +40,22 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
     }
     loadData();
   }, []);
+
+  useEffect(() => {
+    // Background Retry Logic: If submission exists but has failed evaluations, retry once automatically
+    if (hasSubmitted && mySubmission && !isRetrying && !autoRetryAttempted) {
+        const hasErrors = 
+            (mySubmission.wat_answers?.[0] && (!mySubmission.ai_evaluation?.wat || mySubmission.ai_evaluation?.wat?.error)) ||
+            (mySubmission.srt_answers?.[0] && (!mySubmission.ai_evaluation?.srt || mySubmission.ai_evaluation?.srt?.error)) ||
+            (mySubmission.interview_answer && (!mySubmission.ai_evaluation?.interview || mySubmission.ai_evaluation?.interview?.error));
+        
+        if (hasErrors) {
+            console.log("Background AI evaluation retry triggered...");
+            setAutoRetryAttempted(true);
+            handleRetryEvaluation(true); // Call silently
+        }
+    }
+  }, [hasSubmitted, mySubmission, isRetrying, autoRetryAttempted]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -65,7 +86,10 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
         
         if (u) {
             const mySub = subs.find((s: any) => s.user_id === u.id);
-            if (mySub) setHasSubmitted(true);
+            if (mySub) {
+                setHasSubmitted(true);
+                setMySubmission(mySub);
+            }
         }
       } else {
         setChallenge(null);
@@ -93,14 +117,80 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
     }
 
     setIsSubmitting(true);
+    setIsEvaluating(true);
     try {
-      const result = await submitDailyEntry(challenge.id, oirAnswer, watAnswer, srtAnswer, interviewAnswer);
+      // 1. Perform AI Evaluation
+      let aiEvaluation: any = {
+          wat: null,
+          srt: null,
+          interview: null,
+          overall_score: 0
+      };
+
+      const piqData = await getUserData(user.id);
+
+      // Evaluate WAT
+      if (watAnswer.trim()) {
+          try {
+              const watEval = await evaluateDailyChallengeResponse('WAT', {
+                  word: challenge.wat_words[0],
+                  response: watAnswer
+              });
+              aiEvaluation.wat = watEval;
+          } catch (e) {
+              console.error("WAT Eval failed", e);
+          }
+      }
+
+      // Evaluate SRT
+      if (srtAnswer.trim()) {
+          try {
+              const srtEval = await evaluateDailyChallengeResponse('SRT', {
+                  situation: challenge.srt_situations[0],
+                  response: srtAnswer
+              });
+              aiEvaluation.srt = srtEval;
+          } catch (e) {
+              console.error("SRT Eval failed", e);
+          }
+      }
+
+      // Evaluate Interview
+      if (interviewAnswer.trim()) {
+          try {
+              const intEval = await evaluateDailyChallengeResponse('Interview', {
+                  question: challenge.interview_question,
+                  transcript: interviewAnswer,
+                  piq: piqData || {}
+              });
+              aiEvaluation.interview = intEval;
+          } catch (e) {
+              console.error("Interview Eval failed", e);
+          }
+      }
+
+      // Calculate overall score (average of available scores)
+      const scores = [
+          aiEvaluation.wat?.score,
+          aiEvaluation.srt?.score,
+          aiEvaluation.interview?.score
+      ].filter(s => s !== undefined && s !== null);
+      
+      if (scores.length > 0) {
+          aiEvaluation.overall_score = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
+      }
+
+      const result = await submitDailyEntry(challenge.id, oirAnswer, watAnswer, srtAnswer, interviewAnswer, aiEvaluation);
       
       // Refresh Data
       const subs = await getDailySubmissions(challenge.id);
       const storedLikes = JSON.parse(localStorage.getItem('liked_submissions') || '[]');
-      setSubmissions(subs.map((s: any) => ({ ...s, isLiked: storedLikes.includes(s.id) })));
+      const updatedSubs = subs.map((s: any) => ({ ...s, isLiked: storedLikes.includes(s.id) }));
+      setSubmissions(updatedSubs);
       
+      const myNewSub = updatedSubs.find((s: any) => s.user_id === user.id);
+      if (myNewSub) setMySubmission(myNewSub);
+
       setHasSubmitted(true);
       setUserStreak(prev => prev + 1);
       
@@ -119,6 +209,94 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       alert(e.message || "Failed to post. Please try again.");
     } finally {
       setIsSubmitting(false);
+      setIsEvaluating(false);
+    }
+  };
+
+  const handleRetryEvaluation = async (silent = false) => {
+    if (!mySubmission || !user || !challenge) return;
+    
+    setIsRetrying(true);
+    try {
+        let aiEvaluation: any = {
+            wat: mySubmission.ai_evaluation?.wat || null,
+            srt: mySubmission.ai_evaluation?.srt || null,
+            interview: mySubmission.ai_evaluation?.interview || null,
+            overall_score: 0
+        };
+
+        const piqData = await getUserData(user.id);
+
+        // Re-evaluate WAT if it failed or was skipped
+        if (mySubmission.wat_answers?.[0] && (!aiEvaluation.wat || aiEvaluation.wat.error)) {
+            try {
+                const watEval = await evaluateDailyChallengeResponse('WAT', {
+                    word: challenge.wat_words[0],
+                    response: mySubmission.wat_answers[0]
+                });
+                aiEvaluation.wat = watEval;
+            } catch (e) {
+                console.error("WAT Retry failed", e);
+            }
+        }
+
+        // Re-evaluate SRT if it failed or was skipped
+        if (mySubmission.srt_answers?.[0] && (!aiEvaluation.srt || aiEvaluation.srt.error)) {
+            try {
+                const srtEval = await evaluateDailyChallengeResponse('SRT', {
+                    situation: challenge.srt_situations[0],
+                    response: mySubmission.srt_answers[0]
+                });
+                aiEvaluation.srt = srtEval;
+            } catch (e) {
+                console.error("SRT Retry failed", e);
+            }
+        }
+
+        // Re-evaluate Interview if it failed or was skipped
+        if (mySubmission.interview_answer && (!aiEvaluation.interview || aiEvaluation.interview.error)) {
+            try {
+                const intEval = await evaluateDailyChallengeResponse('Interview', {
+                    question: challenge.interview_question,
+                    transcript: mySubmission.interview_answer,
+                    piq: piqData || {}
+                });
+                aiEvaluation.interview = intEval;
+            } catch (e) {
+                console.error("Interview Retry failed", e);
+            }
+        }
+
+        // Calculate overall score
+        const scores = [
+            aiEvaluation.wat?.score,
+            aiEvaluation.srt?.score,
+            aiEvaluation.interview?.score
+        ].filter(s => s !== undefined && s !== null && !aiEvaluation[Object.keys(aiEvaluation).find(k => aiEvaluation[k]?.score === s) as string]?.error);
+        
+        // Refined score calculation for retry
+        let validScores = [];
+        if (aiEvaluation.wat && !aiEvaluation.wat.error) validScores.push(aiEvaluation.wat.score);
+        if (aiEvaluation.srt && !aiEvaluation.srt.error) validScores.push(aiEvaluation.srt.score);
+        if (aiEvaluation.interview && !aiEvaluation.interview.error) validScores.push(aiEvaluation.interview.score);
+
+        aiEvaluation.overall_score = validScores.length > 0 
+            ? (validScores.reduce((a, b) => a + b, 0) / validScores.length).toFixed(1) 
+            : 0;
+
+        // Update Backend
+        await updateDailySubmissionAI(mySubmission.id, aiEvaluation);
+        
+        // Update Local State
+        const updatedSub = { ...mySubmission, ai_evaluation: aiEvaluation };
+        setMySubmission(updatedSub);
+        setSubmissions(prev => prev.map(s => s.id === mySubmission.id ? updatedSub : s));
+        
+    } catch (e) {
+        console.error("Retry Eval failed", e);
+        if (!silent) alert("Failed to re-evaluate. AI might still be busy.");
+    } finally {
+        setIsRetrying(false);
     }
   };
 
@@ -260,6 +438,96 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
 
       {/* CHALLENGE WORKSPACE */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {hasSubmitted && mySubmission && (
+              <div className="md:col-span-2 bg-blue-900 text-white p-8 rounded-[2.5rem] shadow-2xl border-b-8 border-blue-700 animate-in slide-in-from-top duration-500">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                      <div className="space-y-2">
+                          <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
+                              <Award className="text-yellow-400" /> AI Performance Report
+                          </h2>
+                          <p className="text-blue-200 text-xs font-bold uppercase tracking-widest">Based on SSB Assessment Standards</p>
+                          
+                          {(mySubmission.ai_evaluation?.wat?.error || 
+                            mySubmission.ai_evaluation?.srt?.error || 
+                            mySubmission.ai_evaluation?.interview?.error) && (
+                              <div className="space-y-3">
+                                {isRetrying && autoRetryAttempted && (
+                                    <div className="flex items-center gap-2 text-yellow-400 text-[10px] font-black uppercase animate-pulse">
+                                        <Brain size={12} /> Background AI Analysis in progress...
+                                    </div>
+                                )}
+                                <button 
+                                    onClick={() => handleRetryEvaluation(false)}
+                                    disabled={isRetrying}
+                                    className="flex items-center gap-2 px-4 py-2 bg-yellow-400 text-black rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-yellow-300 transition-all disabled:opacity-50"
+                                >
+                                    {isRetrying ? <Loader2 className="animate-spin" size={12} /> : <RefreshCw size={12} />}
+                                    {isRetrying ? 'Retrying...' : 'Retry Failed Evaluations'}
+                                </button>
+                              </div>
+                          )}
+                      </div>
+                      <div className="bg-white/10 px-6 py-4 rounded-2xl border border-white/20 text-center min-w-[140px]">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-blue-300 mb-1">Overall Score</p>
+                          <p className="text-4xl font-black text-yellow-400">{mySubmission.ai_evaluation?.overall_score || 'N/A'}<span className="text-sm text-white/50">/10</span></p>
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                      {/* WAT EVAL */}
+                      <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                          <div className="flex justify-between items-center mb-3">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-green-400">WAT Analysis</span>
+                              <span className="text-lg font-black">{mySubmission.ai_evaluation?.wat?.score || 0}/10</span>
+                          </div>
+                          <p className="text-xs text-blue-100 leading-relaxed line-clamp-3 italic">
+                              {mySubmission.ai_evaluation?.wat?.generalFeedback || 'No feedback available.'}
+                          </p>
+                      </div>
+                      {/* SRT EVAL */}
+                      <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                          <div className="flex justify-between items-center mb-3">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">SRT Analysis</span>
+                              <span className="text-lg font-black">{mySubmission.ai_evaluation?.srt?.score || 0}/10</span>
+                          </div>
+                          <p className="text-xs text-blue-100 leading-relaxed line-clamp-3 italic">
+                              {mySubmission.ai_evaluation?.srt?.generalFeedback || 'No feedback available.'}
+                          </p>
+                      </div>
+                      {/* INTERVIEW EVAL */}
+                      <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                          <div className="flex justify-between items-center mb-3">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">Interview Analysis</span>
+                              <span className="text-lg font-black">{mySubmission.ai_evaluation?.interview?.score || 0}/10</span>
+                          </div>
+                          <p className="text-xs text-blue-100 leading-relaxed line-clamp-3 italic">
+                              {mySubmission.ai_evaluation?.interview?.recommendations || 'No feedback available.'}
+                          </p>
+                      </div>
+                  </div>
+
+                  {challenge.oir_correct_answer && (
+                      <div className="mt-8 p-6 bg-white/10 rounded-2xl border border-white/20">
+                          <h4 className="text-sm font-black uppercase tracking-widest text-yellow-400 mb-3 flex items-center gap-2">
+                              <CheckCircle size={16} /> OIR Solution Key
+                          </h4>
+                          <div className="space-y-4">
+                              <div className="flex items-center gap-3">
+                                  <span className="px-3 py-1 bg-green-500 text-white text-[10px] font-black rounded-lg uppercase">Correct Answer</span>
+                                  <span className="text-lg font-bold">{challenge.oir_correct_answer}</span>
+                              </div>
+                              {challenge.oir_explanation && (
+                                  <div className="text-sm text-blue-100 leading-relaxed bg-black/20 p-4 rounded-xl">
+                                      <span className="font-black text-white uppercase text-[10px] block mb-1">Explanation:</span>
+                                      {challenge.oir_explanation}
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+                  )}
+              </div>
+          )}
+
           <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg md:col-span-2 flex flex-col md:flex-row gap-6">
               <div className="w-full md:w-1/3 min-h-[200px] bg-slate-50 rounded-2xl overflow-hidden border border-slate-200 shrink-0 flex flex-col items-center justify-center p-4 relative group">
                   {challenge.ppdt_image_url && (
@@ -351,9 +619,9 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                   <User size={16} /> Login to Submit
               </button>
           ) : (
-              <button onClick={handleSubmit} disabled={isSubmitting || hasSubmitted} className="px-12 py-4 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-black transition-all shadow-xl disabled:opacity-50">
-                  {isSubmitting ? <Loader2 className="animate-spin" /> : hasSubmitted ? <CheckCircle size={16} /> : <Send size={16} />} 
-                  {hasSubmitted ? 'Already Submitted' : 'Submit Entry'}
+              <button onClick={handleSubmit} disabled={isSubmitting || hasSubmitted || isEvaluating} className="px-12 py-4 bg-slate-900 text-white rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-black transition-all shadow-xl disabled:opacity-50">
+                  {(isSubmitting || isEvaluating) ? <Loader2 className="animate-spin" /> : hasSubmitted ? <CheckCircle size={16} /> : <Send size={16} />} 
+                  {isEvaluating ? 'Evaluating Performance...' : isSubmitting ? 'Posting Submission...' : hasSubmitted ? 'Already Submitted' : 'Submit Entry'}
               </button>
           )}
       </div>
@@ -414,6 +682,28 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                                             "{sub.ppdt_story}"
                                         </p>
                                     </div>
+                                  )}
+                                  {sub.ai_evaluation && (
+                                      <div className="mt-4 p-4 bg-slate-900 text-white rounded-2xl space-y-3">
+                                          <div className="flex justify-between items-center">
+                                              <span className="text-[9px] font-black text-yellow-400 uppercase tracking-widest">AI Assessment</span>
+                                              <span className="text-xs font-black text-white">{sub.ai_evaluation.overall_score || 'N/A'}/10</span>
+                                          </div>
+                                          <div className="grid grid-cols-3 gap-1">
+                                              <div className="text-center p-1 bg-white/5 rounded border border-white/10">
+                                                  <p className="text-[7px] font-black uppercase text-white/50">WAT</p>
+                                                  <p className="text-[10px] font-bold text-green-400">{sub.ai_evaluation.wat?.score || 0}</p>
+                                              </div>
+                                              <div className="text-center p-1 bg-white/5 rounded border border-white/10">
+                                                  <p className="text-[7px] font-black uppercase text-white/50">SRT</p>
+                                                  <p className="text-[10px] font-bold text-orange-400">{sub.ai_evaluation.srt?.score || 0}</p>
+                                              </div>
+                                              <div className="text-center p-1 bg-white/5 rounded border border-white/10">
+                                                  <p className="text-[7px] font-black uppercase text-white/50">INT</p>
+                                                  <p className="text-[10px] font-bold text-purple-400">{sub.ai_evaluation.interview?.score || 0}</p>
+                                              </div>
+                                          </div>
+                                      </div>
                                   )}
                                   {sub.interview_answer && (
                                     <div className="space-y-2">

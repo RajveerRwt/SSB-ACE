@@ -811,7 +811,7 @@ export const deleteCoupon = async (code: string) => { await supabase.from('coupo
 export const validateCoupon = async (code: string) => { const { data } = await supabase.from('coupons').select('*').eq('code', code.toUpperCase()).maybeSingle(); if (!data) return { valid: false, message: 'Invalid Code' }; return { valid: true, discount: data.discount_percent, message: `Success! ${data.discount_percent}% OFF applied.` }; };
 export const getLatestDailyChallenge = async () => { const { data } = await supabase.from('daily_challenges').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle(); return data; };
 
-export const uploadDailyChallenge = async (oirFile: File | null, oirText: string, wat: string, srt: string, interview: string) => {
+export const uploadDailyChallenge = async (oirFile: File | null, oirText: string, wat: string, srt: string, interview: string, oirCorrectAnswer?: string, oirExplanation?: string) => {
   let oirUrl = null;
   if (oirFile) {
     const fileName = `daily-oir-${Date.now()}-${oirFile.name}`;
@@ -824,11 +824,13 @@ export const uploadDailyChallenge = async (oirFile: File | null, oirText: string
       oir_text: oirText,
       wat_words: [wat],
       srt_situations: [srt],
-      interview_question: interview
+      interview_question: interview,
+      oir_correct_answer: oirCorrectAnswer,
+      oir_explanation: oirExplanation
   });
 };
 
-export const submitDailyEntry = async (challengeId: string, oirAnswer: string, wat: string, srt: string, interview: string) => {
+export const submitDailyEntry = async (challengeId: string, oirAnswer: string, wat: string, srt: string, interview: string, aiEvaluation?: any) => {
   const auth = supabase.auth as any;
   const user = auth.user ? auth.user() : (await auth.getUser()).data.user;
   if (!user) throw new Error("Login Required");
@@ -859,7 +861,8 @@ export const submitDailyEntry = async (challengeId: string, oirAnswer: string, w
       ppdt_story: oirAnswer,
       wat_answers: [wat],
       srt_answers: [srt],
-      interview_answer: interview
+      interview_answer: interview,
+      ai_evaluation: aiEvaluation
   });
 
   if (error) throw error;
@@ -871,6 +874,15 @@ export const submitDailyEntry = async (challengeId: string, oirAnswer: string, w
   }
 
   return { rewarded: false };
+};
+
+export const updateDailySubmissionAI = async (submissionId: string, aiEvaluation: any) => {
+  const { error } = await supabase
+    .from('daily_submissions')
+    .update({ ai_evaluation: aiEvaluation })
+    .eq('id', submissionId);
+  
+  if (error) throw error;
 };
 
 export const hasUserSubmittedDaily = async (userId: string, challengeId: string) => {

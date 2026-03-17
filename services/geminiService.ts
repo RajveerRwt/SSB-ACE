@@ -99,14 +99,18 @@ async function generateWithRetry(
             await wait(delay);
 
             let nextModel = model;
-            // If Pro is failing with 503, switch to Flash which is more resilient
-            if (errorCode === 503 && model === 'gemini-3.1-pro-preview') {
+            // If Pro is failing with 503 or 429, switch to Flash which is more resilient
+            if ((errorCode === 503 || errorCode === 429) && model === 'gemini-3.1-pro-preview') {
                 nextModel = 'gemini-3-flash-preview';
-                console.warn(`Switching to Flash model for retry due to 503 on Pro`);
-            } else if (errorCode === 503 && model === 'gemini-3-flash-preview') {
+                console.warn(`Switching to Flash model for retry due to ${errorCode} on Pro`);
+            } else if ((errorCode === 503 || errorCode === 429) && model === 'gemini-3-flash-preview') {
                 // If Flash is failing, try the latest stable flash
                 nextModel = 'gemini-flash-lite-latest';
-                console.warn(`Switching to Flash Lite for retry due to 503 on Flash`);
+                console.warn(`Switching to Flash Lite for retry due to ${errorCode} on Flash`);
+            } else if ((errorCode === 503 || errorCode === 429) && model === 'gemini-flash-lite-latest') {
+                // If Flash Lite is failing, try standard flash
+                nextModel = 'gemini-3-flash-preview';
+                console.warn(`Switching back to Flash for retry due to ${errorCode} on Flash Lite`);
             }
             
             // Increase timeout for next attempt
@@ -146,9 +150,10 @@ function generateErrorEvaluation() {
     return {
         score: 0,
         verdict: "Technical Failure",
+        generalFeedback: "The AI is currently overloaded. Your response has been saved locally. Please use the 'Retry' button in the report to analyze this data again in a few moments.",
         strengths: ["Data Saved"],
         weaknesses: ["Server Busy"],
-        recommendations: "The AI is currently overloaded. Your response has been saved locally. Please use the 'Retry Generation' button in the report to analyze this data again in a few moments.",
+        recommendations: "The AI is currently overloaded. Your response has been saved locally. Please use the 'Retry' button in the report to analyze this data again in a few moments.",
         perception: { heroAge: "-", heroSex: "-", heroMood: "-", mainTheme: "-" },
         storyAnalysis: { action: "-", outcome: "-", coherence: "-" },
         observationAnalysis: "Analysis pending due to high traffic.",
@@ -245,6 +250,162 @@ export async function evaluateLecturette(topic: string, transcript: string, dura
     } catch (e) {
         console.error("Lecturette Eval Failed", e);
         return { ...generateErrorEvaluation(), transcript }; // Return inputs
+    }
+}
+
+export async function evaluateDailyChallengeResponse(testType: 'WAT' | 'SRT' | 'Interview', userData: any) {
+    try {
+        if (testType === 'WAT') {
+            const prompt = `Evaluate a single Word Association Test (WAT) response for SSB (Services Selection Board).
+            Word: "${userData.word}"
+            Candidate's Response: "${userData.response}"
+            
+            Task: Assess the response for Officer Like Qualities (OLQs), positivity, spontaneity, and psychological depth.
+            Since this is a single response practice, do NOT penalize for not attempting other words.
+            Focus purely on the quality of this one sentence.
+            
+            Return JSON with:
+            - score (0-10)
+            - generalFeedback (Detailed assessment of this specific response)
+            - qualityStats: { positive (0 or 1), neutral (0 or 1), negative (0 or 1) }
+            - strengths (List of 1-2)
+            - weaknesses (List of 1-2)
+            - recommendations (How to improve this specific response)
+            - idealResponse (A better version of the response for this word)
+            `;
+
+            const response = await generateWithRetry(
+                'gemini-3-flash-preview',
+                {
+                    contents: prompt,
+                    config: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: {
+                                score: { type: Type.NUMBER },
+                                generalFeedback: { type: Type.STRING },
+                                qualityStats: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        positive: { type: Type.INTEGER },
+                                        neutral: { type: Type.INTEGER },
+                                        negative: { type: Type.INTEGER }
+                                    }
+                                },
+                                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                recommendations: { type: Type.STRING },
+                                idealResponse: { type: Type.STRING }
+                            }
+                        }
+                    }
+                }
+            );
+            return safeJSONParse(response.text || "") || generateErrorEvaluation();
+        }
+
+        if (testType === 'SRT') {
+            const prompt = `Evaluate a single Situation Reaction Test (SRT) response for SSB.
+            Situation: "${userData.situation}"
+            Candidate's Response: "${userData.response}"
+            
+            Task: Assess for quick decision making, social responsibility, effectiveness, and logical action.
+            Since this is a single response practice, do NOT penalize for not attempting other situations.
+            Focus purely on the quality of this one reaction.
+            
+            Return JSON with:
+            - score (0-10)
+            - generalFeedback (Detailed assessment of this specific reaction)
+            - qualityStats: { effective (0 or 1), partial (0 or 1), passive (0 or 1) }
+            - strengths (List of 1-2)
+            - weaknesses (List of 1-2)
+            - recommendations (How to improve this specific reaction)
+            - idealResponse (A better version of the reaction for this situation)
+            `;
+
+            const response = await generateWithRetry(
+                'gemini-3-flash-preview',
+                {
+                    contents: prompt,
+                    config: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: {
+                                score: { type: Type.NUMBER },
+                                generalFeedback: { type: Type.STRING },
+                                qualityStats: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        effective: { type: Type.INTEGER },
+                                        partial: { type: Type.INTEGER },
+                                        passive: { type: Type.INTEGER }
+                                    }
+                                },
+                                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                recommendations: { type: Type.STRING },
+                                idealResponse: { type: Type.STRING }
+                            }
+                        }
+                    }
+                }
+            );
+            return safeJSONParse(response.text || "") || generateErrorEvaluation();
+        }
+
+        if (testType === 'Interview') {
+            const prompt = `Evaluate a single Interview Question response for SSB.
+            Question: "${userData.question}"
+            Candidate's Answer: "${userData.transcript}"
+            PIQ Context: ${JSON.stringify(userData.piq || {})}
+            
+            Task: Assess for Officer Like Qualities (OLQs), clarity, honesty, and depth.
+            Focus purely on the quality of this one answer.
+            
+            Return JSON with:
+            - score (0-10)
+            - recommendations (Detailed feedback on the answer)
+            - strengths (List of 1-2)
+            - weaknesses (List of 1-2)
+            - factorAnalysis: { factor1_planning, factor2_social, factor3_effectiveness, factor4_dynamic } (Short assessment for each based on this answer)
+            `;
+
+            const response = await generateWithRetry(
+                'gemini-3.1-pro-preview',
+                {
+                    contents: prompt,
+                    config: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: {
+                                score: { type: Type.NUMBER },
+                                recommendations: { type: Type.STRING },
+                                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                factorAnalysis: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        factor1_planning: { type: Type.STRING },
+                                        factor2_social: { type: Type.STRING },
+                                        factor3_effectiveness: { type: Type.STRING },
+                                        factor4_dynamic: { type: Type.STRING }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            );
+            return safeJSONParse(response.text || "") || generateErrorEvaluation();
+        }
+
+        return generateErrorEvaluation();
+    } catch (e) {
+        console.error("Daily Challenge Evaluation Failed", e);
+        return generateErrorEvaluation();
     }
 }
 
