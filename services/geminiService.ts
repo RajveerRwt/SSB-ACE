@@ -266,12 +266,7 @@ export async function evaluateDailyChallengeResponse(testType: 'WAT' | 'SRT' | '
             
             Return JSON with:
             - score (0-10)
-            - generalFeedback (Detailed assessment of this specific response)
-            - qualityStats: { positive (0 or 1), neutral (0 or 1), negative (0 or 1) }
-            - strengths (List of 1-2)
-            - weaknesses (List of 1-2)
-            - recommendations (How to improve this specific response)
-            - idealResponse (A better version of the response for this word)
+            - generalFeedback (A short overview of the response quality)
             `;
 
             const response = await generateWithRetry(
@@ -284,19 +279,7 @@ export async function evaluateDailyChallengeResponse(testType: 'WAT' | 'SRT' | '
                             type: Type.OBJECT,
                             properties: {
                                 score: { type: Type.NUMBER },
-                                generalFeedback: { type: Type.STRING },
-                                qualityStats: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        positive: { type: Type.INTEGER },
-                                        neutral: { type: Type.INTEGER },
-                                        negative: { type: Type.INTEGER }
-                                    }
-                                },
-                                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                recommendations: { type: Type.STRING },
-                                idealResponse: { type: Type.STRING }
+                                generalFeedback: { type: Type.STRING }
                             }
                         }
                     }
@@ -316,12 +299,7 @@ export async function evaluateDailyChallengeResponse(testType: 'WAT' | 'SRT' | '
             
             Return JSON with:
             - score (0-10)
-            - generalFeedback (Detailed assessment of this specific reaction)
-            - qualityStats: { effective (0 or 1), partial (0 or 1), passive (0 or 1) }
-            - strengths (List of 1-2)
-            - weaknesses (List of 1-2)
-            - recommendations (How to improve this specific reaction)
-            - idealResponse (A better version of the reaction for this situation)
+            - generalFeedback (A short overview of the reaction quality)
             `;
 
             const response = await generateWithRetry(
@@ -334,19 +312,7 @@ export async function evaluateDailyChallengeResponse(testType: 'WAT' | 'SRT' | '
                             type: Type.OBJECT,
                             properties: {
                                 score: { type: Type.NUMBER },
-                                generalFeedback: { type: Type.STRING },
-                                qualityStats: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        effective: { type: Type.INTEGER },
-                                        partial: { type: Type.INTEGER },
-                                        passive: { type: Type.INTEGER }
-                                    }
-                                },
-                                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                recommendations: { type: Type.STRING },
-                                idealResponse: { type: Type.STRING }
+                                generalFeedback: { type: Type.STRING }
                             }
                         }
                     }
@@ -366,10 +332,7 @@ export async function evaluateDailyChallengeResponse(testType: 'WAT' | 'SRT' | '
             
             Return JSON with:
             - score (0-10)
-            - recommendations (Detailed feedback on the answer)
-            - strengths (List of 1-2)
-            - weaknesses (List of 1-2)
-            - factorAnalysis: { factor1_planning, factor2_social, factor3_effectiveness, factor4_dynamic } (Short assessment for each based on this answer)
+            - recommendations (A short overview of the answer quality)
             `;
 
             const response = await generateWithRetry(
@@ -382,18 +345,7 @@ export async function evaluateDailyChallengeResponse(testType: 'WAT' | 'SRT' | '
                             type: Type.OBJECT,
                             properties: {
                                 score: { type: Type.NUMBER },
-                                recommendations: { type: Type.STRING },
-                                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                factorAnalysis: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        factor1_planning: { type: Type.STRING },
-                                        factor2_social: { type: Type.STRING },
-                                        factor3_effectiveness: { type: Type.STRING },
-                                        factor4_dynamic: { type: Type.STRING }
-                                    }
-                                }
+                                recommendations: { type: Type.STRING }
                             }
                         }
                     }

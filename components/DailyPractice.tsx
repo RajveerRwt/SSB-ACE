@@ -480,7 +480,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                               <span className="text-[10px] font-black uppercase tracking-widest text-green-400">WAT Analysis</span>
                               <span className="text-lg font-black">{mySubmission.ai_evaluation?.wat?.score || 0}/10</span>
                           </div>
-                          <p className="text-xs text-blue-100 leading-relaxed line-clamp-3 italic">
+                          <p className="text-xs text-blue-100 leading-relaxed italic">
                               {mySubmission.ai_evaluation?.wat?.generalFeedback || 'No feedback available.'}
                           </p>
                       </div>
@@ -490,7 +490,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                               <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">SRT Analysis</span>
                               <span className="text-lg font-black">{mySubmission.ai_evaluation?.srt?.score || 0}/10</span>
                           </div>
-                          <p className="text-xs text-blue-100 leading-relaxed line-clamp-3 italic">
+                          <p className="text-xs text-blue-100 leading-relaxed italic">
                               {mySubmission.ai_evaluation?.srt?.generalFeedback || 'No feedback available.'}
                           </p>
                       </div>
@@ -500,7 +500,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                               <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">Interview Analysis</span>
                               <span className="text-lg font-black">{mySubmission.ai_evaluation?.interview?.score || 0}/10</span>
                           </div>
-                          <p className="text-xs text-blue-100 leading-relaxed line-clamp-3 italic">
+                          <p className="text-xs text-blue-100 leading-relaxed italic">
                               {mySubmission.ai_evaluation?.interview?.recommendations || 'No feedback available.'}
                           </p>
                       </div>
