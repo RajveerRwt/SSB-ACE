@@ -297,6 +297,10 @@ export async function evaluateDailyChallengeResponse(testType: 'WAT' | 'SRT' | '
             Since this is a single response practice, do NOT penalize for not attempting other situations.
             Focus purely on the quality of this one reaction.
             
+            IMPORTANT GUIDELINES FOR EVALUATION:
+            - Be Action-Oriented: Write concrete steps. Instead of "I will save him," write "I will throw a rope, pull him out, and give first aid".
+            - Show Officer-Like Qualities (OLQs): Your responses should reflect leadership, responsibility, social adaptability, courage, and quick thinking.
+            
             Return JSON with:
             - score (0-10)
             - generalFeedback (A short overview of the reaction quality)

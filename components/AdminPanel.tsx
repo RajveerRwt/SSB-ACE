@@ -71,6 +71,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
   const [dailyWat, setDailyWat] = useState('');
   const [dailySrt, setDailySrt] = useState('');
   const [dailyInterview, setDailyInterview] = useState('');
+  const [dailyOirCorrectAnswer, setDailyOirCorrectAnswer] = useState('');
+  const [dailyOirExplanation, setDailyOirExplanation] = useState('');
 
   // Broadcast & Ticker Inputs
   const [broadcastMsg, setBroadcastMsg] = useState('');
@@ -222,8 +224,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
           if ((!file && !dailyOirText.trim()) || !dailyWat.trim() || !dailySrt.trim() || !dailyInterview.trim()) {
               throw new Error("Please provide OIR Question (Image/Text), 1 WAT, 1 SRT, and 1 Interview Question.");
           }
-          await uploadDailyChallenge(file, dailyOirText.trim(), dailyWat.trim(), dailySrt.trim(), dailyInterview.trim());
-          setDailyOirText(''); setDailyWat(''); setDailySrt(''); setDailyInterview('');
+          await uploadDailyChallenge(file, dailyOirText.trim(), dailyWat.trim(), dailySrt.trim(), dailyInterview.trim(), dailyOirCorrectAnswer.trim(), dailyOirExplanation.trim());
+          setDailyOirText(''); setDailyWat(''); setDailySrt(''); setDailyInterview(''); setDailyOirCorrectAnswer(''); setDailyOirExplanation('');
           if (fileInputRef.current) fileInputRef.current.value = '';
           alert("Daily Challenge Published Successfully!");
           fetchData(); 
@@ -1129,6 +1131,14 @@ CREATE POLICY "Users can update own profile" ON public.aspirants FOR UPDATE USIN
                       <div className="space-y-4">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR Text (Optional)</label>
                           <input value={dailyOirText} onChange={e => setDailyOirText(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Text question if no image..." />
+                      </div>
+                      <div className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR Correct Answer</label>
+                          <input value={dailyOirCorrectAnswer} onChange={e => setDailyOirCorrectAnswer(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Correct Answer (e.g. A, 1, 42)" />
+                      </div>
+                      <div className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR Explanation</label>
+                          <input value={dailyOirExplanation} onChange={e => setDailyOirExplanation(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Explanation for the answer..." />
                       </div>
                       <div className="space-y-4">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WAT Word</label>

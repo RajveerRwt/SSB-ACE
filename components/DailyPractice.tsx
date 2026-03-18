@@ -31,6 +31,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [autoRetryAttempted, setAutoRetryAttempted] = useState(false);
+  const [showScoreMeaning, setShowScoreMeaning] = useState(false);
 
   useEffect(() => {
     // Load local likes
@@ -46,8 +47,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
     if (hasSubmitted && mySubmission && !isRetrying && !autoRetryAttempted) {
         const hasErrors = 
             (mySubmission.wat_answers?.[0] && (!mySubmission.ai_evaluation?.wat || mySubmission.ai_evaluation?.wat?.error)) ||
-            (mySubmission.srt_answers?.[0] && (!mySubmission.ai_evaluation?.srt || mySubmission.ai_evaluation?.srt?.error)) ||
-            (mySubmission.interview_answer && (!mySubmission.ai_evaluation?.interview || mySubmission.ai_evaluation?.interview?.error));
+            (mySubmission.srt_answers?.[0] && (!mySubmission.ai_evaluation?.srt || mySubmission.ai_evaluation?.srt?.error));
         
         if (hasErrors) {
             console.log("Background AI evaluation retry triggered...");
@@ -123,7 +123,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       let aiEvaluation: any = {
           wat: null,
           srt: null,
-          interview: null,
           overall_score: 0
       };
 
@@ -155,30 +154,8 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
           }
       }
 
-      // Evaluate Interview
-      if (interviewAnswer.trim()) {
-          try {
-              const intEval = await evaluateDailyChallengeResponse('Interview', {
-                  question: challenge.interview_question,
-                  transcript: interviewAnswer,
-                  piq: piqData || {}
-              });
-              aiEvaluation.interview = intEval;
-          } catch (e) {
-              console.error("Interview Eval failed", e);
-          }
-      }
-
-      // Calculate overall score (average of available scores)
-      const scores = [
-          aiEvaluation.wat?.score,
-          aiEvaluation.srt?.score,
-          aiEvaluation.interview?.score
-      ].filter(s => s !== undefined && s !== null);
-      
-      if (scores.length > 0) {
-          aiEvaluation.overall_score = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
-      }
+      // Do not calculate overall score for daily practice
+      aiEvaluation.overall_score = 0;
 
       const result = await submitDailyEntry(challenge.id, oirAnswer, watAnswer, srtAnswer, interviewAnswer, aiEvaluation);
       
@@ -221,7 +198,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
         let aiEvaluation: any = {
             wat: mySubmission.ai_evaluation?.wat || null,
             srt: mySubmission.ai_evaluation?.srt || null,
-            interview: mySubmission.ai_evaluation?.interview || null,
             overall_score: 0
         };
 
@@ -253,36 +229,8 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
             }
         }
 
-        // Re-evaluate Interview if it failed or was skipped
-        if (mySubmission.interview_answer && (!aiEvaluation.interview || aiEvaluation.interview.error)) {
-            try {
-                const intEval = await evaluateDailyChallengeResponse('Interview', {
-                    question: challenge.interview_question,
-                    transcript: mySubmission.interview_answer,
-                    piq: piqData || {}
-                });
-                aiEvaluation.interview = intEval;
-            } catch (e) {
-                console.error("Interview Retry failed", e);
-            }
-        }
-
-        // Calculate overall score
-        const scores = [
-            aiEvaluation.wat?.score,
-            aiEvaluation.srt?.score,
-            aiEvaluation.interview?.score
-        ].filter(s => s !== undefined && s !== null && !aiEvaluation[Object.keys(aiEvaluation).find(k => aiEvaluation[k]?.score === s) as string]?.error);
-        
-        // Refined score calculation for retry
-        let validScores = [];
-        if (aiEvaluation.wat && !aiEvaluation.wat.error) validScores.push(aiEvaluation.wat.score);
-        if (aiEvaluation.srt && !aiEvaluation.srt.error) validScores.push(aiEvaluation.srt.score);
-        if (aiEvaluation.interview && !aiEvaluation.interview.error) validScores.push(aiEvaluation.interview.score);
-
-        aiEvaluation.overall_score = validScores.length > 0 
-            ? (validScores.reduce((a, b) => a + b, 0) / validScores.length).toFixed(1) 
-            : 0;
+        // Do not calculate overall score
+        aiEvaluation.overall_score = 0;
 
         // Update Backend
         await updateDailySubmissionAI(mySubmission.id, aiEvaluation);
@@ -448,8 +396,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                           <p className="text-blue-200 text-xs font-bold uppercase tracking-widest">Based on SSB Assessment Standards</p>
                           
                           {(mySubmission.ai_evaluation?.wat?.error || 
-                            mySubmission.ai_evaluation?.srt?.error || 
-                            mySubmission.ai_evaluation?.interview?.error) && (
+                            mySubmission.ai_evaluation?.srt?.error) && (
                               <div className="space-y-3">
                                 {isRetrying && autoRetryAttempted && (
                                     <div className="flex items-center gap-2 text-yellow-400 text-[10px] font-black uppercase animate-pulse">
@@ -467,13 +414,9 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                               </div>
                           )}
                       </div>
-                      <div className="bg-white/10 px-6 py-4 rounded-2xl border border-white/20 text-center min-w-[140px]">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-blue-300 mb-1">Overall Score</p>
-                          <p className="text-4xl font-black text-yellow-400">{mySubmission.ai_evaluation?.overall_score || 'N/A'}<span className="text-sm text-white/50">/10</span></p>
-                      </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                  <div id="score-breakdown" className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
                       {/* WAT EVAL */}
                       <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
                           <div className="flex justify-between items-center mb-3">
@@ -492,16 +435,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                           </div>
                           <p className="text-xs text-blue-100 leading-relaxed italic">
                               {mySubmission.ai_evaluation?.srt?.generalFeedback || 'No feedback available.'}
-                          </p>
-                      </div>
-                      {/* INTERVIEW EVAL */}
-                      <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                          <div className="flex justify-between items-center mb-3">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">Interview Analysis</span>
-                              <span className="text-lg font-black">{mySubmission.ai_evaluation?.interview?.score || 0}/10</span>
-                          </div>
-                          <p className="text-xs text-blue-100 leading-relaxed italic">
-                              {mySubmission.ai_evaluation?.interview?.recommendations || 'No feedback available.'}
                           </p>
                       </div>
                   </div>
@@ -628,9 +561,43 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
 
       {/* DISCUSSION FEED */}
       <div className="space-y-8 relative">
-          <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter text-center flex items-center justify-center gap-3">
-              <MessageSquare className="text-blue-600" /> Community Board
-          </h3>
+          <div className="flex flex-col items-center justify-center gap-4">
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3">
+                  <MessageSquare className="text-blue-600" /> Community Board
+              </h3>
+              
+              <div className="w-full max-w-2xl">
+                  <button 
+                      onClick={() => setShowScoreMeaning(!showScoreMeaning)} 
+                      className="w-full py-3 px-6 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2"
+                  >
+                      <Award size={16} className="text-yellow-400" /> What does my score mean?
+                  </button>
+                  {showScoreMeaning && (
+                      <div className="mt-4 p-6 bg-white rounded-2xl border border-slate-200 shadow-xl text-sm text-slate-700 space-y-4 animate-in fade-in slide-in-from-top-2">
+                          <h4 className="font-black text-slate-900 uppercase tracking-widest text-[10px] border-b border-slate-100 pb-2">Score Breakdown Guide</h4>
+                          <div className="grid grid-cols-1 gap-4 text-xs leading-relaxed">
+                              <div className="flex gap-4 items-start p-3 bg-green-50 rounded-xl border border-green-100">
+                                  <span className="font-black text-green-600 min-w-[40px] text-right text-sm">9-10</span> 
+                                  <span><strong>Outstanding:</strong> Strong Officer Like Qualities (OLQs). Highly practical, positive, and action-oriented.</span>
+                              </div>
+                              <div className="flex gap-4 items-start p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                  <span className="font-black text-blue-600 min-w-[40px] text-right text-sm">7-8</span> 
+                                  <span><strong>Good:</strong> Clear potential and logical thinking. Minor improvements needed in speed or depth of action.</span>
+                              </div>
+                              <div className="flex gap-4 items-start p-3 bg-yellow-50 rounded-xl border border-yellow-100">
+                                  <span className="font-black text-yellow-600 min-w-[40px] text-right text-sm">5-6</span> 
+                                  <span><strong>Average:</strong> Acceptable response, but lacks strong leadership traits, completeness, or quick decision-making.</span>
+                              </div>
+                              <div className="flex gap-4 items-start p-3 bg-red-50 rounded-xl border border-red-100">
+                                  <span className="font-black text-red-600 min-w-[40px] text-right text-sm">0-4</span> 
+                                  <span><strong>Needs Improvement:</strong> Lacks clarity, practicality, or shows negative traits. Needs significant practice.</span>
+                              </div>
+                          </div>
+                      </div>
+                  )}
+              </div>
+          </div>
           
           {submissions.length === 0 ? (
               <div className="text-center p-12 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 text-slate-400 font-bold uppercase text-xs">
@@ -687,9 +654,8 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                                       <div className="mt-4 p-4 bg-slate-900 text-white rounded-2xl space-y-3">
                                           <div className="flex justify-between items-center">
                                               <span className="text-[9px] font-black text-yellow-400 uppercase tracking-widest">AI Assessment</span>
-                                              <span className="text-xs font-black text-white">{sub.ai_evaluation.overall_score || 'N/A'}/10</span>
                                           </div>
-                                          <div className="grid grid-cols-3 gap-1">
+                                          <div className="grid grid-cols-2 gap-1">
                                               <div className="text-center p-1 bg-white/5 rounded border border-white/10">
                                                   <p className="text-[7px] font-black uppercase text-white/50">WAT</p>
                                                   <p className="text-[10px] font-bold text-green-400">{sub.ai_evaluation.wat?.score || 0}</p>
@@ -697,10 +663,6 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                                               <div className="text-center p-1 bg-white/5 rounded border border-white/10">
                                                   <p className="text-[7px] font-black uppercase text-white/50">SRT</p>
                                                   <p className="text-[10px] font-bold text-orange-400">{sub.ai_evaluation.srt?.score || 0}</p>
-                                              </div>
-                                              <div className="text-center p-1 bg-white/5 rounded border border-white/10">
-                                                  <p className="text-[7px] font-black uppercase text-white/50">INT</p>
-                                                  <p className="text-[10px] font-bold text-purple-400">{sub.ai_evaluation.interview?.score || 0}</p>
                                               </div>
                                           </div>
                                       </div>
