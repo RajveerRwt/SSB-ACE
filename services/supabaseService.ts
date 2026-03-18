@@ -383,6 +383,7 @@ export const getUserHistory = async (userId: string) => {
       .from('test_history')
       .select('id, test_type, created_at, score, status:result_data->>_status')
       .eq('user_id', userId)
+      .neq('test_type', 'CHALLENGE_14_DAY_PROGRESS')
       .order('created_at', { ascending: false })
       .limit(300);
       
@@ -568,6 +569,7 @@ export const getAllUsers = async () => {
   const { data: history } = await supabase
     .from('test_history')
     .select('user_id, test_type, created_at, score')
+    .neq('test_type', 'CHALLENGE_14_DAY_PROGRESS')
     .order('created_at', { ascending: false });
 
   const mergedData = aspirants?.map((u: any) => {
