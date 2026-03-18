@@ -16,24 +16,36 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
       <div className="relative z-10 flex flex-col items-center text-center space-y-10">
         
         {/* Social Links */}
-        <div className="flex gap-6">
+        <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-6">
            <a 
              href="https://www.instagram.com/ssbprep.online?utm_source=qr&igsh=ZjdvdGdwZGo5OXBl" 
              target="_blank" 
              rel="noreferrer"
-             className="p-4 bg-white/5 hover:bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-600 hover:text-white rounded-2xl transition-all shadow-lg group border border-white/5"
+             className="flex items-center gap-3 px-6 py-4 bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-600 text-white rounded-2xl transition-all shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 hover:-translate-y-1 group border border-white/10 w-full sm:w-auto"
              title="Follow on Instagram"
            >
-             <Instagram size={28} />
+             <div className="bg-white/20 p-2 rounded-xl group-hover:scale-110 transition-transform">
+               <Instagram size={24} />
+             </div>
+             <div className="flex flex-col items-start text-left">
+               <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider">For all updates</span>
+               <span className="font-black text-sm tracking-wide">Follow on Instagram</span>
+             </div>
            </a>
            <a 
              href="https://youtube.com/@ssbprep.online?si=616euo_H_rJ4wwFo" 
              target="_blank" 
              rel="noreferrer" 
-             className="p-4 bg-white/5 hover:bg-red-600 hover:text-white rounded-2xl transition-all shadow-lg border border-white/5"
+             className="flex items-center gap-3 px-6 py-4 bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white rounded-2xl transition-all shadow-lg hover:-translate-y-1 group border border-slate-700 hover:border-red-500 w-full sm:w-auto"
              title="Subscribe on YouTube"
            >
-             <Youtube size={28} />
+             <div className="bg-white/10 p-2 rounded-xl group-hover:scale-110 transition-transform">
+               <Youtube size={24} />
+             </div>
+             <div className="flex flex-col items-start text-left">
+               <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider group-hover:text-white/80">Watch videos</span>
+               <span className="font-black text-sm tracking-wide">Subscribe on YouTube</span>
+             </div>
            </a>
         </div>
 
