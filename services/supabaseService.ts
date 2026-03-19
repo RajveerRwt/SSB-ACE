@@ -482,6 +482,18 @@ export const saveTestAttempt = async (userId: string, testType: string, resultDa
 
 // ** NEW: Update existing test record with new analysis **
 export const updateTestAttempt = async (id: string, resultData: any, status: 'completed' | 'failed' = 'completed') => {
+    // Check if it's already completed to prevent race conditions
+    const { data: currentHistory } = await supabase
+        .from('test_history')
+        .select('result_data')
+        .eq('id', id)
+        .single();
+        
+    if (currentHistory && currentHistory.result_data?._status === 'completed' && status === 'completed') {
+        console.log(`[updateTestAttempt] Assessment ${id} is already completed. Skipping update to prevent duplicates.`);
+        return;
+    }
+
     // 1. Update legacy test_history
     const { data: updatedHistory, error } = await supabase
       .from('test_history')
@@ -536,11 +548,16 @@ export const updateTestAttempt = async (id: string, resultData: any, status: 'co
 };
 
 export const getPendingAssessments = async (userId: string) => {
+    // Only fetch assessments older than 5 minutes to prevent race conditions
+    // with active evaluations happening in the UI
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    
     const { data, error } = await supabase
         .from('test_history')
         .select('*')
         .eq('user_id', userId)
-        .eq('result_data->>_status', 'pending');
+        .eq('result_data->>_status', 'pending')
+        .lt('created_at', fiveMinutesAgo);
     
     if (error) {
         console.error("Error fetching pending assessments:", error);
