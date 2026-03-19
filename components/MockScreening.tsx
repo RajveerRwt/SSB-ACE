@@ -86,12 +86,23 @@ const MockScreening: React.FC<MockScreeningProps> = ({ onConsumeCoins, isGuest =
   const [showCamera, setShowCamera] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   
   const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const isRecordingRef = useRef(false);
   const narrationTextRef = useRef('');
   const interimTextRef = useRef('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   const initAudio = () => {
     if (!audioCtxRef.current) {
@@ -192,14 +203,43 @@ const MockScreening: React.FC<MockScreeningProps> = ({ onConsumeCoins, isGuest =
     }
   };
 
-  const startNarration = () => {
+  const startNarration = async () => {
     initAudio();
     setNarrationText('');
     narrationTextRef.current = '';
     interimTextRef.current = '';
     setTranscriptionError(null);
+    setAudioUrl(null);
     setIsRecording(true);
     isRecordingRef.current = true;
+
+    // Set up audio recording
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const url = URL.createObjectURL(audioBlob);
+        setAudioUrl(url);
+        
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      // Don't fail the whole test if recording fails, but log it
+    }
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -257,6 +297,11 @@ const MockScreening: React.FC<MockScreeningProps> = ({ onConsumeCoins, isGuest =
   const stopNarration = () => {
     isRecordingRef.current = false;
     setIsRecording(false);
+    
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    
     if (recognitionRef.current) recognitionRef.current.stop();
     else finishPPDT();
   };
@@ -1140,6 +1185,45 @@ const MockScreening: React.FC<MockScreeningProps> = ({ onConsumeCoins, isGuest =
                 </h4>
                 <div className="bg-red-50 p-8 rounded-[2rem] border border-red-100">
                   <p className="text-red-900 font-bold leading-relaxed">{finalAssessment.rejectionReason}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Narration Playback & Stimulus Reference */}
+            {(selectedPpdt?.image_url || audioUrl) && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                  <Volume2 size={18} className="text-blue-600" /> Narration & Stimulus
+                </h4>
+                <div className="grid md:grid-cols-2 gap-6">
+                  {selectedPpdt?.image_url && (
+                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex flex-col items-center">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Stimulus Reference</p>
+                      <div className="relative group cursor-pointer" onClick={() => setZoomedImage(selectedPpdt.image_url)}>
+                        <img 
+                          src={selectedPpdt.image_url} 
+                          alt="PPDT Stimulus" 
+                          className="h-40 w-auto rounded-xl shadow-md object-cover transition-transform group-hover:scale-105"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
+                          <Maximize2 className="text-white" size={24} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {audioUrl && (
+                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex flex-col items-center justify-center">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Your Recorded Narration</p>
+                      <div className="w-full max-w-xs bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                        <audio src={audioUrl} controls className="w-full h-10" />
+                        <p className="text-[9px] text-center text-slate-400 mt-3 font-medium">
+                          <ShieldCheck size={10} className="inline mr-1" />
+                          Local playback only. Not stored in database.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

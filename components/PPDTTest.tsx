@@ -69,6 +69,9 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   const [customMode, setCustomMode] = useState<'practice' | 'evaluation'>('practice');
   const [activeSetName, setActiveSetName] = useState('');
   const [selectedScenario, setSelectedScenario] = useState<any>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const [pendingId, setPendingId] = useState<string | undefined>(undefined);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -79,6 +82,14 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   const isRecordingRef = useRef(false);
   const narrationTextRef = useRef('');
   const interimTextRef = useRef('');
+
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   const resizeImage = (base64: string, maxWidth: number = 1024, maxHeight: number = 1024): Promise<string> => {
     return new Promise((resolve) => {
@@ -347,6 +358,36 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
     setTranscriptionError(null);
     setIsRecording(true);
     isRecordingRef.current = true;
+    setAudioUrl(null);
+
+    // Start audio recording for playback at the end
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => {
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+  
+            mediaRecorder.ondataavailable = (event) => {
+              if (event.data.size > 0) {
+                audioChunksRef.current.push(event.data);
+              }
+            };
+  
+            mediaRecorder.onstop = () => {
+              const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+              const url = URL.createObjectURL(audioBlob);
+              setAudioUrl(url);
+              // Stop all tracks to release the microphone
+              stream.getTracks().forEach(track => track.stop());
+            };
+  
+            mediaRecorder.start();
+          })
+          .catch(err => {
+            console.error("Error accessing microphone for recording:", err);
+          });
+      }
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -408,6 +449,11 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   const stopNarration = () => {
     isRecordingRef.current = false;
     setIsRecording(false);
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+    }
+
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     } else {
@@ -1103,19 +1149,37 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                </div>
             </div>
 
-            {/* Stimulus Image Preview - Added for user reference */}
-            {currentImageUrl && (
-                <div className="flex justify-center -mt-6 mb-8 relative z-20">
-                    <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-100 transform hover:scale-105 transition-transform duration-300">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center mb-2">Stimulus Reference</p>
-                        <img
-                            src={currentImageUrl}
-                            alt="PPDT Stimulus"
-                            className="h-40 md:h-56 w-auto object-contain rounded-xl bg-slate-50"
-                        />
+            {/* Stimulus Image Preview & Recorded Narration */}
+            <div className="grid md:grid-cols-2 gap-8 mb-8">
+                {currentImageUrl && (
+                    <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 transform hover:scale-[1.02] transition-all duration-300">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center mb-4">Stimulus Reference</p>
+                        <div className="aspect-video rounded-3xl overflow-hidden bg-slate-50 border border-slate-100">
+                            <img
+                                src={currentImageUrl}
+                                alt="PPDT Stimulus"
+                                className="w-full h-full object-contain"
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+
+                {/* Recorded Narration Playback */}
+                {audioUrl && (
+                    <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 transform hover:scale-[1.02] transition-all duration-300 flex flex-col justify-center">
+                        <div className="text-center space-y-4">
+                            <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto text-blue-600">
+                                <Volume2 size={24} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Your Recorded Narration</p>
+                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Not stored in database • Local playback only</p>
+                            </div>
+                            <audio src={audioUrl} controls className="w-full h-10 mt-4" />
+                        </div>
+                    </div>
+                )}
+            </div>
 
             {/* SCORE EXPLANATION */}
             {showScoreHelp && (
