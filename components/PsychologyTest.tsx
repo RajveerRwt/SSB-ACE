@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Timer, Send, Loader2, Image as ImageIcon, CheckCircle, ShieldCheck, FileText, Target, Award, AlertCircle, Upload, Trash2, BookOpen, Layers, Brain, Eye, FastForward, Edit, X, Save, RefreshCw, PenTool, FileSignature, HelpCircle, ChevronDown, ChevronUp, ScanEye, Activity, Camera, Info, LogIn, ThumbsUp, ThumbsDown, MinusCircle, Lock, Download, Printer, UserPlus } from 'lucide-react';
 import { generateTestContent, evaluatePerformance, transcribeHandwrittenStory, extractCustomStimuli, STANDARD_WAT_SET } from '../services/geminiService';
 import { getTATScenarios, getWATWords, getSRTQuestions, getUserSubscription, TEST_RATES } from '../services/supabaseService';
-import { TestType, UserSubscription } from '../types';
+import { TestType } from '../types';
 import CameraModal from './CameraModal';
 import SessionFeedback from './SessionFeedback';
 
@@ -16,7 +16,6 @@ interface PsychologyProps {
   isGuest?: boolean;
   onLoginRedirect?: () => void;
   onConsumeCoins?: (amount: number) => Promise<boolean>;
-  subscription?: UserSubscription | null;
 }
 
 enum PsychologyPhase {
@@ -64,7 +63,7 @@ const SDT_TIPS = [
     "Focus on self-improvement in the 'Self Opinion' section."
 ];
 
-const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave, isAdmin, userId, isGuest = false, onLoginRedirect, onConsumeCoins, subscription }) => {
+const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave, isAdmin, userId, isGuest = false, onLoginRedirect, onConsumeCoins }) => {
   const [items, setItems] = useState<any[]>([]);
   const [pendingId, setPendingId] = useState<string | undefined>(undefined);
   const [currentIndex, setCurrentIndex] = useState(-1);
@@ -127,23 +126,9 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
                 name,
                 count: sets[name].length,
                 items: sets[name]
-            })).filter(s => s.count > 0)
-            .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+            })).filter(s => s.count > 0);
             
-            // Sequential Unlocking Logic
-            let filteredSets = setList;
-            if (!isAdmin && !isGuest && subscription) {
-                const usedCount = type === TestType.TAT ? (subscription.usage.tat_used || 0) :
-                                 type === TestType.WAT ? (subscription.usage.wat_used || 0) :
-                                 type === TestType.SRT ? (subscription.usage.srt_used || 0) : 0;
-                
-                // Allow sets up to usedCount + 1
-                // This means if they've used 0, they see Set 1.
-                // If they've used 1, they see Set 1 and Set 2.
-                filteredSets = setList.slice(0, usedCount + 1);
-            }
-            
-            setAvailableSets(filteredSets);
+            setAvailableSets(setList);
             setPhase(PsychologyPhase.SET_SELECTION);
         } catch (e) {
             console.error("Failed to fetch sets", e);
@@ -153,7 +138,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
     };
     
     fetchSets();
-  }, [type, isGuest, subscription]);
+  }, [type, isGuest]);
   
   const startDirectEvaluation = async () => {
     setIsLoading(true);

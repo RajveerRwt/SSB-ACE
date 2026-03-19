@@ -922,8 +922,6 @@ const App: React.FC = () => {
           await saveTestAttempt(user, typeStr, result);
       }
       await incrementUsage(user, typeStr);
-      const sub = await getUserSubscription(user);
-      setSubscription(sub);
   };
 
   const handlePendingSave = async (testType: string, originalData: any) => {
@@ -954,11 +952,11 @@ const App: React.FC = () => {
             />
           );
         }
-        return <PPDTTest onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} subscription={subscription} />;
-      case TestType.TAT: return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} subscription={subscription} />;
-      case TestType.WAT: return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} subscription={subscription} />;
-      case TestType.SRT: return <PsychologyTest type={TestType.SRT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} subscription={subscription} />;
-      case TestType.SDT: return <PsychologyTest type={TestType.SDT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} subscription={subscription} />;
+        return <PPDTTest onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
+      case TestType.TAT: return <PsychologyTest type={TestType.TAT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
+      case TestType.WAT: return <PsychologyTest type={TestType.WAT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
+      case TestType.SRT: return <PsychologyTest type={TestType.SRT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
+      case TestType.SDT: return <PsychologyTest type={TestType.SDT} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
       case TestType.GPE: return <GPETest onComplete={handleTestComplete} onPendingSave={handlePendingSave} onConsumeCoins={async (amount) => await handleCoinConsumption(amount)} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.INTERVIEW: return <Interview piqData={piqData || undefined} onSave={handleTestComplete} onPendingSave={handlePendingSave} isAdmin={isUserAdmin(userEmail)} userId={user || undefined} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} onConsumeCoins={handleCoinConsumption} />;
       case TestType.CONTACT: return <ContactForm piqData={piqData || undefined} />;

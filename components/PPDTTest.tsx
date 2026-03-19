@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Timer, CheckCircle, Upload, Loader2, Volume2, MicOff, ShieldCheck, Target, Image as ImageIcon, FileText, AlertCircle, Eye, BrainCircuit, X, RefreshCw, PenTool, Clock, BookOpen, FastForward, Edit3, HelpCircle, ChevronDown, ChevronUp, ScanEye, Cloud, ImagePlus, Star, Camera, LogIn, Lock, Coins, Activity, Headset } from 'lucide-react';
 import { evaluatePerformance, transcribeHandwrittenStory, generatePPDTStimulus } from '../services/geminiService';
 import { getPPDTScenarios, getUserSubscription, checkLimit, TEST_RATES } from '../services/supabaseService';
-import { UserSubscription } from '../types';
 import { SSBLogo } from './Logo';
 import CameraModal from './CameraModal';
 import SessionFeedback from './SessionFeedback';
@@ -42,10 +41,9 @@ interface PPDTProps {
   isGuest?: boolean;
   onLoginRedirect?: () => void;
   onConsumeCoins?: (cost: number) => Promise<boolean>;
-  subscription?: UserSubscription | null;
 }
 
-const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId, isGuest = false, onLoginRedirect, onConsumeCoins, subscription }) => {
+const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId, isGuest = false, onLoginRedirect, onConsumeCoins }) => {
   const [step, setStep] = useState<PPDTStep>(PPDTStep.IDLE);
   const [isDirectEvaluation, setIsDirectEvaluation] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -192,18 +190,9 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
                 name,
                 count: sets[name].length,
                 items: sets[name]
-            })).filter(s => s.count > 0)
-            .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+            })).filter(s => s.count > 0);
             
-            // Sequential Unlocking Logic
-            let filteredSets = setList;
-            if (!isAdmin && !isGuest && subscription) {
-                const usedCount = subscription.usage.ppdt_used || 0;
-                // Allow sets up to usedCount + 1
-                filteredSets = setList.slice(0, usedCount + 1);
-            }
-            
-            setAvailableSets(filteredSets);
+            setAvailableSets(setList);
         } catch (e) {
             console.error("Failed to fetch PPDT sets", e);
         } finally {
@@ -212,7 +201,7 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
     };
     
     fetchSets();
-  }, [isGuest, step, subscription]);
+  }, [isGuest, step]);
 
   const handleStandardStart = async () => {
     setIsDirectEvaluation(false);
