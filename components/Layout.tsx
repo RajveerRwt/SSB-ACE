@@ -299,7 +299,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
                 {item.id === TestType.CURRENT_AFFAIRS && (
                     <span className="absolute right-4 bg-green-600 text-white text-[8px] px-1.5 py-0.5 rounded font-bold uppercase">LIVE</span>
                 )}
-                {item.id === TestType.RESOURCES && (
+                {item.id === TestType.RESOURCES && isLoggedIn && (
                     <span className="absolute right-4 bg-yellow-400 text-black text-[8px] px-1.5 py-0.5 rounded font-bold uppercase">FREE</span>
                 )}
                 {item.id === TestType.DAILY_PRACTICE && isLoggedIn && !hasSubmittedDaily && (

@@ -675,9 +675,9 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
                                                   <Lock size={8} /> Locked
                                               </span>
                                           ) : (
-                                              onConsumeCoins && (
+                                              onConsumeCoins && !isGuest && (
                                                   <span className="bg-slate-900 text-yellow-400 px-2 py-1 rounded text-[9px] font-black flex items-center gap-1">
-                                                      {topic.title === "My inspiration in life" && isGuest ? "FREE" : <><Coins size={8} /> {TEST_RATES.LECTURETTE}</>}
+                                                      <><Coins size={8} /> {TEST_RATES.LECTURETTE}</>
                                                   </span>
                                               )
                                           )}

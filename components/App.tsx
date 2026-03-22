@@ -618,8 +618,8 @@ const Dashboard: React.FC<{
                             </div>
                         )}
                         
-                        {/* Only show FREE if explicitly cost 0 AND NOT Interview (Interview has special lobby with costs) */}
-                        {action.cost === 0 && action.id !== TestType.INTERVIEW && (
+                        {/* Only show FREE if explicitly cost 0 AND NOT Interview (Interview has special lobby with costs) AND user is logged in */}
+                        {isLoggedIn && action.cost === 0 && action.id !== TestType.INTERVIEW && (
                             <div className="absolute top-1.5 right-1.5 md:top-2 md:right-2 bg-green-500 text-white px-1.5 py-0.5 rounded text-[7px] md:text-[8px] font-black shadow-sm">
                                 FREE
                             </div>

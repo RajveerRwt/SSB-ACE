@@ -672,8 +672,12 @@ const MockScreening: React.FC<MockScreeningProps> = ({ onConsumeCoins, isGuest =
             </div>
             
             <div className="flex items-center justify-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              <Coins size={12} className={TEST_RATES.MOCK_SCREENING > 0 ? "text-yellow-500" : "text-emerald-500"} /> 
-              Cost: {TEST_RATES.MOCK_SCREENING > 0 ? `${TEST_RATES.MOCK_SCREENING} Coins` : <span className="text-emerald-500 font-black">FREE</span>}
+              {userId && (
+                <>
+                  <Coins size={12} className={TEST_RATES.MOCK_SCREENING > 0 ? "text-yellow-500" : "text-emerald-500"} /> 
+                  Cost: {TEST_RATES.MOCK_SCREENING > 0 ? `${TEST_RATES.MOCK_SCREENING} Coins` : <span className="text-emerald-500 font-black">FREE</span>}
+                </>
+              )}
             </div>
           </div>
         </div>
