@@ -109,7 +109,7 @@ const Dashboard: React.FC<{
   ];
 
   const testimonials = [
-    { name: "Deepak Rai", role: "NDA/TES Aspirant", text: "The 1:1 Virtual Interview experience was very realistic. The assessment report was detailed and actionable. A great platform for SSB preparation." },
+    { name: "Harsh jamwal", role: "CDS Aspirant", text: "The experience that i got by giving test was amazing and it also helped me in improving my drawbacks" },
     { name: "Aditya", role: "CDS/NCC Aspirant", text: "AI-based Virtual IO surprisingly accurate hai. Pressure, questions aur feedback sab kuch real interview jaisa laga." },
     { name: "utkarsh kumar", role: "AFCAT/CDS Aspirant", text: "best app i have seen so far." },
     { name: "Arti Patel", role: "TES/NDA Aspirant", text: "The platform simulates real SSB pressure. Especially the Virtual IO interview — very close to the actual experience." },
@@ -282,7 +282,7 @@ const Dashboard: React.FC<{
              ) : (
                <div className="pt-4 space-y-4">
                   <div className="flex flex-col md:flex-row gap-4 w-full">
-                    <button onClick={() => onStartTest(TestType.REGISTER)} className="px-10 md:px-14 py-5 bg-yellow-500 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-yellow-500/20 hover:bg-yellow-600 hover:scale-105 transition-all flex items-center justify-center gap-3">
+                    <button onClick={() => onStartTest(TestType.REGISTER)} className="px-10 md:px-14 py-5 bg-yellow-500 text-black rounded-2xl font-black uppercase text-xs shadow-xl shadow-yellow-500/20 hover:bg-yellow-600 hover:scale-105 transition-all flex items-center justify-center gap-3">
                         <Zap size={18} className="fill-current" /> Start Free Practice Now
                     </button>
                     <button onClick={() => onStartTest(TestType.LOGIN)} className="px-8 md:px-10 py-5 bg-white/5 text-white rounded-2xl font-black uppercase text-xs border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3">
