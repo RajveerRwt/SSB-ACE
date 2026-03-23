@@ -32,7 +32,7 @@ import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, getTestReport, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment, getMentorProfile, getLatestDailyChallenge, hasUserSubmittedDaily } from '../services/supabaseService';
 import { evaluatePerformance } from '../services/geminiService';
 import FreeCoinModal from './FreeCoinModal';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, Gift, RotateCcw, FileText } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, Gift, RotateCcw, FileText, Upload } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
 // --- GAMIFICATION COMPONENTS ---
@@ -354,6 +354,50 @@ const Dashboard: React.FC<{
          </div>
          <ShieldCheck className="absolute top-1/2 -right-12 -translate-y-1/2 w-[20rem] md:w-[30rem] h-[20rem] md:h-[30rem] text-white/5 rotate-12 pointer-events-none" />
       </div>
+
+      {/* HOW IT WORKS (GUEST ONLY) */}
+      {!isLoggedIn && (
+        <div className="mb-12 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tighter">How It Works</h2>
+            <p className="text-slate-500 text-sm font-medium mt-2">Your path to SSB success in 4 simple steps</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xl text-center relative overflow-hidden group hover:-translate-y-1 transition-transform">
+              <div className="absolute -right-4 -top-4 text-9xl font-black text-slate-50 opacity-50 group-hover:text-blue-50 transition-colors">1</div>
+              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 relative z-10">
+                <Target size={28} />
+              </div>
+              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-2 relative z-10">Choose Test</h3>
+              <p className="text-slate-500 text-sm relative z-10">Select from a wide range of SSB tests such as PPDT,TAT,WAT,SRT etc.</p>
+            </div>
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xl text-center relative overflow-hidden group hover:-translate-y-1 transition-transform">
+              <div className="absolute -right-4 -top-4 text-9xl font-black text-slate-50 opacity-50 group-hover:text-blue-50 transition-colors">2</div>
+              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 relative z-10">
+                <Clock size={28} />
+              </div>
+              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-2 relative z-10">Practice</h3>
+              <p className="text-slate-500 text-sm relative z-10">Practice with real SSB timing and strict test formats.</p>
+            </div>
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xl text-center relative overflow-hidden group hover:-translate-y-1 transition-transform">
+              <div className="absolute -right-4 -top-4 text-9xl font-black text-slate-50 opacity-50 group-hover:text-blue-50 transition-colors">3</div>
+              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 relative z-10">
+                <Upload size={28} />
+              </div>
+              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-2 relative z-10">Upload</h3>
+              <p className="text-slate-500 text-sm relative z-10">Upload handwritten sheets, text, or audio recordings.</p>
+            </div>
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xl text-center relative overflow-hidden group hover:-translate-y-1 transition-transform">
+              <div className="absolute -right-4 -top-4 text-9xl font-black text-slate-50 opacity-50 group-hover:text-blue-50 transition-colors">4</div>
+              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 relative z-10">
+                <FileText size={28} />
+              </div>
+              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-2 relative z-10">AI Feedback</h3>
+              <p className="text-slate-500 text-sm relative z-10">Get detailed AI feedback and actionable insights instantly.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SOLDIER PROFILE & ROADMAP */}
       <div className="grid lg:grid-cols-12 gap-6 md:gap-10">
