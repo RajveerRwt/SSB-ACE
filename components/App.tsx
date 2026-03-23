@@ -357,43 +357,43 @@ const Dashboard: React.FC<{
 
       {/* HOW IT WORKS (GUEST ONLY) */}
       {!isLoggedIn && (
-        <div className="mb-12 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tighter">How It Works</h2>
-            <p className="text-slate-500 text-sm font-medium mt-2">Your path to SSB success in 4 simple steps</p>
+        <div className="mb-12 bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 shadow-2xl border-b-8 border-yellow-500 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tighter">How It Works</h2>
+            <p className="text-slate-400 text-sm font-medium mt-2">Your path to SSB success in 4 simple steps</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xl text-center relative overflow-hidden group hover:-translate-y-1 transition-transform">
-              <div className="absolute -right-4 -top-4 text-9xl font-black text-slate-50 opacity-50 group-hover:text-blue-50 transition-colors">1</div>
-              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 relative z-10">
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 text-center relative overflow-hidden group hover:bg-white/10 transition-all">
+              <div className="absolute -right-4 -top-4 text-9xl font-black text-white/5 group-hover:text-white/10 transition-colors">1</div>
+              <div className="w-14 h-14 bg-yellow-500/20 text-yellow-400 rounded-2xl flex items-center justify-center mx-auto mb-4 relative z-10 backdrop-blur-sm">
                 <Target size={28} />
               </div>
-              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-2 relative z-10">Choose Test</h3>
-              <p className="text-slate-500 text-sm relative z-10">Select from a wide range of SSB tests such as PPDT,TAT,WAT,SRT etc.</p>
+              <h3 className="text-lg font-black text-white uppercase tracking-tight mb-2 relative z-10">Choose Test</h3>
+              <p className="text-slate-300 text-sm relative z-10">Select from a wide range of SSB tests such as PPDT,TAT,WAT,SRT etc.</p>
             </div>
-            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xl text-center relative overflow-hidden group hover:-translate-y-1 transition-transform">
-              <div className="absolute -right-4 -top-4 text-9xl font-black text-slate-50 opacity-50 group-hover:text-blue-50 transition-colors">2</div>
-              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 relative z-10">
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 text-center relative overflow-hidden group hover:bg-white/10 transition-all">
+              <div className="absolute -right-4 -top-4 text-9xl font-black text-white/5 group-hover:text-white/10 transition-colors">2</div>
+              <div className="w-14 h-14 bg-yellow-500/20 text-yellow-400 rounded-2xl flex items-center justify-center mx-auto mb-4 relative z-10 backdrop-blur-sm">
                 <Clock size={28} />
               </div>
-              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-2 relative z-10">Practice</h3>
-              <p className="text-slate-500 text-sm relative z-10">Practice with real SSB timing and strict test formats.</p>
+              <h3 className="text-lg font-black text-white uppercase tracking-tight mb-2 relative z-10">Practice</h3>
+              <p className="text-slate-300 text-sm relative z-10">Practice with real SSB timing and strict test formats.</p>
             </div>
-            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xl text-center relative overflow-hidden group hover:-translate-y-1 transition-transform">
-              <div className="absolute -right-4 -top-4 text-9xl font-black text-slate-50 opacity-50 group-hover:text-blue-50 transition-colors">3</div>
-              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 relative z-10">
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 text-center relative overflow-hidden group hover:bg-white/10 transition-all">
+              <div className="absolute -right-4 -top-4 text-9xl font-black text-white/5 group-hover:text-white/10 transition-colors">3</div>
+              <div className="w-14 h-14 bg-yellow-500/20 text-yellow-400 rounded-2xl flex items-center justify-center mx-auto mb-4 relative z-10 backdrop-blur-sm">
                 <Upload size={28} />
               </div>
-              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-2 relative z-10">Upload</h3>
-              <p className="text-slate-500 text-sm relative z-10">Upload handwritten sheets, text, or audio recordings.</p>
+              <h3 className="text-lg font-black text-white uppercase tracking-tight mb-2 relative z-10">Upload</h3>
+              <p className="text-slate-300 text-sm relative z-10">Upload handwritten sheets, text, or audio recordings.</p>
             </div>
-            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xl text-center relative overflow-hidden group hover:-translate-y-1 transition-transform">
-              <div className="absolute -right-4 -top-4 text-9xl font-black text-slate-50 opacity-50 group-hover:text-blue-50 transition-colors">4</div>
-              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 relative z-10">
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 text-center relative overflow-hidden group hover:bg-white/10 transition-all">
+              <div className="absolute -right-4 -top-4 text-9xl font-black text-white/5 group-hover:text-white/10 transition-colors">4</div>
+              <div className="w-14 h-14 bg-yellow-500/20 text-yellow-400 rounded-2xl flex items-center justify-center mx-auto mb-4 relative z-10 backdrop-blur-sm">
                 <FileText size={28} />
               </div>
-              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-2 relative z-10">AI Feedback</h3>
-              <p className="text-slate-500 text-sm relative z-10">Get detailed AI feedback and actionable insights instantly.</p>
+              <h3 className="text-lg font-black text-white uppercase tracking-tight mb-2 relative z-10">AI Feedback</h3>
+              <p className="text-slate-300 text-sm relative z-10">Get detailed AI feedback and actionable insights instantly.</p>
             </div>
           </div>
         </div>
@@ -401,7 +401,7 @@ const Dashboard: React.FC<{
 
       {/* SOLDIER PROFILE & ROADMAP */}
       <div className="grid lg:grid-cols-12 gap-6 md:gap-10">
-        <div className="lg:col-span-8 space-y-6 md:space-y-10">
+        <div className={`space-y-6 md:space-y-10 ${isLoggedIn ? 'lg:col-span-8' : 'lg:col-span-12'}`}>
           
           {isLoggedIn && (
             <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-xl overflow-hidden relative">
@@ -674,59 +674,60 @@ const Dashboard: React.FC<{
           </div>
         </div>
 
-        <div className="lg:col-span-4 space-y-6 md:space-y-10">
-           <div className="bg-slate-950 p-6 md:p-12 rounded-[2rem] md:rounded-[4rem] text-white shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
-              <div className="absolute top-0 left-0 w-full h-1.5 bg-yellow-500" />
-              <Star className="text-yellow-400 w-12 h-12 md:w-16 md:h-16 mb-6 md:mb-8 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]" />
-              <h3 className="text-xl md:text-2xl font-black uppercase tracking-widest mb-4 md:mb-6">The Aspirant's Creed</h3>
-              <div className="space-y-4 md:space-y-6 text-xs md:text-sm font-medium italic text-slate-400 leading-relaxed">
-                 <p>"I am a leader in the making. I do not fear the challenge; I welcome the trial."</p>
-                 <p>"I shall be honest with my words, firm with my actions, and loyal to my team."</p>
-                 <p>"Failure is but a lesson in persistence. My resolve is my shield, and my discipline is my weapon."</p>
-              </div>
-           </div>
+        {isLoggedIn && (
+          <div className="lg:col-span-4 space-y-6 md:space-y-10">
+             <div className="bg-slate-950 p-6 md:p-12 rounded-[2rem] md:rounded-[4rem] text-white shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-yellow-500" />
+                <Star className="text-yellow-400 w-12 h-12 md:w-16 md:h-16 mb-6 md:mb-8 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]" />
+                <h3 className="text-xl md:text-2xl font-black uppercase tracking-widest mb-4 md:mb-6">The Aspirant's Creed</h3>
+                <div className="space-y-4 md:space-y-6 text-xs md:text-sm font-medium italic text-slate-400 leading-relaxed">
+                   <p>"I am a leader in the making. I do not fear the challenge; I welcome the trial."</p>
+                   <p>"I shall be honest with my words, firm with my actions, and loyal to my team."</p>
+                   <p>"Failure is but a lesson in persistence. My resolve is my shield, and my discipline is my weapon."</p>
+                </div>
+             </div>
 
-           <div className="bg-blue-600 p-6 md:p-10 rounded-[2rem] md:rounded-[3.5rem] text-white shadow-xl flex flex-col items-center text-center gap-6 group hover:scale-[1.02] transition-all">
-              <div className="w-16 h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center border border-white/30 shadow-2xl">
-                <Shield className="w-8 h-8 md:w-10 md:h-10 text-white" />
-              </div>
-              <div>
-                <h4 className="text-lg md:text-xl font-black uppercase tracking-widest mb-2">SSB Navigator</h4>
-                <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                  Comprehensive 5-Day Stage Guide Active
-                </p>
-              </div>
-              <button onClick={() => onStartTest(TestType.STAGES)} className="w-full py-4 bg-white text-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl">Briefing Room</button>
-           </div>
-        </div>
+             <div className="bg-blue-600 p-6 md:p-10 rounded-[2rem] md:rounded-[3.5rem] text-white shadow-xl flex flex-col items-center text-center gap-6 group hover:scale-[1.02] transition-all">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center border border-white/30 shadow-2xl">
+                  <Shield className="w-8 h-8 md:w-10 md:h-10 text-white" />
+                </div>
+                <div>
+                  <h4 className="text-lg md:text-xl font-black uppercase tracking-widest mb-2">SSB Navigator</h4>
+                  <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                    Comprehensive 5-Day Stage Guide Active
+                  </p>
+                </div>
+                <button onClick={() => onStartTest(TestType.STAGES)} className="w-full py-4 bg-white text-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl">Briefing Room</button>
+             </div>
+          </div>
+        )}
       </div>
 
       {/* TESTIMONIALS */}
-      <div className="max-w-4xl mx-auto mt-8 md:mt-12 bg-white rounded-[2.5rem] p-8 md:p-12 border border-slate-100 shadow-xl relative overflow-hidden text-center group">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500 opacity-20"></div>
-          <Quote className="w-16 h-16 text-slate-100 absolute top-8 left-8 transform -scale-x-100" />
+      <div className="max-w-4xl mx-auto mt-8 md:mt-12 bg-slate-900 rounded-[2.5rem] p-8 md:p-12 shadow-2xl border-b-8 border-yellow-500 relative overflow-hidden text-center group">
+          <Quote className="w-16 h-16 text-white/5 absolute top-8 left-8 transform -scale-x-100" />
           
           <div className="relative z-10 space-y-6 animate-in fade-in duration-700" key={testimonialIndex}>
-              <p className="text-lg md:text-2xl font-medium text-slate-700 italic leading-relaxed">
+              <p className="text-lg md:text-2xl font-medium text-slate-300 italic leading-relaxed">
                   "{testimonials[testimonialIndex].text}"
               </p>
               <div>
-                  <h4 className="text-sm md:text-base font-black text-slate-900 uppercase tracking-widest">
+                  <h4 className="text-sm md:text-base font-black text-white uppercase tracking-widest">
                       {testimonials[testimonialIndex].name}
                   </h4>
-                  <p className="text-[10px] md:text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">
+                  <p className="text-[10px] md:text-xs font-bold text-yellow-400 uppercase tracking-widest mt-1">
                       {testimonials[testimonialIndex].role}
                   </p>
               </div>
           </div>
 
           {/* Dots */}
-          <div className="flex justify-center gap-2 mt-8">
+          <div className="flex justify-center gap-2 mt-8 relative z-10">
               {testimonials.map((_, i) => (
                   <button 
                     key={i} 
                     onClick={() => setTestimonialIndex(i)}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${i === testimonialIndex ? 'w-8 bg-slate-900' : 'w-2 bg-slate-200 hover:bg-slate-300'}`} 
+                    className={`h-1.5 rounded-full transition-all duration-300 ${i === testimonialIndex ? 'w-8 bg-yellow-400' : 'w-2 bg-white/20 hover:bg-white/40'}`} 
                   />
               ))}
           </div>
