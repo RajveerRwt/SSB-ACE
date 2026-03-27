@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Loader2, Send, MessageSquare, Clock, User, ImageIcon, FileText, Zap, PenTool, Flame, Trophy, Lock, Heart, Award, Medal, Star, CheckCircle, Mic, RefreshCw, AlertTriangle, Brain, Maximize2, X } from 'lucide-react';
-import { getLatestDailyChallenge, submitDailyEntry, getDailySubmissions, checkAuthSession, toggleLike, getUserStreak, getUserData, updateDailySubmissionAI } from '../services/supabaseService';
+import { getLatestDailyChallenge, submitDailyEntry, getDailySubmissions, checkAuthSession, toggleLike, getUserStreak, getUserData, updateDailySubmissionAI, supabase } from '../services/supabaseService';
 import { evaluateDailyChallengeResponse } from '../services/geminiService';
 
 interface DailyPracticeProps {
@@ -24,6 +24,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
 
   // Form State
   const [oirAnswer, setOirAnswer] = useState(''); 
+  const [ppdtStoryFile, setPpdtStoryFile] = useState<File | null>(null);
   const [watAnswer, setWatAnswer] = useState('');
   const [srtAnswer, setSrtAnswer] = useState('');
   const [interviewAnswer, setInterviewAnswer] = useState('');
@@ -32,6 +33,10 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [autoRetryAttempted, setAutoRetryAttempted] = useState(false);
   const [showScoreMeaning, setShowScoreMeaning] = useState(false);
+  const [showPpdtPopup, setShowPpdtPopup] = useState(false);
+
+  const isPPDT = challenge?.oir_text?.startsWith('[PPDT]');
+  const displayOirText = isPPDT ? challenge.oir_text.replace('[PPDT]', '').trim() : challenge?.oir_text;
 
   useEffect(() => {
     // Load local likes
@@ -111,7 +116,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
         return;
     }
     
-    if (!oirAnswer.trim() && !watAnswer.trim() && !srtAnswer.trim() && !interviewAnswer.trim()) {
+    if (!oirAnswer.trim() && !watAnswer.trim() && !srtAnswer.trim() && !interviewAnswer.trim() && !ppdtStoryFile) {
         alert("Please complete at least one section before submitting.");
         return;
     }
@@ -119,6 +124,14 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
     setIsSubmitting(true);
     setIsEvaluating(true);
     try {
+      let finalOirAnswer = oirAnswer;
+      if (ppdtStoryFile) {
+          const fileName = `daily-ppdt-story-${Date.now()}-${ppdtStoryFile.name}`;
+          await supabase.storage.from('scenarios').upload(fileName, ppdtStoryFile);
+          const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName);
+          finalOirAnswer = data.publicUrl;
+      }
+
       // 1. Perform AI Evaluation
       let aiEvaluation: any = {
           wat: null,
@@ -157,7 +170,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       // Do not calculate overall score for daily practice
       aiEvaluation.overall_score = 0;
 
-      const result = await submitDailyEntry(challenge.id, oirAnswer, watAnswer, srtAnswer, interviewAnswer, aiEvaluation);
+      const result = await submitDailyEntry(challenge.id, finalOirAnswer, watAnswer, srtAnswer, interviewAnswer, aiEvaluation);
       
       // Refresh Data
       const subs = await getDailySubmissions(challenge.id);
@@ -172,11 +185,14 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       setUserStreak(prev => prev + 1);
       
       setOirAnswer('');
+      setPpdtStoryFile(null);
       setWatAnswer('');
       setSrtAnswer('');
       setInterviewAnswer('');
       
-      if (result && result.rewarded) {
+      if (isPPDT) {
+          setShowPpdtPopup(true);
+      } else if (result && result.rewarded) {
           alert("Submission Posted! You earned 2 Coins for today's practice.");
       } else {
           alert("Submission Posted!");
@@ -474,23 +490,55 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                           </div>
                       </div>
                   )}
-                  {challenge.oir_text && (
-                      <p className="text-sm font-bold text-slate-800 text-center leading-relaxed mt-2">{challenge.oir_text}</p>
+                  {displayOirText && (
+                      <p className="text-sm font-bold text-slate-800 text-center leading-relaxed mt-2">{displayOirText}</p>
                   )}
-                  {!challenge.ppdt_image_url && !challenge.oir_text && (
+                  {!challenge.ppdt_image_url && !displayOirText && (
                       <p className="text-slate-400 text-xs font-bold uppercase">No OIR content loaded</p>
                   )}
               </div>
               <div className="flex-1 space-y-4">
                   <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                      <Brain size={18} className="text-blue-600" /> 1. OIR Challenge
+                      <Brain size={18} className="text-blue-600" /> 1. {isPPDT ? 'PPDT Challenge' : 'OIR Challenge'}
                   </h3>
-                  <textarea 
-                      value={oirAnswer}
-                      onChange={(e) => setOirAnswer(e.target.value)}
-                      placeholder="Type your answer and explanation here..."
-                      className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none outline-none focus:border-blue-500 transition-all text-sm font-medium"
-                  />
+                  {isPPDT ? (
+                      <div className="space-y-4">
+                          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Upload Handwritten Story</p>
+                          <div className="relative">
+                              <input 
+                                  type="file" 
+                                  accept="image/*"
+                                  onChange={(e) => setPpdtStoryFile(e.target.files?.[0] || null)}
+                                  className="hidden"
+                                  id="ppdt-story-upload"
+                              />
+                              <label 
+                                  htmlFor="ppdt-story-upload"
+                                  className="flex flex-col items-center justify-center w-full h-40 p-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-blue-500 transition-all"
+                              >
+                                  {ppdtStoryFile ? (
+                                      <div className="text-center">
+                                          <ImageIcon size={32} className="mx-auto text-blue-500 mb-2" />
+                                          <p className="text-sm font-bold text-slate-700">{ppdtStoryFile.name}</p>
+                                          <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">Click to change</p>
+                                      </div>
+                                  ) : (
+                                      <div className="text-center text-slate-400">
+                                          <ImageIcon size={32} className="mx-auto mb-2" />
+                                          <p className="text-sm font-bold">Click to upload story image</p>
+                                      </div>
+                                  )}
+                              </label>
+                          </div>
+                      </div>
+                  ) : (
+                      <textarea 
+                          value={oirAnswer}
+                          onChange={(e) => setOirAnswer(e.target.value)}
+                          placeholder="Type your answer and explanation here..."
+                          className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none outline-none focus:border-blue-500 transition-all text-sm font-medium"
+                      />
+                  )}
               </div>
           </div>
 
@@ -644,10 +692,21 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                               <div className="space-y-4">
                                   {sub.ppdt_story && (
                                     <div className="space-y-2">
-                                        <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest block bg-blue-50 px-2 py-1 rounded w-fit">OIR Answer</span>
-                                        <p className="text-xs text-slate-600 leading-relaxed italic bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                            "{sub.ppdt_story}"
-                                        </p>
+                                        <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest block bg-blue-50 px-2 py-1 rounded w-fit">
+                                            {sub.ppdt_story.startsWith('http') ? 'PPDT Story' : 'OIR Answer'}
+                                        </span>
+                                        {sub.ppdt_story.startsWith('http') ? (
+                                            <div 
+                                                className="relative w-full h-40 cursor-zoom-in rounded-xl overflow-hidden border border-slate-200"
+                                                onClick={() => setZoomedImage(sub.ppdt_story)}
+                                            >
+                                                <img src={sub.ppdt_story} className="w-full h-full object-cover" alt="PPDT Story" />
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-slate-600 leading-relaxed italic bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                                "{sub.ppdt_story}"
+                                            </p>
+                                        )}
                                     </div>
                                   )}
                                   {sub.ai_evaluation && (
@@ -734,6 +793,27 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                   <p className="absolute bottom-6 text-white/50 text-xs font-bold uppercase tracking-widest pointer-events-none">
                     Click outside to close
                   </p>
+              </div>
+          </div>
+      )}
+
+      {/* PPDT Submission Popup */}
+      {showPpdtPopup && (
+          <div className="fixed inset-0 z-[400] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center space-y-6">
+                  <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto">
+                      <CheckCircle size={32} />
+                  </div>
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Story Submitted!</h3>
+                  <p className="text-slate-600 font-medium leading-relaxed">
+                      To get detailed assessment use direct evaluation mode in PPDT test section.
+                  </p>
+                  <button 
+                      onClick={() => setShowPpdtPopup(false)}
+                      className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-slate-800 transition-all"
+                  >
+                      Got it
+                  </button>
               </div>
           </div>
       )}

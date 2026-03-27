@@ -67,6 +67,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
   const [influencerName, setInfluencerName] = useState('');
 
   // Daily Challenge Inputs
+  const [dailyType, setDailyType] = useState<'OIR' | 'PPDT'>('OIR');
   const [dailyOirText, setDailyOirText] = useState('');
   const [dailyWat, setDailyWat] = useState('');
   const [dailySrt, setDailySrt] = useState('');
@@ -222,9 +223,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
       } else if (activeTab === 'DAILY') {
           const file = fileInputRef.current?.files?.[0] || null;
           if ((!file && !dailyOirText.trim()) || !dailyWat.trim() || !dailySrt.trim() || !dailyInterview.trim()) {
-              throw new Error("Please provide OIR Question (Image/Text), 1 WAT, 1 SRT, and 1 Interview Question.");
+              throw new Error("Please provide OIR/PPDT Question (Image/Text), 1 WAT, 1 SRT, and 1 Interview Question.");
           }
-          await uploadDailyChallenge(file, dailyOirText.trim(), dailyWat.trim(), dailySrt.trim(), dailyInterview.trim(), dailyOirCorrectAnswer.trim(), dailyOirExplanation.trim());
+          const finalOirText = dailyType === 'PPDT' ? `[PPDT] ${dailyOirText.trim()}` : dailyOirText.trim();
+          await uploadDailyChallenge(file, finalOirText, dailyWat.trim(), dailySrt.trim(), dailyInterview.trim(), dailyOirCorrectAnswer.trim(), dailyOirExplanation.trim());
           setDailyOirText(''); setDailyWat(''); setDailySrt(''); setDailyInterview(''); setDailyOirCorrectAnswer(''); setDailyOirExplanation('');
           if (fileInputRef.current) fileInputRef.current.value = '';
           alert("Daily Challenge Published Successfully!");
@@ -1117,19 +1119,34 @@ CREATE POLICY "Users can update own profile" ON public.aspirants FOR UPDATE USIN
                       <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><Clock size={24} className="text-rose-600"/> Daily Challenge</h3>
                       {currentChallenge && <p className="text-xs font-bold text-green-600">Active Challenge: {new Date(currentChallenge.created_at).toDateString()}</p>}
                   </div>
+                  <div className="mb-6 flex items-center gap-4">
+                      <span className="text-sm font-bold text-slate-700">Type:</span>
+                      <button 
+                          onClick={() => setDailyType('OIR')}
+                          className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${dailyType === 'OIR' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                      >
+                          OIR
+                      </button>
+                      <button 
+                          onClick={() => setDailyType('PPDT')}
+                          className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${dailyType === 'PPDT' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                      >
+                          PPDT
+                      </button>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR Image</label>
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{dailyType === 'PPDT' ? 'PPDT Image' : 'OIR Image'}</label>
                           <div className="p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 hover:border-slate-400 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" />
                               <div className="flex flex-col items-center gap-2 text-slate-400">
                                   <ImageIcon size={24} />
-                                  <span className="text-xs font-bold uppercase">Upload OIR</span>
+                                  <span className="text-xs font-bold uppercase">Upload {dailyType === 'PPDT' ? 'PPDT' : 'OIR'}</span>
                               </div>
                           </div>
                       </div>
                       <div className="space-y-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR Text (Optional)</label>
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{dailyType === 'PPDT' ? 'PPDT Text (Optional)' : 'OIR Text (Optional)'}</label>
                           <input value={dailyOirText} onChange={e => setDailyOirText(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Text question if no image..." />
                       </div>
                       <div className="space-y-4">
