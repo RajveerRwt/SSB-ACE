@@ -3,19 +3,35 @@ import cors from 'cors';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-import { createServer as createViteServer } from 'vite';
 import path from 'path';
 
-// Initialize Supabase Admin Client
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_KEY || '';
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+// Lazy initialization for Supabase Admin
+let supabaseAdminClient: any = null;
+function getSupabaseAdmin() {
+  if (!supabaseAdminClient) {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_KEY || '';
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Supabase credentials are not set in environment variables.');
+    }
+    supabaseAdminClient = createClient(supabaseUrl, supabaseServiceKey);
+  }
+  return supabaseAdminClient;
+}
 
-// Initialize Razorpay
-const razorpay = new Razorpay({
-  key_id: process.env.VITE_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || '',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || '',
-});
+// Lazy initialization for Razorpay
+let razorpayClient: any = null;
+function getRazorpay() {
+  if (!razorpayClient) {
+    const key_id = process.env.VITE_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || '';
+    const key_secret = process.env.RAZORPAY_KEY_SECRET || '';
+    if (!key_id || !key_secret) {
+      throw new Error('Razorpay credentials are not set in environment variables.');
+    }
+    razorpayClient = new Razorpay({ key_id, key_secret });
+  }
+  return razorpayClient;
+}
 
 // Vite middleware setup
 const app = express();
@@ -41,6 +57,7 @@ apiRouter.get(['/health', '/health/'], (req, res) => {
 // Create Order Endpoint
 apiRouter.post(['/create-order', '/create-order/'], async (req, res) => {
   try {
+    const razorpay = getRazorpay();
     const { amount, currency = 'INR', receipt } = req.body;
     
     if (!amount) {
@@ -67,6 +84,7 @@ apiRouter.post(['/create-order', '/create-order/'], async (req, res) => {
 // Verify Payment Endpoint
 apiRouter.post(['/verify-payment', '/verify-payment/'], async (req, res) => {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
     const { 
       razorpay_order_id, 
       razorpay_payment_id, 
@@ -157,6 +175,7 @@ app.use('/api', apiRouter);
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

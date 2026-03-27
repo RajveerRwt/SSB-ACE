@@ -139,7 +139,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
       });
       
       if (!orderResponse.ok) {
-        throw new Error('Failed to create order');
+        const errorData = await orderResponse.json().catch(() => ({}));
+        console.error('Backend error:', errorData);
+        throw new Error(errorData.error || 'Failed to create order');
       }
       
       const { orderId, keyId: backendKeyId } = await orderResponse.json();
