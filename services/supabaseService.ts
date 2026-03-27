@@ -741,9 +741,9 @@ export const getPendingPayments = async () => {
 export const activatePlanForUser = async (userId: string, planType: string, amount?: number, coinsCredit?: number) => {
   const { data: sub } = await supabase
       .from('user_subscriptions')
-      .select('coins')
+      .select('coins, tier')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
       
   const currentCoins = sub?.coins || 0;
   let coinsToAdd = 0;
@@ -761,8 +761,11 @@ export const activatePlanForUser = async (userId: string, planType: string, amou
   
   const { error } = await supabase
       .from('user_subscriptions')
-      .update({ coins: currentCoins + coinsToAdd })
-      .eq('user_id', userId);
+      .upsert({ 
+          user_id: userId, 
+          coins: currentCoins + coinsToAdd,
+          tier: planType === 'PRO_SUBSCRIPTION' ? 'PRO' : (sub?.tier || 'FREE')
+      }, { onConflict: 'user_id' });
       
   if (error) throw error;
 };

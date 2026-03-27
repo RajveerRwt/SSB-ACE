@@ -185,7 +185,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
               });
 
               if (!verifyResponse.ok) {
-                throw new Error('Payment verification failed');
+                const errorData = await verifyResponse.json().catch(() => ({}));
+                console.error('Backend verify error:', errorData);
+                throw new Error(errorData.error || 'Payment verification failed');
               }
 
               setStep('SUCCESS');

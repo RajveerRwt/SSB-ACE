@@ -10,7 +10,7 @@ let supabaseAdminClient: any = null;
 function getSupabaseAdmin() {
   if (!supabaseAdminClient) {
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_KEY || '';
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
     if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error('Supabase credentials are not set in environment variables.');
     }
@@ -127,9 +127,9 @@ apiRouter.post(['/verify-payment', '/verify-payment/'], async (req, res) => {
     // 2. Activate Plan / Add Coins
     const { data: sub } = await supabaseAdmin
         .from('user_subscriptions')
-        .select('coins')
+        .select('coins, tier')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
         
     const currentCoins = sub?.coins || 0;
     let coinsToAdd = 0;
@@ -147,8 +147,11 @@ apiRouter.post(['/verify-payment', '/verify-payment/'], async (req, res) => {
     
     const { error: updateError } = await supabaseAdmin
         .from('user_subscriptions')
-        .update({ coins: currentCoins + coinsToAdd })
-        .eq('user_id', userId);
+        .upsert({ 
+            user_id: userId, 
+            coins: currentCoins + coinsToAdd,
+            tier: planType === 'PRO_SUBSCRIPTION' ? 'PRO' : (sub?.tier || 'FREE')
+        }, { onConflict: 'user_id' });
         
     if (updateError) {
       console.error('Error updating coins:', updateError);
