@@ -103,6 +103,7 @@ export interface UserSubscription {
   };
   extra_credits: {
     interview: number;
+    challenge_14_day_unlocked?: boolean;
   }
 }
 

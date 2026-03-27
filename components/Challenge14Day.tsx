@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, saveTestAttempt, submitUserFeedback } from '../services/supabaseService';
+import { supabase, saveTestAttempt, submitUserFeedback, getUserSubscription, unlock12DayChallenge, checkBalance } from '../services/supabaseService';
 import { Target, Calendar, CheckCircle, Lock, Play, Loader2, ArrowLeft, Brain, Zap, Image as ImageIcon, Send, Upload, Timer, FastForward, Eye, X, FileText, Camera, Trash2, Edit, Activity, MessageCircle, Star } from 'lucide-react';
 import { PIQData } from '../types';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -112,6 +112,9 @@ const Challenge14Day: React.FC<Challenge14DayProps> = ({ onBack, userId, piqData
     const [feedbackSubmitted, setFeedbackSubmitted] = useState<boolean>(false);
     const [currentAttemptId, setCurrentAttemptId] = useState<string | null>(null);
     const [pendingProgress, setPendingProgress] = useState<any>(null);
+    const [isUnlocked, setIsUnlocked] = useState(false);
+    const [showUnlockModal, setShowUnlockModal] = useState(false);
+    const [unlocking, setUnlocking] = useState(false);
 
     const EVALUATION_TIPS = [
         "Did you know? The TAT measures your subconscious needs and drives.",
@@ -224,7 +227,16 @@ const Challenge14Day: React.FC<Challenge14DayProps> = ({ onBack, userId, piqData
     useEffect(() => {
         fetchDays();
         fetchUserProgress();
+        checkUnlockStatus();
     }, [userId]);
+
+    const checkUnlockStatus = async () => {
+        if (!userId) return;
+        const sub = await getUserSubscription(userId);
+        if (sub && sub.extra_credits && sub.extra_credits.challenge_14_day_unlocked) {
+            setIsUnlocked(true);
+        }
+    };
 
     const fetchUserProgress = async () => {
         if (!userId) return;
@@ -531,6 +543,10 @@ const Challenge14Day: React.FC<Challenge14DayProps> = ({ onBack, userId, piqData
     };
 
     const handleDaySelect = (dayNumber: number) => {
+        if (dayNumber >= 3 && !isUnlocked) {
+            setShowUnlockModal(true);
+            return;
+        }
         setSelectedDay(dayNumber);
         fetchResources(dayNumber);
         setIsTesting(false);
@@ -1781,7 +1797,7 @@ const Challenge14Day: React.FC<Challenge14DayProps> = ({ onBack, userId, piqData
                         {days.map((day, index) => {
                             const isCompleted = completedDays.includes(day.day_number);
                             const isNext = !isCompleted && (index === 0 || completedDays.includes(days[index - 1]?.day_number));
-                            const isLocked = !isCompleted && !isNext && index !== 0; 
+                            const isLocked = (!isCompleted && !isNext && index !== 0) || (day.day_number >= 3 && !isUnlocked); 
                             
                             return (
                                 <button
@@ -1798,7 +1814,7 @@ const Challenge14Day: React.FC<Challenge14DayProps> = ({ onBack, userId, piqData
                                     }`}
                                 >
                                     {isCompleted && <div className="absolute -top-3 -right-3 bg-yellow-500 text-white rounded-full p-1.5 shadow-lg"><CheckCircle size={20} /></div>}
-                                    {isLocked && <div className="absolute top-4 right-4 text-slate-300"><Lock size={16} /></div>}
+                                    {isLocked && <div className={`absolute top-4 right-4 ${isNext ? 'text-yellow-200' : 'text-slate-300'}`}><Lock size={16} /></div>}
                                     
                                     <div className={`text-4xl md:text-5xl font-black mb-1 ${isNext ? 'text-white' : ''}`}>{day.day_number}</div>
                                     <div className={`text-xs font-bold uppercase tracking-widest ${isNext ? 'text-yellow-200' : 'text-opacity-60'}`}>Day</div>
@@ -1951,6 +1967,57 @@ const Challenge14Day: React.FC<Challenge14DayProps> = ({ onBack, userId, piqData
                                     </button>
                                 )}
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showUnlockModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full relative">
+                        <button onClick={() => setShowUnlockModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                            <X size={24} />
+                        </button>
+                        <div className="text-center mb-6">
+                            <div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Lock size={32} />
+                            </div>
+                            <h2 className="text-2xl font-black text-slate-900 mb-2">Unlock Full Challenge</h2>
+                            <p className="text-slate-600">Unlock all 12 days of the psychological challenge for just 50 coins.</p>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            <button 
+                                disabled={unlocking}
+                                onClick={async () => {
+                                    if (!userId) return;
+                                    setUnlocking(true);
+                                    const success = await unlock12DayChallenge(userId);
+                                    if (success) {
+                                        setIsUnlocked(true);
+                                        setShowUnlockModal(false);
+                                    } else {
+                                        setUnlocking(false);
+                                        // Show error inline
+                                        const errorEl = document.getElementById('unlock-error');
+                                        if (errorEl) {
+                                            errorEl.style.display = 'block';
+                                            setTimeout(() => { errorEl.style.display = 'none'; }, 3000);
+                                        }
+                                        return;
+                                    }
+                                    setUnlocking(false);
+                                }}
+                                className="w-full py-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                            >
+                                {unlocking ? <Loader2 size={20} className="animate-spin" /> : <><Lock size={20} /> Unlock for 50 Coins</>}
+                            </button>
+                            <p id="unlock-error" className="text-red-500 text-sm font-bold text-center hidden">Insufficient coins or error unlocking.</p>
+                            <button 
+                                onClick={() => setShowUnlockModal(false)}
+                                className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition-all"
+                            >
+                                Cancel
+                            </button>
                         </div>
                     </div>
                 </div>

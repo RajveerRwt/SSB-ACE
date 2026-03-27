@@ -21,7 +21,7 @@ export const TEST_RATES = {
     OIR_SUDDEN_DEATH: 5, 
     INTERVIEW_TRIAL: 20, 
     INTERVIEW_FULL: 100,
-    MOCK_SCREENING: 0
+    MOCK_SCREENING: 20
 };
 
 
@@ -648,6 +648,33 @@ export const checkBalance = async (userId: string, cost: number) => {
         return { allowed: true, balance: sub.coins };
     }
     return { allowed: false, balance: sub.coins, shortfall: cost - sub.coins };
+};
+
+export const unlock12DayChallenge = async (userId: string) => {
+    const { data: sub } = await supabase
+        .from('user_subscriptions')
+        .select('coins, extra_credits')
+        .eq('user_id', userId)
+        .single();
+        
+    if (!sub || sub.coins < 50) return false;
+    
+    const newBalance = sub.coins - 50;
+    const newExtraCredits = {
+        ...(sub.extra_credits || {}),
+        challenge_14_day_unlocked: true
+    };
+    
+    const { error } = await supabase
+        .from('user_subscriptions')
+        .update({ coins: newBalance, extra_credits: newExtraCredits })
+        .eq('user_id', userId);
+        
+    if (error) {
+        console.error("Unlock failed:", error);
+        return false;
+    }
+    return true;
 };
 
 export const deductCoins = async (userId: string, amount: number) => {
