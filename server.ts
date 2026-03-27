@@ -33,13 +33,16 @@ app.post('/api/create-order', async (req, res) => {
     }
 
     const options = {
-      amount: amount * 100, // amount in smallest currency unit
+      amount: Math.round(amount * 100), // amount in smallest currency unit
       currency,
       receipt: receipt || `receipt_${Date.now()}`,
     };
 
     const order = await razorpay.orders.create(options);
-    res.json({ orderId: order.id });
+    res.json({ 
+      orderId: order.id,
+      keyId: process.env.VITE_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || ''
+    });
   } catch (error: any) {
     console.error('Error creating Razorpay order:', error);
     res.status(500).json({ error: error.message || 'Failed to create order' });

@@ -128,15 +128,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
     }
 
     // Robust Key Retrieval
-    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID || (process.env as any).RAZORPAY_KEY_ID;
+    let keyId = import.meta.env.VITE_RAZORPAY_KEY_ID || (process.env as any).RAZORPAY_KEY_ID;
     
-    if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE' || keyId === '') {
-        console.error("Razorpay Key is missing.");
-        setError("Payment System Error: Merchant Key Missing. Please ensure VITE_RAZORPAY_KEY_ID is set in Settings and RE-DEPLOY the app.");
-        setProcessing(false);
-        return;
-    }
-
     try {
       // 1. Create Order on Backend
       const orderResponse = await fetch('/api/create-order', {
@@ -149,11 +142,23 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
         throw new Error('Failed to create order');
       }
       
-      const { orderId } = await orderResponse.json();
+      const { orderId, keyId: backendKeyId } = await orderResponse.json();
+
+      // Use backend key if frontend key is missing
+      if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE' || keyId === '') {
+        keyId = backendKeyId;
+      }
+
+      if (!keyId || keyId === 'PASTE_YOUR_KEY_HERE' || keyId === '') {
+          console.error("Razorpay Key is missing.");
+          setError("Payment System Error: Merchant Key Missing. Please ensure RAZORPAY_KEY_ID is set in Settings.");
+          setProcessing(false);
+          return;
+      }
 
       const options = {
         key: keyId, 
-        amount: finalAmount * 100, 
+        amount: Math.round(finalAmount * 100), 
         currency: "INR",
         name: "SSBPREP.ONLINE",
         description: `Coin Recharge: ${coinsToCredit} Coins`,
