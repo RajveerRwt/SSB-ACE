@@ -31,13 +31,16 @@ async function startServer() {
     next();
   });
 
-  // API routes
-  app.get('/api/health/', (req, res) => {
+  // API Router
+  const apiRouter = express.Router();
+
+  // Health check
+  apiRouter.get('/health', (req, res) => {
     res.json({ status: 'ok' });
   });
 
   // Create Order Endpoint
-  app.post('/api/create-order/', async (req, res) => {
+  apiRouter.post('/create-order', async (req, res) => {
     try {
       const { amount, currency = 'INR', receipt } = req.body;
       
@@ -63,7 +66,7 @@ async function startServer() {
   });
 
   // Verify Payment Endpoint
-  app.post('/api/verify-payment/', async (req, res) => {
+  apiRouter.post('/verify-payment', async (req, res) => {
     try {
       const { 
         razorpay_order_id, 
@@ -149,6 +152,9 @@ async function startServer() {
       res.status(500).json({ error: error.message || 'Failed to verify payment' });
     }
   });
+
+  // Mount API Router
+  app.use('/api', apiRouter);
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

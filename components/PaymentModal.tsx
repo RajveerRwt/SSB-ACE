@@ -132,7 +132,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
     
     try {
       // 1. Create Order on Backend
-      const orderResponse = await fetch('/api/create-order/', {
+      const orderResponse = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: finalAmount })
@@ -167,7 +167,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
         handler: async function (response: any) {
           try {
               // 2. Verify Payment on Backend
-              const verifyResponse = await fetch('/api/verify-payment/', {
+              const verifyResponse = await fetch('/api/verify-payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
