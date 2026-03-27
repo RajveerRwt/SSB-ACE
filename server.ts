@@ -35,12 +35,12 @@ async function startServer() {
   const apiRouter = express.Router();
 
   // Health check
-  apiRouter.get('/health', (req, res) => {
+  apiRouter.get(['/health', '/health/'], (req, res) => {
     res.json({ status: 'ok' });
   });
 
   // Create Order Endpoint
-  apiRouter.post('/create-order', async (req, res) => {
+  apiRouter.post(['/create-order', '/create-order/'], async (req, res) => {
     try {
       const { amount, currency = 'INR', receipt } = req.body;
       
@@ -66,7 +66,7 @@ async function startServer() {
   });
 
   // Verify Payment Endpoint
-  apiRouter.post('/verify-payment', async (req, res) => {
+  apiRouter.post(['/verify-payment', '/verify-payment/'], async (req, res) => {
     try {
       const { 
         razorpay_order_id, 
