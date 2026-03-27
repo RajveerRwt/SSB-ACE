@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Star, Zap, CheckCircle, X, Loader2, QrCode, ArrowLeft, Smartphone, AlertCircle, Clock, Tag, CreditCard, BookOpen, ChevronRight, Coins, Plus, Info } from 'lucide-react';
-import { processRazorpayTransaction, getLatestPaymentRequest, validateCoupon } from '../services/supabaseService';
+import { getLatestPaymentRequest, validateCoupon } from '../services/supabaseService';
 
 interface PaymentModalProps {
   userId: string;
@@ -137,46 +137,72 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ userId, isOpen, onClose, on
         return;
     }
 
-    const options = {
-      key: keyId, 
-      amount: finalAmount * 100, 
-      currency: "INR",
-      name: "SSBPREP.ONLINE",
-      description: `Coin Recharge: ${coinsToCredit} Coins`,
-      image: "https://ssbprep.online/logo.svg",
-      handler: async function (response: any) {
-        try {
-            await processRazorpayTransaction(
-                userId, 
-                response.razorpay_payment_id, 
-                finalAmount, 
-                selectedPlan, 
-                appliedCoupon,
-                coinsToCredit // Pass calculated coins explicitly
-            );
-            setStep('SUCCESS');
-            setProcessing(false);
-            onSuccess(); 
-        } catch (e: any) {
-            setError("Payment successful but coin credit failed. Contact Support: " + response.razorpay_payment_id);
-            setProcessing(false);
-        }
-      },
-      prefill: { name: "", email: "", contact: "" },
-      notes: { plan: selectedPlan, userId: userId, coins: coinsToCredit },
-      theme: { color: "#1e293b" }
-    };
-
     try {
-        const paymentObject = new window.Razorpay(options);
-        paymentObject.on('payment.failed', function (response: any){
-            setError(response.error.description || "Payment Failed");
-            setProcessing(false);
-        });
-        paymentObject.open();
-    } catch (e) {
+      // 1. Create Order on Backend
+      const orderResponse = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: finalAmount })
+      });
+      
+      if (!orderResponse.ok) {
+        throw new Error('Failed to create order');
+      }
+      
+      const { orderId } = await orderResponse.json();
+
+      const options = {
+        key: keyId, 
+        amount: finalAmount * 100, 
+        currency: "INR",
+        name: "SSBPREP.ONLINE",
+        description: `Coin Recharge: ${coinsToCredit} Coins`,
+        image: "https://ssbprep.online/logo.svg",
+        order_id: orderId, // Pass the order ID from backend
+        handler: async function (response: any) {
+          try {
+              // 2. Verify Payment on Backend
+              const verifyResponse = await fetch('/api/verify-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  userId,
+                  amount: finalAmount,
+                  planType: selectedPlan,
+                  couponCode: appliedCoupon,
+                  coinsCredit: coinsToCredit
+                })
+              });
+
+              if (!verifyResponse.ok) {
+                throw new Error('Payment verification failed');
+              }
+
+              setStep('SUCCESS');
+              setProcessing(false);
+              onSuccess(); 
+          } catch (e: any) {
+              setError("Payment successful but verification failed. Contact Support: " + response.razorpay_payment_id);
+              setProcessing(false);
+          }
+        },
+        prefill: { name: "", email: "", contact: "" },
+        notes: { plan: selectedPlan, userId: userId, coins: coinsToCredit },
+        theme: { color: "#1e293b" }
+      };
+
+      const paymentObject = new window.Razorpay(options);
+      paymentObject.on('payment.failed', function (response: any){
+          setError(response.error.description || "Payment Failed");
+          setProcessing(false);
+      });
+      paymentObject.open();
+    } catch (e: any) {
         console.error(e);
-        setError("Could not initialize payment gateway.");
+        setError(e.message || "Could not initialize payment gateway.");
         setProcessing(false);
     }
   };

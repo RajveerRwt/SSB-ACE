@@ -781,28 +781,6 @@ export const rejectPaymentRequest = async (id: string) => {
   await supabase.from('payment_requests').update({ status: 'REJECTED' }).eq('id', id);
 };
 
-export const processRazorpayTransaction = async (userId: string, paymentId: string, amount: number, planType: string, couponCode?: string, coinsCredit?: number) => {
-    const { data, error } = await supabase.from('payment_requests').insert({
-        user_id: userId,
-        utr: paymentId,
-        amount: amount,
-        plan_type: planType,
-        status: 'APPROVED', 
-        coupon_code: couponCode
-    }).select().single();
-    
-    if (error) throw new Error("Could not record payment.");
-    
-    await activatePlanForUser(userId, planType, amount, coinsCredit);
-    
-    if (couponCode) {
-        const { data: coupon } = await supabase.from('coupons').select('usage_count').eq('code', couponCode).maybeSingle();
-        if (coupon) {
-            await supabase.from('coupons').update({ usage_count: (coupon.usage_count || 0) + 1 }).eq('code', couponCode);
-        }
-    }
-};
-
 export const getPPDTScenarios = async () => { const { data } = await supabase.from('ppdt_scenarios').select('*'); return data || []; };
 export const uploadCustomScenario = async (file: File) => {
   const fileName = `custom-${Date.now()}-${file.name}`;
