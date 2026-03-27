@@ -11,7 +11,7 @@ const FreeCoinModal: React.FC<FreeCoinModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const handleProceed = () => {
-    const message = encodeURIComponent("i want free 50 coin credits");
+    const message = encodeURIComponent("i want free 20 coin credits");
     window.open(`https://wa.me/9131112322?text=${message}`, '_blank');
     onClose();
   };
@@ -31,7 +31,7 @@ const FreeCoinModal: React.FC<FreeCoinModalProps> = ({ isOpen, onClose }) => {
           <div className="space-y-3">
             <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Exclusive Offer!</h3>
             <p className="text-slate-600 font-medium text-sm leading-relaxed">
-              You will get <span className="text-blue-600 font-black">free 50 coin + exclusive SSB material</span>. 
+              You will get <span className="text-blue-600 font-black">free 20 coin + exclusive SSB material</span>. 
               Help us in testing and provide your valuable feedback to improve the platform!
             </p>
           </div>
@@ -41,7 +41,7 @@ const FreeCoinModal: React.FC<FreeCoinModalProps> = ({ isOpen, onClose }) => {
               <CheckCircle size={12} className="text-green-500" /> What you get:
             </div>
             <ul className="text-xs font-bold text-slate-700 space-y-1">
-              <li>• 50 Free Credits for AI Tests</li>
+              <li>• 20 Free Credits for AI Tests</li>
               <li>• Premium SSB Study Material</li>
               <li>• Direct Support & Feedback Channel</li>
             </ul>

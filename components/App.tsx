@@ -309,7 +309,7 @@ const Dashboard: React.FC<{
                                 onClick={() => setShowFreeCoinPopup(true)}
                                 className="text-[9px] font-bold px-3 py-1.5 rounded bg-green-600 text-white hover:bg-green-500 transition-colors uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-green-600/20"
                             >
-                                <Gift size={10} /> Get Free 50 Coins
+                                <Gift size={10} /> Get Free 20 Coins
                             </button>
                             <button onClick={onOpenPayment} className="text-[9px] font-bold px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-500 transition-colors uppercase tracking-widest">
                                Add Coins

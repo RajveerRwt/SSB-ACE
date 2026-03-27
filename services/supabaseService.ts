@@ -336,7 +336,7 @@ export const syncUserProfile = async (user: any) => {
       const { error: subError } = await supabase.from('user_subscriptions').insert({
           user_id: user.id,
           tier: 'FREE',
-          coins: 50, 
+          coins: 20, 
           usage: {
             interview_used: 0, interview_limit: 1, 
             ppdt_used: 0, ppdt_limit: 10,          
@@ -636,7 +636,7 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
   };
   
   if (sub.coins === undefined || sub.coins === null) {
-      sub.coins = 50; 
+      sub.coins = 20; 
   }
   
   return sub;
