@@ -5,7 +5,7 @@ import { signInWithEmail, signUpWithEmail, signInWithGoogle, resendConfirmationE
 import { SSBLogo } from './Logo';
 
 interface LoginProps {
-  onLogin: (identifier: string, email?: string, metadata?: any) => void;
+  onLogin: (identifier: string, email?: string, metadata?: any) => void | Promise<void>;
   onCancel?: () => void;
   initialIsSignUp?: boolean;
 }

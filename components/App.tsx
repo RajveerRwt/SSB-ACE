@@ -29,9 +29,10 @@ import StudentBatchView from './StudentBatchView';
 import BatchPPDTTest from './BatchPPDTTest';
 import Challenge14Day from './Challenge14Day';
 import { TestType, PIQData, UserSubscription } from '../types';
-import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, getTestReport, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment, getMentorProfile, getLatestDailyChallenge, hasUserSubmittedDaily } from '../services/supabaseService';
+import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, getTestReport, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment, getMentorProfile, getLatestDailyChallenge, hasUserSubmittedDaily, markWelcomeSeen } from '../services/supabaseService';
 import { evaluatePerformance } from '../services/geminiService';
 import FreeCoinModal from './FreeCoinModal';
+import WelcomeModal from './WelcomeModal';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, Gift, RotateCcw, FileText, Upload } from 'lucide-react';
 import { SSBLogo } from './Logo';
 
@@ -246,7 +247,7 @@ const Dashboard: React.FC<{
              </div>
              <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Master Your SSB Preparation<br/><span className="text-yellow-400">with India's most Advanced AI</span></h1>
              <p className="text-slate-300 text-sm md:text-lg leading-relaxed font-medium opacity-90 max-w-2xl">
-               Practice exactly like real SSB with full detailed and personalised assessment.</p>
+               Practice exactly like real SSB with full detailed and personalised assessmen.</p>
              
              {isLoggedIn ? (
                <div className="flex flex-col md:flex-row flex-wrap gap-4 pt-4">
@@ -847,11 +848,23 @@ const App: React.FC = () => {
   }, [user]);
 
   const handleUserAuthenticated = async (u: any) => {
+      await syncUserProfile(u);
       setUser(u.id);
       setUserEmail(u.email || '');
       setUserName(u.user_metadata?.full_name || u.user_metadata?.name || 'Cadet');
+      
+      if (activeTest === TestType.LOGIN || activeTest === TestType.REGISTER) {
+        setActiveTest(TestType.DASHBOARD);
+      }
+
       getUserData(u.id).then((d: any) => d && setPiqData(d));
-      getUserSubscription(u.id).then((sub: any) => setSubscription(sub));
+      getUserSubscription(u.id).then((sub: any) => {
+          setSubscription(sub);
+          if (sub && !sub.extra_credits?.welcome_seen) {
+              setShowWelcome(true);
+          }
+          setIsLoading(false);
+      });
       
       // Check mentor status
       getMentorProfile(u.id).then(profile => {
@@ -863,22 +876,26 @@ const App: React.FC = () => {
           setMentorStatus(null);
         }
       });
-
-      const hasSeenWelcome = localStorage.getItem(`ssb_welcome_seen_${u.id}`);
-      if (!hasSeenWelcome) setShowWelcome(true);
   };
 
-  const handleLogin = (uid: string, email?: string, metadata?: any) => {
+  const handleLogin = async (uid: string, email?: string, metadata?: any) => {
+    await syncUserProfile({ id: uid, email, user_metadata: metadata });
     setUser(uid);
     setUserEmail(email || '');
     if (metadata) {
       setUserName(metadata.full_name || metadata.name || 'Cadet');
     }
-    if (activeTest === TestType.LOGIN) {
+    if (activeTest === TestType.LOGIN || activeTest === TestType.REGISTER) {
       setActiveTest(TestType.DASHBOARD);
     }
     getUserData(uid).then((d: any) => d && setPiqData(d));
-    getUserSubscription(uid).then((sub: any) => setSubscription(sub));
+    getUserSubscription(uid).then((sub: any) => {
+        setSubscription(sub);
+        if (sub && !sub.extra_credits?.welcome_seen) {
+            setShowWelcome(true);
+        }
+        setIsLoading(false);
+    });
     
     // Check mentor status
     getMentorProfile(uid).then(profile => {
@@ -1070,6 +1087,16 @@ const App: React.FC = () => {
             onSuccess={() => { getUserSubscription(user).then((sub: any) => setSubscription(sub)); }}
         />
       )}
+      <WelcomeModal
+        isOpen={showWelcome}
+        onClose={() => {
+          setShowWelcome(false);
+          if (user) {
+            markWelcomeSeen(user);
+          }
+        }}
+        userName={userName}
+      />
     </Layout>
   );
 };

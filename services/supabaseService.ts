@@ -336,7 +336,7 @@ export const syncUserProfile = async (user: any) => {
       const { error: subError } = await supabase.from('user_subscriptions').insert({
           user_id: user.id,
           tier: 'FREE',
-          coins: 20, 
+          coins: 50, 
           usage: {
             interview_used: 0, interview_limit: 1, 
             ppdt_used: 0, ppdt_limit: 10,          
@@ -345,7 +345,7 @@ export const syncUserProfile = async (user: any) => {
             srt_used: 0, srt_limit: 3,             
             sdt_used: 0
           },
-          extra_credits: { interview: 0 }
+          extra_credits: { interview: 0, welcome_seen: false }
       });
       if (subError) console.warn("Sub Init Error:", subError);
   }
@@ -632,14 +632,31 @@ export const getUserSubscription = async (userId: string): Promise<UserSubscript
         srt_used: 0, srt_limit: 3,
         sdt_used: 0
       },
-      extra_credits: { interview: 0 }
+      extra_credits: { interview: 0, welcome_seen: false }
   };
   
   if (sub.coins === undefined || sub.coins === null) {
       sub.coins = 20; 
   }
   
+  if (!sub.extra_credits) {
+      sub.extra_credits = { interview: 0, welcome_seen: false };
+  }
+  
   return sub;
+};
+
+export const markWelcomeSeen = async (userId: string) => {
+    const sub = await getUserSubscription(userId);
+    const newExtraCredits = {
+        ...(sub.extra_credits || { interview: 0 }),
+        welcome_seen: true
+    };
+    const { error } = await supabase
+        .from('user_subscriptions')
+        .update({ extra_credits: newExtraCredits })
+        .eq('user_id', userId);
+    if (error) console.error("Mark Welcome Seen Error:", error.message);
 };
 
 export const checkBalance = async (userId: string, cost: number) => {
