@@ -276,9 +276,13 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
       streamRef.current = stream;
       
       // Connect stream to video element for self-view and capture
-      if (videoRef.current) {
+      if (videoRef.current && videoRef.current.srcObject !== stream) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(e => console.error("Video play failed", e));
+          videoRef.current.play().catch(e => {
+              if (e.name !== 'AbortError') {
+                  console.error("Video play failed", e);
+              }
+          });
       }
       
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
@@ -310,9 +314,11 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
           2. **VISUAL OBSERVATION**: You are receiving a live video feed of the candidate. You MUST observe their body language. At the start, comment on their attire or posture. If they look away or fidget, reprimand them ("Gentleman, maintain eye contact").
           
           *** IO BEHAVIOR & VOICE ***
-          1. **VOICE TONE**: You are NOT a news reader or an AI assistant. You are an **Indian Army Officer**.
-             - **Speak naturally**: Use pauses, varying pitch, and natural cadence.
-             - **Authoritative but Human**: Be strict when needed, but warm when building rapport.
+          1. **VOICE TONE & PACING**: You are a CALM, COMPOSED, and seasoned Indian Army Officer. 
+             - **Speak VERY SLOWLY and CALMLY**. Do not rush your words.
+             - **Accent**: Adopt a clear, authentic **Indian accent** in your English pronunciation.
+             - **Speak naturally**: Use deliberate pauses, varying pitch, and a measured, authoritative cadence.
+             - **Authoritative but Human**: Be strict when needed, but maintain a calm, unshakeable demeanor.
              - **Conversational Fillers**: Use phrases like "Hmm", "Right", "Fair enough", "Go on", "I see", "Okay".
              - **No Robotic Transitions**: DO NOT say "Thank you for that answer, now let us move to...". Instead say "Right. Tell me about..." or "Okay. Moving on."
           
@@ -325,32 +331,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
           `;
 
       // 2. INTERVIEW STRUCTURE (Conditional)
-      let structureInstruction = "";
-
-      if (isRetry) {
-          // RECONNECTION MODE: SKIP INTRO, RESUME DIRECTLY
-          const recentHistory = conversationHistoryRef.current.slice(-6).join("\n"); // Last 6 turns
-          structureInstruction = `
-          *** NETWORK RESTORATION MODE (RESUMING) ***
-          The connection was briefly lost. 
-          
-          LAST CONTEXT:
-          ${recentHistory}
-
-          INSTRUCTION: 
-          1. Acknowledge the drop VERY briefly: "Right, we are back. You were saying?" or "Okay, let's continue."
-          2. **DO NOT** introduce yourself again. **DO NOT** ask "How are you" again.
-          3. **DO NOT REPEAT** the last question you asked if the candidate already started answering it.
-          4. **IMMEDIATELY** pick up the thread from the LAST CONTEXT above. 
-             - If the candidate was answering, ask them to complete their point.
-             - If you were asking a question and they didn't answer, rephrase it slightly and ask again.
-             - If the topic is done, move to the NEXT logical CIQ phase below.
-          `;
-      } else {
-          // FRESH START MODE
-          structureInstruction = `
-          *** INTERVIEW FLOW (START FROM BEGINNING) ***
-
+      const interviewPhases = `
           PHASE 1: RAPPORT BUILDING (2-3 mins)
           - Welcome the candidate. "Welcome. I am Col. Arjun Singh."
           - Ask about their journey, stay, or breakfast to make them comfortable.
@@ -375,6 +356,37 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
           PHASE 6: SELF AWARENESS
           - Strengths/Weaknesses.
           - Situational Tests (SRTs).
+      `;
+
+      let structureInstruction = "";
+
+      if (isRetry) {
+          // RECONNECTION MODE: SKIP INTRO, RESUME DIRECTLY
+          // Send the full history so the model knows exactly what was already covered
+          const fullHistory = conversationHistoryRef.current.join("\n"); 
+          structureInstruction = `
+          *** INTERVIEW FLOW ***
+          ${interviewPhases}
+
+          *** NETWORK RESTORATION MODE (RESUMING) ***
+          The connection was briefly lost. You are resuming an ongoing interview.
+          
+          FULL CONVERSATION HISTORY SO FAR:
+          ${fullHistory}
+
+          INSTRUCTION: 
+          1. Acknowledge the drop VERY briefly: "Right, we are back."
+          2. **CRITICAL**: Read the FULL CONVERSATION HISTORY above. DO NOT ask questions about topics (like family, friends, hobbies, marks) that have ALREADY been covered in the history.
+          3. Pick up exactly where the conversation left off at the very end of the history.
+          4. If the candidate was in the middle of answering, simply ask them to continue: "Please continue your answer."
+          5. If a topic was just finished, move on to the NEXT logical phase of the interview that hasn't been covered yet.
+          6. **DO NOT** introduce yourself again.
+          `;
+      } else {
+          // FRESH START MODE
+          structureInstruction = `
+          *** INTERVIEW FLOW (START FROM BEGINNING) ***
+          ${interviewPhases}
           `;
       }
 
@@ -386,7 +398,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
       // but we use it to ensure unique session ID if needed in future logs.
 
       const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        model: 'gemini-3.1-flash-live-preview',
         config: {
           responseModalities: [Modality.AUDIO], // Audio Output
           inputAudioTranscription: {}, 
@@ -394,7 +406,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
           systemInstruction: finalInstruction,
           tools: [{ functionDeclarations: [getLatestNewsTool] }],
           speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } }, // Charon is best for authority
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } }, // Charon (Informative)
           },
         },
         callbacks: {
@@ -416,7 +428,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
                     const pcmBlob = createBlob(inputData);
                     sessionPromiseRef.current.then(session => {
                       try { 
-                        session.sendRealtimeInput({ media: pcmBlob }); 
+                        session.sendRealtimeInput({ audio: pcmBlob }); 
                       } catch(err) {}
                     });
                   }
@@ -454,7 +466,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
                                 const base64Data = await blobToBase64(blob);
                                 sessionPromiseRef.current.then(session => {
                                     session.sendRealtimeInput({
-                                        media: { data: base64Data, mimeType: 'image/jpeg' }
+                                        video: { data: base64Data, mimeType: 'image/jpeg' }
                                     });
                                 });
                             } catch (e) {
