@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Mic, MicOff, PhoneOff, ShieldCheck, FileText, Clock, Disc, SignalHigh, Loader2, Volume2, Info, RefreshCw, Wifi, WifiOff, Zap, AlertCircle, CheckCircle, Brain, Users, Video, VideoOff, Eye, FastForward, HelpCircle, ChevronDown, ChevronUp, AlertTriangle, Play, LogIn, IndianRupee, Coins } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality, Type, FunctionDeclaration } from '@google/genai';
-import { evaluatePerformance } from '../services/geminiService';
+import { evaluatePerformance, fetchDailyNews } from '../services/geminiService';
 import { PIQData } from '../types';
 import SessionFeedback from './SessionFeedback';
 import { TEST_RATES } from '../services/supabaseService';
@@ -335,7 +335,7 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
           PHASE 1: RAPPORT BUILDING (2-3 mins)
           - Welcome the candidate. "Welcome. I am Col. Arjun Singh."
           - Ask about their journey, stay, or breakfast to make them comfortable.
-          - "Relax, this is just a conversation."
+         
 
           PHASE 2: CIQ 1 - ACADEMICS & SPORTS
           - Rapid Fire: 10th/12th marks, schools, favorite teachers, subjects.
@@ -350,7 +350,9 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
           - Daily routine.
 
           PHASE 5: CURRENT AFFAIRS & SERVICE KNOWLEDGE
-          - Latest news (National/International).
+          - Latest news (National/International). 
+          - **MANDATORY**: You MUST ask about at least 2-3 LATEST news items from the provided context or by using the 'get_latest_news' tool. 
+          - Ask for the candidate's opinion on these events.
           - Why Defense? Regiment choice?
 
           PHASE 6: SELF AWARENESS
@@ -391,7 +393,19 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
       }
 
       // 3. COMBINE
-      const finalInstruction = `${basePersona}\n\n${structureInstruction}\n\nCRITICAL: Keep responses crisp. Do not monologue.`;
+      let latestNewsContext = "";
+      if (!isRetry) {
+          try {
+              const news = await fetchDailyNews();
+              if (news.text) {
+                  latestNewsContext = `\n\n*** LATEST NEWS CONTEXT (FOR PHASE 5) ***\n${news.text}\n\nUse these news items to probe the candidate's awareness.`;
+              }
+          } catch (e) {
+              console.warn("Initial news fetch failed", e);
+          }
+      }
+
+      const finalInstruction = `${basePersona}\n\n${structureInstruction}${latestNewsContext}\n\nCRITICAL: Keep responses crisp. Do not monologue.`;
 
       const sessionSeed = Math.floor(Math.random() * 10000);
       // We don't append sessionSeed to instruction text to avoid clutter, 
