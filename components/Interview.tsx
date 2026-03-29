@@ -337,7 +337,8 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
       // 2. INTERVIEW STRUCTURE (Conditional)
       const interviewPhases = `
           PHASE 1: RAPPORT BUILDING (2-3 mins)
-          - Welcome the candidate. "Welcome. I am Col. Arjun Singh."
+          - If the candidate greets you (e.g., "Good morning", "Jai Hind"), you MUST respond to their greeting appropriately first (e.g., "Good morning to you too").
+          - Welcome the candidate. "Welcome. I am Colonel Arjun Singh."
           - Ask about their journey, stay, or breakfast to make them comfortable.
           - Optional add-on questions: meaning of your Name, tell me something about the place you belong to. Why is it famous? Any famous personalities from your city/district? What are the famous tourist destinations or cuisines? What are the main challenges or problems in your district? If you were given a chance to become the head of your district, what changes would you make? If you are made the Chief Minister of your state, what will you do?
 
