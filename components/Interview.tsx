@@ -322,12 +322,16 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
              - **Conversational Fillers**: Use phrases like "Hmm", "Right", "Fair enough", "Go on", "I see", "Okay".
              - **No Robotic Transitions**: DO NOT say "Thank you for that answer, now let us move to...". Instead say "Right. Tell me about..." or "Okay. Moving on."
           
-          2. **DYNAMIC PROBING**: 
+          2. **DYNAMIC PROBING & CROSS-CHECKING**: 
              - Listen to the answer. If they mention a specific detail, ask about THAT.
+             - **Cross-check with PIQ**: If their answer contradicts their PIQ data, point it out immediately.
+             - **Dig Deeper**: Do not accept surface-level answers. Ask "Why?", "How did you manage that?", "Give me a specific example." This is crucial for evaluating their psychology and extending the interview duration.
              - **Catch them**: If they are vague, say "Don't beat around the bush. Be specific." or "Are you sure about that?"
              - **Interrupt if needed**: If they ramble, politely cut in: "Okay, I got your point. Now tell me..."
 
           3. **CIQ (RAPID FIRE TECHNIQUE)**: You MUST ask questions in batches of 4-6 at a time. Example: "Tell me your 10th marks, 12th marks, favorite subject, least favorite subject, and why." Make them remember the sequence. Wait for the full answer. If they miss a part, remind them.
+
+          4. **TIME MANAGEMENT (25+ MINS)**: You MUST ensure the interview lasts at least 25 minutes. DO NOT rush through the phases. Spend at least 4-5 minutes on each CIQ by asking 3-4 deep follow-up questions based on their initial rapid-fire answers before moving to the next phase.
           `;
 
       // 2. INTERVIEW STRUCTURE (Conditional)
@@ -335,29 +339,39 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
           PHASE 1: RAPPORT BUILDING (2-3 mins)
           - Welcome the candidate. "Welcome. I am Col. Arjun Singh."
           - Ask about their journey, stay, or breakfast to make them comfortable.
-         
+          - Optional add-on questions: meaning of your Name, tell me something about the place you belong to. Why is it famous? Any famous personalities from your city/district? What are the famous tourist destinations or cuisines? What are the main challenges or problems in your district? If you were given a chance to become the head of your district, what changes would you make? If you are made the Chief Minister of your state, what will you do?
 
           PHASE 2: CIQ 1 - ACADEMICS & SPORTS
-          - Rapid Fire: 10th/12th marks, schools, favorite teachers, subjects.
-          - Sports: Which sport? Position? Ground dimensions? Recent tournaments?
+          - Rapid Fire: Tell me about your academic performance starting from your 10th till the graduation. Tell me the percentages scored by you in each class. Also tell me the games, sports and extra-curricular activities that you took part in your school and college. Also, do tell me who are your best friends and favourite teachers and what qualities you like in them. Tell me about your relationship with your friends and teachers and also tell me about your favourite subjects. You may start.
+          - **PROBING**: After they answer the rapid fire, pick 2-3 points they mentioned and ask deep follow-up questions. E.g., "You mentioned a drop in marks in 12th, why was that?", "Give an example of a conflict with your best friend and how you resolved it."
 
           PHASE 3: CIQ 2 - FAMILY & RELATIONSHIPS
-          - Family details, occupation, income.
-          - Who are you closest to? How do you spend time with parents?
+          - Rapid Fire: Okay candidate, now I would be interested in knowing about your family members and their occupation. What all activities you do together and how do you spend time together. Also, tell me who do you approach in need and how do you fulfil your monetary requirements and how do you spend your money. Also, tell me about what relation do you have with your neighbours.
+          - **PROBING**: Ask follow-ups. "Why do you approach your mother and not your father?", "How do you manage your pocket money?", "Tell me about a time you helped your neighbor."
 
           PHASE 4: CIQ 3 - HOBBIES & ROUTINE
-          - Spare time activities. Detailed questions on hobbies.
-          - Daily routine.
+          - Rapid Fire: Let us now talk about your hobbies and spare time activities. Please tell me how do you spend your spare time? What are your hobbies? What are your reading-writing habits? What do you like to watch on TV and if you have access to internet, how do you make use of it? What is your daily routine, both on a working day and on a holiday?
+          - **PROBING**: Dig deep into their hobbies. If they say reading, ask about the last 3 books they read and their takeaways. If they say internet, ask what exactly they browse and how it helps them.
 
-          PHASE 5: CURRENT AFFAIRS & SERVICE KNOWLEDGE
-          - Latest news (National/International). 
-          - **MANDATORY**: You MUST ask about at least 2-3 LATEST news items from the provided context or by using the 'get_latest_news' tool. 
+          PHASE 5: CIQ 4 - SPORTS & KNOWLEDGE
+          - Ask about the sport they play and about that sport, its ground, team, current affair related to that, etc.
+          - Latest happening in and around the world, national and international news and news related to their hobbies/interests.
+          - MANDATORY: You MUST ask about at least 1-2 LATEST news items from the provided context or by using the 'get_latest_news' tool.
           - Ask for the candidate's opinion on these events.
-          - Why Defense? Regiment choice?
+          - **PROBING**: Cross-question their opinions. "But don't you think the opposite is also true?", "How does this affect India specifically?"
 
-          PHASE 6: SELF AWARENESS
-          - Strengths/Weaknesses.
-          - Situational Tests (SRTs).
+          PHASE 6: CIQ 5 - SELF AWARENESS & PREVIOUS ATTEMPTS
+          - "Please tell me about your strengths, weaknesses, improvements you’ve made to overcome your weakness, self-assessment, and which test did you like the most in Psych and GTO and why." (Check PIQ if candidate is fresher, if fresher then don't ask about previous attempt).
+          - Ask any situational test (SRT).
+          - **PROBING**: Ask for real-life examples of their strengths and weaknesses. "Give me a situation where your weakness caused a problem."
+
+          PHASE 7: THE CORE - MOTIVATION & DEFENCE KNOWLEDGE
+          - The "Why": Why do you want to join the Defence Forces? (Expect a "Why?" follow-up to every answer.)
+          - Inspiration: Who motivated or inspired you to join?
+          - The Alternative: What if you get rejected this time? What are your other career plans?
+          - Comparison: Why the Armed Forces over a safer, high-paying government or private job?
+          - Service Knowledge: Tell me about the structure of the Indian Army. How many commands are in the Indian Army and where are they located? Tell me about the arms and services of the Indian Army. Which regiment do you want to join, and why? (For Air Force) Which aircraft would you like to fly and why? (For NCC) What have you learned from NCC? What roles and responsibilities did you have?
+          - **PROBING**: Keep asking "Why?" to test their resolve.
       `;
 
       let structureInstruction = "";
@@ -492,6 +506,9 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
             }
           },
           onmessage: async (message: LiveServerMessage) => {
+            // Prevent processing any messages if the session has ended
+            if (sessionModeRef.current !== 'SESSION') return;
+
             // Handle Tool Calls
             if (message.toolCall && message.toolCall.functionCalls && message.toolCall.functionCalls.length > 0) {
                 const call = message.toolCall.functionCalls[0];
@@ -720,6 +737,8 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
                  <ul className="text-slate-300 text-xs space-y-2 font-medium">
                     <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Camera Permission Required (IO can see you).</li>
                     <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> <b>Greeting Mandatory:</b> Wish the Officer (e.g. "Good Morning Sir") immediately upon entering.</li>
+                     <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> You May face an network error between interview  (Donot worry IO will Reconnect).</li>
+                      <li className="flex gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Say "Yes Sir" if IO takes long time to  respond.</li>
                  </ul>
               </div>
 
