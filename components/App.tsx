@@ -268,7 +268,7 @@ const Dashboard: React.FC<{
                   <span className="text-[9px] font-black uppercase tracking-[0.2em] text-yellow-400">Premium Guidance</span>
                </div>
                <p className="text-sm md:text-base font-black tracking-tight text-white leading-tight">
-                  SSB Guidance Program by AIR 40 <span className="text-slate-400 font-medium text-xs ml-2 hidden md:inline-block">Starts April 12th • 2X Recommended</span>
+                  SSB Guidance Program by AIR 40 <span className="text-slate-400 font-medium text-xs ml-2 hidden md:inline-block">Starts April 14th • 2X Recommended</span>
                </p>
             </div>
          </div>

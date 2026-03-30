@@ -71,7 +71,7 @@ const MentorshipCard: React.FC<MentorshipCardProps> = ({ onClose, className = "m
   };
 
   const handleWhatsAppEnquiry = () => {
-    const text = encodeURIComponent("Hi Harsh Sir, I want to enquire about the SSB Guidance Program starting 12 April.");
+    const text = encodeURIComponent("Hi Harsh Sir, I want to enquire about the SSB Guidance Program starting 14 April.");
     window.open(`https://wa.me/9131112322?text=${text}`, '_blank'); // Replace with actual number if provided, else placeholder
   };
 
@@ -109,7 +109,7 @@ const MentorshipCard: React.FC<MentorshipCardProps> = ({ onClose, className = "m
       
       <div className="flex flex-wrap gap-4 text-sm font-bold text-slate-300">
         <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
-          <Calendar size={16} className="text-blue-400" /> Starts: 12 April
+          <Calendar size={16} className="text-blue-400" /> Starts: 14 April
         </div>
         <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
           <Clock size={16} className="text-purple-400" /> Duration: 6 Days
@@ -158,17 +158,13 @@ const MentorshipCard: React.FC<MentorshipCardProps> = ({ onClose, className = "m
     <div className="lg:col-span-5 flex flex-col items-center lg:items-end justify-center">
       <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 md:p-8 w-full max-w-sm text-center shadow-2xl relative">
         
-        {/* Mentor Photo Placeholder */}
-        <div className="w-24 h-24 mx-auto bg-slate-800 rounded-full border-4 border-yellow-500 shadow-xl overflow-hidden mb-4 relative">
-          {/* Replace src with actual mentor photo URL when available */}
+        {/* Mentor Photo */}
+        <div className="w-32 h-32 mx-auto rounded-full border-4 border-yellow-500 shadow-xl overflow-hidden mb-4 relative">
           <img 
-            src="1000210383.jpg" 
+            src="https://freeimage.host/i/B2FgFmF" 
             alt="Harsh Kumar" 
             className="w-full h-full object-cover"
           />
-          <div className="absolute bottom-0 left-0 w-full bg-yellow-500 text-black text-[8px] font-black py-0.5 uppercase tracking-widest">
-            Mentor
-          </div>
         </div>
 
         <h3 className="text-xl font-black text-white uppercase tracking-tight">Harsh Kumar</h3>
@@ -178,8 +174,8 @@ const MentorshipCard: React.FC<MentorshipCardProps> = ({ onClose, className = "m
         <div className="my-6 w-full h-px bg-white/10" />
 
         <div className="text-center mb-6">
-          <p className="text-sm font-medium text-slate-400 uppercase tracking-widest mb-1">Total Fee</p>
-          <p className="text-4xl font-black text-white">₹1500</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-widest mb-1">Total Fee</p>
+          <p className="text-2xl font-black text-white">₹1500</p>
         </div>
 
         <div className="space-y-3">
@@ -216,7 +212,7 @@ const MentorshipCard: React.FC<MentorshipCardProps> = ({ onClose, className = "m
                   <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-[8px] font-black uppercase tracking-widest rounded-full">Premium</span>
                   <h3 className="text-sm md:text-base font-black uppercase tracking-tight">SSB Guidance Program by AIR 40</h3>
                </div>
-               <p className="text-xs text-slate-400 font-medium">Starts April 12th • Only 10 Seats • 1:1 Focus</p>
+               <p className="text-xs text-slate-400 font-medium">Starts April 14th • Only 10 Seats • 1:1 Focus</p>
             </div>
           </div>
           <div className="flex gap-2 w-full md:w-auto relative z-10">
