@@ -25,6 +25,26 @@ export const TEST_RATES = {
 };
 
 
+export const getMentorshipRegistrations = async () => {
+  const { data, error } = await supabase
+    .from('mentorship_registrations')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('Error fetching mentorship registrations:', error);
+    return [];
+  }
+  return data || [];
+};
+
+export const updateMentorshipRegistrationStatus = async (id: string, status: string) => {
+  const { error } = await supabase
+    .from('mentorship_registrations')
+    .update({ status })
+    .eq('id', id);
+  if (error) throw error;
+};
+
 export const getScreeningConfig = async () => {
   const { data } = await supabase
     .from('daily_cache')
@@ -778,6 +798,14 @@ export const getPendingPayments = async () => {
     .from('payment_requests')
     .select('*, aspirants(full_name, email)')
     .eq('status', 'PENDING')
+    .order('created_at', { ascending: false });
+  return data || [];
+};
+
+export const getAllPayments = async () => {
+  const { data } = await supabase
+    .from('payment_requests')
+    .select('*, aspirants(full_name, email)')
     .order('created_at', { ascending: false });
   return data || [];
 };

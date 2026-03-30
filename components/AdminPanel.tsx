@@ -6,13 +6,14 @@ import {
   uploadTATScenario, getTATScenarios, deleteTATScenario,
   uploadWATWords, getWATWords, deleteWATWord, deleteWATSet,
   getSRTQuestions, uploadSRTQuestions, deleteSRTQuestion, deleteSRTSet,
-  getPendingPayments, approvePaymentRequest, rejectPaymentRequest,
+  getPendingPayments, getAllPayments, approvePaymentRequest, rejectPaymentRequest,
   getAllUsers, deleteUserProfile, getCoupons, createCoupon, deleteCoupon,
   uploadDailyChallenge, sendAnnouncement, getAllFeedback, deleteFeedback,
   getLatestDailyChallenge, getTickerConfig, updateTickerConfig,
   getOIRSets, createOIRSet, deleteOIRSet, getOIRQuestions, addOIRQuestion, deleteOIRQuestion, activatePlanForUser, supabase,
   getGPEScenarios, addGPEScenario, deleteGPEScenario,
-  getScreeningConfig, updateScreeningConfig
+  getScreeningConfig, updateScreeningConfig,
+  getMentorshipRegistrations, updateMentorshipRegistrationStatus
 } from '../services/supabaseService';
 import ChallengeAdmin from './ChallengeAdmin';
 
@@ -98,7 +99,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
   // SQL Help Toggle
   const [showSqlHelp, setShowSqlHelp] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'GPE' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK' | 'OIR' | 'SCREENING' | 'MENTORS' | 'CHALLENGES'>(isMentorMode ? 'PPDT' : 'PAYMENTS');
+  const [activeTab, setActiveTab] = useState<'PPDT' | 'TAT' | 'WAT' | 'SRT' | 'GPE' | 'PAYMENTS' | 'USERS' | 'COUPONS' | 'DAILY' | 'BROADCAST' | 'FEEDBACK' | 'OIR' | 'SCREENING' | 'MENTORS' | 'CHALLENGES' | 'MENTORSHIP_REGISTRATIONS'>(isMentorMode ? 'PPDT' : 'PAYMENTS');
+  const [mentorshipRegistrations, setMentorshipRegistrations] = useState<any[]>([]);
   const [mentors, setMentors] = useState<any[]>([]);
   const [mentorEmail, setMentorEmail] = useState('');
   const [mentorName, setMentorName] = useState('');
@@ -118,7 +120,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
     setErrorMsg(null);
     try {
       if (activeTab === 'PAYMENTS') {
-        const p = await getPendingPayments();
+        const p = await getAllPayments();
         setPayments(p);
       } else if (activeTab === 'USERS') {
         const u = await getAllUsers();
@@ -162,6 +164,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
       } else if (activeTab === 'MENTORS') {
         const { data, error } = await supabase.from('mentors').select('*').order('created_at', { ascending: false });
         if (data) setMentors(data);
+      } else if (activeTab === 'MENTORSHIP_REGISTRATIONS') {
+        const regs = await getMentorshipRegistrations();
+        setMentorshipRegistrations(regs);
       } else {
         let data;
         if (activeTab === 'PPDT') data = await getPPDTScenarios();
@@ -579,6 +584,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
       { id: 'PAYMENTS', label: 'Payments', icon: IndianRupee, color: 'bg-yellow-400 text-black', count: payments.length },
       { id: 'USERS', label: 'Cadets', icon: User, color: 'bg-indigo-600 text-white' },
       { id: 'MENTORS', label: 'Mentors', icon: Users, color: 'bg-blue-600 text-white' },
+      { id: 'MENTORSHIP_REGISTRATIONS', label: 'Mentorship', icon: Crown, color: 'bg-yellow-500 text-black', count: mentorshipRegistrations.filter(r => r.status === 'pending').length },
       { id: 'OIR', label: 'OIR Test', icon: Lightbulb, color: 'bg-teal-600 text-white' },
       { id: 'SCREENING', label: 'Mock Screening', icon: ShieldAlert, color: 'bg-purple-600 text-white' },
       { id: 'PPDT', label: 'PPDT', icon: ImageIcon, color: 'bg-slate-900 text-white' },
@@ -1236,29 +1242,118 @@ CREATE POLICY "Users can update own profile" ON public.aspirants FOR UPDATE USIN
 
             {activeTab === 'MENTORS' && renderMentors()}
 
+            {activeTab === 'MENTORSHIP_REGISTRATIONS' && (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight mb-6">Mentorship Registrations</h2>
+                    {mentorshipRegistrations.length === 0 ? (
+                        <div className="p-12 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-xl">
+                            <Crown className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+                            <h3 className="text-xl font-black text-slate-900 uppercase">No Registrations</h3>
+                            <p className="text-slate-500 text-xs font-bold mt-2">No one has registered for mentorship yet.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-4">
+                            {mentorshipRegistrations.map(reg => (
+                                <div key={reg.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                                    <div className="flex-1 space-y-2">
+                                        <div className="flex items-center gap-3">
+                                            <h4 className="font-black text-slate-900 text-lg uppercase tracking-tight">{reg.full_name}</h4>
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                                reg.status === 'enrolled' ? 'bg-green-100 text-green-700' :
+                                                reg.status === 'contacted' ? 'bg-blue-100 text-blue-700' :
+                                                'bg-yellow-100 text-yellow-700'
+                                            }`}>
+                                                {reg.status || 'pending'}
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm text-slate-600 font-medium">
+                                            <p><span className="text-slate-400 uppercase text-[10px] font-black tracking-widest mr-2">WhatsApp:</span> {reg.whatsapp_number}</p>
+                                            <p><span className="text-slate-400 uppercase text-[10px] font-black tracking-widest mr-2">Entry:</span> {reg.entry_type}</p>
+                                            {reg.ssb_dates && <p><span className="text-slate-400 uppercase text-[10px] font-black tracking-widest mr-2">SSB Dates:</span> {reg.ssb_dates}</p>}
+                                            <p><span className="text-slate-400 uppercase text-[10px] font-black tracking-widest mr-2">Date:</span> {new Date(reg.created_at).toLocaleDateString()}</p>
+                                        </div>
+                                        {reg.message && (
+                                            <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                                <p className="text-slate-400 uppercase text-[10px] font-black tracking-widest mb-1">Message</p>
+                                                <p className="text-slate-700 text-sm italic">"{reg.message}"</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col gap-2 w-full md:w-auto shrink-0">
+                                        <select
+                                            value={reg.status || 'pending'}
+                                            onChange={async (e) => {
+                                                try {
+                                                    await updateMentorshipRegistrationStatus(reg.id, e.target.value);
+                                                    setMentorshipRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, status: e.target.value } : r));
+                                                } catch (err) {
+                                                    console.error(err);
+                                                    alert('Failed to update status');
+                                                }
+                                            }}
+                                            className="bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-500 uppercase tracking-widest"
+                                        >
+                                            <option value="pending">Pending</option>
+                                            <option value="contacted">Contacted</option>
+                                            <option value="enrolled">Enrolled</option>
+                                            <option value="rejected">Rejected</option>
+                                        </select>
+                                        <a 
+                                            href={`https://wa.me/${reg.whatsapp_number.replace(/\D/g, '')}`} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="bg-green-500 hover:bg-green-600 text-white text-center text-xs font-black uppercase tracking-widest rounded-xl px-4 py-3 transition-colors"
+                                        >
+                                            WhatsApp
+                                        </a>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
       {activeTab === 'PAYMENTS' && (
           <div className="space-y-6">
               {payments.length === 0 ? (
                   <div className="p-12 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-xl">
                       <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                      <h3 className="text-xl font-black text-slate-900 uppercase">All Clear</h3>
-                      <p className="text-slate-500 text-xs font-bold mt-2">No pending approvals.</p>
+                      <h3 className="text-xl font-black text-slate-900 uppercase">No Payments</h3>
+                      <p className="text-slate-500 text-xs font-bold mt-2">No payment requests found.</p>
                   </div>
               ) : (
                   payments.map(req => (
-                      <div key={req.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+                      <div key={req.id} className={`bg-white p-6 rounded-[2rem] border ${req.status === 'PENDING' ? 'border-yellow-200' : 'border-slate-100'} shadow-xl flex flex-col md:flex-row items-center justify-between gap-6`}>
                           <div className="flex items-center gap-6 w-full md:w-auto">
-                              <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-2xl flex items-center justify-center shrink-0"><IndianRupee size={24} /></div>
+                              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                                  req.status === 'APPROVED' ? 'bg-green-100 text-green-600' :
+                                  req.status === 'REJECTED' ? 'bg-red-100 text-red-600' :
+                                  'bg-yellow-100 text-yellow-600'
+                              }`}>
+                                  <IndianRupee size={24} />
+                              </div>
                               <div className="space-y-1">
-                                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{new Date(req.created_at).toLocaleString()}</p>
-                                  <h4 className="font-bold text-slate-900 text-lg">UTR: <span className="font-mono bg-slate-100 px-2 rounded">{req.utr}</span></h4>
+                                  <div className="flex items-center gap-2">
+                                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{new Date(req.created_at).toLocaleString()}</p>
+                                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${
+                                          req.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                                          req.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                          'bg-yellow-100 text-yellow-700'
+                                      }`}>
+                                          {req.status}
+                                      </span>
+                                  </div>
+                                  <h4 className="font-bold text-slate-900 text-lg">UTR/ID: <span className="font-mono bg-slate-100 px-2 rounded">{req.utr}</span></h4>
                                   <p className="text-xs font-medium text-slate-600">{req.aspirants?.full_name || 'Unknown'} • {req.plan_type} • ₹{req.amount}</p>
                               </div>
                           </div>
-                          <div className="flex gap-4 w-full md:w-auto">
-                              <button onClick={() => handlePaymentAction(req.id, 'REJECT', req.user_id, req.plan_type)} className="flex-1 md:flex-none px-6 py-3 bg-red-50 text-red-600 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-red-100"><XCircle size={16} /> Reject</button>
-                              <button onClick={() => handlePaymentAction(req.id, 'APPROVE', req.user_id, req.plan_type, req.aspirants?.email, req.aspirants?.full_name)} className="flex-1 md:flex-none px-6 py-3 bg-green-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-green-700"><CheckCircle size={16} /> Approve</button>
-                          </div>
+                          {req.status === 'PENDING' && (
+                              <div className="flex gap-4 w-full md:w-auto">
+                                  <button onClick={() => handlePaymentAction(req.id, 'REJECT', req.user_id, req.plan_type)} className="flex-1 md:flex-none px-6 py-3 bg-red-50 text-red-600 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-red-100"><XCircle size={16} /> Reject</button>
+                                  <button onClick={() => handlePaymentAction(req.id, 'APPROVE', req.user_id, req.plan_type, req.aspirants?.email, req.aspirants?.full_name)} className="flex-1 md:flex-none px-6 py-3 bg-green-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-green-700"><CheckCircle size={16} /> Approve</button>
+                              </div>
+                          )}
                       </div>
                   ))
               )}

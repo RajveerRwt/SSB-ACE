@@ -118,3 +118,20 @@ alter table public.challenge_resources enable row level security;
 create policy "Public read challenge resources" on public.challenge_resources for select using (true);
 create policy "Admin insert challenge resources" on public.challenge_resources for insert with check (true);
 create policy "Admin delete challenge resources" on public.challenge_resources for delete using (true);
+
+-- MENTORSHIP REGISTRATIONS
+create table if not exists public.mentorship_registrations (
+    id uuid default gen_random_uuid() primary key,
+    full_name text not null,
+    whatsapp_number text not null,
+    entry_type text not null,
+    ssb_dates text,
+    message text,
+    program text not null,
+    status text default 'pending',
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.mentorship_registrations enable row level security;
+create policy "Public insert mentorship registrations" on public.mentorship_registrations for insert with check (true);
+create policy "Admin read mentorship registrations" on public.mentorship_registrations for select using (true);

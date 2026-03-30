@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Loader2, Send, MessageSquare, Clock, User, ImageIcon, FileText, Zap, PenTool, Flame, Trophy, Lock, Heart, Award, Medal, Star, CheckCircle, Mic, RefreshCw, AlertTriangle, Brain, Maximize2, X } from 'lucide-react';
 import { getLatestDailyChallenge, submitDailyEntry, getDailySubmissions, checkAuthSession, toggleLike, getUserStreak, getUserData, updateDailySubmissionAI, supabase } from '../services/supabaseService';
 import { evaluateDailyChallengeResponse } from '../services/geminiService';
+import MentorshipCard from './MentorshipCard';
 
 interface DailyPracticeProps {
     onLoginRedirect?: () => void;
@@ -399,6 +400,9 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
               })}
           </div>
       )}
+
+      {/* MENTORSHIP CARD */}
+      <MentorshipCard variant="compact" className="my-0" />
 
       {/* CHALLENGE WORKSPACE */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

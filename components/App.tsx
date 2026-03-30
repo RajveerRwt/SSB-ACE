@@ -35,6 +35,7 @@ import FreeCoinModal from './FreeCoinModal';
 import WelcomeModal from './WelcomeModal';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, Gift, RotateCcw, FileText, Upload } from 'lucide-react';
 import { SSBLogo } from './Logo';
+import MentorshipCard from './MentorshipCard';
 
 // --- GAMIFICATION COMPONENTS ---
 
@@ -91,6 +92,7 @@ const Dashboard: React.FC<{
   const [showFreeCoinPopup, setShowFreeCoinPopup] = useState(false);
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [heroSlide, setHeroSlide] = useState(0);
   
   const [stats, setStats] = useState({
       ppdtAvg: 0,
@@ -149,6 +151,13 @@ const Dashboard: React.FC<{
     }, 5000);
     return () => clearInterval(timer);
   }, [testimonials.length]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+        setHeroSlide(prev => (prev === 0 ? 1 : 0));
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Check for Early Riser (0500 - 0800)
   useEffect(() => {
@@ -237,8 +246,44 @@ const Dashboard: React.FC<{
           </div>
       )}
 
+      {/* TOP BANNER */}
+      <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white px-6 py-5 md:py-4 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-6 shadow-[0_0_40px_rgba(234,179,8,0.15)] animate-in slide-in-from-top border border-white/10 overflow-hidden group">
+         {/* Animated Background Elements */}
+         <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-yellow-500/20 rounded-full blur-3xl group-hover:bg-yellow-500/30 transition-colors duration-1000" />
+            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-500/30 transition-colors duration-1000" />
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 mix-blend-overlay" />
+         </div>
+
+         <div className="flex items-center gap-4 relative z-10 w-full sm:w-auto">
+            <div className="hidden sm:flex w-12 h-12 bg-yellow-500/10 rounded-2xl border border-yellow-500/20 items-center justify-center shrink-0 shadow-inner">
+               <Target size={24} className="text-yellow-400" />
+            </div>
+            <div className="flex-1 text-center sm:text-left">
+               <div className="flex items-center justify-center sm:justify-start gap-2 mb-1.5">
+                  <span className="flex h-2 w-2 relative shrink-0">
+                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                     <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                  </span>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-yellow-400">Premium Guidance</span>
+               </div>
+               <p className="text-sm md:text-base font-black tracking-tight text-white leading-tight">
+                  SSB Guidance Program by AIR 40 <span className="text-slate-400 font-medium text-xs ml-2 hidden md:inline-block">Starts April 12th • 2X Recommended</span>
+               </p>
+            </div>
+         </div>
+         
+         <button onClick={() => {
+            const el = document.getElementById('mentorship-card');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+            else window.dispatchEvent(new CustomEvent('open-mentorship-modal'));
+         }} className="relative z-10 w-full sm:w-auto text-[10px] font-black bg-yellow-500 text-black px-6 py-3 rounded-xl uppercase tracking-widest hover:bg-yellow-400 hover:scale-105 transition-all shrink-0 whitespace-nowrap shadow-[0_0_20px_rgba(234,179,8,0.3)]">
+            View Details
+         </button>
+      </div>
+
       {/* HERO SECTION */}
-      <div className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl border-b-8 border-yellow-500">
+      <div className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl border-b-8 border-yellow-500 animate-in fade-in slide-in-from-left-8">
          <div className="relative z-10 grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
            <div className="space-y-6">
              <div className="flex items-center gap-3">
@@ -247,7 +292,7 @@ const Dashboard: React.FC<{
              </div>
              <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Master Your SSB Preparation<br/><span className="text-yellow-400">with India's most Advanced AI</span></h1>
              <p className="text-slate-300 text-sm md:text-lg leading-relaxed font-medium opacity-90 max-w-2xl">
-               Practice exactly like real SSB with full detailed and personalised assessmen.</p>
+               Practice exactly like real SSB with full detailed and personalised assessment.</p>
              
              {isLoggedIn ? (
                <div className="flex flex-col md:flex-row flex-wrap gap-4 pt-4">
@@ -1097,6 +1142,7 @@ const App: React.FC = () => {
         }}
         userName={userName}
       />
+      <MentorshipCard variant="hidden" />
     </Layout>
   );
 };
