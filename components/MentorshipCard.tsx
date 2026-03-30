@@ -161,7 +161,7 @@ const MentorshipCard: React.FC<MentorshipCardProps> = ({ onClose, className = "m
         {/* Mentor Photo */}
         <div className="w-32 h-32 mx-auto rounded-full border-4 border-yellow-500 shadow-xl overflow-hidden mb-4 relative">
           <img 
-            src="https://freeimage.host/i/B2FgFmF" 
+            src="https://iili.io/B2FgFmF.md.jpg" 
             alt="Harsh Kumar" 
             className="w-full h-full object-cover"
           />
