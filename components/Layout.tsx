@@ -532,7 +532,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
         </header>
 
         {/* NEWS TICKER (Theme Matched: Navy/Yellow) */}
-        {tickerConfig.is_active && activeTest === TestType.DASHBOARD && tickerConfig.message && (
+        {isLoggedIn && tickerConfig.is_active && activeTest === TestType.DASHBOARD && tickerConfig.message && (
             <div className="w-full bg-slate-900 text-slate-200 overflow-hidden relative z-20 shadow-md h-10 flex items-center border-b border-white/10">
                 <div className="absolute left-0 top-0 bottom-0 bg-yellow-400 text-slate-900 px-4 text-[10px] font-black uppercase tracking-widest shrink-0 flex items-center gap-2 z-20 shadow-lg skew-x-[-10deg] -ml-2 pl-6">
                     <span className="w-2 h-2 bg-slate-900 rounded-full animate-pulse skew-x-[10deg]"></span> 

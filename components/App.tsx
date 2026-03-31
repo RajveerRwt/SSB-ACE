@@ -31,9 +31,8 @@ import Challenge14Day from './Challenge14Day';
 import { TestType, PIQData, UserSubscription } from '../types';
 import { getUserData, saveUserData, saveTestAttempt, updateTestAttempt, getPendingAssessments, getUserHistory, getTestReport, checkAuthSession, syncUserProfile, subscribeToAuthChanges, isUserAdmin, getUserSubscription, getLatestPaymentRequest, incrementUsage, logoutUser, checkBalance, deductCoins, TEST_RATES, saveNewPendingAssessment, saveNewCompletedAssessment, updateNewCompletedAssessment, getMentorProfile, getLatestDailyChallenge, hasUserSubmittedDaily, markWelcomeSeen } from '../services/supabaseService';
 import { evaluatePerformance } from '../services/geminiService';
-import FreeCoinModal from './FreeCoinModal';
 import WelcomeModal from './WelcomeModal';
-import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, Gift, RotateCcw, FileText, Upload } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, RotateCcw, FileText, Upload } from 'lucide-react';
 import { SSBLogo } from './Logo';
 import MentorshipCard from './MentorshipCard';
 
@@ -89,7 +88,6 @@ const Dashboard: React.FC<{
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [showFullHistory, setShowFullHistory] = useState(false);
   const [isEarlyRiser, setIsEarlyRiser] = useState(false);
-  const [showFreeCoinPopup, setShowFreeCoinPopup] = useState(false);
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [heroSlide, setHeroSlide] = useState(0);
@@ -247,48 +245,52 @@ const Dashboard: React.FC<{
       )}
 
       {/* TOP BANNER */}
-      <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white px-6 py-5 md:py-4 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-6 shadow-[0_0_40px_rgba(234,179,8,0.15)] animate-in slide-in-from-top border border-white/10 overflow-hidden group">
-         {/* Animated Background Elements */}
-         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-24 -right-24 w-48 h-48 bg-yellow-500/20 rounded-full blur-3xl group-hover:bg-yellow-500/30 transition-colors duration-1000" />
-            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-500/30 transition-colors duration-1000" />
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 mix-blend-overlay" />
-         </div>
+      {isLoggedIn && (
+        <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white px-6 py-5 md:py-4 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-6 shadow-[0_0_40px_rgba(234,179,8,0.15)] animate-in slide-in-from-top border border-white/10 overflow-hidden group">
+           {/* Animated Background Elements */}
+           <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute -top-24 -right-24 w-48 h-48 bg-yellow-500/20 rounded-full blur-3xl group-hover:bg-yellow-500/30 transition-colors duration-1000" />
+              <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-500/30 transition-colors duration-1000" />
+              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 mix-blend-overlay" />
+           </div>
 
-         <div className="flex items-center gap-4 relative z-10 w-full sm:w-auto">
-            <div className="hidden sm:flex w-12 h-12 bg-yellow-500/10 rounded-2xl border border-yellow-500/20 items-center justify-center shrink-0 shadow-inner">
-               <Target size={24} className="text-yellow-400" />
-            </div>
-            <div className="flex-1 text-center sm:text-left">
-               <div className="flex items-center justify-center sm:justify-start gap-2 mb-1.5">
-                  <span className="flex h-2 w-2 relative shrink-0">
-                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                     <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                  </span>
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-yellow-400">Premium Guidance</span>
-               </div>
-               <p className="text-sm md:text-base font-black tracking-tight text-white leading-tight">
-                  SSB Guidance Program by AIR 40 <span className="text-slate-400 font-medium text-xs ml-2 hidden md:inline-block">Starts April 14th • 2X Recommended</span>
-               </p>
-            </div>
-         </div>
-         
-         <button onClick={() => {
-            const el = document.getElementById('mentorship-card');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
-            else window.dispatchEvent(new CustomEvent('open-mentorship-modal'));
-         }} className="relative z-10 w-full sm:w-auto text-[10px] font-black bg-yellow-500 text-black px-6 py-3 rounded-xl uppercase tracking-widest hover:bg-yellow-400 hover:scale-105 transition-all shrink-0 whitespace-nowrap shadow-[0_0_20px_rgba(234,179,8,0.3)]">
-            View Details
-         </button>
-      </div>
+           <div className="flex items-center gap-4 relative z-10 w-full sm:w-auto">
+              <div className="hidden sm:flex w-12 h-12 bg-yellow-500/10 rounded-2xl border border-yellow-500/20 items-center justify-center shrink-0 shadow-inner">
+                 <Target size={24} className="text-yellow-400" />
+              </div>
+              <div className="flex-1 text-center sm:text-left">
+                 <div className="flex items-center justify-center sm:justify-start gap-2 mb-1.5">
+                    <span className="flex h-2 w-2 relative shrink-0">
+                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                       <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-yellow-400">Premium Guidance</span>
+                 </div>
+                 <p className="text-sm md:text-base font-black tracking-tight text-white leading-tight">
+                    SSB Guidance Program by AIR 40 <span className="text-slate-400 font-medium text-xs ml-2 hidden md:inline-block">Starts April 14th • 2X Recommended</span>
+                 </p>
+              </div>
+           </div>
+           
+           <button onClick={() => {
+              const el = document.getElementById('mentorship-card');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+              else window.dispatchEvent(new CustomEvent('open-mentorship-modal'));
+           }} className="relative z-10 w-full sm:w-auto text-[10px] font-black bg-yellow-500 text-black px-6 py-3 rounded-xl uppercase tracking-widest hover:bg-yellow-400 hover:scale-105 transition-all shrink-0 whitespace-nowrap shadow-[0_0_20px_rgba(234,179,8,0.3)]">
+              View Details
+           </button>
+        </div>
+      )}
 
       {/* HERO SECTION */}
       <div className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl border-b-8 border-yellow-500 animate-in fade-in slide-in-from-left-8">
          <div className="relative z-10 grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
            <div className="space-y-6">
-             <div className="flex items-center gap-3">
-               <span className="px-3 py-1 bg-yellow-400 text-black text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg animate-bounce">Officer Potential</span>
-               <span className="text-slate-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">Board Simulation v4.0</span>
+             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-yellow-400/10 border border-yellow-400/20 rounded-full backdrop-blur-sm shadow-xl animate-in slide-in-from-top duration-1000">
+               <ShieldCheck size={14} className="text-yellow-400" />
+               <span className="text-yellow-400 text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em]">
+                 trained on real data, results verified and validated by SSB expert mentors
+               </span>
              </div>
              <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Master Your SSB Preparation<br/><span className="text-yellow-400">with India's most Advanced AI</span></h1>
              <p className="text-slate-300 text-sm md:text-lg leading-relaxed font-medium opacity-90 max-w-2xl">
@@ -351,12 +353,6 @@ const Dashboard: React.FC<{
                             <Zap size={14} className="text-yellow-400" /> Wallet Status
                         </p>
                         <div className="flex flex-wrap gap-2">
-                            <button 
-                                onClick={() => setShowFreeCoinPopup(true)}
-                                className="text-[9px] font-bold px-3 py-1.5 rounded bg-green-600 text-white hover:bg-green-500 transition-colors uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-green-600/20"
-                            >
-                                <Gift size={10} /> Get Free 20 Coins
-                            </button>
                             <button onClick={onOpenPayment} className="text-[9px] font-bold px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-500 transition-colors uppercase tracking-widest">
                                Add Coins
                             </button>
@@ -452,16 +448,27 @@ const Dashboard: React.FC<{
           {isLoggedIn && (
             <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-xl overflow-hidden relative">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 relative z-10">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0">
-                        <Trophy size={24} className="text-yellow-400" />
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0">
+                            <Trophy size={24} className="text-yellow-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tighter">Service Dossier</h3>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                Current Rank: <span className="text-blue-600">{stats.rank}</span>
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tighter">Service Dossier</h3>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                            Current Rank: <span className="text-blue-600">{stats.rank}</span>
-                        </p>
-                    </div>
+                    <button 
+                        onClick={() => onStartTest(TestType.ASSESSMENTS)}
+                        className="group flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-600/30 animate-pulse relative overflow-hidden"
+                    >
+                        <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500 skew-x-[-20deg]"></div>
+                        <ClipboardList size={14} className="group-hover:scale-110 transition-transform" />
+                        <span>Assessment Center</span>
+                        <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black text-[8px] rounded-md font-black">NEW</span>
+                    </button>
                 </div>
                 <div className="text-left sm:text-right">
                     <span className="block text-2xl font-black text-slate-900">{stats.totalTests}</span>
@@ -781,13 +788,8 @@ const Dashboard: React.FC<{
 
       <Footer onNavigate={onStartTest} />
       
-      {/* FREE COIN POPUP */}
-      <FreeCoinModal 
-        isOpen={showFreeCoinPopup} 
-        onClose={() => setShowFreeCoinPopup(false)} 
-      />
-    </div>
-  );
+     </div>
+   );
 };
 
 // --- BACKGROUND ASSESSMENT MANAGER ---
