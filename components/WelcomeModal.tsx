@@ -30,75 +30,33 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, userName }
           </div>
           
           <h2 className="text-lg md:text-xl font-black text-white uppercase tracking-tighter leading-none px-4">
-            Welcome, <span className="text-yellow-400">{userName}</span>!
+            Jai Hind, <span className="text-yellow-400">{userName}</span>!
           </h2>
         </div>
 
         {/* Content - Scrollable area */}
-        <div className="p-3 md:p-5 space-y-2.5 overflow-y-auto custom-scrollbar flex-1">
+        <div className="p-3 md:p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1">
           
-          {/* Mentor Guidance Section */}
-          <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
-            <p className="text-[9px] md:text-[10px] text-slate-600 font-bold leading-relaxed text-center italic">
-              "Developed under the guidance of SSB mentors and trained on authentic selection data, ssbprep.online provides the most realistic preparation environment for aspiring officers."
-            </p>
-          </div>
-
           {/* Free Coins */}
-          <div className="flex items-start gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100 group hover:border-yellow-200 transition-colors">
-            <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-yellow-400/20 text-slate-900 transition-transform group-hover:scale-110">
-              <Gift size={16} />
+          <div className="flex items-center gap-4 p-5 bg-yellow-50 rounded-2xl border border-yellow-200 group transition-all hover:shadow-md">
+            <div className="w-12 h-12 bg-yellow-400 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-yellow-400/20 text-slate-900 transition-transform group-hover:scale-110">
+              <Gift size={24} />
             </div>
             <div>
-              <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-tight">50 Free Coins Credited</h3>
-              <p className="text-[9px] text-slate-500 font-bold leading-relaxed mt-0.5">
-                Your joining bonus is ready! Use these coins to unlock premium SSB tests and AI-powered interviews.
+              <h3 className="text-xs md:text-sm font-black text-slate-900 uppercase tracking-tight">20 Free Coins Credited!</h3>
+              <p className="text-[10px] md:text-xs text-slate-600 font-bold leading-relaxed mt-1">
+                Congratulations! You've received 20 free coins to explore and attempt any test on our platform. Start your journey now!
               </p>
             </div>
           </div>
 
-          {/* Daily Practice */}
-          <div className="flex items-start gap-3 md:gap-4 p-3 md:p-4 bg-slate-50 rounded-xl md:rounded-2xl border border-slate-100 group hover:border-blue-200 transition-colors">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-slate-900 rounded-lg md:rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-slate-900/20 text-white transition-transform group-hover:scale-110">
-              <Clock size={16} />
-            </div>
-            <div>
-              <h3 className="text-[10px] md:text-xs font-black text-slate-900 uppercase tracking-tight">Daily Practice</h3>
-              <p className="text-[9px] md:text-[10px] text-slate-500 font-bold leading-relaxed mt-0.5">
-                Maintain your streak! Complete daily tasks to earn <strong className="text-slate-900">2 coins daily</strong>.
-              </p>
-            </div>
-          </div>
-
-          {/* Daily News */}
-          <div className="flex items-start gap-3 md:gap-4 p-3 md:p-4 bg-slate-50 rounded-xl md:rounded-2xl border border-slate-100 group hover:border-rose-200 transition-colors">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-rose-500 rounded-lg md:rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-rose-500/20 text-white transition-transform group-hover:scale-110">
-              <Globe size={16} />
-            </div>
-            <div>
-              <h3 className="text-[10px] md:text-xs font-black text-slate-900 uppercase tracking-tight">Curated Daily News</h3>
-              <p className="text-[9px] md:text-[10px] text-slate-500 font-bold leading-relaxed mt-0.5">
-                Stay updated with current affairs specially selected for SSB aspirants and defense enthusiasts.
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* Footer / CTA */}
-        <div className="p-3 md:p-4 bg-white border-t border-slate-100 flex flex-col gap-2 shrink-0">
-          <a 
-            href="https://www.instagram.com/ssbprep.online?utm_source=qr&igsh=ZjdvdGdwZGo5OXBl" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="w-full py-2.5 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white rounded-xl font-black uppercase text-[9px] tracking-[0.2em] hover:opacity-90 transition-all shadow-xl flex items-center justify-center gap-2 active:scale-95"
-          >
-            <Instagram size={14} />
-            Follow for Updates
-          </a>
-          
+        <div className="p-4 bg-white border-t border-slate-100 shrink-0">
           <button 
             onClick={onClose}
-            className="w-full py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl font-black uppercase text-[9px] tracking-[0.2em] shadow-xl transition-all active:scale-95"
+            className="w-full py-3 bg-slate-900 hover:bg-black text-white rounded-xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl transition-all active:scale-95"
           >
             Start Preparing
           </button>
