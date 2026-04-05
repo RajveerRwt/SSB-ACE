@@ -72,6 +72,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
   const [timeLeft, setTimeLeft] = useState(-1);
   const [activeSetName, setActiveSetName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [usageCount, setUsageCount] = useState(0);
   const [pregeneratedImages, setPregeneratedImages] = useState<Record<string, string>>({});
   const [customTatImages, setCustomTatImages] = useState<string[]>(new Array(11).fill(''));
   const [useCustomTat, setUseCustomTat] = useState(false);
@@ -95,6 +96,15 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
     const fetchSets = async () => {
         setIsLoading(true);
         try {
+            if (userId && !isGuest) {
+                const sub = await getUserSubscription(userId);
+                if (sub && sub.usage) {
+                    if (type === TestType.TAT) setUsageCount(sub.usage.tat_used || 0);
+                    else if (type === TestType.WAT) setUsageCount(sub.usage.wat_used || 0);
+                    else if (type === TestType.SRT) setUsageCount(sub.usage.srt_used || 0);
+                }
+            }
+
             let sets: Record<string, any[]> = {};
             if (type === TestType.TAT) {
                 const data = await getTATScenarios();
@@ -126,7 +136,7 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
                 name,
                 count: sets[name].length,
                 items: sets[name]
-            })).filter(s => s.count > 0);
+            })).filter(s => s.count > 0).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
             
             setAvailableSets(setList);
             setPhase(PsychologyPhase.SET_SELECTION);
@@ -1048,37 +1058,64 @@ const PsychologyTest: React.FC<PsychologyProps> = ({ type, onSave, onPendingSave
             )}
           </div>
 
-          {availableSets.map((set, idx) => (
-            <div 
-              key={idx}
-              onClick={() => startTest(set)}
-              className="group bg-white p-8 rounded-[3rem] border-2 border-slate-100 shadow-xl hover:shadow-2xl hover:border-blue-400 transition-all cursor-pointer relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                <Layers size={80} />
-              </div>
-              <div className="relative z-10 space-y-4">
-                <div className="flex justify-between items-start">
-                  <div className="p-3 bg-slate-900 text-yellow-400 rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
-                    <BookOpen size={24} />
+          {availableSets.map((set, idx) => {
+            const isLocked = !isAdmin && !isGuest && idx > usageCount;
+            
+            return (
+              <div 
+                key={idx}
+                onClick={() => {
+                  if (isLocked) {
+                    alert("This set is locked. Complete the previous set to unlock this one.");
+                    return;
+                  }
+                  startTest(set);
+                }}
+                className={`group p-8 rounded-[3rem] border-2 shadow-xl transition-all relative overflow-hidden ${
+                  isLocked 
+                    ? 'bg-slate-50 border-slate-100 cursor-not-allowed grayscale' 
+                    : 'bg-white border-slate-100 hover:shadow-2xl hover:border-blue-400 cursor-pointer'
+                }`}
+              >
+                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                  {isLocked ? <Lock size={80} /> : <Layers size={80} />}
+                </div>
+                <div className="relative z-10 space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div className={`p-3 rounded-2xl shadow-lg transition-transform ${isLocked ? 'bg-slate-200 text-slate-400' : 'bg-slate-900 text-yellow-400 group-hover:scale-110'}`}>
+                      {isLocked ? <Lock size={24} /> : <BookOpen size={24} />}
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Set #{idx + 1}</span>
+                      {isLocked && (
+                        <span className="text-[8px] font-black bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full uppercase tracking-widest mt-1">
+                          Locked
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Set #{idx + 1}</span>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight group-hover:text-blue-600 transition-colors">{set.name}</h3>
-                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">{set.count} {type === TestType.TAT ? 'Images' : type === TestType.WAT ? 'Words' : 'Situations'}</p>
-                </div>
-                <div className="pt-4 flex items-center justify-between">
-                  <span className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                    Start Now <FastForward size={14} className="text-blue-600" />
-                  </span>
-                  <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
-                    <ChevronDown className="text-slate-300 group-hover:text-blue-600 -rotate-90" size={16} />
+                  <div>
+                    <h3 className={`text-2xl font-black uppercase tracking-tight transition-colors ${isLocked ? 'text-slate-400' : 'text-slate-900 group-hover:text-blue-600'}`}>
+                      {set.name}
+                    </h3>
+                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
+                      {set.count} {type === TestType.TAT ? 'Images' : type === TestType.WAT ? 'Words' : 'Situations'}
+                    </p>
+                  </div>
+                  <div className="pt-4 flex items-center justify-between">
+                    <span className={`text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isLocked ? 'text-slate-300' : 'text-slate-900'}`}>
+                      {isLocked ? 'Locked' : 'Start Now'} {!isLocked && <FastForward size={14} className="text-blue-600" />}
+                    </span>
+                    {!isLocked && (
+                      <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+                        <ChevronDown className="text-slate-300 group-hover:text-blue-600 -rotate-90" size={16} />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
