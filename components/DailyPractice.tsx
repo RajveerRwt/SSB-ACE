@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Loader2, Send, MessageSquare, Clock, User, ImageIcon, FileText, Zap, PenTool, Flame, Trophy, Lock, Heart, Award, Medal, Star, CheckCircle, Mic, RefreshCw, AlertTriangle, Brain, Maximize2, X } from 'lucide-react';
+import { Loader2, Send, MessageSquare, Clock, User, ImageIcon, FileText, Zap, PenTool, Flame, Trophy, Lock, Heart, Award, Medal, Star, CheckCircle, Mic, RefreshCw, AlertTriangle, Brain, Maximize2, X, Instagram, Youtube } from 'lucide-react';
 import { getLatestDailyChallenge, submitDailyEntry, getDailySubmissions, checkAuthSession, toggleLike, getUserStreak, getUserData, updateDailySubmissionAI, supabase } from '../services/supabaseService';
 import { evaluateDailyChallengeResponse } from '../services/geminiService';
 import MentorshipCard from './MentorshipCard';
@@ -772,6 +772,61 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                   )})}
               </div>
           )}
+      </div>
+
+      {/* SOCIAL FOOTER */}
+      <div className="mt-12 bg-slate-900 rounded-[2.5rem] p-8 md:p-12 text-slate-400 relative overflow-hidden border-t-8 border-slate-800 shadow-2xl">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent opacity-20"></div>
+        <div className="relative z-10 flex flex-col items-center text-center space-y-8">
+          <h3 className="text-xl font-black text-white uppercase tracking-widest">Join the Community</h3>
+          <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-6 w-full justify-center">
+             <a 
+               href="https://www.instagram.com/ssbprep.online?utm_source=qr&igsh=ZjdvdGdwZGo5OXBl" 
+               target="_blank" 
+               rel="noreferrer"
+               className="flex items-center gap-3 px-6 py-4 bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-600 text-white rounded-2xl transition-all shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 hover:-translate-y-1 group border border-white/10 w-full sm:w-auto"
+               title="Follow on Instagram"
+             >
+               <div className="bg-white/20 p-2 rounded-xl group-hover:scale-110 transition-transform">
+                 <Instagram size={24} />
+               </div>
+               <div className="flex flex-col items-start text-left">
+                 <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider">For all updates</span>
+                 <span className="font-black text-sm tracking-wide">Follow on Instagram</span>
+               </div>
+             </a>
+             <a 
+               href="https://youtube.com/@ssbprep.online?si=616euo_H_rJ4wwFo" 
+               target="_blank" 
+               rel="noreferrer" 
+               className="flex items-center gap-3 px-6 py-4 bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white rounded-2xl transition-all shadow-lg hover:-translate-y-1 group border border-slate-700 hover:border-red-500 w-full sm:w-auto"
+               title="Subscribe on YouTube"
+             >
+               <div className="bg-white/10 p-2 rounded-xl group-hover:scale-110 transition-transform">
+                 <Youtube size={24} />
+               </div>
+               <div className="flex flex-col items-start text-left">
+                 <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider group-hover:text-white/80">Watch videos</span>
+                 <span className="font-black text-sm tracking-wide">Subscribe on YouTube</span>
+               </div>
+             </a>
+             <a 
+               href="https://t.me/ssbpreponline" 
+               target="_blank" 
+               rel="noreferrer" 
+               className="flex items-center gap-3 px-6 py-4 bg-[#0088cc] hover:bg-[#0077b5] text-white rounded-2xl transition-all shadow-lg hover:-translate-y-1 group border border-[#0088cc] w-full sm:w-auto"
+               title="Join on Telegram"
+             >
+               <div className="bg-white/20 p-2 rounded-xl group-hover:scale-110 transition-transform">
+                 <Send size={24} />
+               </div>
+               <div className="flex flex-col items-start text-left">
+                 <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider">Join community</span>
+                 <span className="font-black text-sm tracking-wide">Join on Telegram</span>
+               </div>
+             </a>
+          </div>
+        </div>
       </div>
 
       {/* Zoom Modal */}

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Instagram, Youtube, FileText, Shield, CreditCard, Mail } from 'lucide-react';
+import { Instagram, Youtube, FileText, Shield, CreditCard, Mail, Send } from 'lucide-react';
 import { TestType } from '../types';
 
 interface FooterProps {
@@ -45,6 +45,21 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
              <div className="flex flex-col items-start text-left">
                <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider group-hover:text-white/80">Watch videos</span>
                <span className="font-black text-sm tracking-wide">Subscribe on YouTube</span>
+             </div>
+           </a>
+           <a 
+             href="https://t.me/ssbpreponline" 
+             target="_blank" 
+             rel="noreferrer" 
+             className="flex items-center gap-3 px-6 py-4 bg-[#0088cc] hover:bg-[#0077b5] text-white rounded-2xl transition-all shadow-lg hover:-translate-y-1 group border border-[#0088cc] w-full sm:w-auto"
+             title="Join on Telegram"
+           >
+             <div className="bg-white/20 p-2 rounded-xl group-hover:scale-110 transition-transform">
+               <Send size={24} />
+             </div>
+             <div className="flex flex-col items-start text-left">
+               <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider">Join community</span>
+               <span className="font-black text-sm tracking-wide">Join on Telegram</span>
              </div>
            </a>
         </div>
