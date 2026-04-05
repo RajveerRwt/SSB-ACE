@@ -176,6 +176,10 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
       scriptProcessorRef.current = null;
     }
     
+    sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
+    sourcesRef.current.clear();
+    nextStartTimeRef.current = 0;
+
     if (inputAudioContextRef.current) {
       try { await inputAudioContextRef.current.close(); } catch(e) {}
       inputAudioContextRef.current = null;
@@ -185,10 +189,6 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
       try { await outputAudioContextRef.current.close(); } catch(e) {}
       outputAudioContextRef.current = null;
     }
-    
-    sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
-    sourcesRef.current.clear();
-    nextStartTimeRef.current = 0;
 
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -204,6 +204,14 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
        try { (await p).close(); } catch(e) {}
      }
   }, [cleanupAudio]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      sessionModeRef.current = 'RESULT';
+      cleanupSession();
+    };
+  }, [cleanupSession]);
 
   const handleStartSession = async (type: 'FULL' | 'TRIAL', isRetry = false) => {
       // Logic for deducting coins
@@ -800,12 +808,31 @@ const Interview: React.FC<InterviewProps> = ({ piqData, onSave, onPendingSave, i
       )}
 
       {(connectionStatus === 'CONNECTING' || connectionStatus === 'RECONNECTING') && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center space-y-8 animate-in fade-in">
-           <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
-           <p className="text-white font-black uppercase tracking-[0.4em] text-sm">
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
+           <Loader2 className="w-16 h-16 text-blue-500 animate-spin mb-8" />
+           <p className="text-white font-black uppercase tracking-[0.4em] text-sm md:text-base mb-4">
              {connectionStatus === 'RECONNECTING' ? 'Link Interrupted. Resuming Protocol...' : 'Establishing Secure Uplink...'}
            </p>
-           {connectionStatus === 'RECONNECTING' && <p className="text-slate-400 text-xs">Preserving Context. Standby...</p>}
+           {connectionStatus === 'CONNECTING' && (
+             <div className="max-w-md space-y-6 text-slate-300 animate-in slide-in-from-bottom-4 duration-700">
+               <p className="text-xs md:text-sm font-black text-yellow-400 uppercase tracking-widest bg-yellow-400/10 py-2 px-4 rounded-full border border-yellow-400/20 inline-block">
+                 Your interview is starting. Please wait...
+               </p>
+               <div className="bg-white/5 p-6 rounded-3xl border border-white/10 text-left space-y-4 shadow-2xl">
+                 <h4 className="text-white font-black uppercase text-xs tracking-widest border-b border-white/10 pb-3 flex items-center gap-2">
+                   <ShieldCheck size={16} className="text-blue-400" /> SSB Interview Tips
+                 </h4>
+                 <ul className="text-xs space-y-3 font-medium text-slate-300">
+                   <li className="flex gap-3 items-start"><span className="text-blue-400 font-black mt-0.5">01</span> <span>Maintain a confident posture and steady eye contact with the IO.</span></li>
+                   <li className="flex gap-3 items-start"><span className="text-blue-400 font-black mt-0.5">02</span> <span>Listen carefully to the questions before formulating your answer.</span></li>
+                   <li className="flex gap-3 items-start"><span className="text-blue-400 font-black mt-0.5">03</span> <span>Be honest. If you don't know an answer, admit it gracefully.</span></li>
+                   <li className="flex gap-3 items-start"><span className="text-blue-400 font-black mt-0.5">04</span> <span>Keep your answers concise, structured, and highly relevant.</span></li>
+                   <li className="flex gap-3 items-start"><span className="text-blue-400 font-black mt-0.5">05</span> <span>Stay calm under pressure; your reaction is being closely observed.</span></li>
+                 </ul>
+               </div>
+             </div>
+           )}
+           {connectionStatus === 'RECONNECTING' && <p className="text-slate-400 text-xs mt-4">Preserving Context. Standby...</p>}
         </div>
       )}
       
