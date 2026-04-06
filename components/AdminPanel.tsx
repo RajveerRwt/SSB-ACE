@@ -70,6 +70,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
   // Daily Challenge Inputs
   const [dailyType, setDailyType] = useState<'OIR' | 'PPDT'>('OIR');
   const [dailyOirText, setDailyOirText] = useState('');
+  const [dailyAdminRemark, setDailyAdminRemark] = useState('');
   const [dailyWat, setDailyWat] = useState('');
   const [dailySrt, setDailySrt] = useState('');
   const [dailyInterview, setDailyInterview] = useState('');
@@ -231,8 +232,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
               throw new Error("Please provide OIR/PPDT Question (Image/Text), 1 WAT, 1 SRT, and 1 Interview Question.");
           }
           const finalOirText = dailyType === 'PPDT' ? `[PPDT] ${dailyOirText.trim()}` : dailyOirText.trim();
-          await uploadDailyChallenge(file, finalOirText, dailyWat.trim(), dailySrt.trim(), dailyInterview.trim(), dailyOirCorrectAnswer.trim(), dailyOirExplanation.trim());
-          setDailyOirText(''); setDailyWat(''); setDailySrt(''); setDailyInterview(''); setDailyOirCorrectAnswer(''); setDailyOirExplanation('');
+          const textWithRemark = dailyAdminRemark.trim() ? `${finalOirText}|||REMARK|||${dailyAdminRemark.trim()}` : finalOirText;
+          await uploadDailyChallenge(file, textWithRemark, dailyWat.trim(), dailySrt.trim(), dailyInterview.trim(), dailyOirCorrectAnswer.trim(), dailyOirExplanation.trim());
+          setDailyOirText(''); setDailyAdminRemark(''); setDailyWat(''); setDailySrt(''); setDailyInterview(''); setDailyOirCorrectAnswer(''); setDailyOirExplanation('');
           if (fileInputRef.current) fileInputRef.current.value = '';
           alert("Daily Challenge Published Successfully!");
           fetchData(); 
@@ -1154,6 +1156,10 @@ CREATE POLICY "Users can update own profile" ON public.aspirants FOR UPDATE USIN
                       <div className="space-y-4">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{dailyType === 'PPDT' ? 'PPDT Text (Optional)' : 'OIR Text (Optional)'}</label>
                           <input value={dailyOirText} onChange={e => setDailyOirText(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Text question if no image..." />
+                      </div>
+                      <div className="space-y-4 md:col-span-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Admin Remark / Notes (Optional)</label>
+                          <input value={dailyAdminRemark} onChange={e => setDailyAdminRemark(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Add a remark or note to show along with the challenge card..." />
                       </div>
                       <div className="space-y-4">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR Correct Answer</label>

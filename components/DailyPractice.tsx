@@ -26,6 +26,8 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   // Form State
   const [oirAnswer, setOirAnswer] = useState(''); 
   const [ppdtStoryFile, setPpdtStoryFile] = useState<File | null>(null);
+  const [ppdtSubmissionType, setPpdtSubmissionType] = useState<'text' | 'image'>('text');
+  const [ppdtTextStory, setPpdtTextStory] = useState('');
   const [watAnswer, setWatAnswer] = useState('');
   const [srtAnswer, setSrtAnswer] = useState('');
   const [interviewAnswer, setInterviewAnswer] = useState('');
@@ -36,8 +38,10 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   const [showScoreMeaning, setShowScoreMeaning] = useState(false);
   const [showPpdtPopup, setShowPpdtPopup] = useState(false);
 
-  const isPPDT = challenge?.oir_text?.startsWith('[PPDT]');
-  const displayOirText = isPPDT ? challenge.oir_text.replace('[PPDT]', '').trim() : challenge?.oir_text;
+  const rawOirText = challenge?.oir_text || '';
+  const [mainOirText, adminRemark] = rawOirText.split('|||REMARK|||');
+  const isPPDT = mainOirText.startsWith('[PPDT]');
+  const displayOirText = isPPDT ? mainOirText.replace('[PPDT]', '').trim() : mainOirText;
 
   useEffect(() => {
     // Load local likes
@@ -117,7 +121,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
         return;
     }
     
-    if (!oirAnswer.trim() && !watAnswer.trim() && !srtAnswer.trim() && !interviewAnswer.trim() && !ppdtStoryFile) {
+    if (!oirAnswer.trim() && !watAnswer.trim() && !srtAnswer.trim() && !interviewAnswer.trim() && !ppdtStoryFile && !ppdtTextStory.trim()) {
         alert("Please complete at least one section before submitting.");
         return;
     }
@@ -126,11 +130,15 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
     setIsEvaluating(true);
     try {
       let finalOirAnswer = oirAnswer;
-      if (ppdtStoryFile) {
-          const fileName = `daily-ppdt-story-${Date.now()}-${ppdtStoryFile.name}`;
-          await supabase.storage.from('scenarios').upload(fileName, ppdtStoryFile);
-          const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName);
-          finalOirAnswer = data.publicUrl;
+      if (isPPDT) {
+          if (ppdtSubmissionType === 'image' && ppdtStoryFile) {
+              const fileName = `daily-ppdt-story-${Date.now()}-${ppdtStoryFile.name}`;
+              await supabase.storage.from('scenarios').upload(fileName, ppdtStoryFile);
+              const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName);
+              finalOirAnswer = data.publicUrl;
+          } else if (ppdtSubmissionType === 'text' && ppdtTextStory.trim()) {
+              finalOirAnswer = ppdtTextStory;
+          }
       }
 
       // 1. Perform AI Evaluation
@@ -497,6 +505,12 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                   {displayOirText && (
                       <p className="text-sm font-bold text-slate-800 text-center leading-relaxed mt-2">{displayOirText}</p>
                   )}
+                  {adminRemark && (
+                      <div className="mt-4 w-full bg-blue-50 border border-blue-100 p-3 rounded-xl">
+                          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Admin Remark</p>
+                          <p className="text-xs font-medium text-blue-900">{adminRemark}</p>
+                      </div>
+                  )}
                   {!challenge.ppdt_image_url && !displayOirText && (
                       <p className="text-slate-400 text-xs font-bold uppercase">No OIR content loaded</p>
                   )}
@@ -507,33 +521,59 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                   </h3>
                   {isPPDT ? (
                       <div className="space-y-4">
-                          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Upload Handwritten Story</p>
-                          <div className="relative">
-                              <input 
-                                  type="file" 
-                                  accept="image/*"
-                                  onChange={(e) => setPpdtStoryFile(e.target.files?.[0] || null)}
-                                  className="hidden"
-                                  id="ppdt-story-upload"
-                              />
-                              <label 
-                                  htmlFor="ppdt-story-upload"
-                                  className="flex flex-col items-center justify-center w-full h-40 p-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-blue-500 transition-all"
-                              >
-                                  {ppdtStoryFile ? (
-                                      <div className="text-center">
-                                          <ImageIcon size={32} className="mx-auto text-blue-500 mb-2" />
-                                          <p className="text-sm font-bold text-slate-700">{ppdtStoryFile.name}</p>
-                                          <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">Click to change</p>
-                                      </div>
-                                  ) : (
-                                      <div className="text-center text-slate-400">
-                                          <ImageIcon size={32} className="mx-auto mb-2" />
-                                          <p className="text-sm font-bold">Click to upload story image</p>
-                                      </div>
-                                  )}
-                              </label>
+                          <div className="flex items-center justify-between">
+                              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Submit Story</p>
+                              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                                  <button 
+                                      onClick={() => setPpdtSubmissionType('text')}
+                                      className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${ppdtSubmissionType === 'text' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                  >
+                                      Text
+                                  </button>
+                                  <button 
+                                      onClick={() => setPpdtSubmissionType('image')}
+                                      className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${ppdtSubmissionType === 'image' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                  >
+                                      Image
+                                  </button>
+                              </div>
                           </div>
+                          
+                          {ppdtSubmissionType === 'image' ? (
+                              <div className="relative">
+                                  <input 
+                                      type="file" 
+                                      accept="image/*"
+                                      onChange={(e) => setPpdtStoryFile(e.target.files?.[0] || null)}
+                                      className="hidden"
+                                      id="ppdt-story-upload"
+                                  />
+                                  <label 
+                                      htmlFor="ppdt-story-upload"
+                                      className="flex flex-col items-center justify-center w-full h-40 p-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-blue-500 transition-all"
+                                  >
+                                      {ppdtStoryFile ? (
+                                          <div className="text-center">
+                                              <ImageIcon size={32} className="mx-auto text-blue-500 mb-2" />
+                                              <p className="text-sm font-bold text-slate-700">{ppdtStoryFile.name}</p>
+                                              <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">Click to change</p>
+                                          </div>
+                                      ) : (
+                                          <div className="text-center text-slate-400">
+                                              <ImageIcon size={32} className="mx-auto mb-2" />
+                                              <p className="text-sm font-bold">Click to upload handwritten story</p>
+                                          </div>
+                                      )}
+                                  </label>
+                              </div>
+                          ) : (
+                              <textarea 
+                                  value={ppdtTextStory}
+                                  onChange={(e) => setPpdtTextStory(e.target.value)}
+                                  placeholder="Type your PPDT story here..."
+                                  className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none outline-none focus:border-blue-500 transition-all text-sm font-medium"
+                              />
+                          )}
                       </div>
                   ) : (
                       <textarea 
@@ -697,7 +737,7 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                                   {sub.ppdt_story && (
                                     <div className="space-y-2">
                                         <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest block bg-blue-50 px-2 py-1 rounded w-fit">
-                                            {sub.ppdt_story.startsWith('http') ? 'PPDT Story' : 'OIR Answer'}
+                                            {isPPDT ? 'PPDT Story' : 'OIR Answer'}
                                         </span>
                                         {sub.ppdt_story.startsWith('http') ? (
                                             <div 
