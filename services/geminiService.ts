@@ -182,19 +182,27 @@ export async function generateTestContent(testType: string) {
   return { items: [] };
 }
 
-export async function evaluateLecturette(topic: string, transcript: string, durationSeconds: number) {
-    if (!transcript || transcript.trim().length < 10) {
+export async function evaluateLecturette(
+    topic: string, 
+    transcript: string, 
+    durationSeconds: number,
+    mediaData?: { data: string, mimeType: string }
+) {
+    if ((!transcript || transcript.trim().length < 10) && !mediaData) {
         return {
             score: 0,
             structureAnalysis: "N/A",
             contentAnalysis: "N/A",
             poeAnalysis: "N/A",
+            bodyLanguageAnalysis: "N/A",
             timeManagementRemark: "Insufficient duration or no speech detected.",
             verdict: "Insufficient Data",
             improvementTips: ["Ensure your microphone is working.", "Speak clearly and for at least 2-3 minutes."],
             transcript: transcript || "No speech detected"
         };
     }
+
+    const hasVideo = mediaData?.mimeType.startsWith('video/');
 
     const prompt = `
     Act as a GTO (Group Testing Officer) in SSB. Evaluate the candidate's Lecturette performance.
@@ -211,6 +219,7 @@ export async function evaluateLecturette(topic: string, transcript: string, dura
        - If time < 150s (2:30): Penalize heavily for stopping early.
        - If time > 190s: Penalize for lack of time sense.
        - 150s-180s is ideal.
+    ${hasVideo ? '5. Body Language & Confidence: Evaluate eye contact, posture, hand gestures, and overall physical confidence from the provided video.' : ''}
 
     Return JSON:
     {
@@ -218,6 +227,7 @@ export async function evaluateLecturette(topic: string, transcript: string, dura
         "structureAnalysis": "Specific feedback on intro/body/conclusion",
         "contentAnalysis": "Feedback on knowledge depth and arguments",
         "poeAnalysis": "Feedback on fluency and expression",
+        ${hasVideo ? '"bodyLanguageAnalysis": "Feedback on eye contact, posture, and gestures",' : ''}
         "timeManagementRemark": "Feedback on timing",
         "verdict": "Recommended / Needs Improvement",
         "improvementTips": ["Tip 1", "Tip 2", "Tip 3"]
@@ -225,10 +235,21 @@ export async function evaluateLecturette(topic: string, transcript: string, dura
     `;
 
     try {
+        const contents: any[] = [];
+        if (mediaData) {
+            contents.push({
+                inlineData: {
+                    data: mediaData.data,
+                    mimeType: mediaData.mimeType
+                }
+            });
+        }
+        contents.push(prompt);
+
         const response = await generateWithRetry(
-            'gemini-3.1-pro-preview', 
+            'gemini-3-flash-preview', 
             {
-                contents: prompt,
+                contents: contents,
                 config: {
                     responseMimeType: 'application/json',
                     responseSchema: {
@@ -238,6 +259,7 @@ export async function evaluateLecturette(topic: string, transcript: string, dura
                             structureAnalysis: { type: Type.STRING },
                             contentAnalysis: { type: Type.STRING },
                             poeAnalysis: { type: Type.STRING },
+                            ...(hasVideo ? { bodyLanguageAnalysis: { type: Type.STRING } } : {}),
                             timeManagementRemark: { type: Type.STRING },
                             verdict: { type: Type.STRING },
                             improvementTips: { type: Type.ARRAY, items: { type: Type.STRING } }

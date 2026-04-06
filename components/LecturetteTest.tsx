@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Mic, BookOpen, Loader2, Play, X, Clock, AlertTriangle, CheckCircle, Volume2, Award, Activity, StopCircle, RefreshCw, Layout, FileAudio, MapPin, Filter, Star, Coins, Lock, PenTool } from 'lucide-react';
 import { generateLecturette, evaluateLecturette } from '../services/geminiService';
 import { getLecturetteContent, saveLecturetteContent, TEST_RATES } from '../services/supabaseService';
+import SessionFeedback from './SessionFeedback';
 
 const IMPORTANT_TOPICS_LIST = [
     "India China relation", "Indo China relationship", 
@@ -237,9 +238,10 @@ interface LecturetteTestProps {
   onSave?: (result: any) => void;
   isGuest?: boolean;
   onLoginRedirect?: () => void;
+  userId?: string;
 }
 
-const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave, isGuest = false, onLoginRedirect }) => {
+const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave, isGuest = false, onLoginRedirect, userId }) => {
   const [selectedLecturette, setSelectedLecturette] = useState<string | null>(null);
   const [lecturetteContent, setLecturetteContent] = useState<any>(null);
   const [loadingLecturette, setLoadingLecturette] = useState(false);
@@ -262,6 +264,9 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
 
   const [customTopic, setCustomTopic] = useState('');
   const [useCustomTopic, setUseCustomTopic] = useState(false);
+  const [useVideo, setUseVideo] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const playBuzzer = (freq: number = 200, duration: number = 0.5) => {
     if (!audioCtxRef.current) {
@@ -301,10 +306,10 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
     return () => clearInterval(interval);
   }, [isPrepTimerRunning, lecturetteTimer]);
 
-  const handleEvaluation = useCallback(async () => {
+  const handleEvaluation = useCallback(async (mediaData?: { data: string, mimeType: string }) => {
       setIsEvaluating(true);
       try {
-          const result = await evaluateLecturette(selectedLecturette || "Topic", transcriptRef.current, speechTimer);
+          const result = await evaluateLecturette(selectedLecturette || "Topic", transcriptRef.current, speechTimer, mediaData);
           setFeedback(result);
           
           // Save result to database
@@ -333,17 +338,49 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
       if (mediaRecorderRef.current) {
           mediaRecorderRef.current.stop();
           mediaRecorderRef.current.onstop = async () => {
-              const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+              const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+              const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
               const url = URL.createObjectURL(audioBlob);
               setAudioUrl(url);
               
-              // Proceed to Evaluation
-              handleEvaluation();
+              // Convert blob to base64 for Gemini
+              const reader = new FileReader();
+              reader.readAsDataURL(audioBlob);
+              reader.onloadend = () => {
+                  const base64data = reader.result as string;
+                  const base64String = base64data.split('base64,')[1];
+                  
+                  // Clean mimeType for Gemini (remove codecs)
+                  const cleanMimeType = mimeType.split(';')[0];
+                  
+                  // Proceed to Evaluation
+                  handleEvaluation({ data: base64String, mimeType: cleanMimeType });
+              };
+
+              // Stop all tracks to release microphone
+              if (mediaRecorderRef.current && mediaRecorderRef.current.stream) {
+                  mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+              }
           };
       } else {
           handleEvaluation();
       }
   }, [handleEvaluation]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+      return () => {
+          if (recognitionRef.current) {
+              try { recognitionRef.current.stop(); } catch(e) {}
+          }
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+              try { mediaRecorderRef.current.stop(); } catch(e) {}
+          }
+          if (mediaRecorderRef.current && mediaRecorderRef.current.stream) {
+              mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+          }
+      };
+  }, []);
 
   // Speech Timer Logic
   useEffect(() => {
@@ -462,15 +499,19 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
       // If user is registered AND topic is NOT free AND we have a consumption function
       if (!isGuest && !isFreeTopic && onConsumeCoins) {
           setProcessingPayment(true);
-          const success = await onConsumeCoins(TEST_RATES.LECTURETTE);
+          const success = await onConsumeCoins(useVideo ? TEST_RATES.LECTURETTE_VIDEO : TEST_RATES.LECTURETTE);
           setProcessingPayment(false);
           
           if (!success) return; // Stop if payment failed or cancelled
       }
 
       try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: useVideo });
           
+          if (useVideo && videoRef.current) {
+              videoRef.current.srcObject = stream;
+          }
+
           setIsPrepTimerRunning(false);
           setIsRecording(true);
           setSpeechTimer(0);
@@ -478,8 +519,8 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
           transcriptRef.current = "";
           audioChunksRef.current = [];
 
-          // 1. Start Audio Recording for Playback
-          const mediaRecorder = new MediaRecorder(stream);
+          // 1. Start Audio/Video Recording for Playback and Evaluation
+          const mediaRecorder = new MediaRecorder(stream, { mimeType: useVideo ? 'video/webm' : 'audio/webm' });
           mediaRecorderRef.current = mediaRecorder;
           
           mediaRecorder.ondataavailable = (event) => {
@@ -587,7 +628,7 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
                           }
                           setUseCustomTopic(!useCustomTopic);
                       }}
-                      className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-lg flex items-center gap-3 ${useCustomTopic ? 'bg-purple-600 text-white shadow-purple-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                      className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-lg flex items-center gap-3 ${useCustomTopic ? 'bg-purple-600 text-white shadow-purple-200' : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-blue-200 ring-2 ring-offset-2 ring-blue-500 animate-pulse hover:animate-none'}`}
                   >
                       {useCustomTopic ? <><CheckCircle size={16}/> Using Custom Topic</> : <><RefreshCw size={16}/> Custom Topic</>}
                   </button>
@@ -703,40 +744,48 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
                   </button>
 
                   {/* LEFT: AUDIO VISUALIZER */}
-                  <div className="w-full md:w-1/2 bg-slate-900 relative flex flex-col justify-center items-center overflow-hidden shrink-0 h-72 md:h-auto border-b md:border-b-0 md:border-r border-slate-800">
+                  <div className="w-full md:w-1/2 bg-slate-900 relative flex flex-col justify-center items-center overflow-hidden shrink-0 h-40 md:h-auto border-b md:border-b-0 md:border-r border-slate-800">
                       <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-black pointer-events-none"></div>
                       
-                      <div className="relative z-10 text-center space-y-8">
-                          <div className={`w-32 h-32 md:w-40 md:h-40 rounded-full flex items-center justify-center border-8 transition-all duration-500 ${isRecording ? 'border-red-500 shadow-[0_0_50px_rgba(239,68,68,0.4)] bg-red-900/20' : 'border-slate-800 bg-slate-800'}`}>
-                              <Mic size={64} className={`${isRecording ? 'text-red-500 animate-pulse' : 'text-slate-600'}`} />
+                      <video 
+                          ref={videoRef} 
+                          autoPlay 
+                          muted 
+                          playsInline 
+                          className={`absolute inset-0 w-full h-full object-cover z-0 opacity-80 ${useVideo && isRecording ? 'block' : 'hidden'}`}
+                      />
+
+                      <div className="relative z-10 text-center space-y-4 md:space-y-8">
+                          <div className={`mx-auto w-20 h-20 md:w-40 md:h-40 rounded-full flex items-center justify-center border-4 md:border-8 transition-all duration-500 ${isRecording ? 'border-red-500 shadow-[0_0_50px_rgba(239,68,68,0.4)] bg-red-900/20' : 'border-slate-800 bg-slate-800'} ${useVideo && isRecording ? 'backdrop-blur-md bg-black/30' : ''}`}>
+                              <Mic className={`w-8 h-8 md:w-16 md:h-16 ${isRecording ? 'text-red-500 animate-pulse' : 'text-slate-600'}`} />
                           </div>
                           
-                          <div>
+                          <div className={`${useVideo && isRecording ? 'bg-black/50 backdrop-blur-md p-4 rounded-2xl' : ''}`}>
                               {isRecording ? (
                                   <>
-                                    <div className="text-5xl md:text-6xl font-mono font-black text-white drop-shadow-lg tracking-tighter mb-2">
+                                    <div className="text-4xl md:text-6xl font-mono font-black text-white drop-shadow-lg tracking-tighter mb-1 md:mb-2">
                                         {formatTime(speechTimer)}
                                     </div>
-                                    <p className="text-red-500 font-black uppercase tracking-[0.5em] text-xs animate-pulse">Recording On Air</p>
+                                    <p className="text-red-500 font-black uppercase tracking-[0.5em] text-[10px] md:text-xs animate-pulse">Recording On Air</p>
                                     {speechTimer > 150 && (
-                                        <p className="text-yellow-400 font-black uppercase tracking-[0.2em] text-[10px] mt-2 animate-bounce">
+                                        <p className="text-yellow-400 font-black uppercase tracking-[0.2em] text-[8px] md:text-[10px] mt-1 md:mt-2 animate-bounce">
                                             Warning: Wrap Up (30s Left)
                                         </p>
                                     )}
                                   </>
                               ) : (
-                                  <p className="text-slate-500 font-black uppercase tracking-[0.2em] text-xs">Microphone Standby</p>
+                                  <p className="text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] md:text-xs">Microphone Standby</p>
                               )}
                           </div>
                       </div>
 
                       {/* Waveform Animation */}
-                      {isRecording && (
-                          <div className="absolute bottom-0 left-0 w-full h-32 flex items-end justify-center gap-1 pb-10 opacity-30">
+                      {isRecording && !useVideo && (
+                          <div className="absolute bottom-0 left-0 w-full h-20 md:h-32 flex items-end justify-center gap-1 pb-4 md:pb-10 opacity-30">
                               {[...Array(20)].map((_, i) => (
                                   <div 
                                     key={i} 
-                                    className="w-2 bg-red-500 rounded-t-full animate-bounce" 
+                                    className="w-1.5 md:w-2 bg-red-500 rounded-t-full animate-bounce" 
                                     style={{ 
                                         height: `${Math.random() * 80 + 20}%`, 
                                         animationDuration: `${Math.random() * 0.5 + 0.5}s`,
@@ -788,11 +837,19 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
                                       <h4 className="font-black text-xs uppercase tracking-widest text-green-600 mb-2 flex items-center gap-2"><Volume2 size={14}/> Power of Expression</h4>
                                       <p className="text-sm font-medium text-slate-700">{feedback.poeAnalysis}</p>
                                   </div>
+                                  {feedback.bodyLanguageAnalysis && feedback.bodyLanguageAnalysis !== "N/A" && (
+                                      <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                                          <h4 className="font-black text-xs uppercase tracking-widest text-indigo-600 mb-2 flex items-center gap-2"><Activity size={14}/> Body Language</h4>
+                                          <p className="text-sm font-medium text-slate-700">{feedback.bodyLanguageAnalysis}</p>
+                                      </div>
+                                  )}
                                   <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                                       <h4 className="font-black text-xs uppercase tracking-widest text-orange-600 mb-2 flex items-center gap-2"><Clock size={14}/> Time Management</h4>
                                       <p className="text-sm font-medium text-slate-700">{feedback.timeManagementRemark}</p>
                                   </div>
                               </div>
+
+                              <SessionFeedback testType="Lecturette" userId={userId} />
 
                               <button onClick={() => { setFeedback(null); setSelectedLecturette(null); }} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all">
                                   End Session
@@ -826,6 +883,12 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
                                       </div>
                                   ) : lecturetteContent ? (
                                       <div className={`space-y-6 transition-all duration-500 ${isRecording ? 'blur-md select-none pointer-events-none opacity-50' : ''}`}>
+                                          <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-start gap-3">
+                                              <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+                                              <p className="text-xs font-medium text-amber-800">
+                                                  <strong>Note:</strong> You can use this AI-generated outline as a reference, or you can completely ignore it and speak using your own ideas and structure.
+                                              </p>
+                                          </div>
                                           <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
                                               <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1 block">Intro Idea</span>
                                               <p className="text-sm font-medium text-slate-700">{lecturetteContent.introduction}</p>
@@ -858,32 +921,56 @@ const LecturetteTest: React.FC<LecturetteTestProps> = ({ onConsumeCoins, onSave,
                                   )}
                               </div>
 
-                              <div className="p-6 border-t border-slate-200 bg-white flex gap-4">
-                                  {!isRecording ? (
-                                      <>
-                                          <button 
-                                              onClick={() => setIsPrepTimerRunning(!isPrepTimerRunning)}
-                                              className={`flex-1 py-4 rounded-xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 ${isPrepTimerRunning ? 'bg-slate-100 text-slate-600' : 'bg-slate-900 text-white hover:bg-black'}`}
-                                          >
-                                              {isPrepTimerRunning ? 'Pause Prep' : 'Start Prep Timer'}
-                                          </button>
-                                          <button 
-                                              onClick={startRecording}
-                                              disabled={processingPayment}
-                                              className="flex-1 py-4 bg-red-600 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-red-700 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
-                                          >
-                                              {processingPayment ? <Loader2 size={16} className="animate-spin" /> : <Mic size={16} />}
-                                              {processingPayment ? 'Processing...' : 'Start Speech'}
-                                          </button>
-                                      </>
-                                  ) : (
-                                      <button 
-                                          onClick={stopRecording}
-                                          className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-black shadow-lg flex items-center justify-center gap-2"
-                                      >
-                                          <StopCircle size={16} /> Finish Lecturette
-                                      </button>
+                              <div className="p-6 border-t border-slate-200 bg-white">
+                                  {!isRecording && (
+                                      <div className="mb-4 flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                          <div className="flex items-center gap-2">
+                                              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${useVideo ? 'bg-purple-100 text-purple-600' : 'bg-slate-200 text-slate-500'}`}>
+                                                  {useVideo ? <Layout size={14} /> : <Mic size={14} />}
+                                              </div>
+                                              <div>
+                                                  <p className="text-xs font-black text-slate-900 uppercase tracking-widest">Video + Audio</p>
+                                                  <p className="text-[10px] font-bold text-slate-500">Includes body language feedback</p>
+                                              </div>
+                                          </div>
+                                          <div className="flex items-center gap-3">
+                                              {useVideo && <span className="text-[10px] font-black text-yellow-600 bg-yellow-100 px-2 py-1 rounded flex items-center gap-1"><Coins size={10}/> 5</span>}
+                                              <button 
+                                                  onClick={() => setUseVideo(!useVideo)}
+                                                  className={`w-12 h-6 rounded-full transition-colors relative ${useVideo ? 'bg-purple-600' : 'bg-slate-300'}`}
+                                              >
+                                                  <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${useVideo ? 'left-7' : 'left-1'}`} />
+                                              </button>
+                                          </div>
+                                      </div>
                                   )}
+                                  <div className="flex gap-4">
+                                      {!isRecording ? (
+                                          <>
+                                              <button 
+                                                  onClick={() => setIsPrepTimerRunning(!isPrepTimerRunning)}
+                                                  className={`flex-1 py-4 rounded-xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 ${isPrepTimerRunning ? 'bg-slate-100 text-slate-600' : 'bg-slate-900 text-white hover:bg-black'}`}
+                                              >
+                                                  {isPrepTimerRunning ? 'Pause Prep' : 'Start Prep Timer'}
+                                              </button>
+                                              <button 
+                                                  onClick={startRecording}
+                                                  disabled={processingPayment}
+                                                  className="flex-1 py-4 bg-red-600 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-red-700 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                                              >
+                                                  {processingPayment ? <Loader2 size={16} className="animate-spin" /> : <Mic size={16} />}
+                                                  {processingPayment ? 'Processing...' : 'Start Speech'}
+                                              </button>
+                                          </>
+                                      ) : (
+                                          <button 
+                                              onClick={stopRecording}
+                                              className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-black shadow-lg flex items-center justify-center gap-2"
+                                          >
+                                              <StopCircle size={16} /> Finish Lecturette
+                                          </button>
+                                      )}
+                                  </div>
                               </div>
                           </>
                       )}

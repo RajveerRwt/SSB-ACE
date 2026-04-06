@@ -1086,7 +1086,7 @@ const App: React.FC = () => {
       case TestType.DAILY_PRACTICE: return <DailyPractice onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
       case TestType.CHALLENGE_14_DAY: return <Challenge14Day onBack={() => setActiveTest(TestType.DASHBOARD)} userId={user || undefined} piqData={piqData || undefined} />;
       case TestType.RESOURCES: return <ResourceCenter />;
-      case TestType.LECTURETTE: return <LecturetteTest onSave={handleTestComplete} onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} />;
+      case TestType.LECTURETTE: return <LecturetteTest onSave={handleTestComplete} onConsumeCoins={handleCoinConsumption} isGuest={!user} onLoginRedirect={() => setActiveTest(TestType.LOGIN)} userId={user || undefined} />;
       case TestType.OIR: return (
         <OIRTest 
           onConsumeCoins={handleCoinConsumption} 

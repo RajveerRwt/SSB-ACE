@@ -14,6 +14,7 @@ export const TEST_RATES = {
     SRT: 5,
     WAT: 5,
     LECTURETTE: 3, 
+    LECTURETTE_VIDEO: 5,
     SDT: 5,
     TAT: 10,
     GPE: 10,
