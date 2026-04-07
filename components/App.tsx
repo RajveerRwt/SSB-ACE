@@ -299,11 +299,11 @@ const Dashboard: React.FC<{
              {isLoggedIn ? (
                <div className="flex flex-col md:flex-row flex-wrap gap-4 pt-4">
                  <button 
-                   onClick={() => piqLoaded ? onStartTest(TestType.PPDT) : onStartTest(TestType.PIQ)}
-                   className={`w-full md:w-auto px-6 md:px-10 py-4 md:py-5 font-black rounded-2xl transition-all shadow-xl hover:-translate-y-1 uppercase tracking-widest text-[10px] md:text-[11px] flex items-center justify-center gap-3 ${piqLoaded ? 'bg-yellow-400 text-black hover:bg-yellow-500 shadow-yellow-400/20' : 'bg-slate-800 text-slate-500 border border-white/5'}`}
+                   onClick={() => onStartTest(TestType.PPDT)}
+                   className={`w-full md:w-auto px-6 md:px-10 py-4 md:py-5 font-black rounded-2xl transition-all shadow-xl hover:-translate-y-1 uppercase tracking-widest text-[10px] md:text-[11px] flex items-center justify-center gap-3 bg-yellow-400 text-black hover:bg-yellow-500 shadow-yellow-400/20`}
                    disabled={isLoading}
                  >
-                   {isLoading ? 'Syncing...' : (piqLoaded ? 'Start PPDT test' : 'Unlock PPDT (Fill PIQ)')}
+                   {isLoading ? 'Syncing...' : 'Start PPDT test'}
                  </button>
                  
                  <div className="relative w-full md:w-auto">
