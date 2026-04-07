@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Loader2, Send, MessageSquare, Clock, User, ImageIcon, FileText, Zap, PenTool, Flame, Trophy, Lock, Heart, Award, Medal, Star, CheckCircle, Mic, RefreshCw, AlertTriangle, Brain, Maximize2, X, Instagram, Youtube } from 'lucide-react';
-import { getLatestDailyChallenge, submitDailyEntry, getDailySubmissions, checkAuthSession, toggleLike, getUserStreak, getUserData, updateDailySubmissionAI, supabase } from '../services/supabaseService';
+import { getLatestDailyChallenge, submitDailyEntry, getDailySubmissions, checkAuthSession, toggleLike, getUserStreak, getUserData, updateDailySubmissionAI, supabase, getDailyLeaderboard } from '../services/supabaseService';
 import { evaluateDailyChallengeResponse } from '../services/geminiService';
 import MentorshipCard from './MentorshipCard';
 
@@ -37,6 +37,14 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   const [autoRetryAttempted, setAutoRetryAttempted] = useState(false);
   const [showScoreMeaning, setShowScoreMeaning] = useState(false);
   const [showPpdtPopup, setShowPpdtPopup] = useState(false);
+  
+  // Leaderboard State
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboardTimeframe, setLeaderboardTimeframe] = useState<'weekly' | 'monthly' | 'overall'>('weekly');
+  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
+  const [weeklyTop3, setWeeklyTop3] = useState<any[]>([]);
+  const [weekRange, setWeekRange] = useState('');
 
   const rawOirText = challenge?.oir_text || '';
   const [mainOirText, adminRemark] = rawOirText.split('|||REMARK|||');
@@ -67,6 +75,24 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
     }
   }, [hasSubmitted, mySubmission, isRetrying, autoRetryAttempted]);
 
+  useEffect(() => {
+    if (showLeaderboard) {
+        loadLeaderboard();
+    }
+  }, [showLeaderboard, leaderboardTimeframe]);
+
+  const loadLeaderboard = async () => {
+      setIsLoadingLeaderboard(true);
+      try {
+          const data = await getDailyLeaderboard(leaderboardTimeframe);
+          setLeaderboardData(data);
+      } catch (e) {
+          console.error("Failed to load leaderboard", e);
+      } finally {
+          setIsLoadingLeaderboard(false);
+      }
+  };
+
   const loadData = async () => {
     setIsLoading(true);
     setErrorMsg(null);
@@ -80,6 +106,21 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
       }
       
       const ch = await getLatestDailyChallenge();
+      
+      // Calculate week range for display
+      const now = new Date();
+      const istNow = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+      const day = istNow.getUTCDay();
+      const diff = istNow.getUTCDate() - day + (day === 0 ? -6 : 1);
+      const start = new Date(istNow);
+      start.setUTCDate(diff);
+      const end = new Date(start);
+      end.setUTCDate(start.getUTCDate() + 6);
+      setWeekRange(`${start.getUTCDate()} ${start.toLocaleString('default', { month: 'short' })} - ${end.getUTCDate()} ${end.toLocaleString('default', { month: 'short' })}`);
+
+      // Fetch weekly top 3 for display
+      const weeklyData = await getDailyLeaderboard('weekly');
+      setWeeklyTop3(weeklyData.slice(0, 3));
       
       if (ch) {
         setChallenge(ch);
@@ -363,49 +404,70 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
   );
 
   return (
-    <div className="max-w-5xl mx-auto space-y-12 pb-20 animate-in fade-in duration-700">
+    <div className="max-w-5xl mx-auto space-y-6 pb-20 animate-in fade-in duration-700">
       
       {/* HEADER */}
-      <div className="bg-slate-900 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl relative overflow-hidden flex flex-col items-center text-center border-b-8 border-yellow-500">
-         <div className="relative z-10 space-y-4">
-            <div className="flex items-center gap-3 justify-center">
-                <span className="px-4 py-1.5 bg-green-600 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg flex items-center gap-2">
-                   <Clock size={12} className="animate-pulse" /> Active Challenge
+      <div className="bg-slate-900 rounded-3xl p-4 md:p-6 text-white shadow-xl relative overflow-hidden flex flex-col items-center text-center border-b-2 border-yellow-500">
+         <div className="relative z-10 space-y-3">
+            <div className="flex flex-wrap items-center gap-2 justify-center">
+                <span className="px-2 py-0.5 bg-green-600 text-white text-[8px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg flex items-center gap-1.5">
+                   <Clock size={8} className="animate-pulse" /> Active Challenge
                 </span>
                 {userStreak > 0 && (
-                    <span className="px-4 py-1.5 bg-orange-600 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg flex items-center gap-2">
-                       <Flame size={12} fill="currentColor" /> {userStreak} Day Streak
+                    <span className="px-2 py-0.5 bg-orange-600 text-white text-[8px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg flex items-center gap-1.5">
+                       <Flame size={8} fill="currentColor" /> {userStreak} Day Streak
                     </span>
                 )}
             </div>
-            <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">Daily <span className="text-yellow-400">War Room</span></h1>
-            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">
-                {new Date(challenge.created_at).toDateString()} • Earn 2 Coins for your first submission today
-            </p>
+            
+            <div className="space-y-0.5">
+                <h1 className="text-xl md:text-2xl font-black uppercase tracking-tighter">Daily <span className="text-yellow-400">War Room</span></h1>
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">
+                    {new Date(challenge.created_at).toDateString()}
+                </p>
+            </div>
+
+            <button 
+                onClick={() => setShowLeaderboard(true)}
+                className="group relative px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-slate-900 rounded-lg font-black uppercase tracking-widest text-[9px] shadow-[0_2px_0_rgb(202,138,4)] hover:shadow-[0_1px_0_rgb(202,138,4)] active:shadow-none active:translate-y-0.5 transition-all flex items-center gap-2 mx-auto"
+            >
+                <Trophy size={12} className="group-hover:rotate-12 transition-transform" /> 
+                View Global Leaderboard
+            </button>
          </div>
-         <Flame className="absolute -bottom-10 -right-10 w-64 h-64 text-orange-500/10 rotate-12 pointer-events-none" />
+         <Flame className="absolute -bottom-6 -right-6 w-32 h-32 text-orange-500/10 rotate-12 pointer-events-none" />
       </div>
 
-      {/* LEADERBOARD (Top 3 by Likes) */}
-      {topSubmissions.length > 0 && (
-          <div className="grid grid-cols-3 gap-2 md:gap-4 max-w-3xl mx-auto">
-              {topSubmissions.map((sub, i) => {
-                  const displayName = getDisplayName(sub);
-                  return (
-                    <div key={sub.id} className={`relative p-4 rounded-2xl border text-center flex flex-col items-center gap-2 ${i === 0 ? 'bg-yellow-50 border-yellow-400 order-2 scale-110 shadow-xl' : i === 1 ? 'bg-slate-50 border-slate-200 order-1' : 'bg-orange-50 border-orange-200 order-3'}`}>
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                            {i === 0 ? <Trophy size={24} className="text-yellow-500 fill-yellow-500" /> : <Medal size={20} className={i === 1 ? "text-slate-400" : "text-orange-700"} />}
+      {/* LEADERBOARD (Top 3 Weekly) */}
+      {weeklyTop3.length > 0 && (
+          <div className="space-y-6">
+              <div className="text-center space-y-1">
+                  <h2 className="text-xl font-black uppercase tracking-tighter text-slate-900 flex items-center justify-center gap-2">
+                      <Trophy size={20} className="text-yellow-500" /> Weekly Top Cadets
+                  </h2>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                      Current Week: {weekRange} (IST)
+                  </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 md:gap-4 max-w-3xl mx-auto">
+                  {weeklyTop3.map((cadet, i) => {
+                      return (
+                        <div key={cadet.user_id} className={`relative p-4 rounded-2xl border text-center flex flex-col items-center gap-2 ${i === 0 ? 'bg-yellow-50 border-yellow-400 order-2 scale-110 shadow-xl' : i === 1 ? 'bg-slate-50 border-slate-200 order-1' : 'bg-orange-50 border-orange-200 order-3'}`}>
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                                {i === 0 ? <Trophy size={24} className="text-yellow-500 fill-yellow-500" /> : <Medal size={20} className={i === 1 ? "text-slate-400" : "text-orange-700"} />}
+                            </div>
+                            <div className="w-10 h-10 md:w-12 md:h-12 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-xs md:text-sm mt-2">
+                                {cadet.full_name?.[0] || 'U'}
+                            </div>
+                            <p className="text-[10px] md:text-xs font-black uppercase tracking-widest truncate w-full">{cadet.full_name?.split(' ')[0]}</p>
+                            <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600">
+                                <Trophy size={10} className="text-blue-500 fill-blue-500" /> {cadet.points} Pts
+                            </div>
                         </div>
-                        <div className="w-10 h-10 md:w-12 md:h-12 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-xs md:text-sm mt-2">
-                            {displayName?.[0] || 'U'}
-                        </div>
-                        <p className="text-[10px] md:text-xs font-black uppercase tracking-widest truncate w-full">{displayName?.split(' ')[0]}</p>
-                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500">
-                            <Heart size={10} className="text-red-500 fill-red-500" /> {sub.likes_count || 0}
-                        </div>
-                    </div>
-                  );
-              })}
+                      );
+                  })}
+              </div>
           </div>
       )}
 
@@ -913,6 +975,73 @@ const DailyPractice: React.FC<DailyPracticeProps> = ({ onLoginRedirect }) => {
                   >
                       Got it
                   </button>
+              </div>
+          </div>
+      )}
+
+      {/* GLOBAL LEADERBOARD MODAL */}
+      {showLeaderboard && (
+          <div className="fixed inset-0 z-[500] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+                  <div className="p-6 md:p-8 bg-slate-900 text-white flex justify-between items-center shrink-0">
+                      <div>
+                          <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
+                              <Trophy className="text-yellow-400" /> Global Leaderboard
+                          </h2>
+                          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">1 Point per Daily Practice</p>
+                      </div>
+                      <button onClick={() => setShowLeaderboard(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors">
+                          <X size={20} />
+                      </button>
+                  </div>
+                  
+                  <div className="p-6 border-b border-slate-100 flex gap-2 shrink-0 overflow-x-auto">
+                      {(['weekly', 'monthly', 'overall'] as const).map(tf => (
+                          <button
+                              key={tf}
+                              onClick={() => setLeaderboardTimeframe(tf)}
+                              className={`px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${leaderboardTimeframe === tf ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                          >
+                              {tf}
+                          </button>
+                      ))}
+                  </div>
+
+                  <div className="p-6 overflow-y-auto flex-1 bg-slate-50">
+                      {isLoadingLeaderboard ? (
+                          <div className="flex justify-center py-12"><Loader2 className="animate-spin text-slate-400" size={32}/></div>
+                      ) : leaderboardData.length === 0 ? (
+                          <div className="text-center py-12 text-slate-500 font-medium">No cadets found for this timeframe.</div>
+                      ) : (
+                          <div className="space-y-3">
+                              {leaderboardData.map((cadet, idx) => (
+                                  <div key={cadet.user_id} className={`flex items-center gap-4 p-4 rounded-2xl border bg-white ${idx === 0 ? 'border-yellow-400 shadow-md' : idx === 1 ? 'border-slate-300' : idx === 2 ? 'border-orange-300' : 'border-slate-100'}`}>
+                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${idx === 0 ? 'bg-yellow-100 text-yellow-700' : idx === 1 ? 'bg-slate-100 text-slate-700' : idx === 2 ? 'bg-orange-100 text-orange-800' : 'bg-slate-50 text-slate-400'}`}>
+                                          #{idx + 1}
+                                      </div>
+                                      <div className="w-10 h-10 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm shrink-0">
+                                          {cadet.full_name?.[0] || 'U'}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                          <h4 className="font-bold text-slate-900 truncate flex items-center gap-2">
+                                              {cadet.full_name}
+                                              {cadet.streak_count > 3 && (
+                                                  <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                                                      <Flame size={10} fill="currentColor" /> {cadet.streak_count}
+                                                  </span>
+                                              )}
+                                          </h4>
+                                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cadet</p>
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                          <div className="text-lg font-black text-blue-600">{cadet.points}</div>
+                                          <div className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Pts</div>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      )}
+                  </div>
               </div>
           </div>
       )}

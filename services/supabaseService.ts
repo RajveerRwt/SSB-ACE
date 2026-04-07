@@ -940,12 +940,6 @@ export const submitDailyEntry = async (challengeId: string, oirAnswer: string, w
 
   if (error) throw error;
 
-  // If this is the first submission of the day, credit 2 coins
-  if (!existingToday) {
-      await creditCoins(user.id, 2);
-      return { rewarded: true };
-  }
-
   return { rewarded: false };
 };
 
@@ -966,6 +960,63 @@ export const hasUserSubmittedDaily = async (userId: string, challengeId: string)
     .eq('user_id', userId)
     .maybeSingle();
   return !!data;
+};
+
+export const getDailyLeaderboard = async (timeframe: 'weekly' | 'monthly' | 'overall') => {
+  let query = supabase.from('daily_submissions').select('user_id, created_at, ppdt_story, wat_answers, srt_answers, interview_answer');
+  
+  if (timeframe === 'weekly') {
+      // Calculate start of current week (Monday) in IST (UTC+5:30)
+      const now = new Date();
+      // Convert to IST offset
+      const istNow = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+      const day = istNow.getUTCDay(); // 0 is Sunday, 1 is Monday...
+      const diff = istNow.getUTCDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+      
+      const startOfWeek = new Date(istNow);
+      startOfWeek.setUTCDate(diff);
+      startOfWeek.setUTCHours(0, 0, 0, 0);
+      
+      // Convert back to UTC for query
+      const startOfWeekUtc = new Date(startOfWeek.getTime() - (5.5 * 60 * 60 * 1000));
+      query = query.gte('created_at', startOfWeekUtc.toISOString());
+  } else if (timeframe === 'monthly') {
+      const lastMonth = new Date();
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      query = query.gte('created_at', lastMonth.toISOString());
+  }
+
+  const { data, error } = await query;
+  if (error || !data) return [];
+
+  // Group by user_id and count points based on attempted tests
+  const pointsMap: Record<string, number> = {};
+  data.forEach(sub => {
+      let pts = 0;
+      if (sub.ppdt_story && sub.ppdt_story.trim() !== '') pts += 1;
+      if (sub.wat_answers && sub.wat_answers.length > 0 && sub.wat_answers[0] && sub.wat_answers[0].trim() !== '') pts += 1;
+      if (sub.srt_answers && sub.srt_answers.length > 0 && sub.srt_answers[0] && sub.srt_answers[0].trim() !== '') pts += 1;
+      if (sub.interview_answer && sub.interview_answer.trim() !== '') pts += 1;
+      
+      pointsMap[sub.user_id] = (pointsMap[sub.user_id] || 0) + pts;
+  });
+
+  const userIds = Object.keys(pointsMap);
+  if (userIds.length === 0) return [];
+
+  const { data: profiles } = await supabase.from('aspirants').select('user_id, full_name, streak_count').in('user_id', userIds);
+
+  const leaderboard = userIds.map(uid => {
+      const profile = profiles?.find(p => p.user_id === uid);
+      return {
+          user_id: uid,
+          points: pointsMap[uid],
+          full_name: profile?.full_name || 'Cadet',
+          streak_count: profile?.streak_count || 0
+      };
+  }).sort((a, b) => b.points - a.points);
+
+  return leaderboard;
 };
 
 export const getDailySubmissions = async (challengeId: string) => {

@@ -299,11 +299,11 @@ const Dashboard: React.FC<{
              {isLoggedIn ? (
                <div className="flex flex-col md:flex-row flex-wrap gap-4 pt-4">
                  <button 
-                   onClick={() => piqLoaded ? onStartTest(TestType.INTERVIEW) : onStartTest(TestType.PIQ)}
+                   onClick={() => piqLoaded ? onStartTest(TestType.PPDT) : onStartTest(TestType.PIQ)}
                    className={`w-full md:w-auto px-6 md:px-10 py-4 md:py-5 font-black rounded-2xl transition-all shadow-xl hover:-translate-y-1 uppercase tracking-widest text-[10px] md:text-[11px] flex items-center justify-center gap-3 ${piqLoaded ? 'bg-yellow-400 text-black hover:bg-yellow-500 shadow-yellow-400/20' : 'bg-slate-800 text-slate-500 border border-white/5'}`}
                    disabled={isLoading}
                  >
-                   {isLoading ? 'Syncing...' : (piqLoaded ? 'Start AI Interview' : 'Unlock Interview (Fill PIQ)')}
+                   {isLoading ? 'Syncing...' : (piqLoaded ? 'Start PPDT test' : 'Unlock PPDT (Fill PIQ)')}
                  </button>
                  
                  <div className="relative w-full md:w-auto">
@@ -363,6 +363,30 @@ const Dashboard: React.FC<{
                             <Coins size={24} /> {subscription.coins}
                         </div>
                         <span className="text-[10px] font-medium text-slate-400">Available Credits</span>
+                    </div>
+
+                    {/* FREE AI INTERVIEW WHATSAPP BUTTON */}
+                    <div className="mt-4 relative group w-full">
+                        <a 
+                          href="https://wa.me/919131112322?text=I%20want%20to%20take%20the%20FREE%20AI%20Interview%20and%20provide%20feedback."
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full px-6 py-4 bg-green-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-green-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 border border-green-400/20"
+                        >
+                          <Mic size={16} fill="currentColor" /> Get FREE Personal Interview with AI
+                          <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[7px] px-2 py-0.5 rounded-full animate-bounce shadow-lg border border-red-400 z-20">LIMITED OFFER</span>
+                        </a>
+                        
+                        {/* TOOLTIP POPUP */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-64 p-4 bg-white text-slate-900 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50 border-2 border-green-500/20 scale-95 group-hover:scale-100 hidden md:block">
+                            <div className="relative">
+                                <p className="text-[10px] font-bold leading-relaxed text-center">
+                                    "Take free AI interview with <span className="text-green-600 font-black">Virtual IO</span>, provide Feedback and help in improving platform."
+                                </p>
+                                {/* Triangle pointer */}
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-r-2 border-b-2 border-green-500/20 rotate-45 -mb-5.5"></div>
+                            </div>
+                        </div>
                     </div>
                  </div>
              )}
