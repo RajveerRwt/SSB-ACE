@@ -82,11 +82,16 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   const isRecordingRef = useRef(false);
   const narrationTextRef = useRef('');
   const interimTextRef = useRef('');
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     return () => {
       if (audioUrl) {
         URL.revokeObjectURL(audioUrl);
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
   }, [audioUrl]);
@@ -351,6 +356,12 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
   }, [isLoading]);
 
   const startNarration = () => {
+    const scrollContainer = document.getElementById('main-scroll-container');
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
     initAudio();
     setNarrationText('');
     narrationTextRef.current = '';
@@ -360,11 +371,18 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
     isRecordingRef.current = true;
     setAudioUrl(null);
 
-    // Start audio recording for playback at the end
+    // Start audio and video recording for playback at the end
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ audio: true })
+        navigator.mediaDevices.getUserMedia({ audio: true, video: true })
           .then(stream => {
-            const mediaRecorder = new MediaRecorder(stream);
+            streamRef.current = stream;
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+            }
+            
+            // Create a MediaRecorder that only records the audio track
+            const audioStream = new MediaStream(stream.getAudioTracks());
+            const mediaRecorder = new MediaRecorder(audioStream);
             mediaRecorderRef.current = mediaRecorder;
             audioChunksRef.current = [];
   
@@ -378,14 +396,15 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
               const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
               const url = URL.createObjectURL(audioBlob);
               setAudioUrl(url);
-              // Stop all tracks to release the microphone
+              // Stop all tracks to release the microphone and camera
               stream.getTracks().forEach(track => track.stop());
+              streamRef.current = null;
             };
   
             mediaRecorder.start();
           })
           .catch(err => {
-            console.error("Error accessing microphone for recording:", err);
+            console.error("Error accessing microphone/camera for recording:", err);
           });
       }
 
@@ -1016,8 +1035,28 @@ const PPDTTest: React.FC<PPDTProps> = ({ onSave, onPendingSave, isAdmin, userId,
       case PPDTStep.NARRATION:
         return (
             <div className="max-w-4xl mx-auto text-center py-8 md:py-12 space-y-8 md:space-y-12 animate-in fade-in">
-            <div className={`relative w-32 h-32 md:w-48 md:h-48 rounded-full flex items-center justify-center mx-auto transition-all duration-700 border-8 ${isRecording ? 'bg-red-50 border-red-500 scale-110 shadow-[0_0_80px_rgba(239,68,68,0.4)] ring-8 ring-red-500/10' : 'bg-slate-50 border-slate-200 shadow-inner'}`}>
-                {isRecording ? <Volume2 className="w-12 h-12 md:w-20 md:h-20 text-red-600 animate-pulse" /> : <MicOff className="w-12 h-12 md:w-20 md:h-20 text-slate-300" />}
+            <div className={`relative flex items-center justify-center mx-auto transition-all duration-700 border-8 overflow-hidden ${isRecording ? 'w-full max-w-2xl aspect-video rounded-[2rem] bg-slate-900 border-red-500 shadow-[0_0_80px_rgba(239,68,68,0.4)] ring-8 ring-red-500/10' : 'w-32 h-32 md:w-48 md:h-48 rounded-full bg-slate-50 border-slate-200 shadow-inner'}`}>
+                {isRecording ? (
+                    <>
+                        <video 
+                            autoPlay 
+                            muted 
+                            playsInline 
+                            className="w-full h-full object-cover transform scale-x-[-1]" 
+                            ref={(el) => {
+                                videoRef.current = el;
+                                if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                                    el.srcObject = streamRef.current;
+                                }
+                            }}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-red-500/10 pointer-events-none">
+                            <Volume2 className="w-8 h-8 md:w-12 md:h-12 text-red-500 animate-pulse opacity-50" />
+                        </div>
+                    </>
+                ) : (
+                    <MicOff className="w-12 h-12 md:w-20 md:h-20 text-slate-300" />
+                )}
             </div>
             
             {/* Instructions Box */}

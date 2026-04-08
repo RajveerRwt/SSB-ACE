@@ -582,7 +582,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTest, onNavigate, onLog
             </div>
         )}
 
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+        <div id="main-scroll-container" ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
           {children}
         </div>
       </main>
