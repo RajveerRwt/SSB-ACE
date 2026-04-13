@@ -108,8 +108,8 @@ const MentorshipCard: React.FC<MentorshipCardProps> = ({ onClose, className = "m
       </h2>
       
       <div className="flex flex-wrap gap-4 text-sm font-bold text-slate-300">
-        <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
-          <Calendar size={16} className="text-blue-400" /> Starts: 14 April
+        <div className="flex items-center gap-2 bg-red-500/20 px-4 py-2 rounded-xl border border-red-500/30 text-red-400 animate-pulse">
+          <Calendar size={16} /> Starts Today (14 April)
         </div>
         <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
           <Clock size={16} className="text-purple-400" /> Duration: 6 Days
@@ -181,9 +181,9 @@ const MentorshipCard: React.FC<MentorshipCardProps> = ({ onClose, className = "m
         <div className="space-y-3">
           <button 
             onClick={() => { setShowDetailsModal(false); setShowForm(true); }}
-            className="w-full py-4 bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_20px_rgba(234,179,8,0.3)] hover:shadow-[0_0_30px_rgba(234,179,8,0.5)] hover:-translate-y-1 flex items-center justify-center gap-2"
+            className="w-full py-4 bg-red-600 hover:bg-red-500 text-white rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_20px_rgba(220,38,38,0.4)] hover:shadow-[0_0_30px_rgba(220,38,38,0.6)] hover:-translate-y-1 flex items-center justify-center gap-2 animate-pulse"
           >
-            Register Now <ArrowRight size={16} />
+            Apply Now (Closes Today) <ArrowRight size={16} />
           </button>
           <button 
             onClick={handleWhatsAppEnquiry}
@@ -201,15 +201,15 @@ const MentorshipCard: React.FC<MentorshipCardProps> = ({ onClose, className = "m
   return (
     <>
       {variant === 'compact' ? (
-        <div id={id} className={`bg-slate-900 rounded-2xl p-4 md:p-6 text-white relative overflow-hidden shadow-xl border-l-4 border-yellow-500 flex flex-col md:flex-row items-center justify-between gap-4 ${className}`}>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div id={id} className={`bg-slate-900 rounded-2xl p-4 md:p-6 text-white relative overflow-hidden shadow-xl border-t-4 border-red-500 flex flex-col md:flex-row items-center justify-between gap-4 ${className}`}>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-2xl pointer-events-none" />
           <div className="flex items-center gap-4 relative z-10">
-            <div className="w-12 h-12 bg-slate-800 rounded-full border-2 border-yellow-500 overflow-hidden shrink-0 flex items-center justify-center">
-               <Target size={24} className="text-yellow-400" />
+            <div className="w-12 h-12 bg-slate-800 rounded-full border-2 border-red-500 overflow-hidden shrink-0 flex items-center justify-center">
+               <Target size={24} className="text-red-400 animate-pulse" />
             </div>
             <div>
-               <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-[8px] font-black uppercase tracking-widest rounded-full">Premium</span>
+               <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[8px] font-black uppercase tracking-widest rounded-full animate-pulse border border-red-500/30">Closes Today</span>
                   <h3 className="text-sm md:text-base font-black uppercase tracking-tight">SSB Guidance Program by AIR 40</h3>
                </div>
                <p className="text-xs text-slate-400 font-medium">Starts April 14th • Only 10 Seats • 1:1 Focus</p>
@@ -219,8 +219,8 @@ const MentorshipCard: React.FC<MentorshipCardProps> = ({ onClose, className = "m
             <button onClick={handleScrollToFullCard} className="flex-1 md:flex-none px-6 py-2.5 bg-white/10 hover:bg-white/20 border border-white/10 text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all shadow-lg">
                View Details
             </button>
-            <button onClick={() => setShowForm(true)} className="flex-1 md:flex-none px-6 py-2.5 bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl font-black uppercase tracking-widest text-[10px] transition-all shadow-lg">
-               Register Now
+            <button onClick={() => setShowForm(true)} className="flex-1 md:flex-none px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all shadow-[0_0_15px_rgba(220,38,38,0.5)] animate-pulse">
+               Apply Now
             </button>
           </div>
         </div>

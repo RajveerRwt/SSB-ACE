@@ -34,7 +34,6 @@ import { evaluatePerformance } from '../services/geminiService';
 import WelcomeModal from './WelcomeModal';
 import { ShieldCheck, CheckCircle, Lock, Quote, Zap, Star, Shield, Flag, ChevronRight, LogIn, Loader2, History, Crown, Clock, AlertCircle, Phone, UserPlus, Percent, Tag, ArrowUpRight, Trophy, Medal, MessageCircle, X, Headset, Signal, Mail, ChevronDown, ChevronUp, Target, Brain, Mic, ImageIcon, FileSignature, ClipboardList, BookOpen, PenTool, Globe, Bot, Library, ArrowDown, IndianRupee, Coins, Sun, Award, Crosshair, Map, Lightbulb, BarChart2, RotateCcw, FileText, Upload } from 'lucide-react';
 import { SSBLogo } from './Logo';
-import MentorshipCard from './MentorshipCard';
 
 // --- GAMIFICATION COMPONENTS ---
 
@@ -242,44 +241,6 @@ const Dashboard: React.FC<{
                   <p className="text-[10px] font-bold opacity-90">Discipline Detected. Carry On!</p>
               </div>
           </div>
-      )}
-
-      {/* TOP BANNER */}
-      {isLoggedIn && (
-        <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white px-6 py-5 md:py-4 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-6 shadow-[0_0_40px_rgba(234,179,8,0.15)] animate-in slide-in-from-top border border-white/10 overflow-hidden group">
-           {/* Animated Background Elements */}
-           <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <div className="absolute -top-24 -right-24 w-48 h-48 bg-yellow-500/20 rounded-full blur-3xl group-hover:bg-yellow-500/30 transition-colors duration-1000" />
-              <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-500/30 transition-colors duration-1000" />
-              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 mix-blend-overlay" />
-           </div>
-
-           <div className="flex items-center gap-4 relative z-10 w-full sm:w-auto">
-              <div className="hidden sm:flex w-12 h-12 bg-yellow-500/10 rounded-2xl border border-yellow-500/20 items-center justify-center shrink-0 shadow-inner">
-                 <Target size={24} className="text-yellow-400" />
-              </div>
-              <div className="flex-1 text-center sm:text-left">
-                 <div className="flex items-center justify-center sm:justify-start gap-2 mb-1.5">
-                    <span className="flex h-2 w-2 relative shrink-0">
-                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                       <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                    </span>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-yellow-400">Premium Guidance</span>
-                 </div>
-                 <p className="text-sm md:text-base font-black tracking-tight text-white leading-tight">
-                    SSB Guidance Program by AIR 40 <span className="text-slate-400 font-medium text-xs ml-2 hidden md:inline-block">Starts April 14th • 2X Recommended</span>
-                 </p>
-              </div>
-           </div>
-           
-           <button onClick={() => {
-              const el = document.getElementById('mentorship-card');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-              else window.dispatchEvent(new CustomEvent('open-mentorship-modal'));
-           }} className="relative z-10 w-full sm:w-auto text-[10px] font-black bg-yellow-500 text-black px-6 py-3 rounded-xl uppercase tracking-widest hover:bg-yellow-400 hover:scale-105 transition-all shrink-0 whitespace-nowrap shadow-[0_0_20px_rgba(234,179,8,0.3)]">
-              View Details
-           </button>
-        </div>
       )}
 
       {/* HERO SECTION */}
@@ -1168,7 +1129,6 @@ const App: React.FC = () => {
         }}
         userName={userName}
       />
-      <MentorshipCard variant="hidden" />
     </Layout>
   );
 };
