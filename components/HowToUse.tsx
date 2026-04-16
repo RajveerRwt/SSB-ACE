@@ -86,7 +86,7 @@ const HowToUse: React.FC<{ onNavigate: (t: TestType) => void }> = ({ onNavigate 
                   </div>
                   <br />
                   <button onClick={() => onNavigate(TestType.PIQ)} className="mt-2 text-[10px] font-black uppercase text-blue-600 flex items-center gap-1 hover:underline">
-                     Fill PIQ  Now <ChevronRight size={12} />
+                     Fill PIQ right Now <ChevronRight size={12} />
                   </button>
                </div>
             </div>
