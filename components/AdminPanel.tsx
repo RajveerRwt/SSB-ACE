@@ -76,6 +76,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
   const [dailyInterview, setDailyInterview] = useState('');
   const [dailyOirCorrectAnswer, setDailyOirCorrectAnswer] = useState('');
   const [dailyOirExplanation, setDailyOirExplanation] = useState('');
+  const [dailyScheduledDate, setDailyScheduledDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dailyQueue, setDailyQueue] = useState<any[]>([]);
 
   // Broadcast & Ticker Inputs
   const [broadcastMsg, setBroadcastMsg] = useState('');
@@ -227,16 +229,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isMentorMode = false }) => {
               fetchData();
           }
       } else if (activeTab === 'DAILY') {
-          const file = fileInputRef.current?.files?.[0] || null;
-          if ((!file && !dailyOirText.trim()) || !dailyWat.trim() || !dailySrt.trim() || !dailyInterview.trim()) {
-              throw new Error("Please provide OIR/PPDT Question (Image/Text), 1 WAT, 1 SRT, and 1 Interview Question.");
+          if (dailyQueue.length === 0) {
+              throw new Error("The queue is empty. Please add challenges to the queue first.");
           }
-          const finalOirText = dailyType === 'PPDT' ? `[PPDT] ${dailyOirText.trim()}` : dailyOirText.trim();
-          const textWithRemark = dailyAdminRemark.trim() ? `${finalOirText}|||REMARK|||${dailyAdminRemark.trim()}` : finalOirText;
-          await uploadDailyChallenge(file, textWithRemark, dailyWat.trim(), dailySrt.trim(), dailyInterview.trim(), dailyOirCorrectAnswer.trim(), dailyOirExplanation.trim());
-          setDailyOirText(''); setDailyAdminRemark(''); setDailyWat(''); setDailySrt(''); setDailyInterview(''); setDailyOirCorrectAnswer(''); setDailyOirExplanation('');
-          if (fileInputRef.current) fileInputRef.current.value = '';
-          alert("Daily Challenge Published Successfully!");
+          
+          for (const item of dailyQueue) {
+              await uploadDailyChallenge(item.file, item.text, item.wat, item.srt, item.interview, item.correctAnswer, item.explanation, item.date);
+          }
+          
+          setDailyQueue([]);
+          alert(`${dailyQueue.length} Daily Challenge(s) Published Successfully!`);
           fetchData(); 
       } else if (activeTab === 'WAT') {
         const words = watBulkInput.split(/[\n,]+/).map(w => w.trim()).filter(w => w);
@@ -1124,67 +1126,130 @@ CREATE POLICY "Users can update own profile" ON public.aspirants FOR UPDATE USIN
           <div className="space-y-8 animate-in fade-in">
               <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
                   <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><Clock size={24} className="text-rose-600"/> Daily Challenge</h3>
-                      {currentChallenge && <p className="text-xs font-bold text-green-600">Active Challenge: {new Date(currentChallenge.created_at).toDateString()}</p>}
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><Clock size={24} className="text-rose-600"/> Queued Daily Challenges</h3>
                   </div>
-                  <div className="mb-6 flex items-center gap-4">
-                      <span className="text-sm font-bold text-slate-700">Type:</span>
-                      <button 
-                          onClick={() => setDailyType('OIR')}
-                          className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${dailyType === 'OIR' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                      >
-                          OIR
-                      </button>
-                      <button 
-                          onClick={() => setDailyType('PPDT')}
-                          className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${dailyType === 'PPDT' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                      >
-                          PPDT
-                      </button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{dailyType === 'PPDT' ? 'PPDT Image' : 'OIR Image'}</label>
-                          <div className="p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 hover:border-slate-400 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" />
-                              <div className="flex flex-col items-center gap-2 text-slate-400">
-                                  <ImageIcon size={24} />
-                                  <span className="text-xs font-bold uppercase">Upload {dailyType === 'PPDT' ? 'PPDT' : 'OIR'}</span>
+                  
+                  {dailyQueue.length > 0 ? (
+                      <div className="space-y-4 mb-8">
+                          {dailyQueue.map((q, idx) => (
+                              <div key={idx} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
+                                  <div>
+                                      <p className="font-bold text-slate-900">{new Date(q.date).toDateString()} <span className="text-xs text-slate-500 font-normal ml-2">({q.type})</span></p>
+                                      <p className="text-xs text-slate-600 truncate max-w-md">WAT: {q.wat} | SRT: {q.srt}</p>
+                                  </div>
+                                  <button onClick={() => setDailyQueue(dailyQueue.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700">
+                                      <X size={20} />
+                                  </button>
+                              </div>
+                          ))}
+                          <button onClick={handleUpload} disabled={isUploading || dailyQueue.length === 0} className="w-full py-4 bg-rose-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-rose-700 transition-all shadow-lg flex items-center justify-center gap-2">
+                              {isUploading ? <Loader2 className="animate-spin" /> : <><Upload size={18} /> Publish All {dailyQueue.length} Challenges</>}
+                          </button>
+                      </div>
+                  ) : (
+                      <div className="text-center p-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl mb-8">
+                          <p className="text-sm font-bold text-slate-500">Queue is empty. Add challenges below.</p>
+                      </div>
+                  )}
+
+                  <div className="border-t-2 border-slate-100 pt-8 mt-8">
+                      <div className="flex justify-between items-center mb-6">
+                          <h4 className="text-lg font-black text-slate-900 uppercase tracking-widest">Add New to Queue</h4>
+                          {currentChallenge && <p className="text-[10px] font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-200">Last Published: {new Date(currentChallenge.created_at).toDateString()}</p>}
+                      </div>
+                      <div className="mb-6 flex items-center gap-4">
+                          <span className="text-sm font-bold text-slate-700">Type:</span>
+                          <button 
+                              onClick={() => setDailyType('OIR')}
+                              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${dailyType === 'OIR' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                          >
+                              OIR
+                          </button>
+                          <button 
+                              onClick={() => setDailyType('PPDT')}
+                              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${dailyType === 'PPDT' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                          >
+                              PPDT
+                          </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-4">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{dailyType === 'PPDT' ? 'PPDT Image' : 'OIR Image'}</label>
+                              <div className="p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 hover:border-slate-400 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" />
+                                  <div className="flex flex-col items-center gap-2 text-slate-400">
+                                      <ImageIcon size={24} />
+                                      <span className="text-xs font-bold uppercase">Upload {dailyType === 'PPDT' ? 'PPDT' : 'OIR'}</span>
+                                  </div>
                               </div>
                           </div>
+                          <div className="space-y-4">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{dailyType === 'PPDT' ? 'PPDT Text (Optional)' : 'OIR Text (Optional)'}</label>
+                              <input value={dailyOirText} onChange={e => setDailyOirText(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Text question if no image..." />
+                          </div>
+                          <div className="space-y-4 md:col-span-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Admin Remark / Notes (Optional)</label>
+                              <input value={dailyAdminRemark} onChange={e => setDailyAdminRemark(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Add a remark or note to show along with the challenge card..." />
+                          </div>
+                          <div className="space-y-4">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR Correct Answer</label>
+                              <input value={dailyOirCorrectAnswer} onChange={e => setDailyOirCorrectAnswer(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Correct Answer (e.g. A, 1, 42)" />
+                          </div>
+                          <div className="space-y-4">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR Explanation</label>
+                              <input value={dailyOirExplanation} onChange={e => setDailyOirExplanation(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Explanation for the answer..." />
+                          </div>
+                          <div className="space-y-4">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WAT Word</label>
+                              <input value={dailyWat} onChange={e => setDailyWat(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Single Word" />
+                          </div>
+                          <div className="space-y-4">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SRT Situation</label>
+                              <input value={dailySrt} onChange={e => setDailySrt(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Situation..." />
+                          </div>
+                          <div className="space-y-4 md:col-span-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Interview Question</label>
+                              <input value={dailyInterview} onChange={e => setDailyInterview(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Question..." />
+                          </div>
+                          <div className="space-y-4 md:col-span-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scheduled Date</label>
+                              <input type="date" value={dailyScheduledDate} onChange={e => setDailyScheduledDate(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" />
+                          </div>
                       </div>
-                      <div className="space-y-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{dailyType === 'PPDT' ? 'PPDT Text (Optional)' : 'OIR Text (Optional)'}</label>
-                          <input value={dailyOirText} onChange={e => setDailyOirText(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Text question if no image..." />
-                      </div>
-                      <div className="space-y-4 md:col-span-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Admin Remark / Notes (Optional)</label>
-                          <input value={dailyAdminRemark} onChange={e => setDailyAdminRemark(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Add a remark or note to show along with the challenge card..." />
-                      </div>
-                      <div className="space-y-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR Correct Answer</label>
-                          <input value={dailyOirCorrectAnswer} onChange={e => setDailyOirCorrectAnswer(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Correct Answer (e.g. A, 1, 42)" />
-                      </div>
-                      <div className="space-y-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OIR Explanation</label>
-                          <input value={dailyOirExplanation} onChange={e => setDailyOirExplanation(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Explanation for the answer..." />
-                      </div>
-                      <div className="space-y-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WAT Word</label>
-                          <input value={dailyWat} onChange={e => setDailyWat(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Single Word" />
-                      </div>
-                      <div className="space-y-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SRT Situation</label>
-                          <input value={dailySrt} onChange={e => setDailySrt(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Situation..." />
-                      </div>
-                      <div className="space-y-4 md:col-span-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Interview Question</label>
-                          <input value={dailyInterview} onChange={e => setDailyInterview(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm" placeholder="Question..." />
-                      </div>
+                      <button 
+                          onClick={() => {
+                              const file = fileInputRef.current?.files?.[0] || null;
+                              if ((!file && !dailyOirText.trim()) || !dailyWat.trim() || !dailySrt.trim() || !dailyInterview.trim()) {
+                                  alert("Please provide OIR/PPDT Question (Image/Text), 1 WAT, 1 SRT, and 1 Interview Question.");
+                                  return;
+                              }
+                              const finalOirText = dailyType === 'PPDT' ? `[PPDT] ${dailyOirText.trim()}` : dailyOirText.trim();
+                              const textWithRemark = dailyAdminRemark.trim() ? `${finalOirText}|||REMARK|||${dailyAdminRemark.trim()}` : finalOirText;
+                              
+                              setDailyQueue([...dailyQueue, {
+                                  file,
+                                  type: dailyType,
+                                  text: textWithRemark,
+                                  wat: dailyWat.trim(),
+                                  srt: dailySrt.trim(),
+                                  interview: dailyInterview.trim(),
+                                  correctAnswer: dailyOirCorrectAnswer.trim(),
+                                  explanation: dailyOirExplanation.trim(),
+                                  date: dailyScheduledDate
+                              }]);
+                              
+                              // Clear form and set next date
+                              setDailyOirText(''); setDailyAdminRemark(''); setDailyWat(''); setDailySrt(''); setDailyInterview(''); setDailyOirCorrectAnswer(''); setDailyOirExplanation('');
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                              const nextDate = new Date(dailyScheduledDate);
+                              nextDate.setDate(nextDate.getDate() + 1);
+                              setDailyScheduledDate(nextDate.toISOString().split('T')[0]);
+                          }} 
+                          className="w-full mt-6 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2"
+                      >
+                          <Plus size={18} /> Add to Queue
+                      </button>
                   </div>
-                  <button onClick={handleUpload} disabled={isUploading} className="w-full mt-6 py-4 bg-rose-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-rose-700 transition-all">
-                      {isUploading ? <Loader2 className="animate-spin" /> : 'Publish Daily Challenge'}
-                  </button>
               </div>
           </div>
       )}

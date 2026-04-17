@@ -882,9 +882,13 @@ export const getCoupons = async () => { const { data } = await supabase.from('co
 export const createCoupon = async (code: string, discount: number, influencer: string) => { await supabase.from('coupons').insert({ code: code.toUpperCase(), discount_percent: discount, influencer_name: influencer, usage_count: 0 }); };
 export const deleteCoupon = async (code: string) => { await supabase.from('coupons').delete().eq('code', code); };
 export const validateCoupon = async (code: string) => { const { data } = await supabase.from('coupons').select('*').eq('code', code.toUpperCase()).maybeSingle(); if (!data) return { valid: false, message: 'Invalid Code' }; return { valid: true, discount: data.discount_percent, message: `Success! ${data.discount_percent}% OFF applied.` }; };
-export const getLatestDailyChallenge = async () => { const { data } = await supabase.from('daily_challenges').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle(); return data; };
+export const getLatestDailyChallenge = async () => { 
+  const adjustedNow = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString();
+  const { data } = await supabase.from('daily_challenges').select('*').lte('created_at', adjustedNow).order('created_at', { ascending: false }).limit(1).maybeSingle(); 
+  return data; 
+};
 
-export const uploadDailyChallenge = async (oirFile: File | null, oirText: string, wat: string, srt: string, interview: string, oirCorrectAnswer?: string, oirExplanation?: string) => {
+export const uploadDailyChallenge = async (oirFile: File | null, oirText: string, wat: string, srt: string, interview: string, oirCorrectAnswer?: string, oirExplanation?: string, scheduledDate?: string) => {
   let oirUrl = null;
   if (oirFile) {
     const fileName = `daily-oir-${Date.now()}-${oirFile.name}`;
@@ -892,7 +896,8 @@ export const uploadDailyChallenge = async (oirFile: File | null, oirText: string
     const { data } = supabase.storage.from('scenarios').getPublicUrl(fileName);
     oirUrl = data.publicUrl;
   }
-  await supabase.from('daily_challenges').insert({
+  
+  const payload: any = {
       ppdt_image_url: oirUrl,
       oir_text: oirText,
       wat_words: [wat],
@@ -900,7 +905,13 @@ export const uploadDailyChallenge = async (oirFile: File | null, oirText: string
       interview_question: interview,
       oir_correct_answer: oirCorrectAnswer,
       oir_explanation: oirExplanation
-  });
+  };
+  
+  if (scheduledDate) {
+      payload.created_at = new Date(scheduledDate).toISOString();
+  }
+  
+  await supabase.from('daily_challenges').insert(payload);
 };
 
 export const submitDailyEntry = async (challengeId: string, oirAnswer: string, wat: string, srt: string, interview: string, aiEvaluation?: any) => {
